@@ -8,6 +8,8 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const MIGRATION = new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url);
 const HIDE_POOL = new URL('../supabase/migrations/20261023000000_hide_pool_from_investors.sql', import.meta.url);
+const CORRECTIONS = new URL('../supabase/migrations/20261024000000_ledger_corrections.sql', import.meta.url);
+const FEE_10 = new URL('../supabase/migrations/20261025000000_profit_share_10.sql', import.meta.url);
 const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {
@@ -16,6 +18,8 @@ async function setup() {
     grant usage on schema public to anon, authenticated;`);
   await db.exec(readFileSync(MIGRATION, 'utf8'));
   await db.exec(readFileSync(HIDE_POOL, 'utf8'));
+  await db.exec(readFileSync(CORRECTIONS, 'utf8'));
+  await db.exec(readFileSync(FEE_10, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);   // fast hashing for tests
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   return db;
@@ -238,4 +242,78 @@ test('history: one point per pool event, worth = units x price; backdated entrie
   const r = await call(db, 'request_withdrawal', jT, 10); assert.ok(r.pay_by);
   const ah = await call(db, 'my_history', A);
   assert.equal(ah.length, 4); near(ah[3].value, 50 / 1.0 * 1.2);
+});
+
+test('corrections: undo only reaches the single most recent entry, by appending a reversal', async () => {
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50);                 // first deposit: 50 units @ 1
+  await call(db, 'admin_deposit', A, ids.john, 30, 50);             // 30 units @ 1 -> total 80
+
+  // undo a deposit that was NOT the person's first: hwm must unwind to what it was before it
+  await call(db, 'admin_post_equity', A, 160);                      // price 2
+  await call(db, 'admin_deposit', A, ids.john, 20, 160);             // +10 units; hwm (30@1, 10@2) -> 1.25
+  near((await holder(db, A, ids.john)).hwm, 1.25, 1e-9);
+  await call(db, 'admin_undo_last', A);
+  let john = await holder(db, A, ids.john);
+  near(john.units, 30); near(john.hwm, 1); near((await call(db, 'pool_summary', A)).total_units, 80);
+  near((await call(db, 'pool_summary', A)).unit_price, 2);
+
+  // undo a person's very FIRST deposit: their holder_state row should disappear entirely, not just zero out
+  const dino = await call(db, 'admin_create_user', A, 'dino2', 'Dino2', 'dino2-password', 0.2);
+  await call(db, 'admin_deposit', A, dino, 20, 160);
+  assert.equal((await db.query(`select * from public.holder_state where profile_id = $1`, [dino])).rows.length, 1);
+  await call(db, 'admin_undo_last', A);
+  assert.equal((await db.query(`select * from public.holder_state where profile_id = $1`, [dino])).rows.length, 0);
+  near((await call(db, 'pool_summary', A)).total_units, 80);
+
+  // undo an equity reading: price falls back to what it was right before that reading
+  await call(db, 'admin_post_equity', A, 100);                      // price 1.25 (wrong entry, e.g. a typo)
+  near((await call(db, 'pool_summary', A)).unit_price, 1.25);
+  await call(db, 'admin_undo_last', A);
+  near((await call(db, 'pool_summary', A)).unit_price, 2); near((await call(db, 'pool_summary', A)).equity_usdt, 160);
+
+  // undo a withdrawal, including its profit-share fee pair: units, pay, and the manager's earned fee all unwind
+  const w = await call(db, 'admin_withdraw', A, ids.john, 10, 160, null, null, true); // price 2, hwm 1 -> fee 1 unit, pay 18 (force: still inside lock-up)
+  near(w.fee_units, 1, 1e-9);
+  near((await holder(db, A, ids.raf)).fee_units_earned, 1, 1e-9);
+  await call(db, 'admin_undo_last', A);
+  john = await holder(db, A, ids.john);
+  near(john.units, 30); near(john.hwm, 1);
+  near((await holder(db, A, ids.raf)).fee_units_earned, 0, 1e-9);
+  near((await call(db, 'pool_summary', A)).total_units, 80); near((await call(db, 'pool_summary', A)).equity_usdt, 160);
+
+  // a quarter close is final: never offered as something to undo
+  await call(db, 'admin_close_quarter', A, 160);
+  await assert.rejects(() => call(db, 'admin_undo_last', A), /final/);
+
+  // only an admin can call this, and there must be something to undo
+  const jT2 = await token(db, 'john', 'john-password');
+  await assert.rejects(() => call(db, 'admin_undo_last', jT2), /admin only/);
+});
+
+test('10% profit share: each quarter only the NEW profit is charged, never profit already settled', async () => {
+  const { db, A, ids } = await world();
+  await db.exec(`update public.profiles set fee_rate = 0.10 where role = 'investor'`);
+  const fresh = await call(db, 'admin_create_user', A, 'newbie', 'New', 'newbie-password', null);
+  near((await holder(db, A, fresh)).fee_rate, 0.10);                                  // new accounts default to 10%
+  await call(db, 'admin_deposit', A, ids.raf, 1000, null, 58, null, null);
+  await call(db, 'admin_deposit', A, ids.john, 1000, 1000, 58, null, null);          // John: 1000 units at 1.00
+  const fees = async () => Number((await db.query(`select coalesce(sum(usdt),0) as v from public.ledger where kind = 'fee_in'`)).rows[0].v);
+
+  await call(db, 'admin_close_quarter', A, 2200, 58, 'q1');                           // price 1.10: John gained $100
+  near(await fees(), 10, 1e-4);                                                       // 10% of $100
+  near((await holder(db, A, ids.john)).value_usdt, 1090, 1e-3);
+  near((await holder(db, A, ids.john)).hwm, 1.1);
+
+  await call(db, 'admin_close_quarter', A, 2200, 58, 'q2 flat');                      // nothing new: nothing charged
+  near(await fees(), 10, 1e-4);
+
+  await call(db, 'admin_close_quarter', A, 2000, 58, 'q3 down');                      // below the line: nothing charged
+  near(await fees(), 10, 1e-4);
+  await call(db, 'admin_close_quarter', A, 2200, 58, 'q4 back to the old line');      // only back to 1.10: still nothing
+  near(await fees(), 10, 1e-4);
+
+  const john = await holder(db, A, ids.john);                                         // 990.909 units
+  await call(db, 'admin_close_quarter', A, 2420, 58, 'q5 +10%');                      // price 1.21: only the 0.11/unit above 1.10 counts
+  near(await fees() - 10, 0.1 * 0.11 * Number(john.units), 1e-3);
 });

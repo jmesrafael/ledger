@@ -163,7 +163,7 @@
     return `<div class="card hero"><h2>Fund value</h2>
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
-        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}</p></div>
+        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}</p>${lastClose()}</div>
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
@@ -196,16 +196,17 @@
     <label>New password (at least 8 characters)</label>${pw('new', 'new-password', 8)}
     <button class="full ghost">Change password</button></form>
     <p class="note">Your other phones/browsers will be signed out.</p></div>`;
-  const DISC = `<p class="disc">This is a record of your share of a pooled trading account, shown in pesos at today's exchange rate. It is an investment that grows (or shrinks) with the trading results, not a savings account, not a salary or dividend, not a bank balance, and not insured. You can lose some or all of the money you put in. Only invest money you can afford to lose.</p>`;
+  const DISC = `<p class="disc">This is a record of your share of a pooled trading account, shown in pesos at today's exchange rate. The balance grows or shrinks with the trading results. It is not a bank balance and is not insured. You can still lose money.</p>`;
 
   // ---------------------------------------------------------------- investor / shared views
   function viewHome() {
     const m = S.me, investor = m.role === 'investor';
     const pend = S.reqs.filter((q) => q.status === 'pending' && q.profile_id === m.id);
-    const avail = Number(m.unlocked_units) * Number(m.unit_price);
+    const price = Number(m.unit_price), cut = Number(m.fee_rate) * Math.max(0, price - Number(m.hwm)) * Number(m.unlocked_units);   // profit share that would come off
+    const avail = Number(m.unlocked_units) * price - cut;
     return `${growthCard(investor ? 'Your balance' : 'Your holdings')}
       ${investor ? profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
-        <div class="row"><span class="l">Available to withdraw now</span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
+        <div class="row"><span class="l">Available to withdraw now<br><span class="note">after any profit share</span></span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
         <div class="row"><span class="l">Next part unlocks</span><span class="r">${day(m.next_unlock)}</span></div>
         <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. If a profit share is due, it comes off the payout.</p>
         ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (${inPeso() ? '₱' : 'USDT'})</label>
@@ -217,7 +218,7 @@
       ${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
-    <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">This grows your money, it does not pay you monthly.</b> There are no dividends, and the balance can go down as well as up.</p>
+    <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
     <div class="btns"><button class="ghost" data-tab="about">Read how it works</button></div></div>`;
   function profitShareCard(m) {
     const keep = 1 - Number(m.fee_rate), paid = -S.ledger.filter((l) => l.kind === 'fee_out' && l.profile_id === m.id).reduce((a, l) => a + Number(l.usdt), 0);
@@ -293,17 +294,22 @@
     svg.addEventListener('pointerleave', reset); svg.addEventListener('pointerup', (ev) => { if (ev.pointerType !== 'mouse') reset(); });
     reset();
   }
-  const viewAbout = () => `<div class="card"><h2>How this works</h2>
-      <p class="about"><b>You are investing, not earning a salary.</b> Your money is added to one trading account that is managed together. Whatever the trading makes or loses is shared out by how much each person has in. The balance you see moves up and down with the results.</p>
-      <p class="about"><b>It grows, it does not pay out.</b> Profits stay in and compound. There are no dividends and no monthly or steady income, so please do not count on this to pay for bills or expenses. Some weeks and months will be flat or down.</p>
-      <p class="about"><b>You can lose money.</b> The balance can fall below what you put in, and in a bad stretch you can lose a big part or all of it. Nothing is guaranteed, nothing is insured, and past or backtested results do not promise future results. Only put in money you can afford to lose.</p></div>
-    <div class="card"><h2>Profit share</h2>
-      <p class="about">The manager keeps a share of the <b>new profit</b> only, never of your own money. Nothing is taken while your balance is below its best-ever level, and it is settled once a quarter inside the pool.</p></div>
+  const viewAbout = () => {
+    const rate = S.me && S.me.role === 'investor' ? f(Number(S.me.fee_rate) * 100, 0) : '10';
+    return `<div class="card"><h2>Growing this together</h2>
+      <p class="about">This is a small fund we are growing together. Your money goes into one trading account that the manager trades, and the manager's own money is in the same pool. Whatever the trading makes or loses is shared by how much each person has in, so everyone is on the same side.</p>
+      <p class="about"><b>It is your money and you can take it out.</b> After the ${C.LOCK_MONTHS}-month lock-up on each deposit, ask for a withdrawal on the Home page. You can take part of it or all of it, and it is paid within ${C.WITHDRAW_BUSINESS_DAYS} business days at the value on the day of payout.</p>
+      <p class="about">Profits stay in the pool and grow with it, so the balance moves up and down with the results instead of paying out each month. Some weeks and months will be flat or down.</p>
+      <p class="about"><b>You can still lose money.</b> Nothing is guaranteed or insured, and past or backtested results are not a promise. Please put in only what you are comfortable with.</p></div>
+    <div class="card"><h2>What the manager earns</h2>
+      <p class="about"><b>We only earn when you earn.</b> The manager takes a ${rate}% share of <b>new profit</b> and nothing else: no sign-up fee, no yearly fee, and nothing on your own money.</p>
+      <p class="about">If the fund is down, nothing is taken. After a dip it has to climb back above your previous best before any share is taken again. The share is worked out once a quarter inside the pool, so no cash moves.</p>
+      <p class="about"><b>${rate}% is the early-investor rate.</b> It can change at any time, for example for people who join later as the fund grows.</p></div>
     <div class="card"><h2>Pesos</h2>
-      <p class="about">The pool is traded in USDT (a dollar-linked coin). The pesos you see are worked out with the live dollar-to-peso rate, so your peso balance can move a little even when the trading did not. The ₱ / $ button at the top switches the view.</p></div>
-    <div class="card"><h2>Putting in and taking out</h2>
-      <p class="about">The manager records your deposits. Each deposit is locked for ${C.LOCK_MONTHS} months. After that, ask for a withdrawal on the Home page and it is paid within ${C.WITHDRAW_BUSINESS_DAYS} business days at the value on the day of payout.</p>
-      <p class="about">This page is a record kept by the manager. It is not a bank, and money here is not covered by any deposit insurance.</p></div>${DISC}`;
+      <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. The ₱ / $ button at the top switches the view.</p></div>
+    <div class="card"><h2>Good to know</h2>
+      <p class="about">This page is a record kept by the manager. It is not a bank account and is not covered by deposit insurance.</p></div>`;
+  };
   const viewActivity = () => `<div class="card"><h2>Your activity</h2>${activityRows(S.ledger, false)}</div>`;
 
   // ---------------------------------------------------------------- admin views
@@ -312,7 +318,7 @@
       ${S.addUser ? `<div class="card"><h2>New user</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
       <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
-        <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
+        <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="10" required></div></div>
         <label>Full name</label><input name="name" required>
         <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
         <button class="full">Create account</button></form></div>` : ''}
@@ -341,11 +347,31 @@
   // optional extras. The peso rate defaults to the live rate; the deposit form shows the rate up front instead
   const phpField = (withRate = true) => `<details><summary>More options: date${withRate ? ', peso rate' : ''}</summary><label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local">${withRate ? `<label>Peso rate (₱ per USDT, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">` : ''}</details>`;
 
+  // the pool_equity timeline is the single source of truth for "what happened and when"; every deposit/withdrawal
+  // also has matching ledger row(s) carrying the person and amounts, joined here by equity_id.
+  function recordHistoryRows() {
+    if (!S.elog.length) return '<p class="note">Nothing recorded yet.</p>';
+    return S.elog.slice(0, 60).map((e, i) => {
+      const rows = S.ledger.filter((l) => l.equity_id === e.id);
+      const who = [...new Set(rows.map((r) => r.name))].join(', ');
+      const label = e.kind === 'update' ? 'Equity reading' : e.kind === 'close' ? 'Quarter close'
+        : e.kind === 'deposit' ? `Deposit${who ? ' · ' + esc(who) : ''}` : `Withdrawal${who ? ' · ' + esc(who) : ''}`;
+      const canFix = i === 0 && e.kind !== 'close';
+      return `<div class="row" style="align-items:flex-start">
+        <span class="l"><b style="color:var(--ink)">${label}</b>${e.reversed_of ? ' <span class="chip">correction</span>' : ''}<br>
+          ${day(e.ts)}${e.note ? ' · ' + esc(e.note) : ''}</span>
+        <span class="r">${money(e.equity_usdt)}<br><span class="note">${usdt(e.equity_usdt)} · price ${f(e.unit_price, 4)}</span>
+          ${canFix ? `<div class="btns" style="margin-top:6px"><button type="button" class="ghost sm" data-action="editlast">Edit</button><button type="button" class="danger sm" data-action="undolast">Delete</button></div>` : ''}</span></div>`;
+    }).join('');
+  }
   function viewRecord() {
     const empty = Number(S.pool.total_units) === 0;
     if (empty && S.rec === 'eq') S.rec = 'dep';   // nothing to value yet: start with the first deposit
     const pick = (k, html) => (S.rec === k ? html : '');
-    return `<div class="ranges" style="margin:12px 0 0">${[['eq', 'Equity'], ['dep', 'Deposit'], ['wd', 'Withdrawal']].map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
+    return `<div class="ranges" style="margin:12px 0 0">${[['eq', 'Equity'], ['dep', 'Deposit'], ['wd', 'Withdrawal'], ['hist', 'History']].map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
+      ${pick('hist', `<div class="card"><h2>History</h2>
+        <p class="note">Only the most recent entry can be edited or deleted — once something new is recorded on top of it, it's locked in for good. "Delete" and "Edit" append a correction rather than erasing anything.</p>
+        ${recordHistoryRows()}</div>`)}
       ${pick('eq', `<div class="card"><h2>Update pool equity</h2>
       <p class="note">Read the pool's total equity (USDT, including open trades) from MEXC. This moves the unit price for everyone. No one's units change.</p>
       <form id="eqForm"><label>Pool equity now (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
@@ -371,10 +397,18 @@
   }
   function viewQuarter() {
     return `<div class="card"><h2>Close the quarter</h2>
-      <p class="note">Settles each investor's profit share (their own %, 20% by default) of any gain above their best-ever level. It moves as <b>units</b> from them to you (still inside the pool, so it compounds). Then each high-water mark resets. Do this once per quarter.</p>
+      <p class="note">Takes each investor's profit share (their own %, 10% by default) from the <b>new profit since the last close</b> only. Example: they gain $100 this quarter and you take 10% = $10. Next quarter the starting line is the price today, so that $100 is never charged again; only profit above it is. If the fund falls, nothing is charged, and it must climb back above the old line before anything is charged again.</p>
+      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Do this once per quarter.</p>
+      ${lastClose()}
       <form id="qForm"><label>Pool equity now (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
       ${phpField()}<label>Note (optional)</label><input name="note" value="Quarter close"><div class="preview" id="qPrev">Enter the equity to preview the profit share.</div>
       <button class="full">Settle profit share and close quarter</button></form></div>`;
+  }
+  function lastClose() {
+    const c = S.elog.find((e) => e.kind === 'close');
+    if (!c) return '<p class="note"><b>No quarter closed yet.</b></p>';
+    const days = Math.floor((Date.now() - new Date(c.ts).getTime()) / 864e5);
+    return `<p class="note ${days > 92 ? 'warn' : ''}"><b>Last close: ${day(c.ts)}</b> (${days} days ago)${days > 92 ? ': a quarter is due' : ''}</p>`;
   }
   function viewLog() {
     const pend = S.reqs.filter((q) => q.status === 'pending');
@@ -481,6 +515,25 @@
     const price = u ? eq / u : 1;
     setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Buys <b>${f(d.usdt / price, 4)} units</b> at ${f(price, 4)}. Lock-up ${C.LOCK_MONTHS} months.`);
   }
+  // after an "Edit" undoes the last entry, refill the matching form with its old values so the manager just fixes the typo and re-saves
+  function prefillEdit(e, rows) {
+    if (e.kind === 'update') {
+      const fm = $f('eqForm'); if (!fm) return;
+      fm.elements.equity.value = e.equity_usdt; if (e.php_rate) fm.elements.rate.value = e.php_rate; fm.elements.note.value = e.note || ''; eqPrev(fm);
+    } else if (e.kind === 'deposit') {
+      const dep = rows.find((r) => r.kind === 'deposit'); const fm = $f('depForm'); if (!fm || !dep) return;
+      fm.elements.who.value = dep.profile_id; fm.elements.ccy.value = dep.php_amount ? 'PHP' : 'USDT';
+      fm.elements.amt.value = dep.php_amount || dep.usdt; if (dep.php_rate) fm.elements.rate.value = dep.php_rate;
+      if (fm.elements.eq) fm.elements.eq.value = Number(e.equity_usdt) - Number(dep.usdt);
+      fm.elements.note.value = dep.note || ''; depPrev(fm);
+    } else if (e.kind === 'withdrawal') {
+      const wd = rows.find((r) => r.kind === 'withdrawal'); const fm = $f('wdForm'); if (!fm || !wd) return;
+      fm.elements.who.value = wd.profile_id; fm.elements.units.value = Math.abs(wd.units);
+      fm.elements.eq.value = Number(e.equity_usdt) + Math.abs(Number(wd.usdt)); if (wd.php_rate) fm.elements.rate.value = wd.php_rate;
+      fm.elements.note.value = wd.note || ''; wdPrev(fm);
+    }
+    toast('Entry undone — adjust the values and save again.');
+  }
   const holder = (id) => S.all.find((h) => h.id === id);
   function wdPrev(fm) {
     const h = holder(fv(fm, 'who')), units = num(fv(fm, 'units')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
@@ -497,9 +550,9 @@
     const price = eq / u; let tot = 0;
     const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
       const fee = (h.fee_rate * Math.max(0, price - h.hwm) / price) * h.units; tot += fee;
-      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">HWM ${f(h.hwm, 4)}</span></span><span class="r">${f(fee, 4)} units<br><span class="note">${usdt(fee * price)}</span></span></div>`;
+      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">new profit ${money(Math.max(0, price - h.hwm) * h.units)} × ${f(h.fee_rate * 100, 0)}%</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
     }).join('');
-    setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total profit share</b></span><span class="r"><b>${f(tot, 4)} units</b> (${usdt(tot * price)})</span></div>`);
+    setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total profit share</b></span><span class="r"><b>${money(tot * price)}</b><br><span class="note">${f(tot, 4)} units</span></span></div>`);
   }
 
   // ---------------------------------------------------------------- actions
@@ -535,6 +588,22 @@
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; wdPrev(fm); } }
     else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'exitview') backToManager();
+    else if (a === 'undolast') {
+      if (!confirm('Delete the most recent entry? This appends a correction that cancels it out — nothing is erased from the history.')) return;
+      act(() => call('admin_undo_last', { p_note: 'correction: deleted' }), 'Last entry deleted (correction added)');
+    }
+    else if (a === 'editlast') {
+      const e = S.elog[0]; if (!e) return;
+      if (!confirm('This undoes the most recent entry so you can re-enter it with the fix. Continue?')) return;
+      const rows = S.ledger.filter((l) => l.equity_id === e.id);
+      try {
+        await call('admin_undo_last', { p_note: 'correction: edit' });
+        await refresh();
+        S.rec = e.kind === 'update' ? 'eq' : e.kind === 'deposit' ? 'dep' : 'wd';
+        render();
+        prefillEdit(e, rows);
+      } catch (err) { if (err.message !== 'Signed out') toast(err.message, true); }
+    }
     else if (a === 'payreq') {
       S.tab = 'record'; S.rec = 'wd'; render(); const fm = $f('wdForm');
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();

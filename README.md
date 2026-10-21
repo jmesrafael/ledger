@@ -5,7 +5,7 @@ A phone-friendly paper ledger for a small pooled account (friends & family). **N
 - Pool is valued in **USDT**. Everything is **shown in pesos by default** using the live USD→PHP rate (free `open.er-api.com`, falling back to `frankfurter.dev`, cached 1 hour; USDT is treated as 1 USD). The ₱ / $ button in the header flips the view. The rate never changes anyone's USDT return. Deposits are typed in **pesos** (e.g. 5000); the app converts to USDT at the rate shown (editable) and to units for you.
 - Ownership is tracked in **units**. Unit price = pool equity (USDT) ÷ total units. A person's value = their units × unit price.
 - A deposit buys units at the current price, so it never changes anyone else's value. A withdrawal redeems units at the current price.
-- **Performance fee** (default 20%, per person) on gains above each person's **high-water mark**, charged at quarter end. The fee is paid as *units* moving from the investor to the manager, so it stays in the pool and compounds. The manager's own capital pays no fee.
+- **Profit share** (10% for early investors for now, set per person) on gains above each person's **high-water mark**, charged at quarter end. Each close moves the mark up to the current price, so profit that was already charged is never charged again. The fee is paid as *units* moving from the investor to the manager, so it stays in the pool and compounds. The manager's own capital pays no fee.
 - 3-month lock-up per deposit, withdrawals paid within 7 business days (shown to investors; enforced by the manager).
 - The books are **append-only**: entries cannot be edited or deleted.
 
@@ -28,7 +28,7 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
 
 ## Setup
 
-1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`, then `20261023000000_hide_pool_from_investors.sql` (functions only, safe on live data; run it on its own to update an existing install). It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
+1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`, then the later files in date order: `20261023000000_hide_pool_from_investors.sql`, `20261024000000_ledger_corrections.sql`, `20261025000000_profit_share_10.sql` (all safe on live data; on an existing install run only the ones you have not run yet). It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
 2. **Your manager account**: edit the three values in `supabase/create-admin.sql` (username, name, password), run it in the SQL Editor, and **don't save the file with your real password**.
 3. **Host the folder** as a static site. **Vercel**: import the repo, preset "Other", root `./`, no build command, no environment variables (`vercel.json` and `.vercelignore` already keep the SQL/test/script folders off the public site). GitHub Pages also works. Friends open the link and can "Add to Home Screen".
 4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role`/secret key in this repo.
