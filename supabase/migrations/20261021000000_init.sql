@@ -2,11 +2,11 @@
 -- Pool value is in USDT. Unit price = pool equity (USDT) / total units. Everyone's value = units * unit price.
 -- All writes go through admin-only functions; investors can only read their own data + pool aggregates.
 
-create table public.app_settings (
+create table public.ledger_settings (
   key   text primary key,
   value text not null
 );
-insert into public.app_settings(key, value) values
+insert into public.ledger_settings(key, value) values
   ('lock_months', '3'),
   ('default_fee_rate', '0.20'),
   ('withdrawal_business_days', '7');
@@ -92,7 +92,7 @@ begin
 end $$;
 
 create function public._setting(k text) returns text language sql stable security definer set search_path = public as $$
-  select value from app_settings where key = k
+  select value from ledger_settings where key = k
 $$;
 
 create function public._total_units() returns numeric language sql stable security definer set search_path = public as $$
@@ -382,7 +382,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- access control
-alter table public.app_settings        enable row level security;
+alter table public.ledger_settings        enable row level security;
 alter table public.profiles            enable row level security;
 alter table public.pool_equity         enable row level security;
 alter table public.ledger              enable row level security;
@@ -392,7 +392,7 @@ alter table public.withdrawal_requests enable row level security;
 create policy profiles_read  on public.profiles            for select to authenticated using (id = auth.uid() or is_admin());
 create policy ledger_read    on public.ledger              for select to authenticated using (profile_id = auth.uid() or is_admin());
 create policy requests_read  on public.withdrawal_requests for select to authenticated using (profile_id = auth.uid() or is_admin());
--- pool_equity, holder_state, app_settings: no direct access; only through the functions below.
+-- pool_equity, holder_state, ledger_settings: no direct access; only through the functions below.
 
 revoke all on all tables    in schema public from public, anon, authenticated;
 revoke all on all sequences in schema public from public, anon, authenticated;

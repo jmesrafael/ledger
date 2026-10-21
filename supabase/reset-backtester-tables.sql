@@ -1,0 +1,13 @@
+-- ONE-TIME CLEANUP. Run this in the Supabase SQL Editor BEFORE the Ledger migration.
+-- The project vkfetsmnlylcsbwxcord was first used by the StrategyBacktester (cloud copy of saved runs + synced settings).
+-- The backtester works fine without it: it keeps everything in the browser and ignores failed cloud calls.
+--
+-- Step 1: look at what is in the project (just a list, nothing is changed):
+select table_name from information_schema.tables where table_schema = 'public' order by 1;
+--
+-- Step 2 (optional backup): Table Editor -> backtest_runs -> Export as CSV.
+--
+-- Step 3: delete the two backtester tables (and their policies). This cannot be undone.
+-- Uncomment the two lines below, then run again.
+-- drop table if exists public.backtest_runs cascade;
+-- drop table if exists public.app_settings  cascade;

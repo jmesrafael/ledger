@@ -3,7 +3,7 @@
 window.CONFIG = {
   SUPABASE_URL: 'https://vkfetsmnlylcsbwxcord.supabase.co',
   SUPABASE_KEY: 'sb_publishable_ZzcMOs3hNxQtVm1ocdnOAQ__o3p0Aip',
-  // Display text only. The real rules live in the database (app_settings table) and must match.
+  // Display text only. The real rules live in the database (ledger_settings table) and must match.
   LOCK_MONTHS: 3,
   WITHDRAW_BUSINESS_DAYS: 7,
 };

@@ -19,6 +19,7 @@ A phone-friendly paper ledger for a small pooled account (friends & family). **N
 
 ## Setup
 
+0. **If the project was used before** (it was shared with the StrategyBacktester), run `supabase/reset-backtester-tables.sql` in the SQL Editor first: it lists what exists, and its two `drop table` lines (commented out until you are ready) remove the old backtester tables.
 1. **Create the tables.** Either
    - paste `supabase/migrations/20261021000000_init.sql` into the Supabase dashboard → SQL Editor → Run, or
    - with the CLI: `supabase init` (once), `supabase link --project-ref <ref>`, `supabase db push` (asks for the database password; never commit it).
