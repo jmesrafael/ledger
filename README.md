@@ -17,6 +17,8 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
 - 5 wrong passwords in a row lock that username for 15 minutes.
 - **Each person can change their own password** (Home / Mine tab). **The manager can set a new password for anyone**, including themselves (People tab → Edit / reset password). Changing a password signs that person out on their other devices.
 - The manager can deactivate a person (signed out, cannot sign in; their units stay in the pool).
+- **View as** (People tab): the manager opens the app exactly as that person sees it (balance, growth chart, transactions). It is read-only: no withdrawal requests or password changes in their name, and it ends after 2 hours or with "Back to manager".
+- Every person's Home shows a **growth chart** of what their share is worth over time (1W / 1M / 3M / YTD / ALL; drag across it to see any day), with a dashed line for what they have put in, plus their recent transactions.
 - Every table is locked from the website. The page can only call database functions, and every function checks the session token, so investors cannot see each other or do manager actions even with browser tools.
 
 | | Sees |
@@ -28,12 +30,12 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
 
 1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`. It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
 2. **Your manager account**: edit the three values in `supabase/create-admin.sql` (username, name, password), run it in the SQL Editor, and **don't save the file with your real password**.
-3. **Host the folder** as a static site (e.g. GitHub Pages: repo → Settings → Pages → deploy from `main`, root). Friends open the link and can "Add to Home Screen".
+3. **Host the folder** as a static site. **Vercel**: import the repo, preset "Other", root `./`, no build command, no environment variables (`vercel.json` and `.vercelignore` already keep the SQL/test/script folders off the public site). GitHub Pages also works. Friends open the link and can "Add to Home Screen".
 4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role`/secret key in this repo.
 
 ## Test data
 
-`supabase/seed-test-data.sql` replays the 2026 backtest year through the real functions: manager ₱5,000 and John ₱3,000 on Jan 1, Dino ₱3,000 on Jul 1, weekly equity updates, quarter closes on Mar 31 / Jun 30 / Sep 30. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it after step 2 on an empty ledger. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
+`supabase/seed-test-data.sql` replays the 2026 backtest year through the real functions: manager ₱5,000 and John ₱3,000 on Jan 1, Dino ₱3,000 on Jul 1, weekly equity updates, quarter closes on Mar 31 / Jun 30 / Sep 30. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it on an empty ledger; if no manager exists yet it also creates `raf / admin-test-123` (change that password in the app straight away). Entries carry the simulated 2026 dates, so charts and lock-ups look real. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
 
 Regenerate or try other assumptions:
 

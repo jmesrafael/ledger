@@ -1,0 +1,8 @@
+supabase/
+tests/
+scripts/
+node_modules/
+package.json
+package-lock.json
+README.md
+.gitignore

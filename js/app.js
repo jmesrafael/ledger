@@ -4,8 +4,8 @@
   const C = window.CONFIG;
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
-  const TOKEN_KEY = 'ledger.token';
-  const S = { tab: null, token: null, uid: null, me: null, pool: null, hist: [], ledger: [], reqs: [], all: [], elog: [] };
+  const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the manager's own session while "viewing as"
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], range: 'ALL' };
 
   // ---------------------------------------------------------------- formatting
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,8 +25,8 @@
     clearTimeout(toast.t); toast.t = setTimeout(() => (t.innerHTML = ''), err ? 6000 : 3500);
   }
   const store = {
-    get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
-    set(v) { try { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode: stay signed in for this tab only */ } },
+    get(k = TOKEN_KEY) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(v, k = TOKEN_KEY) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch { /* private mode: stay signed in for this tab only */ } },
   };
   async function rpc(fn, args = {}) {
     const { data, error } = await sb.rpc(fn, args);
@@ -37,17 +37,32 @@
     try { return await rpc(fn, { p_token: S.token, ...args }); }
     catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
   }
-  function signedOut(msg) { S.token = null; S.me = null; store.set(null); loginView(); if (msg) toast(msg, true); }
+  function signedOut(msg) {
+    if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the manager
+    S.token = null; S.me = null; store.set(null); loginView(); if (msg) toast(msg, true);
+  }
+  async function viewAs(id) {
+    const r = await call('admin_view_as', { p_profile: id });
+    S.adminToken = S.token; store.set(S.token, ADMIN_KEY);
+    S.token = r.token; store.set(r.token); S.range = 'ALL';
+    await refresh(`Viewing as ${r.name} (read-only)`);
+  }
+  async function backToManager(msg) {
+    const t = S.token; S.token = S.adminToken; S.adminToken = null; store.set(S.token); store.set(null, ADMIN_KEY);
+    try { await rpc('logout', { p_token: t }); } catch { /* already expired */ }
+    S.tab = 'people'; S.uid = null; await refresh(msg);
+    S.tab = 'people'; render();
+  }
 
   // ---------------------------------------------------------------- data
   async function load() {
     S.me = await call('my_summary');
     if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
     const admin = S.me.role === 'admin';
-    const [pool, hist, led, reqs, all, elog] = await Promise.all([call('pool_summary'), call('price_history'),
+    const [pool, hist, history, led, reqs, all, elog] = await Promise.all([call('pool_summary'), call('price_history'), call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null]);
-    S.pool = pool; S.hist = hist; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || [];
+    S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || [];
   }
   const rate = () => (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
 
@@ -92,9 +107,7 @@
   function viewHome() {
     const m = S.me, r = rate(), investor = m.role === 'investor';
     const pend = S.reqs.filter((q) => q.status === 'pending' && q.profile_id === m.id);
-    return `<div class="card hero"><h2>${investor ? 'Your balance' : 'Your holdings'}</h2>
-      <div class="big">${usdt(m.value_usdt)}</div><div class="sub">${peso(m.value_usdt, r)} <span class="note">(estimate at today's rate)</span></div>
-      <div class="${cls(m.profit_usdt)}" style="margin-top:8px;font-weight:650">${sgn(m.profit_usdt)} USDT · ${m.return_pct == null ? '—' : pct(m.return_pct)}</div></div>
+    return `${growthCard(investor ? 'Your balance' : 'Your holdings')}
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">You put in</div><div class="v">${usdt(m.net_in_usdt)}</div></div>
         <div class="stat"><div class="k">Profit so far</div><div class="v ${cls(m.profit_usdt)}">${sgn(m.profit_usdt)} USDT</div></div>
@@ -110,13 +123,74 @@
         <div class="row"><span class="l">Units past ${C.LOCK_MONTHS}-month lock-up</span><span class="r">${f(m.unlocked_units, 4)}</span></div>
         <div class="row"><span class="l">Next unlock</span><span class="r">${day(m.next_unlock)}</span></div>
         <p class="note">Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the unit price on the day of payout.</p>
-        <form id="reqForm"><label for="rq-u">Units to withdraw</label>
+        ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Units to withdraw</label>
           <input id="rq-u" name="units" type="number" step="any" min="0" inputmode="decimal" required>
-          <div class="btns"><button type="button" class="ghost" data-action="maxunits">Max available</button><button>Request withdrawal</button></div></form>
+          <div class="btns"><button type="button" class="ghost" data-action="maxunits">Max available</button><button>Request withdrawal</button></div></form>`}
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · ${f(q.units, 4)} units<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Your units</h2>
         <div class="row"><span class="l">Fee units earned</span><span class="r">${f(m.fee_units_earned, 4)} (${usdt(m.fee_units_value_usdt)})</span></div></div>`}
-      ${poolCard()}${passwordCard()}${DISC}`;
+      ${recentCard()}${poolCard()}${m.impersonated ? '' : passwordCard()}${DISC}`;
+  }
+  function recentCard() {
+    const mine = S.ledger.filter((l) => l.profile_id === S.me.id);
+    return `<div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
+      ${mine.length > 5 ? `<div class="btns"><button class="ghost" data-tab="${isAdmin() ? 'log' : 'activity'}">See all ${mine.length}</button></div>` : ''}</div>`;
+  }
+
+  // ---------------------------------------------------------------- growth chart (Robinhood-style: drag across it to see any day)
+  const RANGES = [['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['ALL', null, 'All time']];
+  function series() {
+    const H = S.history.map((p) => ({ t: new Date(p.ts).getTime(), v: Number(p.value), n: Number(p.net_in) }));
+    if (!H.length) return [];
+    const now = Date.now(), r = RANGES.find((x) => x[0] === S.range)[1];
+    const start = r == null ? -Infinity : r === 'ytd' ? Date.UTC(new Date().getUTCFullYear(), 0, 1) : now - r * 864e5;
+    let pts = H.filter((p) => p.t >= start);
+    const before = H.filter((p) => p.t < start).pop();
+    if (before) pts = [{ ...before, t: start }, ...pts];          // the line starts at the range start with the value it had then
+    const last = pts[pts.length - 1];
+    if (last && last.t < now - 36e5) pts.push({ ...last, t: now });   // flat until today
+    return pts;
+  }
+  function growthCard(title) {
+    const pts = series(), m = S.me;
+    if (!pts.length) return `<div class="card hero"><h2>${title}</h2><div class="big">${usdt(m.value_usdt)}</div><p class="note">The chart starts with the first deposit.</p></div>`;
+    const a = pts[0], z = pts[pts.length - 1], up = (z.v - z.n) - (a.v - a.n) >= 0;
+    const t0 = a.t, t1 = Math.max(z.t, t0 + 1), lo = Math.min(...pts.map((p) => Math.min(p.v, p.n))), hi = Math.max(...pts.map((p) => Math.max(p.v, p.n)));
+    const pad = (hi - lo || Math.max(hi, 1) * 0.05) * 0.12, y0 = lo - pad, y1 = hi + pad, W = 300, H = 130;
+    const X = (t) => ((t - t0) / (t1 - t0)) * W, Y = (v) => H - ((v - y0) / (y1 - y0)) * H;
+    S.chart = { pts, X, Y, W };
+    const line = (k) => pts.map((p) => `${X(p.t).toFixed(2)},${Y(p[k]).toFixed(2)}`).join(' ');
+    return `<div class="card hero"><h2>${title}</h2>
+      <div class="big" id="gv">${usdt(z.v)}</div><div class="sub" id="gp">${peso(z.v, rate())}</div>
+      <div id="gd" style="margin-top:6px;font-weight:650"></div>
+      <svg id="gc" class="growth" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Your balance over time">
+        <polyline fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" points="${line('n')}"/>
+        <polyline fill="none" stroke="var(--${up ? 'up' : 'down'})" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${line('v')}"/>
+        <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
+      </svg>
+      <div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>
+      <p class="note" style="margin:6px 0 0">Solid line: what your share is worth. Dashed line: what you have put in. Drag across the chart to see any day.</p></div>`;
+  }
+  function showPoint(i) {   // update the big number to the point under the finger (or the latest point)
+    const { pts } = S.chart, p = pts[i], a = pts[0], d = (p.v - p.n) - (a.v - a.n);
+    const base = a.v > 0 ? a.v + (p.n - a.n) : p.n, label = RANGES.find((x) => x[0] === S.range)[2];
+    $f('gv').textContent = usdt(p.v);
+    $f('gp').textContent = peso(p.v, rate());
+    $f('gd').className = cls(d);
+    $f('gd').textContent = `${sgn(d)} USDT (${base > 0 ? pct(d / base) : '—'}) ${i === pts.length - 1 ? label : new Date(p.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+  function wireChart() {
+    const svg = $f('gc'); if (!svg || !S.chart) return;
+    const { pts, X, W } = S.chart, gx = $f('gx');
+    const at = (ev) => {
+      const r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * W;
+      let best = 0; for (let i = 1; i < pts.length; i++) if (Math.abs(X(pts[i].t) - x) < Math.abs(X(pts[best].t) - x)) best = i;
+      gx.setAttribute('x1', X(pts[best].t)); gx.setAttribute('x2', X(pts[best].t)); gx.setAttribute('visibility', 'visible'); showPoint(best);
+    };
+    const reset = () => { gx.setAttribute('visibility', 'hidden'); showPoint(pts.length - 1); };
+    svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at);
+    svg.addEventListener('pointerleave', reset); svg.addEventListener('pointerup', (ev) => { if (ev.pointerType !== 'mouse') reset(); });
+    reset();
   }
   const viewPool = () => poolCard() + DISC;
   const viewActivity = () => `<div class="card"><h2>Your activity</h2>${activityRows(S.ledger, false)}</div>`;
@@ -137,7 +211,7 @@
       <div class="card"><h2>Everyone (${S.all.length})</h2>${S.all.map((h) => `<div class="person">
         <div class="top"><span class="nm">${esc(h.name || h.username)} <span class="chip">${h.role === 'admin' ? 'manager' : 'investor'}</span>${h.active ? '' : ' <span class="chip down">off</span>'}</span>
           <span><b>${usdt(h.value_usdt)}</b></span></div>
-        <div class="note">@${esc(h.username)}</div>
+        <div class="top"><span class="note">@${esc(h.username)}</span>${h.role === 'investor' && h.active ? `<button class="ghost" style="min-height:34px" data-action="viewas" data-id="${h.id}">View as</button>` : ''}</div>
         <div class="mini">
           <div><span>Put in</span>${f(h.net_in_usdt)}</div>
           <div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${sgn(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>
@@ -155,7 +229,8 @@
   }
   const holderOpts = (sel) => S.all.filter((h) => h.active)
     .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (manager)' : ''}</option>`).join('');
-  const phpField = () => `<label>Peso rate (₱ per USDT, optional, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">`;
+  const atOf = (fm) => (fv(fm, 'at') ? new Date(fv(fm, 'at')).toISOString() : null);   // optional "when" for late entries
+  const phpField = () => `<label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local"><label>Peso rate (₱ per USDT, optional, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">`;
 
   function viewRecord() {
     const empty = Number(S.pool.total_units) === 0;
@@ -214,12 +289,15 @@
     if (!S.me) return loginView();
     const tabs = TABS[isAdmin() ? 'admin' : 'investor'];
     if (!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
-    app.innerHTML = `<header><div><h1>Ledger Monitor</h1><div class="who">${esc(S.me.name || S.me.username)}${isAdmin() ? ' · manager' : ''}</div></div>
+    const viewing = S.me.impersonated;
+    app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
+        <button data-action="exitview">Back to manager</button></div>` : ''}
+      <header><div><h1>Ledger Monitor</h1><div class="who">${esc(S.me.name || S.me.username)}${isAdmin() ? ' · manager' : ''}</div></div>
       <button class="ghost" data-action="refresh" aria-label="Refresh">Refresh</button></header>
       ${VIEWS[S.tab]()}
-      <div style="text-align:center;margin:8px 0"><button class="ghost" data-action="signout">Sign out</button></div>
+      ${viewing ? '' : '<div style="text-align:center;margin:8px 0"><button class="ghost" data-action="signout">Sign out</button></div>'}
       <nav class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
-    wirePreviews();
+    wirePreviews(); wireChart();
   }
   async function refresh(msg) {
     try { await load(); render(); if (msg) toast(msg); }
@@ -276,6 +354,8 @@
   document.addEventListener('click', async (ev) => {
     const tab = ev.target.closest('[data-tab]');
     if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
+    const rg = ev.target.closest('[data-range]');
+    if (rg) { S.range = rg.dataset.range; render(); return; }
     const b = ev.target.closest('[data-action]'); if (!b) return;
     const a = b.dataset.action, id = b.dataset.id;
     if (a === 'signout') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
@@ -288,6 +368,8 @@
       act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
     }
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; wdPrev(fm); } }
+    else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
+    else if (a === 'exitview') backToManager();
     else if (a === 'payreq') {
       S.tab = 'record'; render(); const fm = $f('wdForm');
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();
@@ -318,25 +400,25 @@
         const r = await call('request_withdrawal', { p_units: num(fv(fm, 'units')), p_note: null });
         await refresh(`Requested. You will be paid by ${day(r.pay_by)}.`);
       } else if (id === 'eqForm') {
-        await call('admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null });
+        await call('admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh('Equity saved');
       } else if (id === 'depForm') {
         const r = await call('admin_deposit', { p_profile: fv(fm, 'who'), p_usdt: num(fv(fm, 'usdt')), p_equity_before: num(fv(fm, 'eq')),
-          p_php_rate: num(fv(fm, 'rate')), p_php_amount: num(fv(fm, 'pesos')), p_note: fv(fm, 'note') || null });
+          p_php_rate: num(fv(fm, 'rate')), p_php_amount: num(fv(fm, 'pesos')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Deposit recorded: ${f(r.units, 4)} units at ${f(r.unit_price, 4)}`);
       } else if (id === 'wdForm') {
         const r = await call('admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
-          p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
+          p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
         await refresh(`Withdrawal recorded. Pay out ${usdt(r.pay_usdt)}`);
       } else if (id === 'qForm') {
         if (!confirm('Charge performance fees and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
-        const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null });
+        const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Quarter closed: ${r.investors_charged} charged, ${f(r.fee_units, 4)} fee units`);
       } else if (btn) btn.disabled = false;
     } catch (e) { if (e.message !== 'Signed out') toast(e.message || String(e), true); if (btn && btn.isConnected) btn.disabled = false; }
   });
 
   // ---------------------------------------------------------------- start
-  S.token = store.get();
+  S.token = store.get(); S.adminToken = store.get(ADMIN_KEY);
   if (S.token) refresh(); else loginView();
 })();

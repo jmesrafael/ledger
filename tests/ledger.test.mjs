@@ -193,3 +193,42 @@ test('withdrawal requests: locked units are refused, pay-by date is 7 business d
   const d = (await db.query(`select public.add_business_days('2026-10-23'::date, 7) as d`)).rows[0].d;   // Fri -> Tue, two weeks later
   assert.equal(new Date(d).toISOString().slice(0, 10), '2026-11-03');
 });
+
+test('view as: the manager sees exactly what a person sees, but cannot act as them', async () => {
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50); await call(db, 'admin_deposit', A, ids.john, 30, 50);
+  const J = await token(db, 'john', 'john-password');
+  const V = (await call(db, 'admin_view_as', A, ids.john)).token;
+  const seen = await call(db, 'my_summary', V), real = await call(db, 'my_summary', J);
+  assert.equal(seen.impersonated, true); assert.equal(real.impersonated, false);
+  assert.equal(seen.id, ids.john); near(seen.value_usdt, Number(real.value_usdt));
+  assert.deepEqual(await call(db, 'my_ledger', V), await call(db, 'my_ledger', J));
+  await assert.rejects(() => call(db, 'change_my_password', V, 'john-password', 'taken-over-123'), /view-only/);
+  await assert.rejects(() => call(db, 'request_withdrawal', V, 1), /view-only/);
+  await assert.rejects(() => call(db, 'cancel_withdrawal_request', V, 1), /view-only/);
+  await assert.rejects(() => call(db, 'admin_overview', V), /admin only/);
+  await assert.rejects(() => call(db, 'admin_view_as', J, ids.dino), /admin only/);
+  await assert.rejects(() => call(db, 'admin_view_as', A, ids.raf), /that is you/);
+  assert.equal((await login(db, 'john', 'john-password')).ok, true, "john's own login is untouched");
+});
+
+test('history: one point per pool event, worth = units x price; backdated entries keep their dates', async () => {
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50, null, 58, 2900, null, '2026-01-01T00:00:00Z');
+  await call(db, 'admin_post_equity', A, 55, null, null, '2026-01-10T00:00:00Z');
+  await call(db, 'admin_deposit', A, ids.john, 33, 55, 58, 1914, null, '2026-02-01T00:00:00Z');   // price 1.1 -> 30 units
+  await call(db, 'admin_post_equity', A, 96, null, null, '2026-03-01T00:00:00Z');                  // 80 units -> 1.2
+  await assert.rejects(() => call(db, 'admin_post_equity', A, 96, null, null, '2026-02-15T00:00:00Z'), /after the last entry/);
+  await assert.rejects(() => call(db, 'admin_post_equity', A, 96, null, null, '2099-01-01T00:00:00Z'), /future/);
+  const jT = await token(db, 'john', 'john-password');
+  const h = await call(db, 'my_history', jT);
+  assert.equal(h.length, 2, 'starts at his first deposit');
+  assert.equal(new Date(h[0].ts).toISOString(), '2026-02-01T00:00:00.000Z');
+  near(h[0].value, 33); near(h[0].net_in, 33); near(h[1].value, 36); near(h[1].price, 1.2);
+  const mine = await call(db, 'my_ledger', jT);
+  assert.equal(String(mine[0].lock_until).slice(0, 10), '2026-05-01', 'lock-up counts from the recorded date');
+  near((await call(db, 'my_summary', jT)).unlocked_units, 30, 1e-9);   // May 1 has passed, so he can withdraw
+  const r = await call(db, 'request_withdrawal', jT, 10); assert.ok(r.pay_by);
+  const ah = await call(db, 'my_history', A);
+  assert.equal(ah.length, 4); near(ah[3].value, 50 / 1.0 * 1.2);
+});
