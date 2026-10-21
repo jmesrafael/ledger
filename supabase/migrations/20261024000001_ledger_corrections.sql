@@ -6,8 +6,8 @@
 -- last entry would leave that number wrong). A quarter close is final by design and is never undoable here.
 -- Run after 20261023000000_hide_pool_from_investors.sql. Safe to run on live data.
 
-alter table public.ledger      add column reversed_of bigint references public.ledger(id);
-alter table public.pool_equity add column reversed_of bigint references public.pool_equity(id);
+alter table public.ledger      add column if not exists reversed_of bigint references public.ledger(id);
+alter table public.pool_equity add column if not exists reversed_of bigint references public.pool_equity(id);
 
 create or replace function public.admin_ledger(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 begin
@@ -18,7 +18,7 @@ begin
            order by l.id desc) from ledger l join profiles p on p.id = l.profile_id), '[]'::jsonb);
 end $$;
 
-create function public.admin_undo_last(p_token text, p_note text default null) returns jsonb
+create or replace function public.admin_undo_last(p_token text, p_note text default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_actor uuid := _admin(p_token);

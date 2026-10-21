@@ -61,6 +61,7 @@
   const alt = (u) => (rate() ? (inPeso() ? usdt(u) : '≈ ' + php(u * rate())) : '');                // the same amount in the other currency
   const smoney = (u) => (u > 0 ? '+' : u < 0 ? '−' : '') + (inPeso() ? php(u * rate()) : usdt(Math.abs(u)));
   const day = (s) => (s ? new Date(String(s).length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+  const pc = (rate) => String(Number((Number(rate) * 100).toFixed(4)));
   const cls = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'muted');
   const num = (v) => (v === '' || v == null ? null : Number(v));
   const isAdmin = () => S.me && S.me.role === 'admin';
@@ -225,7 +226,7 @@
     const above = Number(m.unit_price) > Number(m.hwm);
     return `<div class="card"><h2>Profit share</h2>
       <div class="split"><i style="width:${keep * 100}%;background:var(--up)"></i><i style="width:${(1 - keep) * 100}%;background:var(--seg3)"></i></div>
-      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${f(keep * 100, 0)}% of new profits</span><span><b style="background:var(--seg3)"></b>Manager ${f((1 - keep) * 100, 0)}%</span></div>
+      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of new profits</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep)}%</span></div>
       <div class="row"><span class="l">${above ? 'Profit share due at quarter end (estimate)' : 'Profit share due now'}</span><span class="r">${above ? money(m.accrued_fee_usdt) : 'None: below your best'}</span></div>
       <div class="row"><span class="l">Your balance after it</span><span class="r"><b>${money(m.value_after_fee_usdt)}</b></span></div>
       <div class="row"><span class="l">Shared so far</span><span class="r">${money(paid)}</span></div>
@@ -295,7 +296,7 @@
     reset();
   }
   const viewAbout = () => {
-    const rate = S.me && S.me.role === 'investor' ? f(Number(S.me.fee_rate) * 100, 0) : '10';
+    const rate = S.me && S.me.role === 'investor' ? pc(S.me.fee_rate) : '10';
     return `<div class="card"><h2>Growing this together</h2>
       <p class="about">This is a small fund we are growing together. Your money goes into one trading account that the manager trades, and the manager's own money is in the same pool. Whatever the trading makes or loses is shared by how much each person has in, so everyone is on the same side.</p>
       <p class="about"><b>It is your money and you can take it out.</b> After the ${C.LOCK_MONTHS}-month lock-up on each deposit, ask for a withdrawal on the Home page. You can take part of it or all of it, and it is paid within ${C.WITHDRAW_BUSINESS_DAYS} business days at the value on the day of payout.</p>
@@ -304,7 +305,7 @@
     <div class="card"><h2>What the manager earns</h2>
       <p class="about"><b>We only earn when you earn.</b> The manager takes a ${rate}% share of <b>new profit</b> and nothing else: no sign-up fee, no yearly fee, and nothing on your own money.</p>
       <p class="about">If the fund is down, nothing is taken. After a dip it has to climb back above your previous best before any share is taken again. The share is worked out once a quarter inside the pool, so no cash moves.</p>
-      <p class="about"><b>${rate}% is the early-investor rate.</b> It can change at any time, for example for people who join later as the fund grows.</p></div>
+      <p class="about"><b>Your rate is ${rate}%</b>, as agreed with the manager. Rates are set per person and can change at any time, for example for people who join later as the fund grows.</p></div>
     <div class="card"><h2>Pesos</h2>
       <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. The ₱ / $ button at the top switches the view.</p></div>
     <div class="card"><h2>Good to know</h2>
@@ -331,11 +332,12 @@
           <div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${smoney(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>
           <div><span>Share</span>${h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%'}</div>
           <div><span>Units</span>${f(h.units, 3)}</div>
-          <div><span>HWM</span>${f(h.hwm, 4)}</div>
+          <div><span>Your cut</span>${h.role === 'admin' ? '—' : pc(h.fee_rate) + '%'}</div>
           <div><span>${h.role === 'admin' ? 'Earned share' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
         <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
           ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
-            <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
+            <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
+            <p class="note" style="margin:6px 0 0">A new % applies to all profit not settled yet. Lowering is always fair; raise it only right after a quarter close.</p>
             <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
           <form class="resetForm" data-id="${h.id}"><label>New password for ${esc(h.name || h.username)}</label>
             <input name="password" type="text" minlength="8" autocomplete="off" required>
@@ -550,7 +552,7 @@
     const price = eq / u; let tot = 0;
     const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
       const fee = (h.fee_rate * Math.max(0, price - h.hwm) / price) * h.units; tot += fee;
-      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">new profit ${money(Math.max(0, price - h.hwm) * h.units)} × ${f(h.fee_rate * 100, 0)}%</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
+      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">new profit ${money(Math.max(0, price - h.hwm) * h.units)} × ${pc(h.fee_rate)}%</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
     }).join('');
     setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total profit share</b></span><span class="r"><b>${money(tot * price)}</b><br><span class="note">${f(tot, 4)} units</span></span></div>`);
   }

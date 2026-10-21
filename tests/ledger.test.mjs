@@ -8,7 +8,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const MIGRATION = new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url);
 const HIDE_POOL = new URL('../supabase/migrations/20261023000000_hide_pool_from_investors.sql', import.meta.url);
-const CORRECTIONS = new URL('../supabase/migrations/20261024000000_ledger_corrections.sql', import.meta.url);
+const CORRECTIONS = new URL('../supabase/migrations/20261024000001_ledger_corrections.sql', import.meta.url);
 const FEE_10 = new URL('../supabase/migrations/20261025000000_profit_share_10.sql', import.meta.url);
 const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
