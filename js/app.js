@@ -5,7 +5,7 @@
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the manager's own session while "viewing as"
-  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false };
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false };
 
   // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -32,6 +32,7 @@
     dash: svg('<rect x="3" y="3" width="7.5" height="9" rx="2"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="2"/><rect x="3" y="15" width="7.5" height="6" rx="2"/>'),
     about: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/>'),
     logo: svg('<path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/>'),
+    reports: svg('<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16.5h6M9 9.5h2"/>'),
   };
 
   // ---------------------------------------------------------------- theme: system -> light -> dark (same cycle as Tolits)
@@ -107,8 +108,14 @@
     const admin = S.me.role === 'admin';   // only the manager sees the pool; investors get just their own money
     const [pool, hist, history, led, reqs, all, elog] = await Promise.all([admin ? call('pool_summary') : null, admin ? call('price_history') : [], call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
-      admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, loadFx()]);
+      admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, loadFx(), admin ? loadReports() : null]);
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || [];
+  }
+  // reports/index.json: a small registry of compiled HTML reports (see reports/README or the folder itself to add one).
+  // Plain static files, not database rows — missing or unreadable just means an empty Reports tab, never a hard error.
+  async function loadReports() {
+    try { const r = await fetch('reports/index.json', { cache: 'no-store' }); S.reports = r.ok ? await r.json() : []; }
+    catch { S.reports = []; }
   }
   // live USD -> PHP (USDT trades ~1:1 with USD). Two free sources, cached for an hour, falls back to the last rate the manager recorded.
   const FX_KEY = 'ledger.fx', FX_SRC = [['https://open.er-api.com/v6/latest/USD', 'open.er-api.com'], ['https://api.frankfurter.dev/v1/latest?base=USD&symbols=PHP', 'frankfurter.dev']];
@@ -378,12 +385,27 @@
         <span class="r">${money(e.equity_usdt)}<br><span class="note">${usdt(e.equity_usdt)} · price ${f(e.unit_price, 4)}</span></span></div>`).join('') : '<p class="note">None yet.</p>'}</div>`;
   }
 
+  function viewReports() {
+    const rows = S.reports || [];
+    return `<div class="sechead"><h2>Reports (${rows.length})</h2><a class="btn ghost sm" href="reports/" target="_blank" rel="noopener">Open library ↗</a></div>
+      ${rows.length ? '' : '<div class="card"><p class="note">None yet. Drop a compiled HTML report in the <code>reports/</code> folder of this site and add it to <code>reports/index.json</code> — no app update needed.</p></div>'}
+      ${rows.map((r) => `<div class="card">
+        <div class="nm" style="font-weight:800;font-size:16px">${esc(r.title)}</div>
+        <p class="note" style="margin:4px 0 10px">${esc(r.summary || '')}</p>
+        <div class="mini" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+          <div><span>Updated</span>${esc(r.updated || '—')}</div>
+          <div><span>Type</span>${esc(r.kind || 'Report')}</div></div>
+        <div class="btns" style="margin-top:12px">
+          <a class="btn full" href="${esc(r.file)}" target="_blank" rel="noopener">Open report ↗</a>
+          ${r.pdf ? `<a class="btn ghost sm" href="${esc(r.pdf)}" target="_blank" rel="noopener">PDF</a>` : ''}</div></div>`).join('')}
+      <p class="note" style="margin:4px 2px 0">These pages are plain links, outside the sign-in area, so the address can be handed straight to someone outside Ledger — the "Open library" button above is the public, shareable page.</p>`;
+  }
   // ---------------------------------------------------------------- shell
   const TABS = {
     investor: [['home', 'Home'], ['activity', 'Activity'], ['about', 'About']],
-    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Quarter'], ['log', 'Log'], ['home', 'Mine']],
+    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Quarter'], ['reports', 'Reports'], ['log', 'Log'], ['home', 'Mine']],
   };
-  const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, record: viewRecord, quarter: viewQuarter, log: viewLog };
+  const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports };
   const TABICON = { users: 'people', dashboard: 'dash' };
 
   function loginView() {

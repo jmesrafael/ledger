@@ -182,6 +182,14 @@ button.danger { color: var(--down); background: var(--down-bg); box-shadow: none
 button.sm { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; }
 button:disabled { opacity: .45; cursor: default; transform: none; }
 button.full { width: 100%; margin-top: 16px; min-height: 54px; }
+/* plain navigation links styled like buttons (Reports: real pages, not SPA actions) */
+a.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font: 700 15px/1 Manrope, system-ui, sans-serif;
+  border-radius: 16px; min-height: 50px; padding: 0 18px; color: var(--accent-ink); background: linear-gradient(180deg, var(--accent-2) 0%, var(--accent) 55%, #B9F02E 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), var(--btn-glow); transition: transform .14s ease, filter .14s ease; touch-action: manipulation; }
+a.btn:active { transform: scale(0.97); filter: brightness(0.95); }
+a.btn.ghost { color: var(--ink); background-color: var(--ghost-bg); background-image: var(--ghost-img); box-shadow: var(--ghost-shadow); border: 1px solid var(--soft-border); }
+a.btn.sm { min-height: 36px; padding: 0 14px; border-radius: 999px; font-size: 13px; }
+a.btn.full { width: 100%; }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .btns > button { flex: 1 1 auto; }
 .preview { background: var(--accent-soft); color: var(--ink); border-radius: 14px; padding: 12px 14px; margin-top: 14px; font-size: 14px; font-weight: 600; }

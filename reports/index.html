@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reports</title>
+<meta name="description" content="Backtest reports and data, in plain language.">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>try { var t = localStorage.getItem('ledger.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
+<style>
+:root {
+  --accent: #C8FF3D; --accent-2: #DDFF7A; --accent-pressed: #B4EA2C; --accent-ink: #0D0D0D; --accent-text: #4F7A00;
+  --page: #F4F4F0; --ink: #0D0D0D; --ink-2: #46464A; --muted: #7A7A7E; --line: #E1E1DB;
+  --card-bg: rgba(255,255,255,0.78); --card-border: rgba(255,255,255,0.9); --card-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 28px -12px rgba(13,13,13,0.18);
+  --blur: blur(18px) saturate(150%); --ghost-bg: rgba(13,13,13,0.06); --btn-glow: 0 8px 20px -10px rgba(122,168,0,0.55);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --accent-text: #C8FF3D; --page: #070708; --ink: #F5F5F0; --ink-2: #D8D8D4; --muted: #8E8E93; --line: rgba(255,255,255,0.12);
+    --card-bg: rgba(20,20,23,0.45); --card-border: rgba(255,255,255,0.10); --card-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 14px 34px -14px rgba(0,0,0,0.85);
+    --ghost-bg: transparent; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --accent-text: #C8FF3D; --page: #070708; --ink: #F5F5F0; --ink-2: #D8D8D4; --muted: #8E8E93; --line: rgba(255,255,255,0.12);
+  --card-bg: rgba(20,20,23,0.45); --card-border: rgba(255,255,255,0.10); --card-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 14px 34px -14px rgba(0,0,0,0.85);
+  --ghost-bg: transparent; color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--page); color: var(--ink); }
+body { font: 500 15px/1.5 Manrope, system-ui, sans-serif; padding: 28px 16px 60px; }
+.wrap { max-width: 640px; margin: 0 auto; }
+a.back { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 700; }
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.4px; margin: 14px 0 4px; }
+p.lead { color: var(--ink-2); font-size: 14.5px; line-height: 1.55; margin: 0 0 22px; }
+.card { border-radius: 20px; padding: 18px 20px; margin-bottom: 14px; background-color: var(--card-bg); border: 1px solid var(--card-border); box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.card h2 { font-size: 17px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.1px; }
+.card p { color: var(--ink-2); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+.meta { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; font: 700 14px/1 Manrope, system-ui, sans-serif;
+  border-radius: 14px; min-height: 44px; padding: 0 16px; color: var(--accent-ink); background: linear-gradient(180deg, var(--accent-2) 0%, var(--accent) 55%, #B9F02E 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), var(--btn-glow); }
+a.btn.ghost { color: var(--ink); background: var(--ghost-bg); box-shadow: none; border: 1px solid var(--line); }
+.empty, .err { color: var(--muted); font-size: 14px; padding: 20px 2px; }
+.disc { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← Ledger</a>
+  <h1>Reports</h1>
+  <p class="lead">Backtest data, written in plain language for anyone deciding whether to put money in. These are simulations on historical prices, not a record of real trades — see each report's own notes page before sharing it further.</p>
+  <div id="list"><p class="empty">Loading…</p></div>
+  <p class="disc">Past results, simulated or real, do not guarantee future returns. Only use money you can afford to lose.</p>
+</div>
+<script>
+fetch('index.json', { cache: 'no-store' }).then((r) => r.json()).then((rows) => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const el = document.getElementById('list');
+  if (!rows.length) { el.innerHTML = '<p class="empty">No reports yet.</p>'; return; }
+  el.innerHTML = rows.map((r) => `<div class="card"><div class="meta">${esc(r.kind || 'Report')} · updated ${esc(r.updated || '—')}</div>
+    <h2>${esc(r.title)}</h2><p>${esc(r.summary || '')}</p>
+    <div class="btns"><a class="btn" href="${esc(r.file)}">Open report</a>${r.pdf ? `<a class="btn ghost" href="${esc(r.pdf)}">Download PDF</a>` : ''}</div></div>`).join('');
+}).catch(() => { document.getElementById('list').innerHTML = '<p class="err">Could not load the report list.</p>'; });
+</script>
+</body>
+</html>

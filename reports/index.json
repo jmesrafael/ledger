@@ -1,0 +1,11 @@
+[
+  {
+    "slug": "sol-zec-backtest",
+    "title": "7-Year Backtest — What $100 Could Have Become",
+    "summary": "Growth of $100, year-by-year and month-by-month returns, drawdowns, and which months tend to be weak. Compounded once a year.",
+    "updated": "22 Oct 2026",
+    "kind": "Backtest report",
+    "file": "reports/sol-zec-backtest.html",
+    "pdf": "reports/sol-zec-backtest.pdf"
+  }
+]
