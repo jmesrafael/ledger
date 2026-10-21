@@ -35,7 +35,7 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
 
 ## Test data
 
-`supabase/seed-test-data.sql` replays the 2026 backtest year through the real functions: manager ₱5,000 and John ₱3,000 on Jan 1, Dino ₱3,000 on Jul 1, weekly equity updates, quarter closes on Mar 31 / Jun 30 / Sep 30. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it on an empty ledger; if no manager exists yet it also creates `raf / admin-test-123` (change that password in the app straight away). Entries carry the simulated 2026 dates, so charts and lock-ups look real. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
+`supabase/seed-test-data.sql` replays the full SOL+ZEC backtest (Mar 2020 → Oct 2026, 640 trades, 1% risk per trade, compounding) through the real functions: manager ₱5,000 and John ₱3,000 at the start, Dino ₱3,000 from mid-2023, weekly equity updates, every quarter settled. Backtest = hypothetical; the coins were picked with hindsight. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it on an empty ledger; if no manager exists yet it also creates `raf / admin-test-123` (change that password in the app straight away). Entries carry the simulated 2026 dates, so charts and lock-ups look real. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
 
 Regenerate or try other assumptions:
 

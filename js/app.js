@@ -24,6 +24,7 @@
     auto: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
     arrowIn: svg('<path d="M12 5v14M5 12l7 7 7-7"/>'),
     arrowOut: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+    share: svg('<path d="M12 3v9l7.5 4.5"/><circle cx="12" cy="12" r="9"/>'),
     fee: svg('<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'),
     eye: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
     eyeOff: svg('<path d="M3 3l18 18"/><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
@@ -104,38 +105,49 @@
   const rate = () => (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
 
   // ---------------------------------------------------------------- shared pieces
+  // a line + soft gradient area underneath (shared by both charts)
+  function area(id, xs, ys, W, H, color, extra = '') {
+    const pts = xs.map((x, i) => `${x.toFixed(2)},${ys[i].toFixed(2)}`).join(' ');
+    return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" style="stop-color:${color};stop-opacity:.34"/><stop offset="70%" style="stop-color:${color};stop-opacity:.06"/><stop offset="100%" style="stop-color:${color};stop-opacity:0"/></linearGradient></defs>
+      ${extra}<polygon fill="url(#${id})" points="${xs[0].toFixed(2)},${H} ${pts} ${xs[xs.length - 1].toFixed(2)},${H}"/>
+      <polyline class="ln" fill="none" style="stroke:${color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="${pts}"/>`;
+  }
   function chart(hist) {
     if (!hist || hist.length < 2) return '<p class="note">The chart appears after the second equity update.</p>';
     const ys = hist.map((h) => Number(h.unit_price)); const lo = Math.min(...ys), hi = Math.max(...ys), pad = (hi - lo || 0.01) * 0.15;
-    const a = lo - pad, b = hi + pad, W = 300, H = 100;
-    const pts = ys.map((y, i) => `${(i / (ys.length - 1)) * W},${H - ((y - a) / (b - a)) * H}`).join(' ');
+    const a = lo - pad, b = hi + pad, W = 300, H = 110;
+    const color = `var(--${ys[ys.length - 1] >= ys[0] ? 'up' : 'down'})`;
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Unit price history">
-      <polyline fill="none" stroke="var(--${ys[ys.length - 1] >= ys[0] ? 'up' : 'down'})" stroke-width="2.2" vector-effect="non-scaling-stroke" points="${pts}"/></svg>
+      ${area('pfill', ys.map((_, i) => (i / (ys.length - 1)) * W), ys.map((y) => H - ((y - a) / (b - a)) * H), W, H, color)}</svg>
       <div class="row"><span class="l">Low / High</span><span class="r">${f(lo, 4)} / ${f(hi, 4)}</span></div>`;
   }
   function poolCard() {
     const p = S.pool; if (!p) return '';
     const tot = Number(p.total_units) || 1;
-    const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Manager capital', p.admin_capital_units, 'var(--seg1)'], ['Manager fee units', p.admin_fee_units, 'var(--seg3)']];
+    const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Manager capital', p.admin_capital_units, 'var(--seg1)'], ["Manager's earned share", p.admin_fee_units, 'var(--seg3)']];
     return `<div class="card"><h2>Shared pool</h2>
       <div class="row"><span class="l">Pool size</span><span class="r"><b>${usdt(p.equity_usdt)}</b><br><span class="note">${peso(p.equity_usdt, rate())}</span></span></div>
       <div class="row"><span class="l">Unit price</span><span class="r"><b>${f(p.unit_price, 4)}</b> USDT <span class="${cls(p.since_start_pct)}">(${pct(p.since_start_pct)} since start)</span></span></div>
       <div class="row"><span class="l">Last updated</span><span class="r">${p.asof ? day(p.asof) : '—'}</span></div>
       <div style="margin-top:10px">${chart(S.hist)}</div>
       <h2 style="margin-top:14px">Who owns the pool</h2>
-      <div class="bar">${seg.map(([, u, c]) => `<i style="width:${(Number(u) / tot) * 100}%;background:${c}"></i>`).join('')}</div>
+      <div class="split">${seg.map(([, u, c]) => `<i style="width:${(Number(u) / tot) * 100}%;background:${c}"></i>`).join('')}</div>
       <div class="legend">${seg.map(([n, u, c]) => `<span><b style="background:${c}"></b>${n} ${f((Number(u) / tot) * 100, 1)}%</span>`).join('')}</div>
-      <p class="note" style="margin-top:8px">${p.investor_count} investor${p.investor_count === 1 ? '' : 's'}. Fee units are the performance fees the manager earned; they stay in the pool.</p></div>`;
+      <p class="note" style="margin-top:8px">${p.investor_count} investor${p.investor_count === 1 ? '' : 's'}. The manager's earned share comes only from profits and stays invested in the pool.</p></div>`;
   }
-  const KIND = { deposit: ['Deposit', 'in', 'down'], withdrawal: ['Withdrawal', 'out', 'up'], fee_out: ['Performance fee', 'out', 'fee'], fee_in: ['Fee earned', 'in', 'fee'] };
+  const KIND = {
+    deposit: ['Deposit', 'in', 'arrowIn'], withdrawal: ['Withdrawal', 'out', 'arrowOut'],
+    fee_out: ['Profit share to manager', 'share', 'share'], fee_in: ['Profit share received', 'in', 'share'],
+  };
   function activityRows(rows, withName) {
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
-      const [label, dir, ic] = KIND[l.kind] || [l.kind, '', 'fee'];
+      const [label, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'];
       const sub = [day(l.ts), withName ? esc(l.name) : null, l.note ? esc(l.note) : null].filter(Boolean).join(' · ');
-      return `<div class="tx"><div class="ic ${dir}">${ICON[ic === 'down' ? 'arrowIn' : ic === 'up' ? 'arrowOut' : 'fee']}</div>
+      return `<div class="tx"><div class="ic ${kind}">${ICON[ic]}</div>
         <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
-        <div class="amt ${cls(l.usdt)}">${sgn(l.usdt)} USDT<small>${sgn(l.units, 2)} units</small></div></div>`;
+        <div class="amt ${l.kind === 'fee_out' ? 'share' : cls(l.usdt)}">${sgn(l.usdt)} USDT<small>${sgn(l.units, 2)} units</small></div></div>`;
     }).join('');
   }
   const passwordCard = () => `<div class="card"><h2>Change your password</h2>
@@ -155,13 +167,7 @@
         <div class="stat"><div class="k">Profit so far</div><div class="v ${cls(m.profit_usdt)}">${sgn(m.profit_usdt)} USDT</div></div>
         <div class="stat"><div class="k">Your units</div><div class="v">${f(m.units, 4)}</div></div>
         <div class="stat"><div class="k">Share of pool</div><div class="v">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</div></div></div></div>
-      ${investor ? `<div class="card"><h2>Performance fee</h2>
-        <div class="row"><span class="l">Fee rate</span><span class="r">${f(m.fee_rate * 100, 0)}% of gains above your high-water mark</span></div>
-        <div class="row"><span class="l">High-water mark</span><span class="r">${f(m.hwm, 4)} (unit price now ${f(m.unit_price, 4)})</span></div>
-        <div class="row"><span class="l">Estimated fee at quarter end</span><span class="r">${usdt(m.accrued_fee_usdt)}</span></div>
-        <div class="row"><span class="l">Balance after estimated fee</span><span class="r"><b>${usdt(m.value_after_fee_usdt)}</b></span></div>
-        <p class="note">No fee is charged on gains you have already paid a fee on, or while the pool is below your high-water mark. The fee is paid in units at the end of each quarter; no cash moves.</p></div>
-      <div class="card"><h2>Withdrawals</h2>
+      ${investor ? profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
         <div class="row"><span class="l">Units past ${C.LOCK_MONTHS}-month lock-up</span><span class="r">${f(m.unlocked_units, 4)}</span></div>
         <div class="row"><span class="l">Next unlock</span><span class="r">${day(m.next_unlock)}</span></div>
         <p class="note">Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the unit price on the day of payout.</p>
@@ -170,8 +176,20 @@
           <div class="btns"><button type="button" class="ghost" data-action="maxunits">Max available</button><button>Request withdrawal</button></div></form>`}
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · ${f(q.units, 4)} units<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Your units</h2>
-        <div class="row"><span class="l">Fee units earned</span><span class="r">${f(m.fee_units_earned, 4)} (${usdt(m.fee_units_value_usdt)})</span></div></div>`}
+        <div class="row"><span class="l">Profit share earned (stays invested)</span><span class="r">${f(m.fee_units_earned, 4)} units<br><span class="note">${usdt(m.fee_units_value_usdt)} now</span></span></div></div>`}
       ${recentCard()}${poolCard()}${m.impersonated ? '' : passwordCard()}${DISC}`;
+  }
+  function profitShareCard(m) {
+    const keep = 1 - Number(m.fee_rate), paid = -S.ledger.filter((l) => l.kind === 'fee_out' && l.profile_id === m.id).reduce((a, l) => a + Number(l.usdt), 0);
+    const above = Number(m.unit_price) > Number(m.hwm);
+    return `<div class="card"><h2>Profit share</h2>
+      <div class="split"><i style="width:${keep * 100}%;background:var(--up)"></i><i style="width:${(1 - keep) * 100}%;background:var(--seg3)"></i></div>
+      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${f(keep * 100, 0)}% of new profits</span><span><b style="background:var(--seg3)"></b>Manager ${f((1 - keep) * 100, 0)}%</span></div>
+      <div class="row"><span class="l">Your best unit price so far</span><span class="r">${f(m.hwm, 4)}<br><span class="note">now ${f(m.unit_price, 4)}</span></span></div>
+      <div class="row"><span class="l">${above ? 'Profit share due at quarter end (estimate)' : 'Profit share due now'}</span><span class="r">${above ? usdt(m.accrued_fee_usdt) : 'None: below your best'}</span></div>
+      <div class="row"><span class="l">Your balance after it</span><span class="r"><b>${usdt(m.value_after_fee_usdt)}</b></span></div>
+      <div class="row"><span class="l">Shared so far</span><span class="r">${usdt(paid)}</span></div>
+      <p class="note">The manager is paid only from <b>new</b> profit above your best-ever level, never from the money you put in. While the pool is below your best, nothing is shared. It is settled once a quarter inside the pool; no cash moves.</p></div>`;
   }
   function recentCard() {
     const mine = S.ledger.filter((l) => l.profile_id === S.me.id);
@@ -180,7 +198,7 @@
   }
 
   // ---------------------------------------------------------------- growth chart (Robinhood-style: drag across it to see any day)
-  const RANGES = [['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['ALL', null, 'All time']];
+  const RANGES = [['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['1Y', 365, 'Past year'], ['ALL', null, 'All time']];
   function series() {
     const H = S.history.map((p) => ({ t: new Date(p.ts).getTime(), v: Number(p.value), n: Number(p.net_in) }));
     if (!H.length) return [];
@@ -200,21 +218,22 @@
     const t0 = a.t, t1 = Math.max(z.t, t0 + 1), lo = Math.min(...pts.map((p) => Math.min(p.v, p.n))), hi = Math.max(...pts.map((p) => Math.max(p.v, p.n)));
     const pad = (hi - lo || Math.max(hi, 1) * 0.05) * 0.12, y0 = lo - pad, y1 = hi + pad, W = 300, H = 130;
     const X = (t) => ((t - t0) / (t1 - t0)) * W, Y = (v) => H - ((v - y0) / (y1 - y0)) * H;
-    S.chart = { pts, X, Y, W };
-    const line = (k) => pts.map((p) => `${X(p.t).toFixed(2)},${Y(p[k]).toFixed(2)}`).join(' ');
-    return `<div class="card hero"><h2>${title}</h2>
+    S.chart = { pts, X, Y, W, H };
+    const color = `var(--${up ? 'up' : 'down'})`;
+    const dashed = `<polyline fill="none" stroke="var(--muted)" stroke-opacity=".7" stroke-width="1.2" stroke-dasharray="3 4" vector-effect="non-scaling-stroke" points="${pts.map((p) => `${X(p.t).toFixed(2)},${Y(p.n).toFixed(2)}`).join(' ')}"/>`;
+    return `<div class="card hero" style="--dot:${color}"><h2>${title}</h2>
       <div class="big" id="gv">${usdt(z.v)}</div><div class="sub" id="gp">${peso(z.v, rate())}</div>
       <div id="gd" class="delta"></div>
-      <svg id="gc" class="growth" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Your balance over time">
-        <polyline fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" points="${line('n')}"/>
-        <polyline fill="none" stroke="var(--${up ? 'up' : 'down'})" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${line('v')}"/>
-        <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
-      </svg>
+      <div class="gwrap"><svg id="gc" class="growth" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Your balance over time">
+        ${area('gfill', pts.map((p) => X(p.t)), pts.map((p) => Y(p.v)), W, H, color, dashed)}
+        <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-opacity=".6" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
+      </svg><span class="dot live" id="gdot"></span></div>
       <div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>
-      <p class="note" style="margin:6px 0 0">Solid line: what your share is worth. Dashed line: what you have put in. Drag across the chart to see any day.</p></div>`;
+      <p class="note" style="margin:8px 0 0">Line: what your share is worth. Dashed: what you have put in. Drag across the chart to see any day.</p></div>`;
   }
   function showPoint(i) {   // update the big number to the point under the finger (or the latest point)
-    const { pts } = S.chart, p = pts[i], a = pts[0], d = (p.v - p.n) - (a.v - a.n);
+    const { pts, X, Y, W, H } = S.chart, p = pts[i], a = pts[0], d = (p.v - p.n) - (a.v - a.n);
+    const dot = $f('gdot'); dot.style.left = (X(p.t) / W) * 100 + '%'; dot.style.top = (Y(p.v) / H) * 100 + '%'; dot.classList.toggle('live', i === pts.length - 1);
     const base = a.v > 0 ? a.v + (p.n - a.n) : p.n, label = RANGES.find((x) => x[0] === S.range)[2];
     $f('gv').textContent = usdt(p.v);
     $f('gp').textContent = peso(p.v, rate());
@@ -242,7 +261,7 @@
     return `<div class="card"><h2>Add a person</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
       <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
-        <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
+        <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
         <label>Full name</label><input name="name" required>
         <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
         <button class="full">Create account</button></form></div>
@@ -260,10 +279,10 @@
           <div><span>Share</span>${h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%'}</div>
           <div><span>Units</span>${f(h.units, 3)}</div>
           <div><span>HWM</span>${f(h.hwm, 4)}</div>
-          <div><span>${h.role === 'admin' ? 'Fee units' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
+          <div><span>${h.role === 'admin' ? 'Earned share' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
         <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
           ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
-            <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
+            <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
             <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
           <form class="resetForm" data-id="${h.id}"><label>New password for ${esc(h.name || h.username)}</label>
             <input name="password" type="text" minlength="8" autocomplete="off" required>
@@ -291,7 +310,7 @@
         <label>Pesos they handed over (optional, reference only)</label><input name="pesos" type="number" step="any" inputmode="decimal">
         ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="depPrev">—</div><button class="full">Record deposit</button></form></div>`)}
       ${pick('wd', `<div class="card"><h2>Record a withdrawal</h2>
-        <p class="note">Enter the pool equity from MEXC just before you pay out. The fee on gains above their high-water mark is taken in units first.</p>
+        <p class="note">Enter the pool equity from MEXC just before you pay out. Any profit share due (on gains above their best) is settled in units first.</p>
         <form id="wdForm"><label>Person</label><select name="who">${holderOpts()}</select>
         <label>Units to redeem</label><input name="units" type="number" step="any" inputmode="decimal" required>
         <div class="btns"><button type="button" class="ghost" data-action="allunits">All their units</button></div>
@@ -302,10 +321,10 @@
   }
   function viewQuarter() {
     return `<div class="card"><h2>Close the quarter</h2>
-      <p class="note">Charges each investor's performance fee on gains above their high-water mark. The fee moves as <b>units</b> from them to you (still inside the pool, so it compounds). Then each high-water mark resets. Do this once per quarter.</p>
+      <p class="note">Settles each investor's profit share: 20% of any gain above their best-ever level. It moves as <b>units</b> from them to you (still inside the pool, so it compounds). Then each high-water mark resets. Do this once per quarter.</p>
       <form id="qForm"><label>Pool equity now (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
-      ${phpField()}<label>Note (optional)</label><input name="note" value="Quarter close"><div class="preview" id="qPrev">Enter the equity to preview the fees.</div>
-      <button class="full">Charge fees and close quarter</button></form></div>`;
+      ${phpField()}<label>Note (optional)</label><input name="note" value="Quarter close"><div class="preview" id="qPrev">Enter the equity to preview the profit share.</div>
+      <button class="full">Settle profit share and close quarter</button></form></div>`;
   }
   function viewLog() {
     const pend = S.reqs.filter((q) => q.status === 'pending');
@@ -396,17 +415,17 @@
     const net = units - fee, pay = net * price;
     const warn = units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
       : h.role === 'investor' && units > Number(h.unlocked_units) + 1e-8 && !fm.elements.force.checked ? '<br><span class="warn">Inside lock-up. Tick override to allow.</span>' : '';
-    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>. Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.${warn}`);
+    setPrev('wdPrev', `Price ${f(price, 4)}. Profit share <b>${f(fee, 4)} units</b>. Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.${warn}`);
   }
   function qPrev(fm) {
     const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units);
-    if (eq == null || !u) return setPrev('qPrev', 'Enter the equity to preview the fees.');
+    if (eq == null || !u) return setPrev('qPrev', 'Enter the equity to preview the profit share.');
     const price = eq / u; let tot = 0;
     const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
       const fee = (h.fee_rate * Math.max(0, price - h.hwm) / price) * h.units; tot += fee;
       return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">HWM ${f(h.hwm, 4)}</span></span><span class="r">${f(fee, 4)} units<br><span class="note">${usdt(fee * price)}</span></span></div>`;
     }).join('');
-    setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total to manager</b></span><span class="r"><b>${f(tot, 4)} units</b> (${usdt(tot * price)})</span></div>`);
+    setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total profit share</b></span><span class="r"><b>${f(tot, 4)} units</b> (${usdt(tot * price)})</span></div>`);
   }
 
   // ---------------------------------------------------------------- actions
@@ -485,9 +504,9 @@
           p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
         await refresh(`Withdrawal recorded. Pay out ${usdt(r.pay_usdt)}`);
       } else if (id === 'qForm') {
-        if (!confirm('Charge performance fees and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
+        if (!confirm('Settle the profit share and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
         const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
-        await refresh(`Quarter closed: ${r.investors_charged} charged, ${f(r.fee_units, 4)} fee units`);
+        await refresh(`Quarter settled: profit share from ${r.investors_charged} investor(s), ${f(r.fee_units, 4)} units`);
       } else if (btn) btn.disabled = false;
     } catch (e) {
       if (id === 'loginForm') loginError(/fetch|network|Failed/i.test(e.message) ? 'Cannot reach the server. Check your internet connection and try again.'
