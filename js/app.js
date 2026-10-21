@@ -1,9 +1,11 @@
-// Ledger Monitor: paper record of a pooled account, valued in USDT. All numbers come from the database (RPC functions).
+// Ledger Monitor: paper record of a pooled account, valued in USDT. All numbers come from database functions;
+// every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
-  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY);
+  const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
-  const S = { tab: 'home', authMode: 'in', me: null, pool: null, hist: [], ledger: [], reqs: [], all: [], elog: [], booted: false };
+  const TOKEN_KEY = 'ledger.token';
+  const S = { tab: null, token: null, uid: null, me: null, pool: null, hist: [], ledger: [], reqs: [], all: [], elog: [] };
 
   // ---------------------------------------------------------------- formatting
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -22,26 +24,31 @@
     t.innerHTML = `<div class="toast ${err ? 'err' : ''}" role="status">${esc(msg)}</div>`;
     clearTimeout(toast.t); toast.t = setTimeout(() => (t.innerHTML = ''), err ? 6000 : 3500);
   }
-  async function call(fn, args = {}) {
+  const store = {
+    get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
+    set(v) { try { v ? localStorage.setItem(TOKEN_KEY, v) : localStorage.removeItem(TOKEN_KEY); } catch { /* private mode: stay signed in for this tab only */ } },
+  };
+  async function rpc(fn, args = {}) {
     const { data, error } = await sb.rpc(fn, args);
     if (error) throw new Error(error.message);
     return data;
   }
-  const must = (r) => { if (r.error) throw new Error(r.error.message); return r.data; };
+  async function call(fn, args = {}) {
+    try { return await rpc(fn, { p_token: S.token, ...args }); }
+    catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
+  }
+  function signedOut(msg) { S.token = null; S.me = null; store.set(null); loginView(); if (msg) toast(msg, true); }
 
   // ---------------------------------------------------------------- data
   async function load() {
     S.me = await call('my_summary');
-    if (!S.me) return;
     if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
-    const jobs =[call('pool_summary'), call('price_history'),
-      sb.from('ledger').select('*').order('id', { ascending: false }),
-      sb.from('withdrawal_requests').select('*').order('id', { ascending: false })];
-    if (S.me.role === 'admin') jobs.push(call('admin_overview'), call('admin_equity_log'));
-    const [pool, hist, led, reqs, all, elog] = await Promise.all(jobs);
-    S.pool = pool; S.hist = hist; S.ledger = must(led); S.reqs = must(reqs); S.all = all || []; S.elog = elog || [];
+    const admin = S.me.role === 'admin';
+    const [pool, hist, led, reqs, all, elog] = await Promise.all([call('pool_summary'), call('price_history'),
+      call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
+      admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null]);
+    S.pool = pool; S.hist = hist; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || [];
   }
-  const nameOf = (id) => (S.all.find((h) => h.id === id) || (S.me && S.me.id === id && S.me) || {}).name || 'Someone';
   const rate = () => (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
 
   // ---------------------------------------------------------------- shared pieces
@@ -50,9 +57,8 @@
     const ys = hist.map((h) => Number(h.unit_price)); const lo = Math.min(...ys), hi = Math.max(...ys), pad = (hi - lo || 0.01) * 0.15;
     const a = lo - pad, b = hi + pad, W = 300, H = 100;
     const pts = ys.map((y, i) => `${(i / (ys.length - 1)) * W},${H - ((y - a) / (b - a)) * H}`).join(' ');
-    const last = ys[ys.length - 1] >= ys[0];
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Unit price history">
-      <polyline fill="none" stroke="var(--${last ? 'up' : 'down'})" stroke-width="2.2" vector-effect="non-scaling-stroke" points="${pts}"/></svg>
+      <polyline fill="none" stroke="var(--${ys[ys.length - 1] >= ys[0] ? 'up' : 'down'})" stroke-width="2.2" vector-effect="non-scaling-stroke" points="${pts}"/></svg>
       <div class="row"><span class="l">Low / High</span><span class="r">${f(lo, 4)} / ${f(hi, 4)}</span></div>`;
   }
   function poolCard() {
@@ -72,15 +78,20 @@
   const KIND = { deposit: 'Deposit', withdrawal: 'Withdrawal', fee_out: 'Performance fee', fee_in: 'Fee earned' };
   function activityRows(rows, withName) {
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
-    return rows.map((l) => `<div class="row"><span class="l">${day(l.ts)}<br><b style="color:var(--ink)">${KIND[l.kind] || l.kind}</b>${withName ? ' · ' + esc(nameOf(l.profile_id)) : ''}${l.note ? `<br><span class="note">${esc(l.note)}</span>` : ''}</span>
+    return rows.map((l) => `<div class="row"><span class="l">${day(l.ts)}<br><b style="color:var(--ink)">${KIND[l.kind] || l.kind}</b>${withName ? ' · ' + esc(l.name) : ''}${l.note ? `<br><span class="note">${esc(l.note)}</span>` : ''}</span>
       <span class="r ${cls(l.units)}">${sgn(l.units, 4)} units<br>${sgn(l.usdt)} USDT<br><span class="note">@ ${f(l.unit_price, 4)}</span></span></div>`).join('');
   }
+  const passwordCard = () => `<div class="card"><h2>Change your password</h2>
+    <form id="pwForm"><label>Current password</label><input name="old" type="password" autocomplete="current-password" required>
+    <label>New password (at least 8 characters)</label><input name="new" type="password" minlength="8" autocomplete="new-password" required>
+    <button class="full ghost">Change password</button></form>
+    <p class="note">Your other phones/browsers will be signed out.</p></div>`;
   const DISC = `<p class="disc">This page is a paper record of your share of a pooled trading account, valued in USDT. It is not a bank balance, not insured, and past or backtested results are not a promise of future results. You can lose some or all of the money you put in. Only invest money you can afford to lose.</p>`;
 
   // ---------------------------------------------------------------- investor / shared views
   function viewHome() {
     const m = S.me, r = rate(), investor = m.role === 'investor';
-    const pend = S.reqs.filter((q) => q.status === 'pending');
+    const pend = S.reqs.filter((q) => q.status === 'pending' && q.profile_id === m.id);
     return `<div class="card hero"><h2>${investor ? 'Your balance' : 'Your holdings'}</h2>
       <div class="big">${usdt(m.value_usdt)}</div><div class="sub">${peso(m.value_usdt, r)} <span class="note">(estimate at today's rate)</span></div>
       <div class="${cls(m.profit_usdt)}" style="margin-top:8px;font-weight:650">${sgn(m.profit_usdt)} USDT · ${m.return_pct == null ? '—' : pct(m.return_pct)}</div></div>
@@ -105,24 +116,28 @@
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · ${f(q.units, 4)} units<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Your units</h2>
         <div class="row"><span class="l">Fee units earned</span><span class="r">${f(m.fee_units_earned, 4)} (${usdt(m.fee_units_value_usdt)})</span></div></div>`}
-      ${poolCard()}${DISC}`;
+      ${poolCard()}${passwordCard()}${DISC}`;
   }
   const viewPool = () => poolCard() + DISC;
   const viewActivity = () => `<div class="card"><h2>Your activity</h2>${activityRows(S.ledger, false)}</div>`;
 
   // ---------------------------------------------------------------- admin views
   function viewPeople() {
-    const pending = S.all.filter((h) => h.role === 'investor' && !h.approved);
-    const members = S.all.filter((h) => h.approved || h.role === 'admin');
-    return `${pending.length ? `<div class="card"><h2>Waiting for approval</h2>${pending.map((h) => `<div class="person"><div class="top"><span class="nm">${esc(h.name || '(no name)')}</span><span class="note">${esc(h.email)}</span></div>
-      <div class="btns"><button data-action="approve" data-id="${h.id}">Approve</button></div></div>`).join('')}</div>` : ''}
+    return `<div class="card"><h2>Add a person</h2>
+      <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
+      <form id="newUserForm"><div class="grid"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
+        <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
+        <label>Full name</label><input name="name" required>
+        <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
+        <button class="full">Create account</button></form></div>
       <div class="card"><h2>Pool</h2>
         <div class="row"><span class="l">Equity</span><span class="r"><b>${usdt(S.pool.equity_usdt)}</b></span></div>
         <div class="row"><span class="l">Unit price</span><span class="r">${f(S.pool.unit_price, 4)}</span></div>
         <div class="row"><span class="l">Total units</span><span class="r">${f(S.pool.total_units, 4)}</span></div></div>
-      <div class="card"><h2>Everyone (${members.length})</h2>${members.map((h) => `<div class="person">
-        <div class="top"><span class="nm">${esc(h.name || '(no name)')} <span class="chip">${h.role === 'admin' ? 'manager' : 'investor'}</span></span>
+      <div class="card"><h2>Everyone (${S.all.length})</h2>${S.all.map((h) => `<div class="person">
+        <div class="top"><span class="nm">${esc(h.name || h.username)} <span class="chip">${h.role === 'admin' ? 'manager' : 'investor'}</span>${h.active ? '' : ' <span class="chip down">off</span>'}</span>
           <span><b>${usdt(h.value_usdt)}</b></span></div>
+        <div class="note">@${esc(h.username)}</div>
         <div class="mini">
           <div><span>Put in</span>${f(h.net_in_usdt)}</div>
           <div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${sgn(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>
@@ -130,12 +145,16 @@
           <div><span>Units</span>${f(h.units, 3)}</div>
           <div><span>HWM</span>${f(h.hwm, 4)}</div>
           <div><span>${h.role === 'admin' ? 'Fee units' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
-        ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
-          <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
-          <div class="btns"><button class="ghost">Save</button></div></form>` : ''}</div>`).join('')}</div>`;
+        <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
+          ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
+            <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
+            <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
+          <form class="resetForm" data-id="${h.id}"><label>New password for ${esc(h.name || h.username)}</label>
+            <input name="password" type="text" minlength="8" autocomplete="off" required>
+            <div class="btns"><button class="ghost">Set password</button></div></form></details></div>`).join('')}</div>`;
   }
-  const holderOpts = (sel) => S.all.filter((h) => h.approved || h.role === 'admin')
-    .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.email)}${h.role === 'admin' ? ' (manager)' : ''}</option>`).join('');
+  const holderOpts = (sel) => S.all.filter((h) => h.active)
+    .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (manager)' : ''}</option>`).join('');
   const phpField = () => `<label>Peso rate (₱ per USDT, optional, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">`;
 
   function viewRecord() {
@@ -145,7 +164,7 @@
       <form id="eqForm"><label>Pool equity now (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
         ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="eqPrev">—</div><button class="full" ${empty ? 'disabled' : ''}>Save equity</button></form></div>
       <div class="card"><h2>2 · Record a deposit</h2>
-        <p class="note">${empty ? 'This is the very first deposit (the manager\'s own capital). Leave "equity before" blank; units start at 1.00.' : 'Enter the pool equity from MEXC <b>just before</b> this money lands, so the new person buys units at the right price.'}</p>
+        <p class="note">${empty ? 'This is the very first deposit (the manager\'s own capital). Units start at 1.00.' : 'Enter the pool equity from MEXC <b>just before</b> this money lands, so the new person buys units at the right price.'}</p>
         <form id="depForm"><label>Person</label><select name="who">${holderOpts()}</select>
         <label>Amount credited (USDT)</label><input name="usdt" type="number" step="any" inputmode="decimal" required>
         ${empty ? '' : '<label>Pool equity before this deposit (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>'}
@@ -170,7 +189,7 @@
   }
   function viewLog() {
     const pend = S.reqs.filter((q) => q.status === 'pending');
-    return `<div class="card"><h2>Withdrawal requests</h2>${pend.length ? pend.map((q) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(nameOf(q.profile_id))}</b><br>${f(q.units, 4)} units · asked ${day(q.requested_at)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span>
+    return `<div class="card"><h2>Withdrawal requests</h2>${pend.length ? pend.map((q) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(q.name)}</b><br>${f(q.units, 4)} units · asked ${day(q.requested_at)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span>
       <span class="r"><button data-action="payreq" data-id="${q.id}" data-who="${q.profile_id}" data-units="${q.units}">Prepare payout</button></span></div>`).join('') : '<p class="note">None pending.</p>'}</div>
       <div class="card"><h2>All entries</h2>${activityRows(S.ledger, true)}</div>
       <div class="card"><h2>Equity readings</h2>${S.elog.length ? S.elog.slice(0, 60).map((e) => `<div class="row"><span class="l">${day(e.ts)} · ${esc(e.kind)}${e.note ? `<br><span class="note">${esc(e.note)}</span>` : ''}</span>
@@ -184,26 +203,18 @@
   };
   const VIEWS = { home: viewHome, pool: viewPool, activity: viewActivity, people: viewPeople, record: viewRecord, quarter: viewQuarter, log: viewLog };
 
-  function authView() {
-    const up = S.authMode === 'up';
-    app.innerHTML = `<header><h1>Ledger Monitor</h1></header><div class="card"><h2>${up ? 'Create your account' : 'Sign in'}</h2>
-      <form id="authForm">${up ? '<label>Your name</label><input name="name" autocomplete="name" required>' : ''}
-      <label>Email</label><input name="email" type="email" autocomplete="email" required>
-      <label>Password</label><input name="password" type="password" minlength="8" autocomplete="${up ? 'new-password' : 'current-password'}" required>
-      <button class="full">${up ? 'Create account' : 'Sign in'}</button></form>
-      <div class="btns"><button class="ghost" data-action="authmode">${up ? 'I already have an account' : 'Create an account'}</button></div>
-      ${up ? '<p class="note">After you sign up, the manager has to approve your account before you can see anything.</p>' : ''}</div>${DISC}`;
-  }
-  function pendingView() {
-    app.innerHTML = `<header><h1>Ledger Monitor</h1><button class="ghost" data-action="signout">Sign out</button></header>
-      <div class="card"><h2>Waiting for approval</h2><p>Your account is created. The manager needs to approve it before you can see your balance. Check back soon.</p>
-      <div class="btns"><button class="ghost" data-action="refresh">Check again</button></div></div>`;
+  function loginView() {
+    app.innerHTML = `<header><h1>Ledger Monitor</h1></header><div class="card"><h2>Sign in</h2>
+      <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocomplete="username" required>
+      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+      <button class="full">Sign in</button></form>
+      <p class="note">No account? Ask the manager to create one for you.</p></div>${DISC}`;
   }
   function render() {
-    if (!S.me) return;
-    const tabs = TABS[S.me.role === 'admin' ? 'admin' : 'investor'];
+    if (!S.me) return loginView();
+    const tabs = TABS[isAdmin() ? 'admin' : 'investor'];
     if (!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
-    app.innerHTML = `<header><div><h1>Ledger Monitor</h1><div class="who">${esc(S.me.name || S.me.email)}${isAdmin() ? ' · manager' : ''}</div></div>
+    app.innerHTML = `<header><div><h1>Ledger Monitor</h1><div class="who">${esc(S.me.name || S.me.username)}${isAdmin() ? ' · manager' : ''}</div></div>
       <button class="ghost" data-action="refresh" aria-label="Refresh">Refresh</button></header>
       ${VIEWS[S.tab]()}
       <div style="text-align:center;margin:8px 0"><button class="ghost" data-action="signout">Sign out</button></div>
@@ -211,16 +222,17 @@
     wirePreviews();
   }
   async function refresh(msg) {
-    try { await load(); if (!S.me) pendingView(); else render(); if (msg) toast(msg); }
-    catch (e) { toast(e.message, true); }
+    try { await load(); render(); if (msg) toast(msg); }
+    catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
   }
 
   // ---------------------------------------------------------------- previews (mirror the database math)
   const $f = (id) => document.getElementById(id);
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
-    const pairs = [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', qPrev]];
-    for (const [id, fn] of pairs) { const el = $f(id); if (el) { el.addEventListener('input', () => fn(el)); fn(el); } }
+    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', qPrev]]) {
+      const el = $f(id); if (el) { el.addEventListener('input', () => fn(el)); fn(el); }
+    }
   }
   const setPrev = (id, html) => { const el = $f(id); if (el) el.innerHTML = html; };
   function eqPrev(fm) {
@@ -236,7 +248,7 @@
     const price = u ? eq / u : 1;
     setPrev('depPrev', `Buys <b>${f(usd / price, 4)} units</b> at ${f(price, 4)}. Lock-up ${C.LOCK_MONTHS} months.`);
   }
-  function holder(id) { return S.all.find((h) => h.id === id); }
+  const holder = (id) => S.all.find((h) => h.id === id);
   function wdPrev(fm) {
     const h = holder(fv(fm, 'who')), units = num(fv(fm, 'units')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
     if (!h || units == null || eq == null || !u) return setPrev('wdPrev', '—');
@@ -252,26 +264,29 @@
     const price = eq / u; let tot = 0;
     const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
       const fee = (h.fee_rate * Math.max(0, price - h.hwm) / price) * h.units; tot += fee;
-      return `<div class="row"><span class="l">${esc(h.name || h.email)}<br><span class="note">HWM ${f(h.hwm, 4)}</span></span><span class="r">${f(fee, 4)} units<br><span class="note">${usdt(fee * price)}</span></span></div>`;
+      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">HWM ${f(h.hwm, 4)}</span></span><span class="r">${f(fee, 4)} units<br><span class="note">${usdt(fee * price)}</span></span></div>`;
     }).join('');
     setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total to manager</b></span><span class="r"><b>${f(tot, 4)} units</b> (${usdt(tot * price)})</span></div>`);
   }
 
   // ---------------------------------------------------------------- actions
   async function act(fn, okMsg) {
-    try { await fn(); await refresh(okMsg); } catch (e) { toast(e.message, true); }
+    try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
   }
   document.addEventListener('click', async (ev) => {
     const tab = ev.target.closest('[data-tab]');
     if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
     const b = ev.target.closest('[data-action]'); if (!b) return;
     const a = b.dataset.action, id = b.dataset.id;
-    if (a === 'authmode') { S.authMode = S.authMode === 'up' ? 'in' : 'up'; authView(); }
-    else if (a === 'signout') { await sb.auth.signOut(); S.me = null; authView(); }
+    if (a === 'signout') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
     else if (a === 'refresh') refresh();
     else if (a === 'maxunits') { $f('rq-u').value = S.me.unlocked_units; }
     else if (a === 'cancelreq') act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
-    else if (a === 'approve') act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_approved: true, p_fee_rate: null }), 'Approved');
+    else if (a === 'toggleactive') {
+      const on = b.dataset.active === 'true';
+      if (on && !confirm('Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.')) return;
+      act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
+    }
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; wdPrev(fm); } }
     else if (a === 'payreq') {
       S.tab = 'record'; render(); const fm = $f('wdForm');
@@ -283,16 +298,22 @@
     const fm = ev.target, id = fm.id, btn = fm.querySelector('button:not([type=button])');
     if (btn) btn.disabled = true;
     try {
-      if (id === 'authForm') {
-        const email = fv(fm, 'email'), password = fv(fm, 'password');
-        if (S.authMode === 'up') {
-          const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name: fv(fm, 'name') } } });
-          if (error) throw error;
-          if (!data.session) { toast('Account created. Check your email to confirm, then sign in.'); S.authMode = 'in'; authView(); return; }
-        } else {
-          const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
-        }
-        await refresh();
+      if (id === 'loginForm') {
+        const r = await rpc('login', { p_username: fv(fm, 'username'), p_password: fv(fm, 'password') });
+        if (!r.ok) { toast(r.error, true); if (btn) btn.disabled = false; return; }
+        S.token = r.token; store.set(r.token); await refresh();
+      } else if (id === 'pwForm') {
+        await call('change_my_password', { p_old: fv(fm, 'old'), p_new: fv(fm, 'new') });
+        fm.reset(); toast('Password changed'); if (btn) btn.disabled = false;
+      } else if (id === 'newUserForm') {
+        await call('admin_create_user', { p_username: fv(fm, 'username'), p_name: fv(fm, 'name'), p_password: fv(fm, 'password'), p_fee_rate: num(fv(fm, 'fee')) / 100 });
+        await refresh(`Account created for ${fv(fm, 'name')}. Send them the username and password.`);
+      } else if (fm.classList.contains('resetForm')) {
+        await call('admin_set_password', { p_profile: fm.dataset.id, p_new: fv(fm, 'password') });
+        fm.reset(); toast('Password set. They were signed out on their other devices.'); if (btn) btn.disabled = false;
+      } else if (fm.classList.contains('profForm')) {
+        await call('admin_set_profile', { p_profile: fm.dataset.id, p_name: fv(fm, 'name'), p_active: null, p_fee_rate: num(fv(fm, 'fee')) / 100 });
+        await refresh('Saved');
       } else if (id === 'reqForm') {
         const r = await call('request_withdrawal', { p_units: num(fv(fm, 'units')), p_note: null });
         await refresh(`Requested. You will be paid by ${day(r.pay_by)}.`);
@@ -311,19 +332,11 @@
         if (!confirm('Charge performance fees and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
         const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null });
         await refresh(`Quarter closed: ${r.investors_charged} charged, ${f(r.fee_units, 4)} fee units`);
-      } else if (fm.classList.contains('profForm')) {
-        await call('admin_set_profile', { p_profile: fm.dataset.id, p_name: fv(fm, 'name'), p_approved: null, p_fee_rate: num(fv(fm, 'fee')) / 100 });
-        await refresh('Saved');
       } else if (btn) btn.disabled = false;
-    } catch (e) { toast(e.message || String(e), true); if (btn) btn.disabled = false; }
+    } catch (e) { if (e.message !== 'Signed out') toast(e.message || String(e), true); if (btn && btn.isConnected) btn.disabled = false; }
   });
 
   // ---------------------------------------------------------------- start
-  async function boot() {
-    const { data } = await sb.auth.getSession();
-    if (!data.session) return authView();
-    await refresh();
-  }
-  sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') { S.me = null; authView(); } });
-  boot();
+  S.token = store.get();
+  if (S.token) refresh(); else loginView();
 })();

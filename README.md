@@ -9,41 +9,56 @@ A phone-friendly paper ledger for a small pooled account (friends & family). **N
 - 3-month lock-up per deposit, withdrawals paid within 7 business days (shown to investors; enforced by the manager).
 - The books are **append-only**: entries cannot be edited or deleted.
 
-## Roles
+## Logins
+
+Simple username + password. No emails, no sign-up page: the manager creates every account and hands out the password.
+
+- Passwords are stored as **bcrypt hashes**, never in plain text. Sign-in gives the phone a random session token (30 days); the database stores only its hash.
+- 5 wrong passwords in a row lock that username for 15 minutes.
+- **Each person can change their own password** (Home / Mine tab). **The manager can set a new password for anyone**, including themselves (People tab → Edit / reset password). Changing a password signs that person out on their other devices.
+- The manager can deactivate a person (signed out, cannot sign in; their units stay in the pool).
+- Every table is locked from the website. The page can only call database functions, and every function checks the session token, so investors cannot see each other or do manager actions even with browser tools.
 
 | | Sees |
 |---|---|
-| **Manager** (the first account to sign up) | everyone, all entries, can record equity / deposits / withdrawals / quarter close, approves new people |
-| **Investor** | only their own numbers and entries, plus pool totals (size, unit price, chart, ownership split). Not other people's names or amounts |
-| **Unapproved** | nothing |
+| **Manager** | everyone, all entries; records equity / deposits / withdrawals / quarter close; creates accounts, resets passwords |
+| **Investor** | only their own numbers and entries, plus pool totals (size, unit price, chart, ownership split), never other people's names or amounts |
 
 ## Setup
 
-0. **If the project was used before** (it was shared with the StrategyBacktester), run `supabase/reset-backtester-tables.sql` in the SQL Editor first: it lists what exists, and its two `drop table` lines (commented out until you are ready) remove the old backtester tables.
-1. **Create the tables.** Either
-   - paste `supabase/migrations/20261021000000_init.sql` into the Supabase dashboard → SQL Editor → Run, or
-   - with the CLI: `supabase init` (once), `supabase link --project-ref <ref>`, `supabase db push` (asks for the database password; never commit it).
-2. **Auth settings** (dashboard → Authentication): optionally turn off "Confirm email" so friends can sign in right after signing up.
-3. **Create the manager account first.** Open the site and *Create an account* **before sharing the link**; the first sign-up becomes the manager. Everyone after that is an investor waiting for approval.
-4. **Host the folder** as a static site (e.g. GitHub Pages: repo → Settings → Pages → deploy from `main`, root). Friends open the link and can "Add to Home Screen".
-5. `js/config.js` holds the project URL and the *publishable* key, which is safe in a browser because access is enforced by row-level security. **Never** put the database password or a `service_role`/secret key in this repo.
+1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`. It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
+2. **Your manager account**: edit the three values in `supabase/create-admin.sql` (username, name, password), run it in the SQL Editor, and **don't save the file with your real password**.
+3. **Host the folder** as a static site (e.g. GitHub Pages: repo → Settings → Pages → deploy from `main`, root). Friends open the link and can "Add to Home Screen".
+4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role`/secret key in this repo.
+
+## Test data
+
+`supabase/seed-test-data.sql` replays the 2026 backtest year through the real functions: manager ₱5,000 and John ₱3,000 on Jan 1, Dino ₱3,000 on Jul 1, weekly equity updates, quarter closes on Mar 31 / Jun 30 / Sep 30. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it after step 2 on an empty ledger. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
+
+Regenerate or try other assumptions:
+
+```
+node scripts/simulate.mjs <trades.json> --rate 58 --risk 0.01 --seed supabase/seed-test-data.sql
+```
+
+It also re-computes every number with an independent plain-JS model and reports MATCH / MISMATCH.
 
 ## Daily use (manager)
 
-1. **Record tab → 1 Update equity**: read total pool equity (USDT, including open trades) from MEXC and enter it. Do this daily or weekly.
+1. **Record → 1 Update equity**: read total pool equity (USDT, including open trades) from MEXC and enter it. Daily or weekly.
 2. **Someone puts money in**: Record → 2 Deposit. Enter the USDT credited and the pool equity *just before* it landed.
-3. **Someone takes money out**: they request it in the app (you see it under Log → Prepare payout), or you record it directly: Record → 3 Withdrawal, with the pool equity just before payout. The fee on their gains comes out in units, the rest is paid.
+3. **Someone takes money out**: they request it in the app (Log → Prepare payout), or record it directly: Record → 3 Withdrawal, with the pool equity just before payout. The fee on their gains comes out in units first; the rest is paid.
 4. **Every quarter**: Quarter tab → enter equity → check the preview → Charge fees.
 
-Always enter equity *before* a deposit/withdrawal lands. That ordering is what keeps newcomers from buying into profits they did not earn.
+Always enter equity *before* a deposit or withdrawal lands. That ordering is what stops newcomers buying into profits they did not earn.
 
-## Corrections
+## How the high-water mark works with top-ups
 
-There is deliberately no edit or delete. If you recorded something wrong, fix it in the Supabase SQL editor by temporarily dropping the `*_append_only` triggers, correcting, and re-creating them, or ask for a reversal function to be added.
+If someone adds money while already invested, their high-water mark becomes the unit-weighted average of their old mark and the price they bought at. This can only ever charge them **the same or less** than tracking every top-up separately, never more. Big funds use "equalisation" or per-lot series to be exact; for a small pool the blended mark is the usual simplification.
 
 ## Tests
 
-`npm install && npm test` runs the real migration on an in-memory Postgres (PGlite) and checks the unit/fee maths, the peso-independence of returns, the lock-up, and the access rules (investors cannot read each other or call admin functions).
+`npm install && npm test` runs the real migration on an in-memory Postgres (PGlite + pgcrypto) with every call made as the website's public role: unit/fee maths, peso independence, lock-up, logins (hashing, lockout, logout, deactivation), password changes and resets, and the access rules.
 
 ## Disclaimer
 

@@ -1,7 +1,31 @@
 -- LEDGER: unit-based pool tracker (USDT-valued). Paper records only: no money moves here.
 -- Pool value is in USDT. Unit price = pool equity (USDT) / total units. Everyone's value = units * unit price.
--- All writes go through admin-only functions; investors can only read their own data + pool aggregates.
+--
+-- Login is username + password handled here (bcrypt hashes, random session tokens); Supabase Auth is not used.
+-- The browser only holds the public "anon" key. Every table is locked: ALL access goes through the functions below,
+-- and each one needs a valid session token, so the database (not the web page) decides who can see or do what.
 
+create extension if not exists pgcrypto with schema extensions;
+
+-- ---------------------------------------------------------------- clean slate (an earlier version used Supabase Auth)
+do $$ begin
+  if to_regclass('auth.users') is not null then execute 'drop trigger if exists on_auth_user_created on auth.users'; end if;
+end $$;
+drop table if exists public.withdrawal_requests, public.holder_state, public.ledger, public.pool_equity,
+                     public.sessions, public.profiles, public.ledger_settings cascade;
+do $$ declare r record; begin
+  for r in select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = any (array[
+              '_no_change','is_admin','is_member','_require_admin','_setting','_total_units','_units_of','_price_now',
+              '_last_php_rate','_price_from','add_business_days','_unlocked_units','handle_new_user','_holder_summary',
+              'my_summary','admin_overview','pool_summary','price_history','admin_equity_log','admin_set_profile',
+              'admin_post_equity','admin_deposit','admin_withdraw','admin_close_quarter','request_withdrawal',
+              'cancel_withdrawal_request','login','logout','_me','_admin','_hash','my_ledger','admin_ledger','my_requests',
+              'admin_requests','change_my_password','admin_set_password','admin_create_user','create_first_admin'])
+  loop execute 'drop function if exists ' || r.sig || ' cascade'; end loop;
+end $$;
+
+-- ---------------------------------------------------------------- tables
 create table public.ledger_settings (
   key   text primary key,
   value text not null
@@ -9,16 +33,29 @@ create table public.ledger_settings (
 insert into public.ledger_settings(key, value) values
   ('lock_months', '3'),
   ('default_fee_rate', '0.20'),
-  ('withdrawal_business_days', '7');
+  ('withdrawal_business_days', '7'),
+  ('bcrypt_cost', '10'),
+  ('session_days', '30');
 
 create table public.profiles (
-  id         uuid primary key references auth.users(id) on delete cascade,
-  name       text not null default '',
-  email      text,
-  role       text not null default 'investor' check (role in ('admin', 'investor')),
-  approved   boolean not null default false,
-  fee_rate   numeric not null default 0.20 check (fee_rate >= 0 and fee_rate <= 1),
-  created_at timestamptz not null default now()
+  id              uuid primary key default gen_random_uuid(),
+  username        text not null unique check (username ~ '^[a-z0-9_.-]{3,30}$'),
+  name            text not null default '',
+  role            text not null default 'investor' check (role in ('admin', 'investor')),
+  active          boolean not null default true,
+  pass_hash       text not null,
+  fee_rate        numeric not null default 0.20 check (fee_rate >= 0 and fee_rate <= 1),
+  failed_attempts int not null default 0,
+  locked_until    timestamptz,
+  created_at      timestamptz not null default now()
+);
+create unique index one_admin on public.profiles(role) where role = 'admin';
+
+create table public.sessions (
+  token_hash text primary key,                -- sha256 of the token; the token itself is never stored
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
 );
 
 -- One row per equity observation. total_units/unit_price describe the pool right after the event.
@@ -78,22 +115,32 @@ create trigger equity_append_only before update or delete on public.pool_equity
   for each row execute function public._no_change();
 
 -- ---------------------------------------------------------------- helpers
-create function public.is_admin() returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-$$;
-
-create function public.is_member() returns boolean language sql stable security definer set search_path = public as $$
-  select exists (select 1 from profiles where id = auth.uid() and (role = 'admin' or approved))
-$$;
-
-create function public._require_admin() returns void language plpgsql stable security definer set search_path = public as $$
-begin
-  if not is_admin() then raise exception 'admin only'; end if;
-end $$;
-
 create function public._setting(k text) returns text language sql stable security definer set search_path = public as $$
   select value from ledger_settings where key = k
 $$;
+
+-- who is calling? (raises if the token is missing, wrong, expired, or the person is deactivated)
+create function public._me(p_token text) returns uuid language plpgsql stable security definer set search_path = public, extensions as $$
+declare v uuid;
+begin
+  select s.profile_id into v from sessions s join profiles p on p.id = s.profile_id
+   where s.token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and s.expires_at > now() and p.active;
+  if v is null then raise exception 'not signed in'; end if;
+  return v;
+end $$;
+
+create function public._admin(p_token text) returns uuid language plpgsql stable security definer set search_path = public, extensions as $$
+declare v uuid := _me(p_token);
+begin
+  if not exists (select 1 from profiles where id = v and role = 'admin') then raise exception 'admin only'; end if;
+  return v;
+end $$;
+
+create function public._hash(p_password text) returns text language plpgsql volatile security definer set search_path = public, extensions as $$
+begin
+  if p_password is null or length(p_password) < 8 then raise exception 'password must be at least 8 characters'; end if;
+  return crypt(p_password, gen_salt('bf', (_setting('bcrypt_cost'))::int));
+end $$;
 
 create function public._total_units() returns numeric language sql stable security definer set search_path = public as $$
   select coalesce(sum(units), 0) from ledger
@@ -139,19 +186,59 @@ create function public._unlocked_units(p uuid) returns numeric language sql stab
   )) from ledger where profile_id = p
 $$;
 
--- ---------------------------------------------------------------- new users
-create function public.handle_new_user() returns trigger language plpgsql security definer set search_path = public as $$
-declare v_first boolean;
+-- ---------------------------------------------------------------- accounts & login
+-- Run ONCE from the SQL editor (not callable from the website): select public.create_first_admin('raf', 'Raf', 'a-long-password');
+create function public.create_first_admin(p_username text, p_name text, p_password text) returns uuid
+language plpgsql security definer set search_path = public, extensions as $$
+declare v uuid;
 begin
-  select not exists (select 1 from profiles where role = 'admin') into v_first;  -- first sign-up becomes the admin
-  insert into profiles(id, name, email, role, approved, fee_rate)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''), new.email,
-          case when v_first then 'admin' else 'investor' end, v_first,
-          case when v_first then 0 else (_setting('default_fee_rate'))::numeric end);
-  return new;
+  if exists (select 1 from profiles where role = 'admin') then raise exception 'an admin already exists'; end if;
+  insert into profiles(username, name, role, pass_hash, fee_rate)
+  values (lower(trim(p_username)), coalesce(p_name, ''), 'admin', _hash(p_password), 0) returning id into v;
+  return v;
 end $$;
-create trigger on_auth_user_created after insert on auth.users
-  for each row execute function public.handle_new_user();
+
+-- Returns {ok:true, token,...} or {ok:false, error}. (Failures are returned, not raised, so the attempt counter is saved.)
+create function public.login(p_username text, p_password text) returns jsonb
+language plpgsql security definer set search_path = public, extensions as $$
+declare pr profiles%rowtype; v_token text; v_ok boolean; v_bad constant jsonb := jsonb_build_object('ok', false, 'error', 'Wrong username or password');
+begin
+  select * into pr from profiles where username = lower(trim(coalesce(p_username, '')));
+  if not found then
+    perform crypt(coalesce(p_password, ''), gen_salt('bf', (_setting('bcrypt_cost'))::int));   -- same work as a real check
+    return v_bad;
+  end if;
+  if pr.locked_until is not null and pr.locked_until > now() then
+    return jsonb_build_object('ok', false, 'error', 'Too many wrong attempts. Try again in 15 minutes.');
+  end if;
+  v_ok := pr.active and pr.pass_hash = crypt(coalesce(p_password, ''), pr.pass_hash);
+  if not v_ok then
+    update profiles set failed_attempts = case when failed_attempts + 1 >= 5 then 0 else failed_attempts + 1 end,
+                        locked_until = case when failed_attempts + 1 >= 5 then now() + interval '15 minutes' else locked_until end
+     where id = pr.id;
+    return v_bad;
+  end if;
+  update profiles set failed_attempts = 0, locked_until = null where id = pr.id;
+  delete from sessions where expires_at < now();
+  v_token := encode(gen_random_bytes(32), 'hex');
+  insert into sessions(token_hash, profile_id, expires_at)
+  values (encode(digest(v_token, 'sha256'), 'hex'), pr.id, now() + make_interval(days => (_setting('session_days'))::int));
+  return jsonb_build_object('ok', true, 'token', v_token, 'role', pr.role, 'name', pr.name);
+end $$;
+
+create function public.logout(p_token text) returns void language sql security definer set search_path = public, extensions as $$
+  delete from sessions where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex')
+$$;
+
+create function public.change_my_password(p_token text, p_old text, p_new text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare v uuid := _me(p_token); v_hash text;
+begin
+  select pass_hash into v_hash from profiles where id = v;
+  if v_hash <> crypt(coalesce(p_old, ''), v_hash) then raise exception 'current password is wrong'; end if;
+  update profiles set pass_hash = _hash(p_new) where id = v;
+  delete from sessions where profile_id = v and token_hash <> encode(digest(p_token, 'sha256'), 'hex');   -- sign out other devices
+end $$;
 
 -- ---------------------------------------------------------------- read side
 create function public._holder_summary(p uuid) returns jsonb language plpgsql stable security definer set search_path = public as $$
@@ -178,7 +265,7 @@ begin
   select min(lock_until) filter (where lock_until > current_date), max(lock_until)
     into v_next, v_last from ledger where profile_id = p and kind = 'deposit';
   return jsonb_build_object(
-    'id', pr.id, 'name', pr.name, 'email', pr.email, 'role', pr.role, 'approved', pr.approved, 'fee_rate', pr.fee_rate,
+    'id', pr.id, 'username', pr.username, 'name', pr.name, 'role', pr.role, 'active', pr.active, 'fee_rate', pr.fee_rate,
     'units', v_units, 'unit_price', v_price, 'value_usdt', v_val,
     'deposited_usdt', v_dep, 'withdrawn_usdt', v_wd, 'net_in_usdt', v_dep - v_wd,
     'profit_usdt', v_profit, 'return_pct', case when v_dep > 0 then v_profit / v_dep end,
@@ -189,22 +276,21 @@ begin
     'php_rate', _last_php_rate());
 end $$;
 
-create function public.my_summary() returns jsonb language plpgsql stable security definer set search_path = public as $$
+create function public.my_summary(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 begin
-  if not is_member() then return null; end if;
-  return _holder_summary(auth.uid());
+  return _holder_summary(_me(p_token));
 end $$;
 
-create function public.admin_overview() returns jsonb language plpgsql stable security definer set search_path = public as $$
+create function public.admin_overview(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 begin
-  perform _require_admin();
+  perform _admin(p_token);
   return coalesce((select jsonb_agg(_holder_summary(id) order by role, created_at) from profiles), '[]'::jsonb);
 end $$;
 
-create function public.pool_summary() returns jsonb language plpgsql stable security definer set search_path = public as $$
+create function public.pool_summary(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare v_price numeric := _price_now(); v_tu numeric := _total_units();
 begin
-  if not is_member() then return null; end if;
+  perform _me(p_token);
   return jsonb_build_object(
     'unit_price', v_price, 'total_units', v_tu, 'equity_usdt', v_price * v_tu,
     'asof', (select ts from pool_equity order by id desc limit 1),
@@ -215,59 +301,115 @@ begin
                                   where p.role = 'admin' and l.kind in ('fee_in', 'fee_out')), 0),
     'investor_units', coalesce((select sum(l.units) from ledger l join profiles p on p.id = l.profile_id
                                  where p.role = 'investor'), 0),
-    'investor_count', (select count(*) from (select profile_id from ledger l join profiles p on p.id = l.profile_id
-                                               where p.role = 'investor' group by profile_id having sum(units) > 0) x));
+    'investor_count', (select count(*) from (select l.profile_id from ledger l join profiles p on p.id = l.profile_id
+                                               where p.role = 'investor' group by l.profile_id having sum(l.units) > 0) x));
 end $$;
 
-create function public.price_history() returns jsonb language plpgsql stable security definer set search_path = public as $$
+create function public.price_history(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
 begin
-  if not is_member() then return '[]'::jsonb; end if;
+  perform _me(p_token);
   return coalesce((select jsonb_agg(jsonb_build_object('ts', ts, 'unit_price', unit_price, 'equity_usdt', equity_usdt,
                                                        'total_units', total_units, 'kind', kind) order by id) from pool_equity), '[]'::jsonb);
 end $$;
 
-create function public.admin_equity_log() returns jsonb language plpgsql stable security definer set search_path = public as $$
+create function public.my_ledger(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v uuid := _me(p_token);
 begin
-  perform _require_admin();
+  return coalesce((select jsonb_agg(jsonb_build_object('id', id, 'ts', ts, 'profile_id', profile_id, 'kind', kind, 'units', units,
+           'usdt', usdt, 'unit_price', unit_price, 'lock_until', lock_until, 'note', note) order by id desc)
+         from ledger where profile_id = v), '[]'::jsonb);
+end $$;
+
+create function public.admin_ledger(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform _admin(p_token);
+  return coalesce((select jsonb_agg(jsonb_build_object('id', l.id, 'ts', l.ts, 'profile_id', l.profile_id, 'name', p.name, 'kind', l.kind,
+           'units', l.units, 'usdt', l.usdt, 'unit_price', l.unit_price, 'php_amount', l.php_amount, 'lock_until', l.lock_until, 'note', l.note)
+           order by l.id desc) from ledger l join profiles p on p.id = l.profile_id), '[]'::jsonb);
+end $$;
+
+create function public.my_requests(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v uuid := _me(p_token);
+begin
+  return coalesce((select jsonb_agg(to_jsonb(r) order by id desc) from withdrawal_requests r where profile_id = v), '[]'::jsonb);
+end $$;
+
+create function public.admin_requests(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform _admin(p_token);
+  return coalesce((select jsonb_agg(to_jsonb(r) || jsonb_build_object('name', p.name) order by r.id desc)
+                     from withdrawal_requests r join profiles p on p.id = r.profile_id), '[]'::jsonb);
+end $$;
+
+create function public.admin_equity_log(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform _admin(p_token);
   return coalesce((select jsonb_agg(to_jsonb(e) order by id desc) from pool_equity e), '[]'::jsonb);
 end $$;
 
 -- ---------------------------------------------------------------- admin writes
-create function public.admin_set_profile(p_profile uuid, p_name text, p_approved boolean, p_fee_rate numeric)
+create function public.admin_create_user(p_token text, p_username text, p_name text, p_password text, p_fee_rate numeric default null)
+returns uuid language plpgsql security definer set search_path = public, extensions as $$
+declare v uuid;
+begin
+  perform _admin(p_token);
+  insert into profiles(username, name, role, pass_hash, fee_rate)
+  values (lower(trim(p_username)), coalesce(p_name, ''), 'investor', _hash(p_password),
+          coalesce(p_fee_rate, (_setting('default_fee_rate'))::numeric)) returning id into v;
+  return v;
+exception
+  when unique_violation then raise exception 'that username is already taken';
+  when check_violation then raise exception 'username: 3-30 characters, letters/numbers/._- only; fee between 0 and 100%%';
+end $$;
+
+create function public.admin_set_profile(p_token text, p_profile uuid, p_name text, p_active boolean, p_fee_rate numeric)
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  perform _require_admin();
-  update profiles set name = coalesce(p_name, name), approved = coalesce(p_approved, approved),
+  perform _admin(p_token);
+  if p_active is false and exists (select 1 from profiles where id = p_profile and role = 'admin') then
+    raise exception 'the manager account cannot be deactivated';
+  end if;
+  update profiles set name = coalesce(p_name, name), active = coalesce(p_active, active),
                       fee_rate = case when role = 'admin' then 0 else coalesce(p_fee_rate, fee_rate) end
    where id = p_profile;
+  if p_active is false then delete from sessions where profile_id = p_profile; end if;
+end $$;
+
+-- the manager can set a new password for anyone (including themselves); the person is signed out everywhere
+create function public.admin_set_password(p_token text, p_profile uuid, p_new text) returns void
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  perform _admin(p_token);
+  update profiles set pass_hash = _hash(p_new), failed_attempts = 0, locked_until = null where id = p_profile;
+  if not found then raise exception 'unknown person'; end if;
+  delete from sessions where profile_id = p_profile and token_hash <> encode(digest(p_token, 'sha256'), 'hex');
 end $$;
 
 -- Record the pool's current MEXC equity (USDT). Moves the unit price; changes no one's units.
-create function public.admin_post_equity(p_equity numeric, p_php_rate numeric default null, p_note text default null)
+create function public.admin_post_equity(p_token text, p_equity numeric, p_php_rate numeric default null, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare u numeric := _total_units(); v_price numeric;
+declare u numeric := _total_units(); v_price numeric; v_actor uuid := _admin(p_token);
 begin
-  perform _require_admin();
   if u = 0 then raise exception 'no units yet: record the first deposit first'; end if;
   v_price := _price_from(p_equity);
   insert into pool_equity(kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values ('update', p_equity, u, v_price, coalesce(p_php_rate, _last_php_rate()), p_note, auth.uid());
+  values ('update', p_equity, u, v_price, coalesce(p_php_rate, _last_php_rate()), p_note, v_actor);
   return jsonb_build_object('unit_price', v_price, 'total_units', u, 'equity_usdt', p_equity);
 end $$;
 
 -- p_equity_before = pool equity in USDT read from MEXC just BEFORE this deposit lands.
-create function public.admin_deposit(p_profile uuid, p_usdt numeric, p_equity_before numeric default null,
+create function public.admin_deposit(p_token text, p_profile uuid, p_usdt numeric, p_equity_before numeric default null,
     p_php_rate numeric default null, p_php_amount numeric default null, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
+  v_actor uuid := _admin(p_token);
   u numeric := _total_units(); pr profiles%rowtype; v_price numeric; v_units numeric; v_old numeric; v_hwm numeric;
   v_eq_id bigint; v_rate numeric; v_lock date; v_eq_after numeric;
 begin
-  perform _require_admin();
   if p_usdt is null or p_usdt <= 0 then raise exception 'deposit must be > 0 USDT'; end if;
   select * into pr from profiles where id = p_profile;
   if not found then raise exception 'unknown person'; end if;
-  if not (pr.approved or pr.role = 'admin') then raise exception 'approve this person first'; end if;
+  if not pr.active then raise exception 'this person is deactivated'; end if;
   v_price := case when u = 0 then 1 else _price_from(p_equity_before) end;
   v_units := round(p_usdt / v_price, 8);
   v_rate := coalesce(p_php_rate, _last_php_rate());
@@ -275,7 +417,7 @@ begin
                  else (current_date + make_interval(months => (_setting('lock_months'))::int))::date end;
   v_eq_after := case when u = 0 then 0 else p_equity_before end + p_usdt;
   insert into pool_equity(kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values ('deposit', v_eq_after, u + v_units, v_price, v_rate, p_note, auth.uid()) returning id into v_eq_id;
+  values ('deposit', v_eq_after, u + v_units, v_price, v_rate, p_note, v_actor) returning id into v_eq_id;
   v_old := _units_of(p_profile);
   select hwm into v_hwm from holder_state where profile_id = p_profile;
   insert into ledger(profile_id, kind, units, usdt, unit_price, php_rate, php_amount, lock_until, equity_id, note)
@@ -287,14 +429,14 @@ begin
 end $$;
 
 -- Redeem p_units (gross). Fee on the gain above the holder's HWM is taken in units first; the rest is paid out.
-create function public.admin_withdraw(p_profile uuid, p_units numeric, p_equity_before numeric,
+create function public.admin_withdraw(p_token text, p_profile uuid, p_units numeric, p_equity_before numeric,
     p_php_rate numeric default null, p_note text default null, p_force boolean default false, p_request_id bigint default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
+  v_actor uuid := _admin(p_token);
   u numeric := _total_units(); pr profiles%rowtype; hu numeric; v_price numeric; v_hwm numeric;
   v_fee numeric; v_net numeric; v_pay numeric; v_eq_id bigint; v_admin uuid; v_led bigint; v_rate numeric;
 begin
-  perform _require_admin();
   select * into pr from profiles where id = p_profile;
   if not found then raise exception 'unknown person'; end if;
   hu := _units_of(p_profile);
@@ -313,7 +455,7 @@ begin
   if p_equity_before - v_pay < 0 then raise exception 'payout exceeds pool equity'; end if;
   v_rate := coalesce(p_php_rate, _last_php_rate());
   insert into pool_equity(kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values ('withdrawal', p_equity_before - v_pay, u - v_net, v_price, v_rate, p_note, auth.uid()) returning id into v_eq_id;
+  values ('withdrawal', p_equity_before - v_pay, u - v_net, v_price, v_rate, p_note, v_actor) returning id into v_eq_id;
   if v_fee > 0 then
     select id into v_admin from profiles where role = 'admin' limit 1;
     insert into ledger(profile_id, kind, units, usdt, unit_price, php_rate, equity_id, note)
@@ -329,19 +471,19 @@ begin
 end $$;
 
 -- Quarter end: crystallize fees (units move from each investor to the admin) and reset HWMs.
-create function public.admin_close_quarter(p_equity numeric, p_php_rate numeric default null, p_note text default null)
+create function public.admin_close_quarter(p_token text, p_equity numeric, p_php_rate numeric default null, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
+  v_actor uuid := _admin(p_token);
   u numeric := _total_units(); v_price numeric; v_eq_id bigint; v_admin uuid; r record;
   v_fee numeric; v_total numeric := 0; v_n int := 0; v_rate numeric;
 begin
-  perform _require_admin();
   if u = 0 then raise exception 'no units yet'; end if;
   v_price := _price_from(p_equity);
   v_rate := coalesce(p_php_rate, _last_php_rate());
   select id into v_admin from profiles where role = 'admin' limit 1;
   insert into pool_equity(kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values ('close', p_equity, u, v_price, v_rate, p_note, auth.uid()) returning id into v_eq_id;
+  values ('close', p_equity, u, v_price, v_rate, p_note, v_actor) returning id into v_eq_id;
   for r in select p.id, p.fee_rate, hs.hwm, _units_of(p.id) as hu
              from profiles p join holder_state hs on hs.profile_id = p.id
             where p.role = 'investor' and _units_of(p.id) > 0 loop
@@ -358,54 +500,55 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- investor writes
-create function public.request_withdrawal(p_units numeric, p_note text default null)
+create function public.request_withdrawal(p_token text, p_units numeric, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
-declare pr profiles%rowtype; v_by date;
+declare v uuid := _me(p_token); pr profiles%rowtype; v_by date;
 begin
-  select * into pr from profiles where id = auth.uid();
-  if not found or not (pr.approved or pr.role = 'admin') then raise exception 'not approved'; end if;
+  select * into pr from profiles where id = v;
   if p_units is null or p_units <= 0 then raise exception 'units must be > 0'; end if;
-  if p_units > _units_of(auth.uid()) + 0.00000001 then raise exception 'you only hold % units', _units_of(auth.uid()); end if;
-  if pr.role = 'investor' and p_units > _unlocked_units(auth.uid()) + 0.00000001 then
-    raise exception 'locked: % units are past lock-up. Next unlock: %', _unlocked_units(auth.uid()),
-      (select min(lock_until) filter (where lock_until > current_date) from ledger where profile_id = auth.uid() and kind = 'deposit');
+  if p_units > _units_of(v) + 0.00000001 then raise exception 'you only hold % units', _units_of(v); end if;
+  if pr.role = 'investor' and p_units > _unlocked_units(v) + 0.00000001 then
+    raise exception 'locked: % units are past lock-up. Next unlock: %', _unlocked_units(v),
+      (select min(lock_until) filter (where lock_until > current_date) from ledger where profile_id = v and kind = 'deposit');
   end if;
   v_by := add_business_days(current_date, (_setting('withdrawal_business_days'))::int);
-  insert into withdrawal_requests(profile_id, units, note, pay_by) values (auth.uid(), p_units, p_note, v_by);
+  insert into withdrawal_requests(profile_id, units, note, pay_by) values (v, p_units, p_note, v_by);
   return jsonb_build_object('pay_by', v_by);
 end $$;
 
-create function public.cancel_withdrawal_request(p_id bigint) returns void language plpgsql security definer set search_path = public as $$
+create function public.cancel_withdrawal_request(p_token text, p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare v uuid := _me(p_token);
 begin
   update withdrawal_requests set status = 'cancelled'
-   where id = p_id and status = 'pending' and (profile_id = auth.uid() or is_admin());
+   where id = p_id and status = 'pending'
+     and (profile_id = v or exists (select 1 from profiles where id = v and role = 'admin'));
 end $$;
 
 -- ---------------------------------------------------------------- access control
-alter table public.ledger_settings        enable row level security;
+-- No table is readable or writable from the website. Only the functions listed below are, and each checks the session token.
+alter table public.ledger_settings     enable row level security;
 alter table public.profiles            enable row level security;
+alter table public.sessions            enable row level security;
 alter table public.pool_equity         enable row level security;
 alter table public.ledger              enable row level security;
 alter table public.holder_state        enable row level security;
 alter table public.withdrawal_requests enable row level security;
 
-create policy profiles_read  on public.profiles            for select to authenticated using (id = auth.uid() or is_admin());
-create policy ledger_read    on public.ledger              for select to authenticated using (profile_id = auth.uid() or is_admin());
-create policy requests_read  on public.withdrawal_requests for select to authenticated using (profile_id = auth.uid() or is_admin());
--- pool_equity, holder_state, ledger_settings: no direct access; only through the functions below.
-
 revoke all on all tables    in schema public from public, anon, authenticated;
 revoke all on all sequences in schema public from public, anon, authenticated;
 revoke all on all functions in schema public from public, anon, authenticated;
-grant select on public.profiles, public.ledger, public.withdrawal_requests to authenticated;
 grant execute on function
-  public.is_admin(), public.is_member(),
-  public.my_summary(), public.pool_summary(), public.price_history(),
-  public.request_withdrawal(numeric, text), public.cancel_withdrawal_request(bigint),
-  public.admin_overview(), public.admin_equity_log(),
-  public.admin_set_profile(uuid, text, boolean, numeric),
-  public.admin_post_equity(numeric, numeric, text),
-  public.admin_deposit(uuid, numeric, numeric, numeric, numeric, text),
-  public.admin_withdraw(uuid, numeric, numeric, numeric, text, boolean, bigint),
-  public.admin_close_quarter(numeric, numeric, text)
-to authenticated;
+  public.login(text, text), public.logout(text), public.change_my_password(text, text, text),
+  public.my_summary(text), public.pool_summary(text), public.price_history(text),
+  public.my_ledger(text), public.my_requests(text),
+  public.request_withdrawal(text, numeric, text), public.cancel_withdrawal_request(text, bigint),
+  public.admin_overview(text), public.admin_ledger(text), public.admin_requests(text), public.admin_equity_log(text),
+  public.admin_create_user(text, text, text, text, numeric),
+  public.admin_set_profile(text, uuid, text, boolean, numeric),
+  public.admin_set_password(text, uuid, text),
+  public.admin_post_equity(text, numeric, numeric, text),
+  public.admin_deposit(text, uuid, numeric, numeric, numeric, numeric, text),
+  public.admin_withdraw(text, uuid, numeric, numeric, numeric, text, boolean, bigint),
+  public.admin_close_quarter(text, numeric, numeric, text)
+to anon, authenticated;

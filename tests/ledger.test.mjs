@@ -1,167 +1,195 @@
-// Runs the real migration on an in-memory Postgres (PGlite) with a stub of Supabase's auth schema.
+// Runs the real migration on an in-memory Postgres (PGlite + pgcrypto). Every call goes in as the public "anon" role,
+// exactly like the website does, so the permission checks here are the real ones.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
-const MIGRATION = new URL('../supabase/migrations/20261021000000_init.sql', import.meta.url);
-const ADMIN = '00000000-0000-0000-0000-00000000000a';
-const JOHN = '00000000-0000-0000-0000-0000000000b1';
-const DINO = '00000000-0000-0000-0000-0000000000b2';
-const MARIA = '00000000-0000-0000-0000-0000000000b3';
-const STRANGER = '00000000-0000-0000-0000-0000000000f0';
-
+const MIGRATION = new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url);
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {
-  const db = new PGlite();
-  await db.exec(`
-    create role anon; create role authenticated;
-    create schema auth;
-    create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb);
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
-    grant usage on schema auth to anon, authenticated; grant usage on schema public to anon, authenticated;
-  `);
+  const db = new PGlite({ extensions: { pgcrypto } });
+  await db.exec(`create role anon; create role authenticated; create schema extensions;
+    grant usage on schema public to anon, authenticated;`);
   await db.exec(readFileSync(MIGRATION, 'utf8'));
+  await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);   // fast hashing for tests
+  await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   return db;
 }
-const as = async (db, uid) => { await db.exec(`reset role; select set_config('test.uid', '${uid}', false);`); };
-const asAuth = async (db, uid) => { await db.exec(`select set_config('test.uid', '${uid}', false); set role authenticated;`); };
-const signup = (db, id, name) =>
-  db.query(`insert into auth.users(id, email, raw_user_meta_data) values ($1, $2, $3)`, [id, name + '@x.com', JSON.stringify({ name })]);
-const rpc = async (db, fn, ...args) => {
-  const ph = args.map((_, i) => `$${i + 1}`).join(',');
-  return (await db.query(`select public.${fn}(${ph}) as r`, args)).rows[0].r;
+const call = async (db, fn, ...args) => {
+  await db.exec('set role anon');
+  try { return (await db.query(`select public.${fn}(${args.map((_, i) => `$${i + 1}`).join(',')}) as r`, args)).rows[0].r; }
+  finally { await db.exec('reset role'); }
 };
-const summary = async (db, id) => { await as(db, ADMIN); return (await rpc(db, 'admin_overview')).find((h) => h.id === id); };
+const login = (db, u, p) => call(db, 'login', u, p);
+const token = async (db, u, p) => { const r = await login(db, u, p); assert.equal(r.ok, true, JSON.stringify(r)); return r.token; };
+async function world() {   // admin + John + Dino
+  const db = await setup();
+  const A = await token(db, 'raf', 'admin-password-1');
+  const ids = {};
+  for (const [u, n] of [['john', 'John'], ['dino', 'Dino']]) ids[u] = await call(db, 'admin_create_user', A, u, n, u + '-password', 0.2);
+  ids.raf = (await db.query(`select id from public.profiles where username = 'raf'`)).rows[0].id;
+  return { db, A, ids };
+}
+const holder = async (db, A, id) => (await call(db, 'admin_overview', A)).find((h) => h.id === id);
 
 test('full lifecycle in USDT: deposits, +9% quarter, fees, drawdown, recovery, new joiner, withdrawal', async () => {
-  const db = await setup();
-  await signup(db, ADMIN, 'Raf'); await signup(db, JOHN, 'John'); await signup(db, DINO, 'Dino');
-  await as(db, ADMIN);
-  assert.equal((await db.query(`select role, approved, fee_rate from profiles where id = $1`, [ADMIN])).rows[0].role, 'admin');
-  await rpc(db, 'admin_set_profile', JOHN, 'John', true, 0.2);
-  await rpc(db, 'admin_set_profile', DINO, 'Dino', true, 0.2);
-
-  // 50 / 30 / 20 USDT, like the ₱5,000 / 3,000 / 2,000 example
-  await rpc(db, 'admin_deposit', ADMIN, 50, null, 56, 2800, 'own capital');
-  await rpc(db, 'admin_deposit', JOHN, 30, 50, 56, 1680, null);
-  await rpc(db, 'admin_deposit', DINO, 20, 80, 56, 1120, null);
-  let john = await summary(db, JOHN);
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50, null, 56, 2800, 'own capital');
+  await call(db, 'admin_deposit', A, ids.john, 30, 50, 56, 1680, null);
+  await call(db, 'admin_deposit', A, ids.dino, 20, 80, 56, 1120, null);
+  let john = await holder(db, A, ids.john);
   near(john.units, 30); near(john.unit_price, 1); near(john.share_pct, 0.3);
 
-  // +9% quarter. Peso rate is irrelevant: only USDT equity moves the price.
-  await rpc(db, 'admin_post_equity', 109, 61, 'q1');
-  john = await summary(db, JOHN);
+  await call(db, 'admin_post_equity', A, 109, 61, 'q1');   // +9%; the peso rate is irrelevant to the price
+  john = await holder(db, A, ids.john);
   near(john.unit_price, 1.09); near(john.value_usdt, 32.7); near(john.profit_usdt, 2.7);
   near(john.accrued_fee_usdt, 0.54); near(john.value_after_fee_usdt, 32.16);
 
-  // quarter close: fee paid in units, nobody's cash moves, total units unchanged
-  const close = await rpc(db, 'admin_close_quarter', 109, null, 'Q1');
+  const close = await call(db, 'admin_close_quarter', A, 109, null, 'Q1');
   near(close.investors_charged, 2);
-  john = await summary(db, JOHN);
-  const dino = await summary(db, DINO);
-  near(john.units, 30 - (0.2 * 0.09 / 1.09) * 30, 1e-6);
-  near(john.value_usdt, 32.16, 1e-4);
-  near(dino.value_usdt, 21.44, 1e-4);
-  const admin = await summary(db, ADMIN);
-  near(admin.fee_units_earned, (0.2 * 0.09 / 1.09) * 50, 1e-6);   // 30 + 20 units
-  near((await rpc(db, 'pool_summary')).total_units, 100);
-  near(john.hwm, 1.09);
+  john = await holder(db, A, ids.john);
+  const dino = await holder(db, A, ids.dino), admin = await holder(db, A, ids.raf);
+  near(john.units, 30 - (0.2 * 0.09 / 1.09) * 30, 1e-6); near(john.value_usdt, 32.16, 1e-4); near(dino.value_usdt, 21.44, 1e-4);
+  near(admin.fee_units_earned, (0.2 * 0.09 / 1.09) * 50, 1e-6);
+  near((await call(db, 'pool_summary', A)).total_units, 100); near(john.hwm, 1.09);
 
-  // drawdown: price falls below the HWM, closing again charges nothing
-  await rpc(db, 'admin_post_equity', 102.46);
-  const again = await rpc(db, 'admin_close_quarter', 102.46);
-  near(again.investors_charged, 0);
+  await call(db, 'admin_post_equity', A, 102.46);   // drawdown: below HWM, nothing to charge
+  near((await call(db, 'admin_close_quarter', A, 102.46)).investors_charged, 0);
 
-  // recovery to 1.12: fee only on the part above the old HWM (1.09 -> 1.12)
-  const johnUnitsBefore = (await summary(db, JOHN)).units;
-  await rpc(db, 'admin_post_equity', 112);
-  await rpc(db, 'admin_close_quarter', 112);
-  near((await summary(db, JOHN)).units, johnUnitsBefore - (0.2 * 0.03 / 1.12) * johnUnitsBefore, 1e-6);
+  const before = (await holder(db, A, ids.john)).units;   // recovery to 1.12: fee only on the part above the old HWM
+  await call(db, 'admin_post_equity', A, 112); await call(db, 'admin_close_quarter', A, 112);
+  near((await holder(db, A, ids.john)).units, before - (0.2 * 0.03 / 1.12) * before, 1e-6);
+  const all = await call(db, 'admin_overview', A);
+  near(all.reduce((s, h) => s + Number(h.value_usdt), 0), Number((await call(db, 'pool_summary', A)).equity_usdt), 1e-4);
 
-  // everything adds up: sum of everyone's value == pool equity
-  const all = await rpc(db, 'admin_overview');
-  near(all.reduce((s, h) => s + Number(h.value_usdt), 0), Number((await rpc(db, 'pool_summary')).equity_usdt), 1e-4);
+  const maria = await call(db, 'admin_create_user', A, 'maria', 'Maria', 'maria-password', 0.2);   // new joiner changes nobody else's units
+  const jb = (await holder(db, A, ids.john)).units;
+  const dep = await call(db, 'admin_deposit', A, maria, 4, 112);
+  near(dep.units, 4 / 1.12); near((await holder(db, A, ids.john)).units, jb, 1e-9);
 
-  // new joiner at 1.12 does not change anyone else's units
-  await signup(db, MARIA, 'Maria'); await as(db, ADMIN);
-  await rpc(db, 'admin_set_profile', MARIA, 'Maria', true, 0.2);
-  const johnBefore = (await summary(db, JOHN)).units;
-  const dep = await rpc(db, 'admin_deposit', MARIA, 4, 112, null, null, null);
-  near(dep.units, 4 / 1.12); near((await summary(db, JOHN)).units, johnBefore, 1e-9);
-
-  // lock-up: John cannot withdraw inside 3 months; admin can force it. Fee at withdrawal is on the gain above his HWM.
-  const jU = (await summary(db, JOHN)).units;
-  await assert.rejects(() => rpc(db, 'admin_withdraw', JOHN, jU, 116), /locked/);
-  await db.exec(`select set_config('test.uid', '${ADMIN}', false)`);
-  await rpc(db, 'admin_post_equity', 120);   // price 120/103.571... moves above John's HWM again
-  const price = (await rpc(db, 'pool_summary')).unit_price;
-  const hwm = (await summary(db, JOHN)).hwm;
-  const w = await rpc(db, 'admin_withdraw', JOHN, jU, 120, null, 'cash out', true, null);
-  const expFee = (0.2 * Math.max(0, price - hwm) / price) * jU;
-  near(w.fee_units, expFee, 1e-6); near(w.net_units, jU - expFee, 1e-6); near(w.pay_usdt, (jU - expFee) * price, 1e-4);
-  const after = await summary(db, JOHN);
-  near(after.units, 0, 1e-6);
-  // pool still adds up after the payout; remaining holders keep the same unit price
-  near((await rpc(db, 'pool_summary')).unit_price, price, 1e-8);
-  const ps = await rpc(db, 'pool_summary');
-  const rest = await rpc(db, 'admin_overview');
-  near(rest.reduce((s, h) => s + Number(h.value_usdt), 0), Number(ps.equity_usdt), 1e-4);
+  const jT = await token(db, 'john', 'john-password');   // lock-up, then a forced withdrawal pays the fee on the gain above HWM
+  await assert.rejects(() => call(db, 'admin_withdraw', A, ids.john, jb, 116), /locked/);
+  await assert.rejects(() => call(db, 'request_withdrawal', jT, 1), /locked/);
+  await call(db, 'admin_post_equity', A, 120);
+  const price = (await call(db, 'pool_summary', A)).unit_price, hwm = (await holder(db, A, ids.john)).hwm;
+  const w = await call(db, 'admin_withdraw', A, ids.john, jb, 120, null, 'cash out', true, null);
+  const fee = (0.2 * Math.max(0, price - hwm) / price) * jb;
+  near(w.fee_units, fee, 1e-6); near(w.net_units, jb - fee, 1e-6); near(w.pay_usdt, (jb - fee) * price, 1e-4);
+  near((await holder(db, A, ids.john)).units, 0, 1e-6); near((await call(db, 'pool_summary', A)).unit_price, price, 1e-8);
+  const rest = await call(db, 'admin_overview', A);
+  near(rest.reduce((s, h) => s + Number(h.value_usdt), 0), Number((await call(db, 'pool_summary', A)).equity_usdt), 1e-4);
 });
 
-test('same percentage return in every currency: peso rate never changes the numbers', async () => {
-  const db = await setup();
-  await signup(db, ADMIN, 'Raf'); await signup(db, JOHN, 'John'); await as(db, ADMIN);
-  await rpc(db, 'admin_set_profile', JOHN, 'John', true, 0.2);
-  await rpc(db, 'admin_deposit', ADMIN, 100, null, 56);
-  await rpc(db, 'admin_deposit', JOHN, 12.5, 100, 56);      // ~ ₱700 at 56
-  await rpc(db, 'admin_post_equity', 100 * 1.05 + 12.5 * 1.05, 70);   // pool +5%, peso weakened a lot
-  const john = await summary(db, JOHN);
-  near(john.return_pct, 0.05, 1e-9);
-  near(john.value_usdt, 12.5 * 1.05, 1e-9);
+test('same percentage return whatever the peso rate does', async () => {
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 100, null, 56); await call(db, 'admin_deposit', A, ids.john, 12.5, 100, 56);   // ~ ₱700
+  await call(db, 'admin_post_equity', A, 112.5 * 1.05, 70);   // pool +5% while the peso moved 25%
+  const john = await holder(db, A, ids.john);
+  near(john.return_pct, 0.05, 1e-9); near(john.value_usdt, 12.5 * 1.05, 1e-9);
 });
 
-test('security: investors see only their own rows; pool aggregates only; strangers see nothing', async () => {
-  const db = await setup();
-  await signup(db, ADMIN, 'Raf'); await signup(db, JOHN, 'John'); await signup(db, DINO, 'Dino'); await signup(db, STRANGER, 'Stranger');
-  await as(db, ADMIN);
-  await rpc(db, 'admin_set_profile', JOHN, 'John', true, 0.2);
-  await rpc(db, 'admin_set_profile', DINO, 'Dino', true, 0.2);
-  await rpc(db, 'admin_deposit', ADMIN, 50); await rpc(db, 'admin_deposit', JOHN, 30, 50); await rpc(db, 'admin_deposit', DINO, 20, 80);
+test('security: everything needs a token; investors see only their own data; hashes never leave', async () => {
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50); await call(db, 'admin_deposit', A, ids.john, 30, 50); await call(db, 'admin_deposit', A, ids.dino, 20, 80);
+  const J = await token(db, 'john', 'john-password');
 
-  await asAuth(db, JOHN);
-  const rows = (await db.query(`select profile_id from public.ledger`)).rows;
-  assert.ok(rows.length > 0 && rows.every((r) => r.profile_id === JOHN), 'John sees only his own ledger rows');
-  assert.equal((await db.query(`select id from public.profiles`)).rows.length, 1, 'John sees only his own profile');
-  await assert.rejects(() => db.query(`select * from public.pool_equity`), /permission denied/);
-  await assert.rejects(() => db.query(`insert into public.ledger(profile_id, kind, units, usdt, unit_price) values ($1,'deposit',1,1,1)`, [JOHN]), /permission denied/);
-  await assert.rejects(() => rpc(db, 'admin_overview'), /admin only/);
-  await assert.rejects(() => rpc(db, 'admin_deposit', JOHN, 1000, 100), /admin only/);
-  await assert.rejects(() => rpc(db, 'admin_post_equity', 1), /admin only/);
-  const pool = await rpc(db, 'pool_summary');
-  near(pool.investor_count, 2); assert.equal(pool.email, undefined);
-  assert.equal((await rpc(db, 'price_history')).length >= 3, true);
+  for (const t of ['profiles', 'ledger', 'sessions', 'pool_equity', 'ledger_settings', 'holder_state', 'withdrawal_requests']) {
+    await db.exec('set role anon');
+    try { await assert.rejects(() => db.query(`select * from public.${t}`), /permission denied/, t); } finally { await db.exec('reset role'); }
+  }
+  await db.exec('set role anon');
+  try {
+    await assert.rejects(() => db.query(`insert into public.ledger(profile_id, kind, units, usdt, unit_price) values ($1,'deposit',1,1,1)`, [ids.john]), /permission denied/);
+    await assert.rejects(() => db.query(`select public.create_first_admin('evil','Evil','evil-password-1')`), /permission denied/);
+    await assert.rejects(() => db.query(`select public._me('x')`), /permission denied/);
+  } finally { await db.exec('reset role'); }
 
-  await asAuth(db, STRANGER);   // signed up but not approved
-  assert.equal(await rpc(db, 'my_summary'), null);
-  assert.equal(await rpc(db, 'pool_summary'), null);
-  assert.deepEqual(await rpc(db, 'price_history'), []);
+  for (const fn of ['my_summary', 'pool_summary', 'price_history', 'my_ledger', 'my_requests'])
+    await assert.rejects(() => call(db, fn, 'not-a-token'), /not signed in/, fn);
+  await assert.rejects(() => call(db, 'my_summary', null), /not signed in/);
+  await assert.rejects(() => call(db, 'admin_overview', J), /admin only/);
+  await assert.rejects(() => call(db, 'admin_ledger', J), /admin only/);
+  await assert.rejects(() => call(db, 'admin_deposit', J, ids.john, 1000, 100), /admin only/);
+  await assert.rejects(() => call(db, 'admin_post_equity', J, 1), /admin only/);
+  await assert.rejects(() => call(db, 'admin_create_user', J, 'x1234', 'X', 'password-123', 0), /admin only/);
+  await assert.rejects(() => call(db, 'admin_set_password', J, ids.raf, 'hacked-password'), /admin only/);
 
-  await as(db, ADMIN);          // the books cannot be edited
+  const mine = await call(db, 'my_ledger', J);
+  assert.ok(mine.length > 0 && mine.every((r) => r.profile_id === ids.john), 'John sees only his own entries');
+  const pool = await call(db, 'pool_summary', J); near(pool.investor_count, 2);
+  assert.ok(!/john|dino|raf/i.test(JSON.stringify(pool)), 'pool view has no names');
+  const dump = JSON.stringify([await call(db, 'admin_overview', A), await call(db, 'admin_ledger', A), await call(db, 'my_summary', J)]);
+  assert.ok(!/pass_hash|\$2[aby]\$/.test(dump), 'no password hashes in any response');
+  await assert.rejects(() => db.query(`select public.create_first_admin('raf2','X','another-password')`), /already exists/);
   await assert.rejects(() => db.query(`update public.ledger set units = 999`), /append-only/);
   await assert.rejects(() => db.query(`delete from public.pool_equity`), /append-only/);
 });
 
+test('login: bcrypt hashes, lockout after 5 misses, logout, deactivate, input rules', async () => {
+  const { db, A, ids } = await world();
+  const hash = (await db.query(`select pass_hash from public.profiles where username = 'john'`)).rows[0].pass_hash;
+  assert.ok(hash.startsWith('$2') && !hash.includes('john-password'), 'stored as a bcrypt hash');
+
+  assert.equal((await login(db, 'nobody', 'whatever-123')).ok, false);
+  assert.equal((await login(db, 'JOHN', 'john-password')).ok, true, 'username is case-insensitive');
+  assert.equal((await login(db, 'john', 'wrong-password')).error, 'Wrong username or password');
+  for (let i = 0; i < 4; i++) await login(db, 'john', 'nope-nope-' + i);   // 5th wrong attempt in a row -> locked
+  const locked = await login(db, 'john', 'john-password');
+  assert.equal(locked.ok, false); assert.match(locked.error, /Too many/);
+  await db.exec(`update public.profiles set locked_until = now() - interval '1 minute' where username = 'john'`);
+  assert.equal((await login(db, 'john', 'john-password')).ok, true, 'works again once the lock has passed');
+
+  const T = await token(db, 'john', 'john-password');
+  await call(db, 'my_summary', T); await call(db, 'logout', T);
+  await assert.rejects(() => call(db, 'my_summary', T), /not signed in/);
+
+  await assert.rejects(() => call(db, 'admin_create_user', A, 'short1', 'S', 'short', 0.2), /at least 8/);
+  await assert.rejects(() => call(db, 'admin_create_user', A, 'john', 'Dup', 'duplicate-pass', 0.2), /already taken/);
+  await assert.rejects(() => call(db, 'admin_create_user', A, 'Bad Name!', 'X', 'password-123', 0.2), /username/);
+
+  const T2 = await token(db, 'dino', 'dino-password');   // deactivated people are signed out and cannot sign in
+  await call(db, 'admin_set_profile', A, ids.dino, null, false, null);
+  await assert.rejects(() => call(db, 'my_summary', T2), /not signed in/);
+  assert.equal((await login(db, 'dino', 'dino-password')).ok, false);
+  await call(db, 'admin_set_profile', A, ids.dino, null, true, null);
+  assert.equal((await login(db, 'dino', 'dino-password')).ok, true);
+  await assert.rejects(() => call(db, 'admin_set_profile', A, ids.raf, null, false, null), /cannot be deactivated/);
+});
+
+test('passwords: each person can change their own; the manager can reset anyone', async () => {
+  const { db, A, ids } = await world();
+  const J1 = await token(db, 'john', 'john-password'), J2 = await token(db, 'john', 'john-password');   // two devices
+  await assert.rejects(() => call(db, 'change_my_password', J1, 'wrong-old-pass', 'brand-new-pass'), /current password is wrong/);
+  await assert.rejects(() => call(db, 'change_my_password', J1, 'john-password', 'short'), /at least 8/);
+  await call(db, 'change_my_password', J1, 'john-password', 'brand-new-pass');
+  assert.equal((await login(db, 'john', 'john-password')).ok, false, 'old password stops working');
+  assert.equal((await login(db, 'john', 'brand-new-pass')).ok, true);
+  await call(db, 'my_summary', J1);                                            // this device stays signed in
+  await assert.rejects(() => call(db, 'my_summary', J2), /not signed in/);   // other devices are signed out
+
+  const D = await token(db, 'dino', 'dino-password');   // manager resets Dino's forgotten password
+  await call(db, 'admin_set_password', A, ids.dino, 'reset-by-manager');
+  await assert.rejects(() => call(db, 'my_summary', D), /not signed in/);
+  assert.equal((await login(db, 'dino', 'dino-password')).ok, false);
+  assert.equal((await login(db, 'dino', 'reset-by-manager')).ok, true);
+
+  await call(db, 'admin_set_password', A, ids.raf, 'new-manager-pass');      // manager changes their own and stays signed in
+  await call(db, 'admin_overview', A);
+  assert.equal((await login(db, 'raf', 'admin-password-1')).ok, false);
+  assert.equal((await login(db, 'raf', 'new-manager-pass')).ok, true);
+  await db.exec(`update public.profiles set locked_until = now() + interval '10 minutes', failed_attempts = 3 where username = 'john'`);
+  await call(db, 'admin_set_password', A, ids.john, 'unlocked-by-admin');     // a reset also clears a lockout
+  assert.equal((await login(db, 'john', 'unlocked-by-admin')).ok, true);
+});
+
 test('withdrawal requests: locked units are refused, pay-by date is 7 business days out', async () => {
-  const db = await setup();
-  await signup(db, ADMIN, 'Raf'); await signup(db, JOHN, 'John'); await as(db, ADMIN);
-  await rpc(db, 'admin_set_profile', JOHN, 'John', true, 0.2);
-  await rpc(db, 'admin_deposit', ADMIN, 50); await rpc(db, 'admin_deposit', JOHN, 30, 50);
-  await asAuth(db, JOHN);
-  await assert.rejects(() => rpc(db, 'request_withdrawal', 10), /locked/);
-  await as(db, ADMIN);
-  await db.exec(`reset role`);
-  const d = (await db.query(`select public.add_business_days('2026-10-23'::date, 7) as d`)).rows[0].d;   // Fri -> Tue two weeks later
+  const { db, A, ids } = await world();
+  await call(db, 'admin_deposit', A, ids.raf, 50); await call(db, 'admin_deposit', A, ids.john, 30, 50);
+  const J = await token(db, 'john', 'john-password');
+  await assert.rejects(() => call(db, 'request_withdrawal', J, 10), /locked/);
+  const d = (await db.query(`select public.add_business_days('2026-10-23'::date, 7) as d`)).rows[0].d;   // Fri -> Tue, two weeks later
   assert.equal(new Date(d).toISOString().slice(0, 10), '2026-11-03');
 });
