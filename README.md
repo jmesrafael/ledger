@@ -2,7 +2,7 @@
 
 A phone-friendly paper ledger for a small pooled account (friends & family). **No money moves through this app.** The real money sits in one merged exchange account; this app records who owns what and shows everyone their own number.
 
-- Pool is valued in **USDT**. The peso rate never changes anyone's return; it is only used for the "≈ ₱" estimate.
+- Pool is valued in **USDT**. Everything is **shown in pesos by default** using the live USD→PHP rate (free `open.er-api.com`, falling back to `frankfurter.dev`, cached 1 hour; USDT is treated as 1 USD). The ₱ / $ button in the header flips the view. The rate never changes anyone's USDT return. Deposits are typed in **pesos** (e.g. 5000); the app converts to USDT at the rate shown (editable) and to units for you.
 - Ownership is tracked in **units**. Unit price = pool equity (USDT) ÷ total units. A person's value = their units × unit price.
 - A deposit buys units at the current price, so it never changes anyone else's value. A withdrawal redeems units at the current price.
 - **Performance fee** (default 20%, per person) on gains above each person's **high-water mark**, charged at quarter end. The fee is paid as *units* moving from the investor to the manager, so it stays in the pool and compounds. The manager's own capital pays no fee.
@@ -15,20 +15,20 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
 
 - Passwords are stored as **bcrypt hashes**, never in plain text. Sign-in gives the phone a random session token (30 days); the database stores only its hash.
 - 5 wrong passwords in a row lock that username for 15 minutes.
-- **Each person can change their own password** (Home / Mine tab). **The manager can set a new password for anyone**, including themselves (People tab → Edit / reset password). Changing a password signs that person out on their other devices.
+- **Each person can change their own password** (Home / Mine tab). **The manager can set a new password for anyone**, including themselves (Users tab → Edit / reset password). Changing a password signs that person out on their other devices.
 - The manager can deactivate a person (signed out, cannot sign in; their units stay in the pool).
-- **View as** (People tab): the manager opens the app exactly as that person sees it (balance, growth chart, transactions). It is read-only: no withdrawal requests or password changes in their name, and it ends after 2 hours or with "Back to manager".
+- **View as** (Users tab): the manager opens the app exactly as that person sees it (balance, growth chart, transactions). It is read-only: no withdrawal requests or password changes in their name, and it ends after 2 hours or with "Back to manager".
 - Every person's Home shows a **growth chart** of what their share is worth over time (1W / 1M / 3M / YTD / ALL; drag across it to see any day), with a dashed line for what they have put in, plus their recent transactions.
 - Every table is locked from the website. The page can only call database functions, and every function checks the session token, so investors cannot see each other or do manager actions even with browser tools.
 
 | | Sees |
 |---|---|
 | **Manager** | everyone, all entries; records equity / deposits / withdrawals / quarter close; creates accounts, resets passwords |
-| **Investor** | only their own numbers and entries, plus pool totals (size, unit price, chart, ownership split), never other people's names or amounts |
+| **Investor** | only their own money (balance chart, profit share, withdrawals, entries) and an About page. **Never** the pool's size, unit price history, ownership split or anyone else (enforced in the database by `20261023000000_hide_pool_from_investors.sql`) |
 
 ## Setup
 
-1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`. It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
+1. **Database**: Supabase dashboard → SQL Editor → paste and run `supabase/migrations/20261022000000_ledger.sql`, then `20261023000000_hide_pool_from_investors.sql` (functions only, safe on live data; run it on its own to update an existing install). It cleans up any earlier version of this app first, so it is safe to run on the existing project. (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
 2. **Your manager account**: edit the three values in `supabase/create-admin.sql` (username, name, password), run it in the SQL Editor, and **don't save the file with your real password**.
 3. **Host the folder** as a static site. **Vercel**: import the repo, preset "Other", root `./`, no build command, no environment variables (`vercel.json` and `.vercelignore` already keep the SQL/test/script folders off the public site). GitHub Pages also works. Friends open the link and can "Add to Home Screen".
 4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role`/secret key in this repo.
@@ -45,10 +45,12 @@ node scripts/simulate.mjs <trades.json> --rate 58 --risk 0.01 --seed supabase/se
 
 It also re-computes every number with an independent plain-JS model and reports MATCH / MISMATCH.
 
+The manager's first tab is a **Dashboard** (fund value, investor money, withdrawal requests, performance, ownership). **Users** lists everyone; "+ Add user" opens the new-user form.
+
 ## Daily use (manager)
 
 1. **Record → 1 Update equity**: read total pool equity (USDT, including open trades) from MEXC and enter it. Daily or weekly.
-2. **Someone puts money in**: Record → 2 Deposit. Enter the USDT credited and the pool equity *just before* it landed.
+2. **Someone puts money in**: Record → Deposit. Type the pesos they gave you (e.g. 5000), check the rate, and enter the pool equity *just before* it landed. (Switch the amount to USDT if you are crediting USDT directly.)
 3. **Someone takes money out**: they request it in the app (Log → Prepare payout), or record it directly: Record → 3 Withdrawal, with the pool equity just before payout. The fee on their gains comes out in units first; the rest is paid.
 4. **Every quarter**: Quarter tab → enter equity → check the preview → Charge fees.
 

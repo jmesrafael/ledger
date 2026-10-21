@@ -7,13 +7,15 @@ import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const MIGRATION = new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url);
-const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
+const HIDE_POOL = new URL('../supabase/migrations/20261023000000_hide_pool_from_investors.sql', import.meta.url);
+const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions;
     grant usage on schema public to anon, authenticated;`);
   await db.exec(readFileSync(MIGRATION, 'utf8'));
+  await db.exec(readFileSync(HIDE_POOL, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);   // fast hashing for tests
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   return db;
@@ -119,8 +121,13 @@ test('security: everything needs a token; investors see only their own data; has
 
   const mine = await call(db, 'my_ledger', J);
   assert.ok(mine.length > 0 && mine.every((r) => r.profile_id === ids.john), 'John sees only his own entries');
-  const pool = await call(db, 'pool_summary', J); near(pool.investor_count, 2);
+  await assert.rejects(() => call(db, 'pool_summary', J), /admin only/);      // the pool's size is the manager's business
+  await assert.rejects(() => call(db, 'price_history', J), /admin only/);
+  const pool = await call(db, 'pool_summary', A); near(pool.investor_count, 2);
   assert.ok(!/john|dino|raf/i.test(JSON.stringify(pool)), 'pool view has no names');
+  const johnView = await call(db, 'my_summary', J);
+  assert.ok(!('share_pct' in johnView), 'investor cannot work out the pool size from their share');
+  assert.ok('share_pct' in (await call(db, 'my_summary', A)), 'manager still sees their share');
   const dump = JSON.stringify([await call(db, 'admin_overview', A), await call(db, 'admin_ledger', A), await call(db, 'my_summary', J)]);
   assert.ok(!/pass_hash|\$2[aby]\$/.test(dump), 'no password hashes in any response');
   await assert.rejects(() => db.query(`select public.create_first_admin('raf2','X','another-password')`), /already exists/);
