@@ -5,7 +5,43 @@
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the manager's own session while "viewing as"
-  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], range: 'ALL' };
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], range: 'ALL', rec: 'eq' };
+
+  // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
+  const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    home: svg('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'),
+    pool: svg('<path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>'),
+    activity: svg('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>'),
+    people: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
+    record: svg('<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/>'),
+    quarter: svg('<rect x="3" y="4.5" width="18" height="16.5" rx="4"/><path d="M3 10h18M8 2.5v4M16 2.5v4"/>'),
+    log: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+    mine: svg('<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.2"/>'),
+    refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    moon: svg('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
+    auto: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
+    arrowIn: svg('<path d="M12 5v14M5 12l7 7 7-7"/>'),
+    arrowOut: svg('<path d="M12 19V5M5 12l7-7 7 7"/>'),
+    fee: svg('<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'),
+    eye: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    eyeOff: svg('<path d="M3 3l18 18"/><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
+    alert: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/>'),
+    logo: svg('<path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/>'),
+  };
+
+  // ---------------------------------------------------------------- theme: system -> light -> dark (same cycle as Tolits)
+  const THEME_KEY = 'ledger.theme', THEMES = ['system', 'light', 'dark'];
+  const themePref = () => { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } };
+  function applyTheme(p) {
+    if (p === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', p);
+    try { p === 'system' ? localStorage.removeItem(THEME_KEY) : localStorage.setItem(THEME_KEY, p); } catch { /* not saved: still applies now */ }
+    const dark = p === 'dark' || (p === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute('content', dark ? '#0A0A0A' : '#F4F4F0');
+  }
+  const themeBtn = () => { const p = themePref(); return `<button class="iconbtn" data-action="theme" aria-label="Theme: ${p}. Tap to change" title="Theme: ${p}">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}</button>`; };
+  applyTheme(themePref());
 
   // ---------------------------------------------------------------- formatting
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -57,6 +93,7 @@
   // ---------------------------------------------------------------- data
   async function load() {
     S.me = await call('my_summary');
+    if (!S.me) { signedOut(); throw new Error('Signed out'); }
     if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
     const admin = S.me.role === 'admin';
     const [pool, hist, history, led, reqs, all, elog] = await Promise.all([call('pool_summary'), call('price_history'), call('my_history'),
@@ -79,7 +116,7 @@
   function poolCard() {
     const p = S.pool; if (!p) return '';
     const tot = Number(p.total_units) || 1;
-    const seg = [['Investors', p.investor_units, '#38bdf8'], ['Manager capital', p.admin_capital_units, '#2dd4bf'], ['Manager fee units', p.admin_fee_units, '#f59e0b']];
+    const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Manager capital', p.admin_capital_units, 'var(--seg1)'], ['Manager fee units', p.admin_fee_units, 'var(--seg3)']];
     return `<div class="card"><h2>Shared pool</h2>
       <div class="row"><span class="l">Pool size</span><span class="r"><b>${usdt(p.equity_usdt)}</b><br><span class="note">${peso(p.equity_usdt, rate())}</span></span></div>
       <div class="row"><span class="l">Unit price</span><span class="r"><b>${f(p.unit_price, 4)}</b> USDT <span class="${cls(p.since_start_pct)}">(${pct(p.since_start_pct)} since start)</span></span></div>
@@ -90,15 +127,20 @@
       <div class="legend">${seg.map(([n, u, c]) => `<span><b style="background:${c}"></b>${n} ${f((Number(u) / tot) * 100, 1)}%</span>`).join('')}</div>
       <p class="note" style="margin-top:8px">${p.investor_count} investor${p.investor_count === 1 ? '' : 's'}. Fee units are the performance fees the manager earned; they stay in the pool.</p></div>`;
   }
-  const KIND = { deposit: 'Deposit', withdrawal: 'Withdrawal', fee_out: 'Performance fee', fee_in: 'Fee earned' };
+  const KIND = { deposit: ['Deposit', 'in', 'down'], withdrawal: ['Withdrawal', 'out', 'up'], fee_out: ['Performance fee', 'out', 'fee'], fee_in: ['Fee earned', 'in', 'fee'] };
   function activityRows(rows, withName) {
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
-    return rows.map((l) => `<div class="row"><span class="l">${day(l.ts)}<br><b style="color:var(--ink)">${KIND[l.kind] || l.kind}</b>${withName ? ' · ' + esc(l.name) : ''}${l.note ? `<br><span class="note">${esc(l.note)}</span>` : ''}</span>
-      <span class="r ${cls(l.units)}">${sgn(l.units, 4)} units<br>${sgn(l.usdt)} USDT<br><span class="note">@ ${f(l.unit_price, 4)}</span></span></div>`).join('');
+    return rows.map((l) => {
+      const [label, dir, ic] = KIND[l.kind] || [l.kind, '', 'fee'];
+      const sub = [day(l.ts), withName ? esc(l.name) : null, l.note ? esc(l.note) : null].filter(Boolean).join(' · ');
+      return `<div class="tx"><div class="ic ${dir}">${ICON[ic === 'down' ? 'arrowIn' : ic === 'up' ? 'arrowOut' : 'fee']}</div>
+        <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
+        <div class="amt ${cls(l.usdt)}">${sgn(l.usdt)} USDT<small>${sgn(l.units, 2)} units</small></div></div>`;
+    }).join('');
   }
   const passwordCard = () => `<div class="card"><h2>Change your password</h2>
-    <form id="pwForm"><label>Current password</label><input name="old" type="password" autocomplete="current-password" required>
-    <label>New password (at least 8 characters)</label><input name="new" type="password" minlength="8" autocomplete="new-password" required>
+    <form id="pwForm"><label>Current password</label>${pw('old', 'current-password')}
+    <label>New password (at least 8 characters)</label>${pw('new', 'new-password', 8)}
     <button class="full ghost">Change password</button></form>
     <p class="note">Your other phones/browsers will be signed out.</p></div>`;
   const DISC = `<p class="disc">This page is a paper record of your share of a pooled trading account, valued in USDT. It is not a bank balance, not insured, and past or backtested results are not a promise of future results. You can lose some or all of the money you put in. Only invest money you can afford to lose.</p>`;
@@ -162,7 +204,7 @@
     const line = (k) => pts.map((p) => `${X(p.t).toFixed(2)},${Y(p[k]).toFixed(2)}`).join(' ');
     return `<div class="card hero"><h2>${title}</h2>
       <div class="big" id="gv">${usdt(z.v)}</div><div class="sub" id="gp">${peso(z.v, rate())}</div>
-      <div id="gd" style="margin-top:6px;font-weight:650"></div>
+      <div id="gd" class="delta"></div>
       <svg id="gc" class="growth" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Your balance over time">
         <polyline fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" points="${line('n')}"/>
         <polyline fill="none" stroke="var(--${up ? 'up' : 'down'})" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${line('v')}"/>
@@ -176,7 +218,7 @@
     const base = a.v > 0 ? a.v + (p.n - a.n) : p.n, label = RANGES.find((x) => x[0] === S.range)[2];
     $f('gv').textContent = usdt(p.v);
     $f('gp').textContent = peso(p.v, rate());
-    $f('gd').className = cls(d);
+    $f('gd').className = 'delta ' + cls(d);
     $f('gd').textContent = `${sgn(d)} USDT (${base > 0 ? pct(d / base) : '—'}) ${i === pts.length - 1 ? label : new Date(p.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   }
   function wireChart() {
@@ -199,7 +241,7 @@
   function viewPeople() {
     return `<div class="card"><h2>Add a person</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
-      <form id="newUserForm"><div class="grid"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
+      <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
         <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
         <label>Full name</label><input name="name" required>
         <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
@@ -211,7 +253,7 @@
       <div class="card"><h2>Everyone (${S.all.length})</h2>${S.all.map((h) => `<div class="person">
         <div class="top"><span class="nm">${esc(h.name || h.username)} <span class="chip">${h.role === 'admin' ? 'manager' : 'investor'}</span>${h.active ? '' : ' <span class="chip down">off</span>'}</span>
           <span><b>${usdt(h.value_usdt)}</b></span></div>
-        <div class="top"><span class="note">@${esc(h.username)}</span>${h.role === 'investor' && h.active ? `<button class="ghost" style="min-height:34px" data-action="viewas" data-id="${h.id}">View as</button>` : ''}</div>
+        <div class="top"><span class="note">@${esc(h.username)}</span>${h.role === 'investor' && h.active ? `<button class="ghost sm" data-action="viewas" data-id="${h.id}">View as</button>` : ''}</div>
         <div class="mini">
           <div><span>Put in</span>${f(h.net_in_usdt)}</div>
           <div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${sgn(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>
@@ -220,7 +262,7 @@
           <div><span>HWM</span>${f(h.hwm, 4)}</div>
           <div><span>${h.role === 'admin' ? 'Fee units' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
         <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
-          ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
+          ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
             <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${f(h.fee_rate * 100, 0)}"></div></div>
             <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
           <form class="resetForm" data-id="${h.id}"><label>New password for ${esc(h.name || h.username)}</label>
@@ -230,22 +272,25 @@
   const holderOpts = (sel) => S.all.filter((h) => h.active)
     .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (manager)' : ''}</option>`).join('');
   const atOf = (fm) => (fv(fm, 'at') ? new Date(fv(fm, 'at')).toISOString() : null);   // optional "when" for late entries
-  const phpField = () => `<label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local"><label>Peso rate (₱ per USDT, optional, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">`;
+  const phpField = () => `<details><summary>More options: date, peso rate</summary><label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local"><label>Peso rate (₱ per USDT, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}"></details>`;
 
   function viewRecord() {
     const empty = Number(S.pool.total_units) === 0;
-    return `<div class="card"><h2>1 · Update pool equity</h2>
+    if (empty && S.rec === 'eq') S.rec = 'dep';   // nothing to value yet: start with the first deposit
+    const pick = (k, html) => (S.rec === k ? html : '');
+    return `<div class="ranges" style="margin:12px 0 0">${[['eq', 'Equity'], ['dep', 'Deposit'], ['wd', 'Withdrawal']].map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
+      ${pick('eq', `<div class="card"><h2>Update pool equity</h2>
       <p class="note">Read the pool's total equity (USDT, including open trades) from MEXC. This moves the unit price for everyone. No one's units change.</p>
       <form id="eqForm"><label>Pool equity now (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
-        ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="eqPrev">—</div><button class="full" ${empty ? 'disabled' : ''}>Save equity</button></form></div>
-      <div class="card"><h2>2 · Record a deposit</h2>
+        ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="eqPrev">—</div><button class="full" ${empty ? 'disabled' : ''}>Save equity</button></form></div>`)}
+      ${pick('dep', `<div class="card"><h2>Record a deposit</h2>
         <p class="note">${empty ? 'This is the very first deposit (the manager\'s own capital). Units start at 1.00.' : 'Enter the pool equity from MEXC <b>just before</b> this money lands, so the new person buys units at the right price.'}</p>
         <form id="depForm"><label>Person</label><select name="who">${holderOpts()}</select>
         <label>Amount credited (USDT)</label><input name="usdt" type="number" step="any" inputmode="decimal" required>
         ${empty ? '' : '<label>Pool equity before this deposit (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>'}
         <label>Pesos they handed over (optional, reference only)</label><input name="pesos" type="number" step="any" inputmode="decimal">
-        ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="depPrev">—</div><button class="full">Record deposit</button></form></div>
-      <div class="card"><h2>3 · Record a withdrawal</h2>
+        ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="depPrev">—</div><button class="full">Record deposit</button></form></div>`)}
+      ${pick('wd', `<div class="card"><h2>Record a withdrawal</h2>
         <p class="note">Enter the pool equity from MEXC just before you pay out. The fee on gains above their high-water mark is taken in units first.</p>
         <form id="wdForm"><label>Person</label><select name="who">${holderOpts()}</select>
         <label>Units to redeem</label><input name="units" type="number" step="any" inputmode="decimal" required>
@@ -253,7 +298,7 @@
         <label>Pool equity before this payout (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
         ${phpField()}<label>Note (optional)</label><input name="note"><input type="hidden" name="reqid">
         <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Override lock-up</label>
-        <div class="preview" id="wdPrev">—</div><button class="full">Record withdrawal</button></form></div>`;
+        <div class="preview" id="wdPrev">—</div><button class="full">Record withdrawal</button></form></div>`)}`;
   }
   function viewQuarter() {
     return `<div class="card"><h2>Close the quarter</h2>
@@ -279,12 +324,29 @@
   const VIEWS = { home: viewHome, pool: viewPool, activity: viewActivity, people: viewPeople, record: viewRecord, quarter: viewQuarter, log: viewLog };
 
   function loginView() {
-    app.innerHTML = `<header><h1>Ledger Monitor</h1></header><div class="card"><h2>Sign in</h2>
-      <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocomplete="username" required>
-      <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+    app.innerHTML = `<header><span></span><div class="hdr-actions">${themeBtn()}</div></header>
+      <div class="login-brand"><span class="logo">${ICON.logo}</span><h1>Ledger Monitor</h1><p class="note">Your share of the pool, at a glance.</p></div>
+      <div class="card"><h2>Sign in</h2>
+      <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required>
+      <label>Password</label>${pw('password', 'current-password')}
+      <div id="loginErr" class="alert" role="alert" hidden></div>
       <button class="full">Sign in</button></form>
-      <p class="note">No account? Ask the manager to create one for you.</p></div>${DISC}`;
+      <p class="note" style="margin-bottom:0">No account? Ask the manager to create one for you.</p></div>${DISC}`;
   }
+  // password field with a show/hide (eye) button
+  const pw = (name, ac, min) => `<div class="pw"><input name="${name}" type="password" autocomplete="${ac}" ${min ? `minlength="${min}"` : ''} required>
+    <button type="button" class="eye" data-action="eye" aria-label="Show password" aria-pressed="false">${ICON.eye}</button></div>`;
+  function loginError(msg, fm) {
+    const box = $f('loginErr'); if (!box) return;
+    for (const el of fm.querySelectorAll('input')) el.removeAttribute('aria-invalid');
+    if (!msg) { box.hidden = true; return; }
+    const wrong = /Wrong username or password/.test(msg);
+    box.innerHTML = `${ICON.alert}<div><b>${esc(wrong ? 'Incorrect username or password' : msg)}</b>${wrong
+      ? '<br><span>Usernames are not case-sensitive; passwords are. 5 wrong tries lock the account for 15 minutes.</span>' : ''}</div>`;
+    box.hidden = false; box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    if (wrong) { fm.elements.password.setAttribute('aria-invalid', 'true'); fm.elements.password.select(); }
+  }
+  const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
   function render() {
     if (!S.me) return loginView();
     const tabs = TABS[isAdmin() ? 'admin' : 'investor'];
@@ -292,11 +354,11 @@
     const viewing = S.me.impersonated;
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
         <button data-action="exitview">Back to manager</button></div>` : ''}
-      <header><div><h1>Ledger Monitor</h1><div class="who">${esc(S.me.name || S.me.username)}${isAdmin() ? ' · manager' : ''}</div></div>
-      <button class="ghost" data-action="refresh" aria-label="Refresh">Refresh</button></header>
+      <header><div><div class="hello">${greeting()}${isAdmin() ? ' · manager' : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
+      <div class="hdr-actions">${themeBtn()}<button class="iconbtn" data-action="refresh" aria-label="Refresh">${ICON.refresh}</button></div></header>
       ${VIEWS[S.tab]()}
-      ${viewing ? '' : '<div style="text-align:center;margin:8px 0"><button class="ghost" data-action="signout">Sign out</button></div>'}
-      <nav class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
+      ${viewing ? '' : '<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>'}
+      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : k]}<span>${l}</span></button>`).join('')}</div></nav>`;
     wirePreviews(); wireChart();
   }
   async function refresh(msg) {
@@ -354,12 +416,20 @@
   document.addEventListener('click', async (ev) => {
     const tab = ev.target.closest('[data-tab]');
     if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
+    const rc = ev.target.closest('[data-rec]');
+    if (rc) { S.rec = rc.dataset.rec; render(); return; }
     const rg = ev.target.closest('[data-range]');
     if (rg) { S.range = rg.dataset.range; render(); return; }
     const b = ev.target.closest('[data-action]'); if (!b) return;
     const a = b.dataset.action, id = b.dataset.id;
     if (a === 'signout') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
-    else if (a === 'refresh') refresh();
+    else if (a === 'eye') {
+      const inp = b.parentElement.querySelector('input'), show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password'; b.innerHTML = ICON[show ? 'eyeOff' : 'eye'];
+      b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); inp.focus();
+    }
+    else if (a === 'refresh') refresh('Up to date');
+    else if (a === 'theme') { const p = themePref(); applyTheme(THEMES[(THEMES.indexOf(p) + 1) % THEMES.length]); if (S.me) render(); else loginView(); }
     else if (a === 'maxunits') { $f('rq-u').value = S.me.unlocked_units; }
     else if (a === 'cancelreq') act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
     else if (a === 'toggleactive') {
@@ -371,9 +441,12 @@
     else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'exitview') backToManager();
     else if (a === 'payreq') {
-      S.tab = 'record'; render(); const fm = $f('wdForm');
+      S.tab = 'record'; S.rec = 'wd'; render(); const fm = $f('wdForm');
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();
     }
+  });
+  document.addEventListener('input', (ev) => {
+    if (ev.target.closest('#loginForm') && ev.target.getAttribute('aria-invalid')) ev.target.removeAttribute('aria-invalid');
   });
   document.addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -381,8 +454,9 @@
     if (btn) btn.disabled = true;
     try {
       if (id === 'loginForm') {
+        loginError(null, fm);
         const r = await rpc('login', { p_username: fv(fm, 'username'), p_password: fv(fm, 'password') });
-        if (!r.ok) { toast(r.error, true); if (btn) btn.disabled = false; return; }
+        if (!r.ok) { loginError(r.error, fm); if (btn) btn.disabled = false; return; }
         S.token = r.token; store.set(r.token); await refresh();
       } else if (id === 'pwForm') {
         await call('change_my_password', { p_old: fv(fm, 'old'), p_new: fv(fm, 'new') });
@@ -415,7 +489,12 @@
         const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Quarter closed: ${r.investors_charged} charged, ${f(r.fee_units, 4)} fee units`);
       } else if (btn) btn.disabled = false;
-    } catch (e) { if (e.message !== 'Signed out') toast(e.message || String(e), true); if (btn && btn.isConnected) btn.disabled = false; }
+    } catch (e) {
+      if (id === 'loginForm') loginError(/fetch|network|Failed/i.test(e.message) ? 'Cannot reach the server. Check your internet connection and try again.'
+        : /function|schema cache/i.test(e.message) ? 'The database is not set up yet (run the migration).' : e.message, fm);
+      else if (e.message !== 'Signed out') toast(e.message || String(e), true);
+      if (btn && btn.isConnected) btn.disabled = false;
+    }
   });
 
   // ---------------------------------------------------------------- start
