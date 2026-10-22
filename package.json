@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "LEDGER: unit-based pool monitor (USDT-valued) for friends & family",
   "scripts": {
-    "test": "node --test tests/ledger.test.mjs tests/returns.test.mjs tests/audit-backup.test.mjs tests/statements.test.mjs"
+    "test": "node --test tests/ledger.test.mjs tests/returns.test.mjs tests/audit-backup.test.mjs tests/statements.test.mjs tests/bot-sync.test.mjs tests/integrity.test.mjs tests/integrity.property.test.mjs",
+    "test:race": "node --test tests/concurrency.docker.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10"

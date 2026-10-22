@@ -16,6 +16,8 @@ const PENDING = mig('20261026000000_pending_deposits.sql');
 const HARDEN = mig('20261027000000_profit_share_hardening.sql');
 const TERMS = mig('20261028000000_terms_acceptance.sql');
 const NET = mig('20261030000000_net_of_fee_returns.sql');
+// later migrations, so these tests run on the current schema (integrity: one correction per entry, locking, investor-level fee)
+const LATER = ['20261029000000_fund_returns.sql', '20261031000000_pesos_backup_audit.sql', '20261031000001_bot_equity_sync.sql', '20261101000000_ledger_integrity.sql'].map(mig);
 const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {
@@ -30,6 +32,8 @@ async function setup() {
   await db.exec(readFileSync(HARDEN, 'utf8'));
   await db.exec(readFileSync(TERMS, 'utf8'));
   await db.exec(readFileSync(NET, 'utf8'));
+  for (const f of LATER) await db.exec(readFileSync(f, 'utf8'));
+  await db.exec("update public.ledger_settings set value = '1000' where key = 'valuation_max_move'");   // big test moves on purpose; the check has its own tests
   await db.exec(`update public.ledger_settings set value = '0' where key = 'min_days_between_closes'`);   // tests close quarters back to back
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);   // fast hashing for tests
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
@@ -75,12 +79,12 @@ test('full lifecycle in USDT: deposits, +9% quarter, fees, drawdown, recovery, n
   near(admin.fee_units_earned, (0.2 * 0.09 / 1.09) * 50, 1e-6);
   near((await call(db, 'pool_summary', A)).total_units, 100); near(john.hwm, 1.09);
 
-  await call(db, 'admin_post_equity', A, 102.46);   // drawdown: below HWM, nothing to charge
+  await call(db, 'admin_post_equity', A, 102.46);   // a losing period: nothing to charge, and nothing is carried forward
   near((await call(db, 'admin_close_quarter', A, 102.46)).investors_charged, 0);
 
-  const before = (await holder(db, A, ids.john)).units;   // recovery to 1.12: fee only on the part above the old HWM
+  const before = (await holder(db, A, ids.john)).units;   // recovery 1.0246 -> 1.12 is a profitable period of its own: 20% of ALL of its gain
   await call(db, 'admin_post_equity', A, 112); await call(db, 'admin_close_quarter', A, 112);
-  near((await holder(db, A, ids.john)).units, before - (0.2 * 0.03 / 1.12) * before, 1e-6);
+  near((await holder(db, A, ids.john)).units, before - (0.2 * (1.12 - 1.0246) / 1.12) * before, 1e-6);
   const all = await call(db, 'admin_overview', A);
   near(all.reduce((s, h) => s + Number(h.value_usdt), 0), Number((await call(db, 'pool_summary', A)).equity_usdt), 1e-4);
 
@@ -271,12 +275,12 @@ test('corrections: undo only reaches the single most recent entry, by appending 
   near(john.units, 30); near(john.hwm, 1); near((await call(db, 'pool_summary', A)).total_units, 80);
   near((await call(db, 'pool_summary', A)).unit_price, 2);
 
-  // undo a person's very FIRST deposit: their lot should disappear entirely, not just zero out
+  // undo a person's very FIRST deposit: their units and period profit disappear entirely
   const dino = await call(db, 'admin_create_user', A, 'dino2', 'Dino2', 'dino2-password', 0.2);
   await own(db, 'admin_deposit', A, dino, 20, 160);
-  assert.equal((await db.query(`select * from public.holder_lots where profile_id = $1`, [dino])).rows.length, 1);
+  near((await holder(db, A, dino)).units, 10); near((await holder(db, A, dino)).period_profit_usdt, 0, 1e-12);   // 20 USDT at 2.0; a deposit is not profit
   await call(db, 'admin_undo_last', A);
-  assert.equal((await db.query(`select * from public.holder_lots where profile_id = $1`, [dino])).rows.length, 0);
+  near((await holder(db, A, dino)).units, 0); near((await holder(db, A, dino)).period_profit_usdt, 0, 1e-12);
   near((await call(db, 'pool_summary', A)).total_units, 80);
 
   // undo an equity reading: price falls back to what it was right before that reading
@@ -304,7 +308,7 @@ test('corrections: undo only reaches the single most recent entry, by appending 
   await assert.rejects(() => call(db, 'admin_undo_last', jT2), /admin only/);
 });
 
-test('10% profit share: each quarter only the NEW profit is charged, never profit already settled', async () => {
+test('10% flat fee: each period is charged on its own profit; settled profit is never charged again; a loss is not carried', async () => {
   const { db, A, ids } = await world();
   await db.exec(`update public.profiles set fee_rate = 0.10 where role = 'investor'`);
   const fresh = await call(db, 'admin_create_user', A, 'newbie', 'New', 'newbie-password', null);
@@ -316,19 +320,20 @@ test('10% profit share: each quarter only the NEW profit is charged, never profi
   await call(db, 'admin_close_quarter', A, 2200, 58, 'q1');                           // price 1.10: John gained $100
   near(await fees(), 10, 1e-4);                                                       // 10% of $100
   near((await holder(db, A, ids.john)).value_usdt, 1090, 1e-3);
-  near((await holder(db, A, ids.john)).hwm, 1.1);
 
   await call(db, 'admin_close_quarter', A, 2200, 58, 'q2 flat');                      // nothing new: nothing charged
   near(await fees(), 10, 1e-4);
-
-  await call(db, 'admin_close_quarter', A, 2000, 58, 'q3 down');                      // below the line: nothing charged
-  near(await fees(), 10, 1e-4);
-  await call(db, 'admin_close_quarter', A, 2200, 58, 'q4 back to the old line');      // only back to 1.10: still nothing
+  await call(db, 'admin_close_quarter', A, 2000, 58, 'q3 down');                      // a loss: nothing charged, nothing carried
   near(await fees(), 10, 1e-4);
 
-  const john = await holder(db, A, ids.john);                                         // 990.909 units
-  await call(db, 'admin_close_quarter', A, 2420, 58, 'q5 +10%');                      // price 1.21: only the 0.11/unit above 1.10 counts
-  near(await fees() - 10, 0.1 * 0.11 * Number(john.units), 1e-3);
+  let john = (await holder(db, A, ids.john)).units;                                   // 990.909 units, price back from 1.00 to 1.10 in q4
+  await call(db, 'admin_close_quarter', A, 2200, 58, 'q4 recovery');                  // NOT free: q4 is a profitable period (1.00 -> 1.10) on its own
+  near(await fees() - 10, 0.1 * 0.10 * Number(john), 1e-3);
+
+  john = (await holder(db, A, ids.john)).units;
+  const f4 = await fees();
+  await call(db, 'admin_close_quarter', A, 2420, 58, 'q5 +10%');                      // price 1.21: 0.11 per unit
+  near(await fees() - f4, 0.1 * 0.11 * Number(john), 1e-3);
 });
 
 test('newcomer: money waits, then buys units at the next reading; profit made before stays with the old holders', async () => {
@@ -398,15 +403,18 @@ async function twoHolders() {   // Raf 100 + John 100 at 1.00, 20% for John, no 
   return w;
 }
 
-test('loophole: topping up at a high cannot wipe out the profit share already earned on the old money', async () => {
+// POLICY CHANGE (20261101000000_ledger_integrity.sql): the fee is investor-level. The two tests below used to assert the per-deposit
+// rule; they now assert the investor-level rule the business chose: no fee while the investor as a whole is below their benchmark.
+test('investor-level: a top-up at a high followed by a dip is a loss for the investor, so nothing is charged (per-deposit charged 4)', async () => {
   const { db, A, ids } = await twoHolders();
   await call(db, 'admin_post_equity', A, 300);                                   // price 1.50: John's 100 units are +50
   await call(db, 'admin_receive_deposit', A, ids.john, 1350); await call(db, 'admin_post_equity', A, 1650);   // tops up 900 units at 1.50
   await call(db, 'admin_close_quarter', A, 1100 * 1.2);                          // 1,100 units; price dips to 1.20 before the close
-  near(await feeValue(db, A, ids.john), 0.2 * 0.2 * 100, 1e-4);                   // the old 100 units still owe 20% of their +0.20 each = 4
+  // John put in 1,450 and holds 1,100 units x 1.20 = 1,200: down 250 overall. The unsettled +50 on the first 100 was lost again.
+  near(await feeValue(db, A, ids.john), 0, 1e-9);
 });
 
-test('loophole: an old loss cannot shield new money from the profit share', async () => {
+test("investor-level: new money first recovers the investor's own earlier deficit, then is charged (per-deposit charged 40)", async () => {
   const { db, A, ids } = await twoHolders();
   await call(db, 'admin_close_quarter', A, 300);                                 // 1.50, settled: John's line is 1.50
   const after = Number((await call(db, 'pool_summary', A)).total_units);
@@ -414,7 +422,9 @@ test('loophole: an old loss cannot shield new money from the profit share', asyn
   await call(db, 'admin_receive_deposit', A, ids.john, 1000); await call(db, 'admin_post_equity', A, after + 1000);   // 1000 new units at 1.00
   const fee0 = await feeValue(db, A, ids.john);
   await call(db, 'admin_close_quarter', A, (after + 1000) * 1.2);                // +0.20 on the new 1000 units
-  near((await feeValue(db, A, ids.john)) - fee0, 0.2 * 0.2 * 1000, 1e-4);        // = 40; the old units owe nothing until they pass 1.50
+  // after the 1.50 settlement John's benchmark is his net equity, 93.33 units x 1.50 = 140; at 1.00 he is 46.67 below it.
+  // +1,000 deposit: benchmark 1,140. At 1.20: equity 1,093.33 x 1.20 = 1,312; 20% of (1,312 - 1,140) = 34.40
+  near((await feeValue(db, A, ids.john)) - fee0, 0.2 * ((100 - 0.2 * 50 / 1.5 + 1000) * 1.2 - ((100 - 0.2 * 50 / 1.5) * 1.5 + 1000)), 1e-4);
 });
 
 test('loophole: a higher profit-share rate only starts after the next quarter close', async () => {
@@ -471,12 +481,11 @@ test('stress: 150 random actions (money in, readings, withdrawals, closes, undos
       else if (x < 0.96) await call(db, 'admin_undo_last', A);
       else { const pend = await call(db, 'admin_pending', A); if (pend.length) await call(db, 'admin_cancel_pending', A, pend[0].id); }
       ok++;
-    } catch (e) { if (!/final|nothing to undo|must be more than/.test(e.message)) throw e; }
+    } catch (e) { if (!/final|nothing to undo|must be more than|itself a correction/.test(e.message)) throw e; }
     // invariants after every step
-    const lots = (await db.query(`select profile_id, sum(units) u from public.holder_lots group by profile_id`)).rows;
     for (const p of people) {
-      const h = await holder(db, A, p), l = lots.find((r) => r.profile_id === p);
-      near(Number(l ? l.u : 0), Number(h.units), 1e-6);                     // lots always add up to the person's units
+      const h = await holder(db, A, p);
+      if (h.role === 'investor') assert.ok(Number(h.accrued_fee_usdt) <= Number(h.fee_rate) * Math.max(0, Number(h.period_profit_usdt)) + 1e-9, 'the accrued fee is the rate times the positive period profit');
       assert.ok(Number(h.accrued_fee_usdt) >= -1e-9 && Number(h.accrued_fee_usdt) <= Number(h.value_usdt) + 1e-9);
     }
     const all = await call(db, 'admin_overview', A), sumVal = all.reduce((t, h) => t + Number(h.value_usdt), 0);

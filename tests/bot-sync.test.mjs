@@ -10,7 +10,8 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 const mig = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 const CHAIN = ['20261022000000_ledger.sql', '20261023000000_hide_pool_from_investors.sql', '20261024000001_ledger_corrections.sql',
   '20261025000000_profit_share_10.sql', '20261026000000_pending_deposits.sql', '20261027000000_profit_share_hardening.sql',
-  '20261028000000_terms_acceptance.sql', '20261029000000_fund_returns.sql', '20261030000000_net_of_fee_returns.sql', '20261031000001_bot_equity_sync.sql'];
+  '20261028000000_terms_acceptance.sql', '20261029000000_fund_returns.sql', '20261030000000_net_of_fee_returns.sql',
+  '20261031000000_pesos_backup_audit.sql', '20261031000001_bot_equity_sync.sql', '20261101000000_ledger_integrity.sql'];
 const KEY = 'a'.repeat(64), HASH = createHash('sha256').update(KEY).digest('hex');
 
 async function world() {
@@ -18,6 +19,7 @@ async function world() {
   await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
   for (const f of CHAIN) await db.exec(readFileSync(mig(f), 'utf8'));
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
+  await db.exec(`update public.ledger_settings set value = '1000' where key = 'valuation_max_move'`);
   await db.exec(`insert into public.ledger_settings(key, value) values ('bot_key_hash', '${HASH}') on conflict (key) do update set value = excluded.value`);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   const A = (await db.query(`select public.login('raf', 'admin-password-1') as r`)).rows[0].r.token;

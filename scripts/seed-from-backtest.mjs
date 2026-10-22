@@ -152,9 +152,17 @@ select public.admin_create_user(:tok, w.username, w.name, w.password, null) from
  where w.slot <> 'manager' and not exists (select 1 from public.profiles p where p.username = lower(trim(w.username)));
 update public.profiles p set active = true from seed_who w where p.username = lower(trim(w.username)) and not p.active;
 
--- 4. clear the books (accounts, logins and terms agreements stay)
-truncate table public.lot_log, public.holder_lots, public.pending_deposits, public.withdrawal_requests,
-               public.holder_state, public.ledger, public.pool_equity restart identity;
+-- 4. clear the books (accounts, logins and terms agreements stay), including the integrity tables when that migration has been run
+do $$
+declare t text; l text := '';
+begin
+  foreach t in array array['lot_log', 'holder_lots', 'period_log', 'investor_period', 'corrections', 'idempotency_keys', 'transfer_matches',
+                           'snapshot_attestations', 'exchange_transfers', 'exchange_snapshots', 'pending_deposits', 'withdrawal_requests',
+                           'holder_state', 'ledger', 'pool_equity'] loop
+    if to_regclass('public.' || t) is not null then l := l || case when l = '' then '' else ', ' end || 'public.' || t; end if;
+  end loop;
+  execute 'truncate table ' || l || ' restart identity';
+end $$;
 
 -- 5. the history, oldest first
 ${lines.join('\n')}

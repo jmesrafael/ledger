@@ -20,7 +20,9 @@ export function verify(x, prev = null) {
   if (Math.abs(sumUnits - Number(c.total_units_ledger)) > 1e-6) problems.push(`units in the ledger rows (${sumUnits}) do not match the export's own total (${c.total_units_ledger})`);
   if (x.pool_equity.length && Math.abs(Number(c.total_units_ledger) - Number(c.total_units_last_reading)) > 1e-6)
     problems.push(`everyone's units (${c.total_units_ledger}) do not match the last equity reading (${c.total_units_last_reading})`);
-  if (Math.abs(Number(c.lots_units) - Number(c.total_units_ledger)) > 1e-6) problems.push(`per-deposit lines (${c.lots_units}) do not add up to everyone's units (${c.total_units_ledger})`);
+  if (c.fee_engine) {   // flat fee on period profit (20261101000000_ledger_integrity.sql): there are no per-deposit lines to compare any more
+    if (!Array.isArray(x.investor_period)) problems.push('the export has no investor_period table');
+  } else if (Math.abs(Number(c.lots_units) - Number(c.total_units_ledger)) > 1e-6) problems.push(`per-deposit lines (${c.lots_units}) do not add up to everyone's units (${c.total_units_ledger})`);
   if (/pass_hash|\$2[aby]\$/.test(JSON.stringify(x))) problems.push('the export contains a password hash');
   if (prev) {
     if (c.ledger_rows < prev.ledger_rows) warnings.push(`fewer ledger rows than the last backup (${c.ledger_rows} < ${prev.ledger_rows}): was the ledger reset?`);

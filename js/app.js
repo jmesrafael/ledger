@@ -2,7 +2,7 @@
 // every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
-  const TERMS_VERSION = '2026-10-22';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
+  const TERMS_VERSION = '2026-10-23';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
   const SPLASH_MS = 5600;               // how long the quote screen stays (tap Skip to leave sooner)
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
@@ -95,6 +95,21 @@
   async function call(fn, args = {}) {
     try { return await rpc(fn, { p_token: S.token, ...args }); }
     catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
+  }
+  // money writes: one request id per form until it succeeds, so resending after a lost reply is recognised by the database instead of
+  // being done twice; and a CONFIRM refusal (a big move, an unmatched MEXC transfer) is asked once and resent with the explicit yes.
+  async function moneyCall(fm, fn, args) {
+    if (!fm.dataset.idem) fm.dataset.idem = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const send = (extra) => call(fn, { ...args, p_idem: fm.dataset.idem, ...extra });
+    let r;
+    try { r = await send({}); }
+    catch (e) {
+      if (!/^CONFIRM: /.test(e.message)) throw e;
+      if (!confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nSave it anyway?')) throw new Error('Not saved.');
+      r = await send({ p_confirm: true });
+    }
+    delete fm.dataset.idem;
+    return r;
   }
   function signedOut(msg) {
     if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the manager
@@ -248,21 +263,21 @@
       <div class="row"><span class="l">You put in</span><span class="r">${putIn(m)}</span></div>
       ${inPeso() ? fxRow(m) : ''}
       <div class="row"><span class="l">The trading made</span><span class="r ${cls(m.gross_profit_usdt)}">${smoney(m.gross_profit_usdt)}<br><span class="note">${pct(m.gross_return_pct, 1)}</span></span></div>
-      <div class="row"><span class="l">Fee (${pc(m.fee_rate)}% of new profit)<br><span class="note">${share > 0 ? `already taken ${money(paid)}${acc > 0 ? ` · owed this quarter ${money(acc)}` : ''}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
+      <div class="row"><span class="l">Fee (${pc(m.fee_rate)}% of each quarter's profit)<br><span class="note">${share > 0 ? `already taken ${money(paid)}${acc > 0 ? ` · owed this quarter ${money(acc)}` : ''}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
       <div class="row"><span class="l"><b>Yours, after the fee</b></span><span class="r"><b class="${cls(m.net_profit_usdt)}">${smoney(m.net_profit_usdt)}</b><br><span class="note"><b>${pct(m.net_return_pct, 1)}</b> · balance ${money(m.net_value_usdt)}</span></span></div>
-      <p class="note">Your balance and % on this page are always shown <b>after</b> the fee, so it is what is yours. The fee is ${pc(m.fee_rate)}% of new profit above your best-ever level, worked out at each quarter end. If the fund drops after a quarter end, the fee already taken stays taken, so it can be more than ${pc(m.fee_rate)}% of the profit you have left; nothing new is taken until your balance climbs back above that best level. The fee already taken is shown at today's value.</p></div>`;
+      <p class="note">Your balance and % on this page are always shown <b>after</b> the fee, so it is what is yours. The fee is ${pc(m.fee_rate)}% of the profit your units make in each quarter, worked out at each quarter end. A quarter that loses money costs no fee, but that loss is not carried forward, so the next quarter's profit is charged in full even if your balance is still below what you put in. If the fund drops after a quarter end, the fee already taken stays taken. The fee already taken is shown at today's value.</p></div>`;
   }
   function profitShareCard(m) {
     const keep = 1 - Number(m.fee_rate), paid = -S.ledger.filter((l) => l.kind === 'fee_out' && l.profile_id === m.id).reduce((a, l) => a + Number(l.usdt), 0);
     const above = Number(m.accrued_fee_usdt) > 0;
     return `<div class="card"><h2>Fee</h2>
       <div class="split"><i style="width:${keep * 100}%;background:var(--up)"></i><i style="width:${(1 - keep) * 100}%;background:var(--seg3)"></i></div>
-      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of new profits</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep)}%</span></div>
+      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep)}%</span></div>
       ${m.fee_rate_next != null ? `<p class="note" style="margin:0 0 6px">From the next quarter close your fee becomes <b>${pc(m.fee_rate_next)}%</b>. Profit made before then is charged at ${pc(m.fee_rate)}%.</p>` : ''}
       <div class="row"><span class="l">${above ? 'Fee due at quarter end (estimate)' : 'Fee due now'}</span><span class="r">${above ? money(m.accrued_fee_usdt) : 'None: below your best'}</span></div>
       <div class="row"><span class="l">Your balance after it</span><span class="r"><b>${money(m.value_after_fee_usdt)}</b></span></div>
       <div class="row"><span class="l">Shared so far</span><span class="r">${money(paid)}</span></div>
-      <p class="note">The fee is charged only on <b>new</b> profit above your best-ever level, never on the money you put in. Each deposit keeps its own best-ever level, so adding money never changes what an earlier deposit owes. While your balance is below its best, no fee is charged. It is settled once a quarter inside the pool; no cash moves.</p></div>`;
+      <p class="note">The fee is charged on the profit your units make in <b>each quarter</b>, never on the money you put in and never on profit made before you joined. A quarter with a loss costs nothing, but it is not carried forward or offset against the next one. It is settled once a quarter inside the pool; no cash moves. If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal.</p></div>`;
   }
   function recentCard() {
     const mine = S.ledger.filter((l) => l.profile_id === S.me.id);
@@ -342,7 +357,7 @@
       <p class="about">Profits stay in the pool and grow with it, so the balance moves up and down with the results instead of paying out each month. Some weeks and months will be flat or down.</p>
       <p class="about"><b>You can still lose money.</b> Nothing is guaranteed or insured, and past or backtested results are not a promise. Please put in only what you are comfortable with.</p></div>
     <div class="card"><h2>The fee</h2>
-      <p class="about"><b>We only charge when you earn.</b> The fee is ${rate}% of <b>new profit</b> and nothing else: no sign-up charge, no yearly charge, and nothing on your own money.</p>
+      <p class="about"><b>We only charge when you earn.</b> The fee is ${rate}% of <b>each quarter's profit</b> and nothing else: no sign-up charge, no yearly charge, and nothing on your own money.</p>
       <p class="about">If the fund is down, no fee is charged. After a dip it has to climb back above your previous best before any fee is charged again. The fee is worked out once a quarter inside the pool, so no cash moves.</p>
       <p class="about"><b>Your rate is ${rate}%</b>, as agreed with the manager. Rates are set per person and can change at any time, for example for people who join later as the fund grows.</p></div>
     <div class="card"><h2>Pesos</h2>
@@ -372,7 +387,7 @@
       <div class="card"><h2>Fee received</h2>
         <div class="row"><span class="l">Received so far<br><span class="note">value when each fee arrived</span></span><span class="r">${money(feeTotal)}<br><span class="note">${alt(feeTotal)}</span></span></div>
         <div class="row"><span class="l">Worth now<br><span class="note">${f(m.fee_units_earned, 4)} units, still invested in the fund</span></span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${alt(m.fee_units_value_usdt)}</span></span></div>
-        ${fees.length ? activityRows(fees.slice(0, 5), false) : '<p class="note">None yet. It arrives at a quarter close or when an investor withdraws, and only on profit above their best level.</p>'}
+        ${fees.length ? activityRows(fees.slice(0, 5), false) : '<p class="note">None yet. It arrives at a quarter close or when an investor withdraws, and only on the profit of that quarter.</p>'}
         ${fees.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all</button></div>` : ''}</div>
       <div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
         ${mine.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all ${mine.length}</button></div>` : ''}</div>
@@ -418,7 +433,7 @@
         <div class="stat"><div class="k">Manager's own money, same time</div><div class="v ${cls(mgr[mgr.length - 1])}">${pct(mgr[mgr.length - 1])}</div></div></div>
       <div class="row"><span class="l">You, after fee</span><span class="r ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</span></div>
       <div class="row"><span class="l">Manager's own money since the fund started</span><span class="r ${cls(fundAll)}">${pct(fundAll)}</span></div>
-      <p class="note">The manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the fee on new profit. Money added or taken out by anyone never counts in these %.</p></div>`;
+      <p class="note">The manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the fee on each quarter's profit. Money added or taken out by anyone never counts in these %.</p></div>`;
   }
   // manager: own return from trading only, and with the fee received
   function myReturnsCard() {
@@ -493,7 +508,7 @@
       ${line('Money added', sUsdt(m.deposits) || usdt(0), m.phpIn > 0 ? `${php(m.phpIn)} paid in` : '')}
       ${line('Money taken out', m.withdrawals ? '−' + usdt(m.withdrawals) : usdt(0), m.phpOut > 0 ? `${php(m.phpOut)} paid out` : '')}
       ${line('Trading result', sUsdt(m.trading) || usdt(0), `${pct(m.tradingPct, 2)} on the money in the fund`)}
-      ${line(feeLabel, sUsdt(m.profitShare) || usdt(0), mgr ? 'received from investors' : 'taken from new profit')}
+      ${line(feeLabel, sUsdt(m.profitShare) || usdt(0), mgr ? 'received from investors' : 'taken from the quarter profit')}
       ${line('Closing balance', usdt(m.closing), `${pct(m.yourPct, 2)} this month${mgr ? ', with the fee received' : ', after the fee'}`, true)}
       ${entries.length ? `<h2 style="margin-top:16px">Entries this month</h2>${activityRows(entries, false)}` : ''}
       <p class="note stmt-foot">Balances are in USDT, a dollar-linked coin, because that is what the fund is counted in. Pesos move with the exchange rate, so they are shown only where pesos were really paid in or out.${isSim() ? ' <b>This history includes simulated (backtest) entries, not real trading.</b>' : ''} Past results do not promise future ones. You can lose money.</p>
@@ -656,7 +671,7 @@
       const who = [...new Set(rows.map((r) => r.name))].join(', ');
       const label = e.kind === 'update' ? 'Equity reading' : e.kind === 'close' ? 'Quarter close'
         : e.kind === 'deposit' ? `Deposit${who ? ' · ' + esc(who) : ''}` : `Withdrawal${who ? ' · ' + esc(who) : ''}`;
-      const canFix = i === 0 && e.kind !== 'close';
+      const canFix = i === 0 && e.kind !== 'close' && !e.reversed_of;   // a correction itself can never be undone (the database refuses too)
       return `<div class="row" style="align-items:flex-start">
         <span class="l"><b style="color:var(--ink)">${label}</b>${e.reversed_of ? ' <span class="chip">correction</span>' : ''}<br>
           ${day(e.ts)}${e.note ? ' · ' + esc(e.note) : ''}</span>
@@ -706,7 +721,7 @@
   }
   function viewQuarter() {
     return `<div class="card"><h2>Close the quarter</h2>
-      <p class="note">Takes each investor's fee (their own %, 10% by default) from the <b>new profit since the last close</b> only. Example: they gain $100 this quarter and the 10% fee = $10. Next quarter the starting line is the price today, so that $100 is never charged again; only profit above it is. If the fund falls, nothing is charged, and it must climb back above the old line before anything is charged again.</p>
+      <p class="note">Takes each investor's fee (their own %, 10% by default) from the <b>profit made since the last close</b>, counting only the units they held while the price moved (so a newcomer pays nothing on earlier moves). Example: they gain $100 this quarter and the 10% fee = $10. Next quarter starts from zero, so that $100 is never charged again. If the fund falls, nothing is charged, and that loss is not offset against the next quarter.</p>
       <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Each deposit is measured against its own line, so top-ups and old losses never shift what another deposit owes. Allowed once per quarter (at least 80 days apart).</p>
       ${lastClose()}
       ${S.pend.length ? `<p class="note">${S.pend.length} deposit${S.pend.length === 1 ? '' : 's'} (${usdt(pendTotal())}) still waiting: taken out before the fee is worked out, then they buy units at the close price, so they pay nothing for this quarter.</p>` : ''}
@@ -777,7 +792,7 @@
       ['Not a bank, not insured', `This app is a record, kept by the manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
       ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked.`],
       ['How new money joins', `Money you hand over first waits. It joins the pool at the next valuation (when the manager updates the pool’s total value) and buys units at that day’s price. So the price you get can be higher or lower than on the day you handed the money over. This protects everyone: nobody shares in profit made before their money was in.`],
-      ['The fee', `The fee is <b>${rate}%</b> of <b>new profit</b> above your best-ever level, settled once a quarter inside the pool (no cash moves). Nothing is charged on the money you put in, and nothing while your balance is below its best level. The rate can be lowered at any time; a higher rate only starts after the next quarter close, and your Home page tells you before it does.`],
+      ['The fee', `The fee is <b>${rate}%</b> of the <b>net profit your units make in each quarter</b> (the part of the price change that happened while you held them), settled once a quarter inside the pool (no cash moves). Nothing is charged on the money you put in or on profit made before you joined. <b>A quarter with a loss costs no fee, but the loss is not carried forward: the next quarter's profit is charged in full even if your balance is still below what you put in.</b> If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal. The rate can be lowered at any time; a higher rate only starts after the next quarter close, and your Home page tells you before it does.`],
       ['What the numbers mean', `Your balance is an estimate. It follows the pool’s value as entered by the manager from the exchange account (daily or weekly, not live), and it is shown in pesos at an exchange rate that moves on its own, so your peso balance can change even when the trading did not.`],
       ['Your login and this agreement', `Keep your password private: anything done with your login counts as done by you. We save the date you agreed to these terms. If the terms change, you will be asked to read and agree again.`],
     ];
@@ -828,7 +843,7 @@
     ['Valuation', 'When the manager updates the pool’s total value. New money joins at the price set at a valuation.'],
     ['Compounding', 'Profit staying in the pool and earning on itself. Losses compound too: they shrink what future gains build on.'],
     ['Drawdown', 'How far the balance has fallen from its highest point. A 50% fall needs a 100% gain to get back.'],
-    ['Best-ever level', 'Also called the high-water mark. The highest price your deposit has already been charged a fee at. The fee applies only to profit above it.'],
+    ['Quarter profit', 'What the price moved on the units you held, between two quarter closes. The fee is charged on it when it is positive. A loss is not carried into the next quarter.'],
     ['Lock-up', 'The time after each deposit when it cannot be withdrawn.'],
     ['Leverage', 'Trading with more exposure than the money in the account. It can magnify gains and losses.'],
   ];
@@ -855,14 +870,14 @@
     lock: () => `<div class="scene"><div class="lockrow"><span class="lk" aria-hidden="true">${ICON.lock}</span><div class="grow">
         <div class="split lockbar"><i></i></div><div class="lkcap"><span>Deposit joins</span><span>${C.LOCK_MONTHS} months</span><span>Can withdraw</span></div></div></div>
       <div class="flow"><div class="chip" style="--i:0"><span>You request</span></div><em>→</em><div class="chip" style="--i:1"><span>Up to ${C.WITHDRAW_BUSINESS_DAYS} business days</span></div><em>→</em><div class="chip" style="--i:2"><span>Paid</span></div></div></div>`,
-    share: (keep) => `<div class="scene"><svg viewBox="0 0 300 130" class="mini" role="img" aria-label="Only the part of the line above the best-ever level is shared">
+    share: (keep) => `<div class="scene"><svg viewBox="0 0 300 130" class="mini" role="img" aria-label="The fee is charged on the gain over the quarter, measured from where the quarter started">
         <clipPath id="above"><rect x="0" y="0" width="300" height="80"/></clipPath>
-        <line class="dash" x1="0" y1="80" x2="300" y2="80"/><text class="lab" x="4" y="95" style="--d:.8s">your best-ever level</text>
+        <line class="dash" x1="0" y1="80" x2="300" y2="80"/><text class="lab" x="4" y="95" style="--d:.8s">start of the quarter</text>
         <path class="ln faint" pathLength="1" d="M0 116 L40 100 L80 108 L120 70 L160 50 L200 78 L240 40 L300 30"/>
         <path class="ln hot" pathLength="1" clip-path="url(#above)" d="M0 116 L40 100 L80 108 L120 70 L160 50 L200 78 L240 40 L300 30"/>
-        <text class="lab hot" x="4" y="14" style="--d:1.6s">Fee applies only above the line</text></svg>
+        <text class="lab hot" x="4" y="14" style="--d:1.6s">Fee on the gain over the quarter</text></svg>
       <div class="split" style="margin-top:12px"><i class="grow-x" style="width:${keep}%;background:var(--up)"></i><i class="grow-x" style="width:${100 - keep}%;background:var(--seg3)"></i></div>
-      <div class="legend"><span><b style="background:var(--up)"></b>You keep ${pc(keep / 100)}% of new profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep / 100)}%</span></div></div>`,
+      <div class="legend"><span><b style="background:var(--up)"></b>You keep ${pc(keep / 100)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep / 100)}%</span></div></div>`,
     tabs: () => `<div class="scene"><div class="mininav" aria-hidden="true">${[['home', 'Home'], ['activity', 'Activity'], ['about', 'About']].map(([k, l], i) => `<span style="--i:${i}">${ICON[k]}<b>${l}</b></span>`).join('')}</div>
       <div class="tabrows">${[['Home', 'your balance, a growth chart, your fee and your withdrawals.'], ['Activity', 'every deposit, withdrawal and fee, in order.'], ['About', 'how it all works, in plain words, and your agreement.']]
         .map(([t, d], i) => `<p style="--i:${i}"><b>${t}</b> · ${d}</p>`).join('')}</div></div>`,
@@ -891,8 +906,8 @@
       [ICON.record, 'New money joins fairly', `<p class="about">Money you hand over does not join instantly. It waits for the next <b>valuation</b> (when the manager updates the pool’s total value) and buys units at that day’s price.</p>
         <p class="about">So nobody shares in profit made before their money was in, you included. While it waits, you will see it on Home under <b>Waiting to join</b>.</p>`, SCENE.join()],
       [ICON.lock, 'Lock-up and withdrawals', `<p class="about">Each deposit is <b>locked</b> for <b>${C.LOCK_MONTHS} months</b> from the day it joins. After that, tap <b>Request withdrawal</b> on Home. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b>, at the value on the day it is paid.</p>`, SCENE.lock()],
-      [ICON.fee, 'The fee', `<p class="about">The fee applies only when you earn: <b>${pc(m.fee_rate)}%</b> of <b>new profit</b>, above your <b>best-ever level</b>. Nothing on the money you put in, and nothing while you are below your best level.</p>
-        <p class="about">It is settled once a quarter inside the pool, so no cash moves. Each deposit keeps its own best-ever level.</p>`, SCENE.share(keep)],
+      [ICON.fee, 'The fee', `<p class="about">The fee applies only when a quarter earns: <b>${pc(m.fee_rate)}%</b> of that <b>quarter's profit</b> on your units. Nothing on the money you put in, nothing on profit made before you joined, and nothing for a quarter that loses.</p>
+        <p class="about">It is settled once a quarter inside the pool, so no cash moves. A loss is not carried into the next quarter, so the next quarter is charged on its own profit.</p>`, SCENE.share(keep)],
       [ICON.home, 'Your screens', `<p class="about">The <b>₱ / $</b> button switches between pesos and USDT. The <b>moon</b> button changes light and dark. Everything is read-only: you can look, and request a withdrawal.</p>`, SCENE.tabs()],
       [ICON.about, 'Words you’ll see', glossHtml()],
     ];
@@ -1022,7 +1037,7 @@
     const price = (eq - pendTotal()) / u; let tot = 0;
     const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
       const gain = lotGain(h, price), fee = Number(h.fee_rate) * gain / price; tot += fee;
-      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">new profit ${money(gain)} × ${pc(h.fee_rate)}%${h.fee_rate_next != null ? ` (then ${pc(h.fee_rate_next)}%)` : ''}</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
+      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">quarter profit ${money(gain)} × ${pc(h.fee_rate)}%${h.fee_rate_next != null ? ` (then ${pc(h.fee_rate_next)}%)` : ''}</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
     }).join('');
     setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total fee</b></span><span class="r"><b>${money(tot * price)}</b><br><span class="note">${f(tot, 4)} units</span></span></div>`);
   }
@@ -1150,20 +1165,20 @@
         const r = await call('request_withdrawal', { p_units: units, p_note: null });
         await refresh(`Requested. You will be paid by ${day(r.pay_by)}.`);
       } else if (id === 'eqForm') {
-        const r = await call('admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
+        const r = await moneyCall(fm, 'admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(Number(r.converted) ? `Equity saved. ${r.converted} waiting deposit${Number(r.converted) === 1 ? '' : 's'} joined at ${f(r.unit_price, 4)}.` : 'Equity saved');
       } else if (id === 'depForm') {
         const d = depUsdt(fm); if (!d || !(d.usdt > 0)) throw new Error('Enter an amount and the peso rate.');
-        await call('admin_receive_deposit', { p_profile: fv(fm, 'who'), p_usdt: d.usdt, p_php_rate: d.rate, p_php_amount: d.php,
+        await moneyCall(fm, 'admin_receive_deposit', { p_profile: fv(fm, 'who'), p_usdt: d.usdt, p_php_rate: d.rate, p_php_amount: d.php,
           p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Received ${d.php != null ? php(d.php) + ' = ' : ''}${usdt(d.usdt)}. It buys units at your next equity reading.`);
       } else if (id === 'wdForm') {
-        const r = await call('admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
+        const r = await moneyCall(fm, 'admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
           p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
         await refresh(`Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
       } else if (id === 'qForm') {
         if (!confirm('Charge fees and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
-        const r = await call('admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
+        const r = await moneyCall(fm, 'admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Quarter closed: fees charged on ${r.investors_charged} investor(s), ${f(r.fee_units, 4)} units`);
       } else if (btn) btn.disabled = false;
     } catch (e) {
