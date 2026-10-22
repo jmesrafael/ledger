@@ -1,6 +1,6 @@
 {
-  "name": "Ledger Monitor",
-  "short_name": "Ledger",
+  "name": "Lucidyo Ledger",
+  "short_name": "Lucidyo",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0A0A0A",

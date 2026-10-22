@@ -7,5 +7,13 @@
     "kind": "Backtest report",
     "file": "reports/sol-zec-backtest.html",
     "pdf": "reports/sol-zec-backtest.pdf"
+  },
+  {
+    "slug": "risk-and-compounding",
+    "title": "Risk & Compounding — 1% to 5% per Trade",
+    "summary": "Why October 2026 is red, drawdowns by year, and $100 compounded at 1–5% risk (all years, last 12 months, each year restarted, months shuffled). SOL+ZEC and 4 coins.",
+    "updated": "22 Oct 2026",
+    "kind": "Reference data",
+    "file": "reports/risk-and-compounding.html"
   }
 ]

@@ -1,0 +1,47 @@
+/* desktop.css — wide-screen layout for Lucidyo Ledger. Loaded after the main <style> in index.html.
+   Every rule is inside a min-width query, so phones and tablets (< 1024px) render exactly as before.
+
+   Signed-in views with two or more regular cards flow into balanced columns (top-to-bottom, then the next column, like a board).
+   Views with a single card (forms, one list) stay one centred column, a little wider than the phone.
+   The floating bottom tab bar becomes a vertical rail on the left. Sign-in and welcome screens are untouched. */
+
+@media (min-width: 1024px) {
+  body { padding: 0 32px 48px 140px; }                       /* room for the side rail; no bottom bar to clear */
+  .wrap { max-width: 1120px; }
+
+  /* tab bar -> left rail */
+  nav.tabs { left: 24px; right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
+  nav.tabs .bar { flex-direction: column; gap: 4px; width: 88px; max-width: none; height: auto; padding: 8px; border-radius: 34px; }
+  nav.tabs button { flex: none; height: 66px; border-radius: 26px; font-size: 11px; }
+  nav.tabs button:hover:not(.on) { color: var(--ink); background: var(--ghost-bg); }
+  .toast { bottom: 28px; }
+
+  header { padding-top: 28px; }
+  .hero .big { font-size: 48px; line-height: 54px; }
+  svg.growth { height: 260px; }
+  svg.chart { height: 180px; }
+  svg.growth path, svg.chart path, svg.growth line, svg.chart line { vector-effect: non-scaling-stroke; }   /* wide charts keep thin lines */
+  button:hover:not(:disabled), a.btn:hover { filter: brightness(1.04); }
+
+  /* ---- several cards: balanced columns ---- */
+  .wrap:has(> nav.tabs):has(> .card:not(.hero) ~ .card:not(.hero)) { column-count: 2; column-gap: 20px; }
+  .wrap:has(> nav.tabs) > * { break-inside: avoid; }
+  .wrap:has(> nav.tabs) > .card { margin: 0 0 20px; }
+  .wrap:has(> nav.tabs) > :is(header, .viewas, .hero, .sechead, .ranges, .disc, .btns, nav, p) { column-span: all; }
+  .wrap:has(> nav.tabs) > .hero { margin: 12px 0 20px; }
+  .wrap:has(> nav.tabs) > .card:not(.hero):has(~ .hero) { column-span: all; margin: 12px 0 0; }   /* a notice card above the hero (e.g. "Waiting to join") */
+  .wrap:has(> nav.tabs) > .sechead { margin-bottom: 12px; }
+  .wrap:has(> nav.tabs) > .ranges { margin-bottom: 12px !important; }
+
+  /* ---- one card: a single centred column ---- */
+  .wrap:has(> nav.tabs):not(:has(> .card:not(.hero) ~ .card:not(.hero))) { max-width: 780px; }
+  .wrap:has(> nav.tabs):not(:has(> .card:not(.hero) ~ .card:not(.hero))) .mini { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+  /* the "View as" banner spans the content width, not the phone's bleed */
+  .viewas { margin: 0 0 4px; border-radius: 0 0 16px 16px; }
+}
+
+@media (min-width: 1600px) {
+  .wrap { max-width: 1480px; }
+  .wrap:has(> nav.tabs):has(> .card:not(.hero) ~ .card:not(.hero) ~ .card:not(.hero)) { column-count: 3; }
+}
