@@ -2,18 +2,20 @@
 // exactly like the website does, so the permission checks here are the real ones.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+// a migration stays in supabase/migrations/ until it has been run on the live database, then moves to supabase/migrations/applied/
+const mig = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
-const MIGRATION = new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url);
-const HIDE_POOL = new URL('../supabase/migrations/20261023000000_hide_pool_from_investors.sql', import.meta.url);
-const CORRECTIONS = new URL('../supabase/migrations/20261024000001_ledger_corrections.sql', import.meta.url);
-const FEE_10 = new URL('../supabase/migrations/20261025000000_profit_share_10.sql', import.meta.url);
-const PENDING = new URL('../supabase/migrations/20261026000000_pending_deposits.sql', import.meta.url);
-const HARDEN = new URL('../supabase/migrations/20261027000000_profit_share_hardening.sql', import.meta.url);
-const TERMS = new URL('../supabase/migrations/20261028000000_terms_acceptance.sql', import.meta.url);
-const NET = new URL('../supabase/migrations/20261030000000_net_of_fee_returns.sql', import.meta.url);
+const MIGRATION = mig('20261022000000_ledger.sql');
+const HIDE_POOL = mig('20261023000000_hide_pool_from_investors.sql');
+const CORRECTIONS = mig('20261024000001_ledger_corrections.sql');
+const FEE_10 = mig('20261025000000_profit_share_10.sql');
+const PENDING = mig('20261026000000_pending_deposits.sql');
+const HARDEN = mig('20261027000000_profit_share_hardening.sql');
+const TERMS = mig('20261028000000_terms_acceptance.sql');
+const NET = mig('20261030000000_net_of_fee_returns.sql');
 const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {

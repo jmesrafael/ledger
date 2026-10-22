@@ -6,7 +6,9 @@
 //
 // trades.json: [{ exit: ISO time, R: result in risk units }, ...]  (sorted or not)
 // Pool model: each trade risks `risk` x current pool equity, so the pool compounds. Deposits are in pesos at `rate`.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+// a migration stays in supabase/migrations/ until it has been run on the live database, then moves to supabase/migrations/applied/
+const mig = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { randomBytes } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
@@ -76,7 +78,7 @@ function model() {
 // ---------------------------------------------------------------- run through the real database
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
-await db.exec(readFileSync(new URL('../supabase/migrations/20261022000000_ledger.sql', import.meta.url), 'utf8'));
+await db.exec(readFileSync(mig('20261022000000_ledger.sql'), 'utf8'));
 await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
 await db.query(`select public.create_first_admin('raf', 'Raf (manager)', 'manager-pass-1')`);
 const call = async (fn, ...a) => { await db.exec('set role anon'); try { return (await db.query(`select public.${fn}(${a.map((_, i) => `$${i + 1}`).join(',')}) as r`, a)).rows[0].r; } finally { await db.exec('reset role'); } };

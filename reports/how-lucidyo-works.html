@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Lucidyo Works</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one calm reading column (Lucidyo app look), each idea a section with one picture; numbers are the real 2026 replay */
+:root {
+  --page: #F4F4F0; --surface: #FFFFFF; --variant: #ECECE7; --line: #E1E1DB; --ink: #0D0D0D; --muted: #6B6B70;
+  --accent: #C8FF3D; --accent-ink: #0D0D0D; --up: #4F7A00; --down: #C93131; --warn: #A86A00;
+  --p0: #4F7A00; --p1: #1D63C6; --p2: #C27A00; --p3: #9A3FC0;
+  --sans: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #070708; --surface: #121214; --variant: #1D1D20; --line: rgba(255,255,255,0.12); --ink: #F5F5F0; --muted: #9A9AA0;
+  --accent: #C8FF3D; --accent-ink: #0D0D0D; --up: #C8FF3D; --down: #FF6B6B; --warn: #FFB020;
+  --p0: #C8FF3D; --p1: #6FB7FF; --p2: #FFB020; --p3: #D59CFF; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #070708; --surface: #121214; --variant: #1D1D20; --line: rgba(255,255,255,0.12); --ink: #F5F5F0; --muted: #9A9AA0;
+  --accent: #C8FF3D; --accent-ink: #0D0D0D; --up: #C8FF3D; --down: #FF6B6B; --warn: #FFB020;
+  --p0: #C8FF3D; --p1: #6FB7FF; --p2: #FFB020; --p3: #D59CFF; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--page); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px }
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 56px }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.15 }
+h1 { font-size: clamp(34px, 7vw, 54px); font-weight: 800; letter-spacing: -0.03em }
+h2 { font-size: clamp(24px, 4.4vw, 32px); font-weight: 800; letter-spacing: -0.02em }
+h3 { font-size: 17px; font-weight: 700 }
+p { margin: 0; max-width: 65ch }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted) }
+.lead { font-size: 19px; color: var(--muted) }
+.num { font-variant-numeric: tabular-nums }
+section { display: grid; gap: 18px; min-width: 0 }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; min-width: 0 }
+.note { font-size: 14px; color: var(--muted) }
+b, strong { font-weight: 700 }
+mark { background: var(--accent); color: var(--accent-ink); padding: 0 4px; border-radius: 4px }
+
+header { padding-top: 40px; display: grid; gap: 16px }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 18px; letter-spacing: -0.01em }
+.brand i { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); display: inline-block; position: relative }
+.brand i::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; border: 3px solid var(--accent-ink) }
+
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 4px; align-content: start }
+.fact .k { font-size: 26px; font-weight: 800; letter-spacing: -0.02em }
+.fact.warn .k { color: var(--down) }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: s }
+.steps li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; padding-bottom: 18px; position: relative }
+.steps li::before { counter-increment: s; content: counter(s); width: 32px; height: 32px; border-radius: 50%; background: var(--ink); color: var(--page);
+  display: grid; place-items: center; font-weight: 800; font-size: 14px; position: relative; z-index: 1 }
+.steps li:not(:last-child)::after { content: ""; position: absolute; left: 15px; top: 34px; bottom: 0; width: 2px; background: var(--line) }
+.steps .ex { font-size: 14px; color: var(--muted); margin-top: 2px }
+.steps .ex b { color: var(--ink) }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between }
+.seg { display: inline-flex; background: var(--variant); border-radius: 999px; padding: 3px; gap: 2px }
+.seg button { font: inherit; font-size: 14px; font-weight: 700; border: 0; background: transparent; color: var(--muted); padding: 6px 14px; border-radius: 999px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12) }
+.seg button:focus-visible, .chips button:focus-visible { outline: 2px solid var(--p1); outline-offset: 2px }
+.chips { display: flex; flex-wrap: wrap; gap: 8px }
+.chips button { font: inherit; font-size: 14px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 6px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center }
+.chips button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink) }
+.dot { width: 10px; height: 10px; border-radius: 50% ; display: inline-block; flex: none }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted) }
+.legend span { display: inline-flex; align-items: center; gap: 6px }
+.chart { position: relative; min-width: 0 }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y }
+.chart text { font-family: var(--sans); font-size: 11px; fill: var(--muted) }
+.tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--page); font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 10px; white-space: nowrap; transform: translateX(-50%); font-variant-numeric: tabular-nums }
+.tip[hidden] { display: none !important }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; min-width: 520px }
+th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap }
+th:first-child, td:first-child { text-align: left }
+thead th { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase }
+tbody tr:last-child td { border-bottom: 0; font-weight: 800 }
+tfoot td { border-top: 2px solid var(--ink); border-bottom: 0; font-weight: 800; background: var(--variant) }
+tfoot tr + tr td { border-top: 1px solid var(--line) }
+tfoot tr.sum td { font-size: 15px }
+td small { display: block; font-size: 11px; font-weight: 600 }
+.up { color: var(--up) } .down { color: var(--down) }
+
+.math { display: grid; gap: 0; font-variant-numeric: tabular-nums }
+.math .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line) }
+.math .row:last-child { border-bottom: 0; font-weight: 800; font-size: 18px }
+.math .row span:last-child { text-align: right }
+
+.rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+.rule { border-top: 3px solid var(--ink); padding-top: 10px; display: grid; gap: 4px; align-content: start }
+.rule p { font-size: 14px; color: var(--muted) }
+
+.risks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px }
+.risk { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--down); border-radius: 14px; padding: 16px; display: grid; gap: 6px; align-content: start }
+.risk .big { font-size: 24px; font-weight: 800; color: var(--down); letter-spacing: -0.02em }
+.risk p { font-size: 14px; color: var(--muted) }
+.risk p b { color: var(--ink) }
+
+.compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px }
+.compare .panel { display: grid; gap: 10px; align-content: start }
+.compare .row { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; border-bottom: 1px solid var(--line); padding-bottom: 6px }
+.compare .row:last-child { border: 0 }
+.compare .row b { font-variant-numeric: tabular-nums }
+.tag { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--variant); color: var(--muted); justify-self: start }
+.tag.good { background: var(--accent); color: var(--accent-ink) }
+
+details { border-bottom: 1px solid var(--line); padding: 14px 0 }
+summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 12px }
+summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 20px; line-height: 1 }
+details[open] summary::after { content: "−" }
+summary::-webkit-details-marker { display: none }
+details p { margin-top: 8px; color: var(--muted); font-size: 15px }
+
+footer { border-top: 1px solid var(--line); padding-top: 18px; font-size: 13px; color: var(--muted); display: grid; gap: 8px }
+footer p { max-width: none }
+
+@media (max-width: 620px) {
+  .rules, .risks, .compare { grid-template-columns: minmax(0, 1fr) }
+  .lead { font-size: 17px }
+}
+@media (prefers-reduced-motion: no-preference) { .chart path.ln { transition: d .3s } }
+
+.yr { display: grid; gap: 14px }
+.yrhead { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline }
+.yrhead .big { font-size: clamp(28px, 6vw, 40px); font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px }
+.stat { background: var(--variant); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; align-content: start }
+.stat .k { font-size: 12px; color: var(--muted); font-weight: 600 }
+.stat .v { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums }
+.label { border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: var(--muted); background: var(--surface) }
+.label b { color: var(--ink) }
+.warnbox { border-left: 4px solid var(--down); background: var(--surface); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: var(--muted) }
+.warnbox b { color: var(--ink) }
+@media (max-width: 620px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <span class="brand"><i aria-hidden="true"></i>Lucidyo</span>
+    <h1>How your money works in the pool</h1>
+    <p class="lead">A plain-language guide for friends who are thinking of joining. It follows four people through 2026 so you can see what joining, growing, the 10% share and the bad weeks actually look like.</p>
+    <p class="note">The example uses a <b>backtest</b>: the trading bot's rules replayed on real 2026 prices (Jan 1 to Oct 21). It shows how things work, not what will happen.</p>
+  </header>
+
+  <section aria-labelledby="s-short">
+    <span class="eyebrow">The short version</span>
+    <h2 id="s-short">One account, one bot, everyone owns a slice</h2>
+    <div class="facts">
+      <div class="fact"><span class="k">1 pool</span><p class="note">All the money sits in one trading account. The manager's own money is in it too, trading the same way.</p></div>
+      <div class="fact"><span class="k">Units</span><p class="note">Your money buys units. Your balance is your units × the unit price. The price moves only with the trading.</p></div>
+      <div class="fact"><span class="k">10%</span><p class="note">The manager takes 10% of <b>new profit</b> only. Nothing from the money you put in, no monthly or sign-up fee.</p></div>
+      <div class="fact warn"><span class="k">Can drop</span><p class="note">The balance goes down as well as up. You can lose part or all of it. Nothing is guaranteed or insured.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-join">
+    <span class="eyebrow">Joining, step by step</span>
+    <h2 id="s-join">What happens to your ₱1,000</h2>
+    <p>Here is Friend A, who put in ₱1,000 on February 1.</p>
+    <div class="panel">
+      <ol class="steps">
+        <li><div><h3>You send the money</h3><p class="ex">It lands in the trading account. It is recorded as <b>received</b> but does not own anything yet.</p></div></li>
+        <li><div><h3>It waits for the next weekly valuation</h3><p class="ex">Every Sunday night the manager records what the account is worth. Waiting money is left out of that number, so you never share in profit (or losses) from before you arrived.</p></div></li>
+        <li><div><h3>It buys units at that day's price</h3><p class="ex" id="joinEx"></p></div></li>
+        <li><div><h3>Your units go up and down with the trading</h3><p class="ex">Everyone's money moves by the same % each week. Your share of the profit is simply your share of the units.</p></div></li>
+        <li><div><h3>Every quarter end, the 10% share is settled</h3><p class="ex">Only on profit above your best-ever level. It is paid as a few of your units moving to the manager, inside the pool; no cash moves.</p></div></li>
+        <li><div><h3>After 3 months, you can take money out</h3><p class="ex">Ask in the app. You are paid within 7 business days at the value on the day of payout. For Friend A that unlock date was <b>May 1</b>.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-story">
+    <span class="eyebrow">The example</span>
+    <h2 id="s-story">Four people, one pool, 2026 so far</h2>
+    <p>The manager starts with ₱5,000 on January 1. Three friends join later with different amounts. Same trading for all of them; they only differ in when they joined and how much they put in.</p>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Risk per trade">
+        <button type="button" data-risk="0.01" aria-pressed="true">1% risk per trade</button>
+        <button type="button" data-risk="0.05" aria-pressed="false">5% risk per trade</button>
+      </div>
+      <span class="note">Risk = how much of the pool the bot can lose on one trade.</span>
+    </div>
+    <div class="panel">
+      <div class="legend" id="legend"></div>
+      <div class="chart" id="growth"></div>
+      <p class="note">Each line is what that person's money was worth at every Sunday valuation. Dashed: what they put in. Hover or drag to see a week.</p>
+    </div>
+    <div class="tablewrap"><table id="months"></table></div>
+    <p class="note">Month-end balances in pesos, with the change that month underneath. Oct 21 is today. The totals at the bottom compare what each person put in with what it is worth today.</p>
+  </section>
+
+  <section aria-labelledby="s-share">
+    <span class="eyebrow">The 10% profit share</span>
+    <h2 id="s-share">Why your % is a little lower than the trading's</h2>
+    <p>The trading makes the same % for everyone. Your balance is shown <b>after</b> the manager's 10% share, so what you see is what is yours. Pick a person:</p>
+    <div class="chips" id="who" role="group" aria-label="Pick a person"></div>
+    <div class="panel">
+      <div class="math" id="math"></div>
+    </div>
+    <div class="panel">
+      <h3 style="margin-bottom:6px">The best-ever line</h3>
+      <div class="chart" id="hwm"></div>
+      <div class="legend"><span><i class="dot" style="background:var(--ink)"></i>Unit price (the trading)</span><span><i class="dot" style="background:var(--warn)"></i>Best-ever line</span><span><i class="dot" style="background:var(--accent)"></i>New profit: 10% of this is shared</span></div>
+      <p class="note" id="hwmNote" style="margin-top:8px"></p>
+    </div>
+    <div class="rules">
+      <div class="rule"><h3>Only new profit</h3><p>The share is taken only on gains above your best-ever level, never from the money you put in.</p></div>
+      <div class="rule"><h3>Down? Nothing taken</h3><p>After a drop, the balance must climb back above the old best before any share is taken again.</p></div>
+      <div class="rule"><h3>Taken stays taken</h3><p>A share taken at a quarter end is not returned if the pool drops later. That is why, today, it can be more than 10% of the profit you have left.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-risk">
+    <span class="eyebrow">Where it is uncertain</span>
+    <h2 id="s-risk">What the bad parts looked like</h2>
+    <p>These are from the same example, so you can picture them before they happen to real money.</p>
+    <div class="risks" id="risks"></div>
+    <div class="risks">
+      <div class="risk"><h3>Past results are not a promise</h3><p>This is a replay on past prices. The coins were picked <b>after</b> seeing how they did, so real trading will very likely do worse than this.</p></div>
+      <div class="risk"><h3>The exchange and the bot</h3><p>The money sits on a crypto exchange. The exchange can freeze, fail or be blocked, and the bot can stop or make mistakes. Any of these can cost money.</p></div>
+      <div class="risk"><h3>Not a bank, not registered</h3><p>This is a private arrangement among friends, kept in a ledger by the manager. It is not a bank account, not insured and not a registered investment.</p></div>
+      <div class="risk"><h3>Your money is locked for 3 months</h3><p>Each deposit can be withdrawn only 3 months after it joins, then within 7 business days. Only put in money you will not need soon.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-cmp">
+    <span class="eyebrow">Risk level</span>
+    <h2 id="s-cmp">More risk: bigger gains, deeper drops</h2>
+    <div class="compare" id="compare"></div>
+  </section>
+
+  <section aria-labelledby="s-faq">
+    <span class="eyebrow">Questions friends ask</span>
+    <h2 id="s-faq">Good to know</h2>
+    <div>
+      <details><summary>Does the manager pay the 10% too?</summary><p>No. The manager's own money pays no share, and it makes exactly the same trading % as yours over the same weeks. The app shows you both side by side.</p></details>
+      <details><summary>If I join after a good month, do I get that profit?</summary><p>No, and you do not pay for an earlier loss either. New money waits for the next valuation and buys in at that day's price.</p></details>
+      <details><summary>Can I see my money?</summary><p>Yes. You get your own login to the Lucidyo app: your balance after the share, a growth chart, every entry, and what the share has been. You cannot see other people's amounts, and they cannot see yours.</p></details>
+      <details><summary>Can I add more later?</summary><p>Yes. Each top-up is its own deposit with its own 3-month lock and its own best-ever line, so adding money never changes what an earlier deposit owes.</p></details>
+      <details><summary>How much should I put in?</summary><p>Only an amount you could lose without it hurting you. In the example, a ₱2,500 deposit was worth as little as <span id="faqLow"></span> at one point.</p></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-years">
+    <span class="eyebrow">Looking further back</span>
+    <h2 id="s-years">₱1,000 left to compound since 2020</h2>
+    <div class="label"><b>Backtest on real past market data.</b> SOL and ZEC combined, Binance futures prices, from the first trade on <b>Mar 12, 2020</b> (when the price history starts) to <b>Oct 21, 2026</b>: about 6 years and 7 months. Each trade risks 1% (or 5%) of the balance at that moment, so every win and loss compounds into the next trade. Trading fees, slippage and funding costs are included. Shown before the 10% profit share, with no money added or taken out. The two coins were chosen after seeing these results, so real trading will very likely do worse.</div>
+    <div class="yr" id="yr1"></div>
+    <div class="yr" id="yr5"></div>
+    <div class="warnbox"><b>Read the 5% numbers with care.</b> A balance that falls by about two thirds before recovering is very hard to sit through, and most people would stop at the bottom. At large sizes real orders also move the price, so the later years at 5% could not be repeated in practice. The bot also limits how much it risks on one trade, which would slow the growth. The 1% line is the more realistic picture.</div>
+  </section>
+
+  <footer>
+    <p><b>About the numbers.</b> Hypothetical backtest of the Lucidyo bot on SOL and ZEC combined, Jan 1 to Oct 21, 2026 (the since-2020 section: Mar 12, 2020 to Oct 21, 2026), using real exchange prices and including trading fees, slippage and funding costs. Pool balances run through the same ledger rules the app uses (weekly valuations, quarter closes on Mar 31, Jun 30, Sep 30, 10% share above each deposit's best-ever level). Pesos at a fixed ₱58 per USDT; in real life the exchange rate also moves your peso balance. Join dates for the friends are examples.</p>
+    <p>This guide explains how the pool works. It is not an offer, advice or a promise of returns.</p>
+  </footer>
+</div>
+
+<script>
+const DATA = {"0.01":{"weekly":[{"d":"2026-01-04","k":"update","p":1.0049,"v":[5025,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-11","k":"update","p":1.0191,"v":[5096,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-18","k":"update","p":1.0129,"v":[5065,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-25","k":"update","p":1.0174,"v":[5087,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-31","k":"update","p":1.0479,"v":[5240,0,0,0],"n":[5000,0,0,0]},{"d":"2026-02-01","k":"update","p":1.0691,"v":[5345,1000,0,0],"n":[5000,1000,0,0]},{"d":"2026-02-08","k":"update","p":1.1091,"v":[5545,1037,0,0],"n":[5000,1000,0,0]},{"d":"2026-02-15","k":"update","p":1.0934,"v":[5467,1023,2500,0],"n":[5000,1000,2500,0]},{"d":"2026-02-22","k":"update","p":1.0806,"v":[5403,1011,2471,0],"n":[5000,1000,2500,0]},{"d":"2026-02-28","k":"update","p":1.0887,"v":[5444,1018,2489,0],"n":[5000,1000,2500,0]},{"d":"2026-03-01","k":"update","p":1.0665,"v":[5332,998,2438,500],"n":[5000,1000,2500,500]},{"d":"2026-03-08","k":"update","p":1.0422,"v":[5211,975,2383,489],"n":[5000,1000,2500,500]},{"d":"2026-03-15","k":"update","p":1.0535,"v":[5268,985,2409,494],"n":[5000,1000,2500,500]},{"d":"2026-03-22","k":"update","p":1.0629,"v":[5314,994,2430,498],"n":[5000,1000,2500,500]},{"d":"2026-03-29","k":"update","p":1.0346,"v":[5173,968,2366,485],"n":[5000,1000,2500,500]},{"d":"2026-03-31","k":"close","p":1.0596,"v":[5298,991,2423,497],"n":[5000,1000,2500,500]},{"d":"2026-04-05","k":"update","p":1.0499,"v":[5250,982,2401,492],"n":[5000,1000,2500,500]},{"d":"2026-04-12","k":"update","p":1.0996,"v":[5498,1029,2514,516],"n":[5000,1000,2500,500]},{"d":"2026-04-19","k":"update","p":1.0884,"v":[5442,1018,2488,510],"n":[5000,1000,2500,500]},{"d":"2026-04-26","k":"update","p":1.0798,"v":[5399,1010,2469,506],"n":[5000,1000,2500,500]},{"d":"2026-04-30","k":"update","p":1.0489,"v":[5244,981,2398,492],"n":[5000,1000,2500,500]},{"d":"2026-05-03","k":"update","p":1.0592,"v":[5296,991,2422,497],"n":[5000,1000,2500,500]},{"d":"2026-05-10","k":"update","p":1.1589,"v":[5794,1084,2650,543],"n":[5000,1000,2500,500]},{"d":"2026-05-17","k":"update","p":1.145,"v":[5725,1071,2618,537],"n":[5000,1000,2500,500]},{"d":"2026-05-24","k":"update","p":1.1738,"v":[5869,1098,2684,550],"n":[5000,1000,2500,500]},{"d":"2026-05-31","k":"update","p":1.1507,"v":[5753,1076,2631,539],"n":[5000,1000,2500,500]},{"d":"2026-05-31","k":"update","p":1.1507,"v":[5753,1076,2631,539],"n":[5000,1000,2500,500]},{"d":"2026-06-07","k":"update","p":1.1966,"v":[5983,1119,2736,561],"n":[5000,1000,2500,500]},{"d":"2026-06-14","k":"update","p":1.1945,"v":[5972,1117,2731,560],"n":[5000,1000,2500,500]},{"d":"2026-06-21","k":"update","p":1.1726,"v":[5863,1097,2681,550],"n":[5000,1000,2500,500]},{"d":"2026-06-28","k":"update","p":1.1577,"v":[5788,1083,2647,543],"n":[5000,1000,2500,500]},{"d":"2026-06-30","k":"close","p":1.1599,"v":[5828,1076,2637,539],"n":[5000,1000,2500,500]},{"d":"2026-07-05","k":"update","p":1.1794,"v":[5926,1095,2681,548],"n":[5000,1000,2500,500]},{"d":"2026-07-12","k":"update","p":1.191,"v":[5984,1105,2707,554],"n":[5000,1000,2500,500]},{"d":"2026-07-19","k":"update","p":1.1765,"v":[5911,1092,2675,547],"n":[5000,1000,2500,500]},{"d":"2026-07-26","k":"update","p":1.1518,"v":[5787,1069,2618,536],"n":[5000,1000,2500,500]},{"d":"2026-07-31","k":"update","p":1.1526,"v":[5791,1070,2620,536],"n":[5000,1000,2500,500]},{"d":"2026-08-02","k":"update","p":1.1404,"v":[5729,1058,2592,530],"n":[5000,1000,2500,500]},{"d":"2026-08-09","k":"update","p":1.1376,"v":[5716,1056,2586,529],"n":[5000,1000,2500,500]},{"d":"2026-08-16","k":"update","p":1.1007,"v":[5530,1022,2502,512],"n":[5000,1000,2500,500]},{"d":"2026-08-23","k":"update","p":1.1886,"v":[5972,1103,2702,553],"n":[5000,1000,2500,500]},{"d":"2026-08-30","k":"update","p":1.2039,"v":[6049,1117,2737,560],"n":[5000,1000,2500,500]},{"d":"2026-08-31","k":"update","p":1.203,"v":[6044,1117,2735,559],"n":[5000,1000,2500,500]},{"d":"2026-09-06","k":"update","p":1.2013,"v":[6035,1115,2731,559],"n":[5000,1000,2500,500]},{"d":"2026-09-13","k":"update","p":1.2001,"v":[6030,1114,2728,558],"n":[5000,1000,2500,500]},{"d":"2026-09-20","k":"update","p":1.223,"v":[6144,1135,2780,569],"n":[5000,1000,2500,500]},{"d":"2026-09-27","k":"update","p":1.2611,"v":[6336,1170,2867,586],"n":[5000,1000,2500,500]},{"d":"2026-09-30","k":"close","p":1.2474,"v":[6299,1150,2816,576],"n":[5000,1000,2500,500]},{"d":"2026-10-04","k":"update","p":1.2341,"v":[6232,1137,2786,570],"n":[5000,1000,2500,500]},{"d":"2026-10-11","k":"update","p":1.2202,"v":[6162,1125,2754,563],"n":[5000,1000,2500,500]},{"d":"2026-10-18","k":"update","p":1.191,"v":[6014,1098,2688,550],"n":[5000,1000,2500,500]},{"d":"2026-10-21","k":"update","p":1.1666,"v":[5891,1075,2633,539],"n":[5000,1000,2500,500]}],"fin":{"raf":{"in":5000,"gross":5891,"gp":17.8,"cut":0,"net":5891,"np":17.8,"paid":0},"ana":{"in":1000,"gross":1091,"gp":9.1,"cut":16,"net":1075,"np":7.5,"paid":17},"ben":{"in":2500,"gross":2667,"gp":6.7,"cut":34,"net":2633,"np":5.3,"paid":35},"cris":{"in":500,"gross":547,"gp":9.4,"cut":8,"net":539,"np":7.7,"paid":8}},"low":[{"m":5025,"at":"2026-01-04"},{"m":968,"at":"2026-03-29"},{"m":2366,"at":"2026-03-29"},{"m":485,"at":"2026-03-29"}],"pool":10139},"0.05":{"weekly":[{"d":"2026-01-04","k":"update","p":1.0245,"v":[5123,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-11","k":"update","p":1.0957,"v":[5479,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-18","k":"update","p":1.0646,"v":[5323,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-25","k":"update","p":1.0895,"v":[5447,0,0,0],"n":[5000,0,0,0]},{"d":"2026-01-31","k":"update","p":1.2394,"v":[6197,0,0,0],"n":[5000,0,0,0]},{"d":"2026-02-01","k":"update","p":1.361,"v":[6805,1000,0,0],"n":[5000,1000,0,0]},{"d":"2026-02-08","k":"update","p":1.6028,"v":[8014,1178,0,0],"n":[5000,1000,0,0]},{"d":"2026-02-15","k":"update","p":1.4923,"v":[7462,1096,2500,0],"n":[5000,1000,2500,0]},{"d":"2026-02-22","k":"update","p":1.402,"v":[7010,1030,2349,0],"n":[5000,1000,2500,0]},{"d":"2026-02-28","k":"update","p":1.455,"v":[7275,1069,2437,0],"n":[5000,1000,2500,0]},{"d":"2026-03-01","k":"update","p":1.3138,"v":[6569,965,2201,500],"n":[5000,1000,2500,500]},{"d":"2026-03-08","k":"update","p":1.1622,"v":[5811,854,1947,442],"n":[5000,1000,2500,500]},{"d":"2026-03-15","k":"update","p":1.2251,"v":[6126,900,2052,466],"n":[5000,1000,2500,500]},{"d":"2026-03-22","k":"update","p":1.2594,"v":[6297,925,2110,479],"n":[5000,1000,2500,500]},{"d":"2026-03-29","k":"update","p":1.094,"v":[5470,804,1833,416],"n":[5000,1000,2500,500]},{"d":"2026-03-31","k":"close","p":1.2231,"v":[6115,899,2049,465],"n":[5000,1000,2500,500]},{"d":"2026-04-05","k":"update","p":1.1732,"v":[5866,862,1965,446],"n":[5000,1000,2500,500]},{"d":"2026-04-12","k":"update","p":1.445,"v":[7225,1062,2421,550],"n":[5000,1000,2500,500]},{"d":"2026-04-19","k":"update","p":1.3713,"v":[6857,1008,2297,522],"n":[5000,1000,2500,500]},{"d":"2026-04-26","k":"update","p":1.3126,"v":[6563,964,2199,500],"n":[5000,1000,2500,500]},{"d":"2026-04-30","k":"update","p":1.1327,"v":[5663,832,1898,431],"n":[5000,1000,2500,500]},{"d":"2026-05-03","k":"update","p":1.1862,"v":[5931,872,1987,451],"n":[5000,1000,2500,500]},{"d":"2026-05-10","k":"update","p":1.7598,"v":[8799,1293,2948,670],"n":[5000,1000,2500,500]},{"d":"2026-05-17","k":"update","p":1.6705,"v":[8353,1227,2799,636],"n":[5000,1000,2500,500]},{"d":"2026-05-24","k":"update","p":1.8576,"v":[9288,1365,3112,707],"n":[5000,1000,2500,500]},{"d":"2026-05-31","k":"update","p":1.7075,"v":[8537,1255,2860,650],"n":[5000,1000,2500,500]},{"d":"2026-05-31","k":"update","p":1.7075,"v":[8537,1255,2860,650],"n":[5000,1000,2500,500]},{"d":"2026-06-07","k":"update","p":1.9997,"v":[9998,1469,3350,761],"n":[5000,1000,2500,500]},{"d":"2026-06-14","k":"update","p":1.9862,"v":[9931,1459,3327,756],"n":[5000,1000,2500,500]},{"d":"2026-06-21","k":"update","p":1.8496,"v":[9248,1359,3099,704],"n":[5000,1000,2500,500]},{"d":"2026-06-28","k":"update","p":1.755,"v":[8775,1289,2940,668],"n":[5000,1000,2500,500]},{"d":"2026-06-30","k":"close","p":1.7695,"v":[8941,1270,2918,656],"n":[5000,1000,2500,500]},{"d":"2026-07-05","k":"update","p":1.8966,"v":[9583,1361,3128,703],"n":[5000,1000,2500,500]},{"d":"2026-07-12","k":"update","p":1.9709,"v":[9959,1415,3250,731],"n":[5000,1000,2500,500]},{"d":"2026-07-19","k":"update","p":1.8803,"v":[9501,1350,3101,697],"n":[5000,1000,2500,500]},{"d":"2026-07-26","k":"update","p":1.7239,"v":[8711,1237,2843,639],"n":[5000,1000,2500,500]},{"d":"2026-07-31","k":"update","p":1.7286,"v":[8734,1241,2850,641],"n":[5000,1000,2500,500]},{"d":"2026-08-02","k":"update","p":1.65,"v":[8337,1184,2721,612],"n":[5000,1000,2500,500]},{"d":"2026-08-09","k":"update","p":1.6322,"v":[8247,1172,2691,605],"n":[5000,1000,2500,500]},{"d":"2026-08-16","k":"update","p":1.3897,"v":[7022,997,2292,515],"n":[5000,1000,2500,500]},{"d":"2026-08-23","k":"update","p":1.9013,"v":[9607,1365,3135,705],"n":[5000,1000,2500,500]},{"d":"2026-08-30","k":"update","p":1.9992,"v":[10102,1435,3297,741],"n":[5000,1000,2500,500]},{"d":"2026-08-31","k":"update","p":1.994,"v":[10076,1431,3288,739],"n":[5000,1000,2500,500]},{"d":"2026-09-06","k":"update","p":1.9837,"v":[10024,1424,3271,735],"n":[5000,1000,2500,500]},{"d":"2026-09-13","k":"update","p":1.9765,"v":[9987,1419,3259,733],"n":[5000,1000,2500,500]},{"d":"2026-09-20","k":"update","p":2.1207,"v":[10716,1522,3497,786],"n":[5000,1000,2500,500]},{"d":"2026-09-27","k":"update","p":2.3626,"v":[11938,1696,3896,876],"n":[5000,1000,2500,500]},{"d":"2026-09-30","k":"close","p":2.2815,"v":[11669,1601,3678,827],"n":[5000,1000,2500,500]},{"d":"2026-10-04","k":"update","p":2.2022,"v":[11263,1545,3550,798],"n":[5000,1000,2500,500]},{"d":"2026-10-11","k":"update","p":2.1185,"v":[10835,1486,3415,768],"n":[5000,1000,2500,500]},{"d":"2026-10-18","k":"update","p":1.9381,"v":[9912,1360,3124,702],"n":[5000,1000,2500,500]},{"d":"2026-10-21","k":"update","p":1.7858,"v":[9133,1253,2879,647],"n":[5000,1000,2500,500]}],"fin":{"raf":{"in":5000,"gross":9133,"gp":82.7,"cut":0,"net":9133,"np":82.7,"paid":0},"ana":{"in":1000,"gross":1312,"gp":31.2,"cut":59,"net":1253,"np":25.3,"paid":67},"ben":{"in":2500,"gross":2992,"gp":19.7,"cut":113,"net":2879,"np":15.1,"paid":131},"cris":{"in":500,"gross":680,"gp":35.9,"cut":32,"net":647,"np":29.5,"paid":36}},"low":[{"m":5123,"at":"2026-01-04"},{"m":804,"at":"2026-03-29"},{"m":1833,"at":"2026-03-29"},{"m":416,"at":"2026-03-29"}],"pool":13913}};
+const YEARS = {"first":{"SOL":"2020-09-14","ZEC":"2020-02-05"},"n":641,"r":{"0.01":{"bal":8099,"dd":0.1441,"ddAt":"2023-05-06","maxS":12,"W":250,"L":391,"years":{"2020":{"start":1000,"end":1233,"w":18,"l":36,"dd":0.0613,"maxS":7},"2021":{"start":1233,"end":2275,"w":44,"l":56,"dd":0.0829,"maxS":6},"2022":{"start":2275,"end":2624,"w":40,"l":63,"dd":0.1366,"maxS":12},"2023":{"start":2624,"end":3604,"w":37,"l":62,"dd":0.1041,"maxS":9},"2024":{"start":3604,"end":4968,"w":39,"l":59,"dd":0.0771,"maxS":6},"2025":{"start":4968,"end":6815,"w":39,"l":62,"dd":0.107,"maxS":11},"2026":{"start":6815,"end":8099,"w":33,"l":53,"dd":0.1048,"maxS":8}},"curve":[["2020-03-12",1039],["2020-03-20",1034],["2020-03-23",1023],["2020-04-01",1013],["2020-04-14",1011],["2020-04-24",1029],["2020-04-30",1019],["2020-05-10",1007],["2020-05-17",998],["2020-05-25",1001],["2020-05-30",1040],["2020-06-08",1037],["2020-06-11",1026],["2020-06-22",1015],["2020-06-23",1053],["2020-06-27",1042],["2020-07-06",1043],["2020-07-12",1082],["2020-07-21",1073],["2020-07-27",1112],["2020-08-01",1153],["2020-08-02",1141],["2020-08-11",1127],["2020-08-23",1116],["2020-08-25",1104],["2020-09-02",1093],["2020-09-04",1136],["2020-09-12",1132],["2020-09-24",1152],["2020-10-09",1152],["2020-10-16",1139],["2020-10-20",1128],["2020-10-21",1116],["2020-10-26",1163],["2020-11-03",1195],["2020-11-04",1229],["2020-11-06",1216],["2020-11-15",1215],["2020-11-16",1203],["2020-11-16",1190],["2020-11-18",1178],["2020-11-18",1165],["2020-11-22",1153],["2020-11-22",1199],["2020-11-26",1187],["2020-11-26",1174],["2020-12-04",1170],["2020-12-13",1190],["2020-12-13",1178],["2020-12-21",1165],["2020-12-24",1212],["2020-12-24",1259],["2020-12-26",1246],["2020-12-29",1233],["2021-01-03",1282],["2021-01-04",1270],["2021-01-06",1260],["2021-01-10",1309],["2021-01-16",1311],["2021-01-17",1298],["2021-01-19",1304],["2021-01-20",1290],["2021-01-26",1277],["2021-01-27",1263],["2021-01-28",1251],["2021-02-02",1299],["2021-02-09",1339],["2021-02-10",1374],["2021-02-11",1425],["2021-02-15",1409],["2021-02-20",1431],["2021-02-22",1485],["2021-03-03",1489],["2021-03-14",1546],["2021-03-16",1527],["2021-03-23",1510],["2021-03-23",1495],["2021-03-29",1480],["2021-04-04",1537],["2021-04-06",1593],["2021-04-12",1611],["2021-04-18",1592],["2021-04-25",1655],["2021-05-04",1655],["2021-05-04",1635],["2021-05-07",1699],["2021-05-12",1682],["2021-05-13",1664],["2021-05-16",1647],["2021-05-19",1630],["2021-05-19",1696],["2021-05-20",1679],["2021-05-28",1682],["2021-05-31",1688],["2021-06-08",1671],["2021-06-15",1654],["2021-06-16",1656],["2021-06-18",1639],["2021-06-22",1704],["2021-06-22",1769],["2021-06-27",1751],["2021-06-29",1734],["2021-07-04",1717],["2021-07-08",1700],["2021-07-20",1767],["2021-07-20",1835],["2021-07-21",1817],["2021-07-21",1798],["2021-07-27",1780],["2021-08-07",1849],["2021-08-07",1898],["2021-08-15",1937],["2021-08-15",2011],["2021-08-16",2091],["2021-08-18",2070],["2021-08-24",2048],["2021-08-25",2047],["2021-08-30",2128],["2021-09-06",2208],["2021-09-07",2291],["2021-09-07",2268],["2021-09-07",2245],["2021-09-13",2222],["2021-09-16",2221],["2021-09-27",2199],["2021-09-28",2176],["2021-09-28",2222],["2021-10-01",2200],["2021-10-09",2206],["2021-10-11",2183],["2021-10-15",2161],["2021-10-15",2140],["2021-10-21",2223],["2021-10-22",2308],["2021-10-27",2284],["2021-10-27",2260],["2021-11-06",2236],["2021-11-09",2297],["2021-11-10",2385],["2021-11-16",2360],["2021-11-16",2336],["2021-11-21",2312],["2021-11-21",2289],["2021-11-24",2266],["2021-11-30",2276],["2021-11-30",2254],["2021-12-04",2231],["2021-12-12",2252],["2021-12-12",2279],["2021-12-15",2256],["2021-12-16",2233],["2021-12-21",2210],["2021-12-28",2187],["2021-12-29",2275],["2022-01-05",2251],["2022-01-06",2291],["2022-01-08",2268],["2022-01-14",2269],["2022-01-17",2245],["2022-01-21",2336],["2022-01-21",2426],["2022-01-24",2519],["2022-01-30",2527],["2022-02-14",2519],["2022-02-17",2493],["2022-02-19",2545],["2022-02-23",2519],["2022-02-24",2494],["2022-02-27",2497],["2022-02-28",2471],["2022-03-04",2446],["2022-03-07",2421],["2022-03-12",2453],["2022-03-14",2428],["2022-03-17",2464],["2022-03-20",2438],["2022-03-27",2497],["2022-03-30",2593],["2022-04-07",2567],["2022-04-08",2556],["2022-04-09",2530],["2022-04-19",2519],["2022-04-20",2504],["2022-04-22",2478],["2022-04-26",2453],["2022-04-26",2428],["2022-05-01",2462],["2022-05-08",2495],["2022-05-09",2515],["2022-05-11",2614],["2022-05-17",2618],["2022-05-20",2625],["2022-06-01",2653],["2022-06-03",2679],["2022-06-06",2652],["2022-06-12",2757],["2022-06-13",2862],["2022-06-16",2833],["2022-06-20",2858],["2022-06-28",2829],["2022-07-06",2862],["2022-07-07",2853],["2022-07-11",2824],["2022-07-15",2795],["2022-07-15",2765],["2022-07-21",2737],["2022-07-22",2709],["2022-07-23",2744],["2022-07-27",2717],["2022-07-27",2688],["2022-08-03",2661],["2022-08-05",2692],["2022-08-09",2664],["2022-08-13",2713],["2022-08-16",2686],["2022-08-26",2733],["2022-08-26",2705],["2022-08-27",2717],["2022-09-03",2689],["2022-09-04",2718],["2022-09-09",2690],["2022-09-13",2663],["2022-09-13",2768],["2022-09-19",2740],["2022-09-22",2778],["2022-09-26",2750],["2022-09-27",2722],["2022-10-03",2694],["2022-10-07",2665],["2022-10-13",2771],["2022-10-13",2879],["2022-10-14",2849],["2022-10-14",2820],["2022-10-20",2790],["2022-10-25",2762],["2022-10-28",2733],["2022-11-02",2704],["2022-11-02",2677],["2022-11-04",2649],["2022-11-05",2620],["2022-11-07",2593],["2022-11-07",2566],["2022-11-08",2539],["2022-11-09",2635],["2022-11-16",2685],["2022-11-18",2676],["2022-11-20",2649],["2022-11-22",2621],["2022-11-23",2591],["2022-11-30",2565],["2022-12-01",2535],["2022-12-09",2539],["2022-12-13",2511],["2022-12-16",2485],["2022-12-25",2521],["2022-12-25",2525],["2022-12-28",2624],["2023-01-02",2593],["2023-01-03",2568],["2023-01-06",2541],["2023-01-12",2582],["2023-01-14",2685],["2023-01-17",2677],["2023-01-22",2693],["2023-01-25",2664],["2023-01-30",2637],["2023-01-30",2609],["2023-02-03",2582],["2023-02-07",2556],["2023-02-13",2530],["2023-02-16",2503],["2023-02-22",2476],["2023-02-24",2474],["2023-03-03",2573],["2023-03-06",2598],["2023-03-09",2700],["2023-03-11",2750],["2023-03-15",2722],["2023-03-22",2695],["2023-03-25",2667],["2023-03-28",2639],["2023-03-30",2612],["2023-04-01",2585],["2023-04-03",2558],["2023-04-05",2532],["2023-04-11",2506],["2023-04-11",2605],["2023-04-18",2655],["2023-04-20",2650],["2023-04-26",2623],["2023-04-26",2595],["2023-04-26",2569],["2023-04-26",2542],["2023-05-01",2516],["2023-05-01",2489],["2023-05-06",2464],["2023-05-08",2566],["2023-05-16",2571],["2023-05-17",2566],["2023-05-25",2668],["2023-05-28",2643],["2023-06-05",2615],["2023-06-05",2718],["2023-06-10",2827],["2023-06-14",2869],["2023-06-18",2859],["2023-06-29",2830],["2023-07-02",2881],["2023-07-07",2938],["2023-07-13",2909],["2023-07-14",3026],["2023-07-22",3047],["2023-07-22",3032],["2023-07-30",3001],["2023-08-01",3021],["2023-08-13",2988],["2023-08-14",2957],["2023-08-16",2925],["2023-08-24",2956],["2023-08-25",3004],["2023-09-05",2971],["2023-09-11",2940],["2023-09-11",3054],["2023-09-12",3023],["2023-09-17",2991],["2023-09-21",2960],["2023-09-24",2929],["2023-09-27",2898],["2023-10-01",3013],["2023-10-02",3124],["2023-10-02",3092],["2023-10-09",3082],["2023-10-17",3105],["2023-10-20",3072],["2023-10-20",3195],["2023-10-28",3260],["2023-10-31",3317],["2023-10-31",3282],["2023-11-01",3412],["2023-11-02",3376],["2023-11-09",3341],["2023-11-10",3358],["2023-11-11",3492],["2023-11-20",3491],["2023-11-24",3456],["2023-11-27",3420],["2023-11-30",3385],["2023-12-07",3513],["2023-12-07",3556],["2023-12-11",3516],["2023-12-16",3559],["2023-12-20",3582],["2023-12-24",3724],["2023-12-25",3684],["2023-12-26",3641],["2023-12-27",3604],["2024-01-01",3589],["2024-01-03",3550],["2024-01-07",3639],["2024-01-08",3602],["2024-01-10",3566],["2024-01-11",3529],["2024-01-14",3493],["2024-01-18",3457],["2024-01-19",3421],["2024-01-27",3423],["2024-01-31",3409],["2024-02-05",3394],["2024-02-06",3358],["2024-02-07",3493],["2024-02-14",3459],["2024-02-16",3549],["2024-02-18",3685],["2024-02-20",3647],["2024-03-01",3788],["2024-03-01",3795],["2024-03-05",3756],["2024-03-05",3717],["2024-03-05",3674],["2024-03-13",3636],["2024-03-16",3729],["2024-03-21",3691],["2024-04-01",3648],["2024-04-02",3638],["2024-04-08",3601],["2024-04-09",3653],["2024-04-12",3800],["2024-04-12",3945],["2024-04-21",3942],["2024-04-21",3935],["2024-05-03",3896],["2024-05-03",3941],["2024-05-08",3901],["2024-05-08",3859],["2024-05-15",3821],["2024-05-20",3973],["2024-05-23",3931],["2024-05-24",4025],["2024-06-01",4016],["2024-06-07",3970],["2024-06-16",4040],["2024-06-16",4067],["2024-06-18",4228],["2024-06-26",4217],["2024-06-26",4219],["2024-07-04",4175],["2024-07-05",4341],["2024-07-07",4297],["2024-07-12",4326],["2024-07-12",4281],["2024-07-14",4453],["2024-07-22",4504],["2024-07-23",4609],["2024-07-30",4562],["2024-08-02",4514],["2024-08-03",4469],["2024-08-05",4424],["2024-08-11",4417],["2024-08-17",4496],["2024-08-18",4449],["2024-08-20",4486],["2024-08-25",4439],["2024-08-28",4393],["2024-09-04",4477],["2024-09-05",4539],["2024-09-08",4492],["2024-09-09",4446],["2024-09-17",4401],["2024-09-19",4355],["2024-09-26",4311],["2024-09-27",4432],["2024-09-30",4384],["2024-10-07",4340],["2024-10-08",4295],["2024-10-11",4465],["2024-10-11",4421],["2024-10-19",4426],["2024-10-22",4511],["2024-10-24",4466],["2024-10-25",4418],["2024-11-07",4596],["2024-11-13",4549],["2024-11-14",4615],["2024-11-24",4796],["2024-11-25",4825],["2024-11-26",4776],["2024-12-05",4884],["2024-12-06",4833],["2024-12-09",4783],["2024-12-17",4810],["2024-12-20",5001],["2024-12-20",4951],["2024-12-27",5019],["2024-12-28",4968],["2025-01-01",4917],["2025-01-07",4865],["2025-01-08",5059],["2025-01-13",5252],["2025-01-13",5199],["2025-01-14",5146],["2025-01-18",5350],["2025-01-27",5328],["2025-01-27",5438],["2025-02-03",5654],["2025-02-10",5682],["2025-02-11",5653],["2025-02-14",5595],["2025-02-24",5816],["2025-02-26",5759],["2025-03-02",5701],["2025-03-04",5642],["2025-03-15",5697],["2025-03-18",5698],["2025-03-18",5640],["2025-03-23",5857],["2025-03-28",5798],["2025-04-02",5915],["2025-04-05",6019],["2025-04-09",5957],["2025-04-09",5889],["2025-04-13",5842],["2025-04-21",5871],["2025-04-22",5951],["2025-04-30",5891],["2025-05-01",5892],["2025-05-03",5831],["2025-05-09",6060],["2025-05-15",6134],["2025-05-17",6118],["2025-05-18",6054],["2025-05-25",6293],["2025-05-29",6231],["2025-05-31",6169],["2025-06-07",6241],["2025-06-11",6178],["2025-06-12",6114],["2025-06-21",6199],["2025-06-21",6311],["2025-06-24",6246],["2025-06-24",6182],["2025-06-27",6118],["2025-07-01",6056],["2025-07-02",5994],["2025-07-09",5933],["2025-07-15",5871],["2025-07-18",6059],["2025-07-19",5997],["2025-07-21",6232],["2025-07-24",6168],["2025-07-28",6104],["2025-08-01",6179],["2025-08-08",6116],["2025-08-12",6053],["2025-08-16",6110],["2025-08-20",6048],["2025-08-21",5986],["2025-08-29",6047],["2025-08-31",6086],["2025-09-04",6022],["2025-09-04",5959],["2025-09-14",6192],["2025-09-16",6331],["2025-09-19",6268],["2025-09-19",6201],["2025-09-29",6445],["2025-09-30",6381],["2025-10-01",6640],["2025-10-10",6627],["2025-10-10",6767],["2025-10-11",7035],["2025-10-11",6967],["2025-10-14",6897],["2025-10-19",6895],["2025-10-23",6824],["2025-10-26",7101],["2025-10-28",7028],["2025-11-04",7078],["2025-11-04",7007],["2025-11-07",7295],["2025-11-08",7418],["2025-11-08",7345],["2025-11-22",7411],["2025-11-22",7340],["2025-12-01",7632],["2025-12-02",7556],["2025-12-09",7479],["2025-12-09",7402],["2025-12-11",7326],["2025-12-12",7250],["2025-12-17",7176],["2025-12-18",7102],["2025-12-19",7030],["2025-12-19",6957],["2025-12-24",6886],["2025-12-29",6815],["2026-01-04",6900],["2026-01-11",6948],["2026-01-16",6991],["2026-01-19",6918],["2026-01-25",7187],["2026-01-27",7254],["2026-01-28",7181],["2026-02-05",7463],["2026-02-07",7661],["2026-02-11",7581],["2026-02-11",7504],["2026-02-13",7620],["2026-02-19",7543],["2026-02-20",7464],["2026-02-25",7388],["2026-02-27",7464],["2026-03-01",7388],["2026-03-04",7311],["2026-03-06",7236],["2026-03-16",7519],["2026-03-18",7443],["2026-03-22",7367],["2026-03-23",7290],["2026-03-25",7215],["2026-03-26",7141],["2026-04-04",7209],["2026-04-07",7418],["2026-04-09",7715],["2026-04-12",7634],["2026-04-19",7556],["2026-04-22",7479],["2026-04-23",7399],["2026-04-27",7319],["2026-04-29",7243],["2026-05-05",7168],["2026-05-05",7456],["2026-05-09",7753],["2026-05-10",8045],["2026-05-12",7963],["2026-05-24",7973],["2026-05-27",8001],["2026-06-01",7920],["2026-06-03",8234],["2026-06-04",8154],["2026-06-11",8265],["2026-06-13",8293],["2026-06-21",8208],["2026-06-22",8126],["2026-06-22",8043],["2026-06-26",7959],["2026-07-01",8040],["2026-07-05",8201],["2026-07-11",8268],["2026-07-13",8184],["2026-07-22",8100],["2026-07-23",8012],["2026-07-27",7931],["2026-08-01",8044],["2026-08-02",7960],["2026-08-02",7881],["2026-08-07",7795],["2026-08-11",7712],["2026-08-17",7671],["2026-08-17",7586],["2026-08-17",7509],["2026-08-18",7423],["2026-08-20",7713],["2026-08-21",8009],["2026-08-28",8209],["2026-08-29",8346],["2026-09-02",8259],["2026-09-04",8174],["2026-09-12",8332],["2026-09-15",8242],["2026-09-23",8571],["2026-09-24",8484],["2026-09-26",8749],["2026-09-28",8660],["2026-10-02",8568],["2026-10-07",8479],["2026-10-12",8393],["2026-10-14",8308],["2026-10-15",8224],["2026-10-17",8268],["2026-10-19",8183],["2026-10-19",8099]],"restart":{"2020":8099,"2021":6571,"2022":3498,"2023":3154,"2024":2202,"2025":1647,"2026":1174}},"0.05":{"bal":2731289,"dd":0.6459,"ddAt":"2023-05-06","maxS":12,"W":250,"L":391,"years":{"2020":{"start":1000,"end":2301,"w":18,"l":36,"dd":0.2796,"maxS":7},"2021":{"start":2301,"end":27752,"w":44,"l":56,"dd":0.3649,"maxS":6},"2022":{"start":27752,"end":39381,"w":40,"l":63,"dd":0.5731,"maxS":12},"2023":{"start":39381,"end":132947,"w":37,"l":62,"dd":0.4534,"maxS":9},"2024":{"start":132947,"end":470467,"w":39,"l":59,"dd":0.3392,"maxS":6},"2025":{"start":470467,"end":1622609,"w":39,"l":62,"dd":0.4429,"maxS":11},"2026":{"start":1622609,"end":2731289,"w":33,"l":53,"dd":0.4466,"maxS":8}},"curve":[["2020-03-12",1197],["2020-03-20",1166],["2020-03-23",1107],["2020-04-01",1048],["2020-04-14",1039],["2020-04-24",1133],["2020-04-30",1074],["2020-05-10",1016],["2020-05-17",966],["2020-05-25",981],["2020-05-30",1175],["2020-06-08",1157],["2020-06-11",1093],["2020-06-22",1035],["2020-06-23",1230],["2020-06-27",1166],["2020-07-06",1172],["2020-07-12",1391],["2020-07-21",1335],["2020-07-27",1576],["2020-08-01",1869],["2020-08-02",1773],["2020-08-11",1658],["2020-08-23",1580],["2020-08-25",1497],["2020-09-02",1418],["2020-09-04",1700],["2020-09-12",1670],["2020-09-24",1817],["2020-10-09",1815],["2020-10-16",1716],["2020-10-20",1627],["2020-10-21",1545],["2020-10-26",1895],["2020-11-03",2163],["2020-11-04",2435],["2020-11-06",2312],["2020-11-15",2302],["2020-11-16",2184],["2020-11-16",2061],["2020-11-18",1954],["2020-11-18",1848],["2020-11-22",1754],["2020-11-22",2113],["2020-11-26",2005],["2020-11-26",1895],["2020-12-04",1858],["2020-12-13",2019],["2020-12-13",1925],["2020-12-21",1819],["2020-12-24",2203],["2020-12-24",2566],["2020-12-26",2437],["2020-12-29",2301],["2021-01-03",2766],["2021-01-04",2652],["2021-01-06",2540],["2021-01-10",3032],["2021-01-16",3058],["2021-01-17",2903],["2021-01-19",2969],["2021-01-20",2814],["2021-01-26",2669],["2021-01-27",2526],["2021-01-28",2399],["2021-02-02",2863],["2021-02-09",3246],["2021-02-10",3629],["2021-02-11",4246],["2021-02-15",4036],["2021-02-20",4364],["2021-02-22",5145],["2021-03-03",5208],["2021-03-14",6199],["2021-03-16",5880],["2021-03-23",5553],["2021-03-23",5252],["2021-03-29",4991],["2021-04-04",6001],["2021-04-06",6938],["2021-04-12",7294],["2021-04-18",6880],["2021-04-25",8242],["2021-05-04",8244],["2021-05-04",7736],["2021-05-07",9248],["2021-05-12",8778],["2021-05-13",8304],["2021-05-16",7881],["2021-05-19",7479],["2021-05-19",9044],["2021-05-20",8590],["2021-05-28",8690],["2021-05-31",8830],["2021-06-08",8381],["2021-06-15",7961],["2021-06-16",8003],["2021-06-18",7595],["2021-06-22",9113],["2021-06-22",10625],["2021-06-27",10085],["2021-06-29",9630],["2021-07-04",9146],["2021-07-08",8680],["2021-07-20",10412],["2021-07-20",12153],["2021-07-21",11539],["2021-07-21",10926],["2021-07-27",10370],["2021-08-07",12380],["2021-08-07",13814],["2021-08-15",15115],["2021-08-15",17794],["2021-08-16",21321],["2021-08-18",20405],["2021-08-24",19332],["2021-08-25",19251],["2021-08-30",23074],["2021-09-06",27430],["2021-09-07",31926],["2021-09-07",30488],["2021-09-07",28879],["2021-09-13",27411],["2021-09-16",27358],["2021-09-27",25978],["2021-09-28",24653],["2021-09-28",27495],["2021-10-01",26109],["2021-10-09",26440],["2021-10-11",25089],["2021-10-15",23779],["2021-10-15",22533],["2021-10-21",26948],["2021-10-22",31588],["2021-10-27",29958],["2021-10-27",28485],["2021-11-06",26980],["2021-11-09",30856],["2021-11-10",36153],["2021-11-16",34286],["2021-11-16",32423],["2021-11-21",30803],["2021-11-21",29178],["2021-11-24",27685],["2021-11-30",28373],["2021-11-30",27011],["2021-12-04",25637],["2021-12-12",26848],["2021-12-12",28381],["2021-12-15",26946],["2021-12-16",25521],["2021-12-21",24218],["2021-12-28",22960],["2021-12-29",27752],["2022-01-05",26301],["2022-01-06",28392],["2022-01-08",27056],["2022-01-14",27098],["2022-01-17",25701],["2022-01-21",31125],["2022-01-21",36293],["2022-01-24",42480],["2022-01-30",43068],["2022-02-14",42388],["2022-02-17",40193],["2022-02-19",44640],["2022-02-23",42355],["2022-02-24",40220],["2022-02-27",40471],["2022-02-28",38401],["2022-03-04",36437],["2022-03-07",34463],["2022-03-12",36897],["2022-03-14",34990],["2022-03-17",37525],["2022-03-20",35605],["2022-03-27",40093],["2022-03-30",47098],["2022-04-07",44706],["2022-04-08",43724],["2022-04-09",41496],["2022-04-19",40558],["2022-04-20",39343],["2022-04-22",37319],["2022-04-26",35418],["2022-04-26",33617],["2022-05-01",36166],["2022-05-08",38440],["2022-05-09",39925],["2022-05-11",47820],["2022-05-17",48122],["2022-05-20",48732],["2022-06-01",51364],["2022-06-03",53766],["2022-06-06",51181],["2022-06-12",61255],["2022-06-13",71408],["2022-06-16",67795],["2022-06-20",70576],["2022-06-28",67006],["2022-07-06",71067],["2022-07-07",70000],["2022-07-11",66403],["2022-07-15",63021],["2022-07-15",59577],["2022-07-21",56524],["2022-07-22",53654],["2022-07-23",57595],["2022-07-27",54680],["2022-07-27",51712],["2022-08-03",49065],["2022-08-05",52111],["2022-08-09",49398],["2022-08-13",54142],["2022-08-16",51623],["2022-08-26",56158],["2022-08-26",53249],["2022-08-27",54444],["2022-09-03",51618],["2022-09-04",54414],["2022-09-09",51648],["2022-09-13",49015],["2022-09-13",59120],["2022-09-19",56099],["2022-09-22",60246],["2022-09-26",57135],["2022-09-27",54217],["2022-10-03",51437],["2022-10-07",48734],["2022-10-13",58394],["2022-10-13",68647],["2022-10-14",65135],["2022-10-14",61630],["2022-10-20",58429],["2022-10-25",55302],["2022-10-28",52398],["2022-11-02",49684],["2022-11-02",47129],["2022-11-04",44705],["2022-11-05",41949],["2022-11-07",39776],["2022-11-07",37458],["2022-11-08",35425],["2022-11-09",42106],["2022-11-16",45592],["2022-11-18",44867],["2022-11-20",42561],["2022-11-22",40369],["2022-11-23",37811],["2022-11-30",35899],["2022-12-01",33734],["2022-12-09",33980],["2022-12-13",32131],["2022-12-16",30484],["2022-12-25",32655],["2022-12-25",32915],["2022-12-28",39381],["2023-01-02",37052],["2023-01-03",35407],["2023-01-06",33571],["2023-01-12",36375],["2023-01-14",43610],["2023-01-17",43124],["2023-01-22",44395],["2023-01-25",42097],["2023-01-30",39891],["2023-01-30",37737],["2023-02-03",35790],["2023-02-07",33981],["2023-02-13",32249],["2023-02-16",30445],["2023-02-22",28805],["2023-02-24",28685],["2023-03-03",34428],["2023-03-06",35864],["2023-03-09",42933],["2023-03-11",46260],["2023-03-15",43920],["2023-03-22",41690],["2023-03-25",39435],["2023-03-28",37408],["2023-03-30",35480],["2023-04-01",33645],["2023-04-03",31913],["2023-04-05",30206],["2023-04-11",28658],["2023-04-11",34307],["2023-04-18",37268],["2023-04-20",36991],["2023-04-26",35069],["2023-04-26",33147],["2023-04-26",31439],["2023-04-26",29735],["2023-05-01",28201],["2023-05-01",26635],["2023-05-06",25285],["2023-05-08",30746],["2023-05-16",31077],["2023-05-17",30787],["2023-05-25",36871],["2023-05-28",35361],["2023-06-05",33497],["2023-06-05",40429],["2023-06-10",48473],["2023-06-14",51600],["2023-06-18",50798],["2023-06-29",48209],["2023-07-02",52761],["2023-07-07",57584],["2023-07-13",54702],["2023-07-14",66165],["2023-07-22",68206],["2023-07-22",66532],["2023-07-30",63083],["2023-08-01",65356],["2023-08-13",61751],["2023-08-14",58529],["2023-08-16",55088],["2023-08-24",58202],["2023-08-25",62675],["2023-09-05",59277],["2023-09-11",56150],["2023-09-11",67544],["2023-09-12",64039],["2023-09-17",60661],["2023-09-21",57567],["2023-09-24",54535],["2023-09-27",51617],["2023-10-01",61888],["2023-10-02",71773],["2023-10-02",68060],["2023-10-09",67109],["2023-10-17",69561],["2023-10-20",65930],["2023-10-20",79278],["2023-10-28",87351],["2023-10-31",94416],["2023-10-31",89434],["2023-11-01",106814],["2023-11-02",101217],["2023-11-09",95958],["2023-11-10",98685],["2023-11-11",118289],["2023-11-20",118208],["2023-11-24",112196],["2023-11-27",106371],["2023-11-30",100983],["2023-12-07",120003],["2023-12-07",126787],["2023-12-11",119620],["2023-12-16",127215],["2023-12-20",131146],["2023-12-24",157140],["2023-12-25",148695],["2023-12-26",140133],["2023-12-27",132947],["2024-01-01",129778],["2024-01-03",122762],["2024-01-07",139179],["2024-01-08",132150],["2024-01-10",125403],["2024-01-11",118406],["2024-01-14",112408],["2024-01-18",106513],["2024-01-19",101083],["2024-01-27",101298],["2024-01-31",99336],["2024-02-05",97012],["2024-02-06",91974],["2024-02-07",111579],["2024-02-14",106094],["2024-02-16",120447],["2024-02-18",141318],["2024-02-20",134055],["2024-03-01",159978],["2024-03-01",161358],["2024-03-05",152915],["2024-03-05",145126],["2024-03-05",135901],["2024-03-13",128817],["2024-03-16",146061],["2024-03-21",138719],["2024-04-01",130495],["2024-04-02",128668],["2024-04-08",122225],["2024-04-09",131451],["2024-04-12",157887],["2024-04-12",184039],["2024-04-21",183236],["2024-04-21",181736],["2024-05-03",172621],["2024-05-03",183024],["2024-05-08",173625],["2024-05-08",164082],["2024-05-15",155811],["2024-05-20",188139],["2024-05-23",178237],["2024-05-24",197353],["2024-06-01",195126],["2024-06-07",184106],["2024-06-16",200248],["2024-06-16",206672],["2024-06-18",247580],["2024-06-26",244341],["2024-06-26",244841],["2024-07-04",232120],["2024-07-05",278074],["2024-07-07",264120],["2024-07-12",272544],["2024-07-12",258478],["2024-07-14",311307],["2024-07-22",328959],["2024-07-23",365788],["2024-07-30",346998],["2024-08-02",328032],["2024-08-03",311483],["2024-08-05",295804],["2024-08-11",293385],["2024-08-17",319753],["2024-08-18",303158],["2024-08-20",315345],["2024-08-25",298978],["2024-08-28",282834],["2024-09-04",311027],["2024-09-05",330897],["2024-09-08",313904],["2024-09-09",297111],["2024-09-17",281957],["2024-09-19",266694],["2024-09-26",253211],["2024-09-27",290300],["2024-09-30",274551],["2024-10-07",260693],["2024-10-08",247308],["2024-10-11",296336],["2024-10-11",283589],["2024-10-19",285092],["2024-10-22",312539],["2024-10-24",297803],["2024-10-25",281435],["2024-11-07",337949],["2024-11-13",320595],["2024-11-14",341764],["2024-11-24",408653],["2024-11-25",419494],["2024-11-26",398759],["2024-12-05",443600],["2024-12-06",420616],["2024-12-09",398831],["2024-12-17",409923],["2024-12-20",491540],["2024-12-20",466848],["2024-12-27",495796],["2024-12-28",470467],["2025-01-01",446457],["2025-01-07",423108],["2025-01-08",507486],["2025-01-13",591124],["2025-01-13",564790],["2025-01-14",534670],["2025-01-18",640649],["2025-01-27",627553],["2025-01-27",693438],["2025-02-03",831334],["2025-02-10",849163],["2025-02-11",827993],["2025-02-14",785204],["2025-02-24",940739],["2025-02-26",900707],["2025-03-02",853490],["2025-03-04",807458],["2025-03-15",846803],["2025-03-18",847470],["2025-03-18",804176],["2025-03-23",959400],["2025-03-28",910955],["2025-04-02",1006288],["2025-04-05",1087962],["2025-04-09",1032542],["2025-04-09",970997],["2025-04-13",932178],["2025-04-21",955557],["2025-04-22",1020040],["2025-04-30",968226],["2025-05-01",968884],["2025-05-03",918897],["2025-05-09",1099466],["2025-05-15",1157867],["2025-05-17",1142770],["2025-05-18",1083756],["2025-05-25",1297635],["2025-05-29",1241470],["2025-05-31",1177518],["2025-06-07",1249633],["2025-06-11",1186887],["2025-06-12",1122986],["2025-06-21",1200521],["2025-06-21",1303492],["2025-06-24",1236752],["2025-06-24",1170561],["2025-06-27",1110108],["2025-07-01",1053335],["2025-07-02",999843],["2025-07-09",949076],["2025-07-15",899447],["2025-07-18",1049651],["2025-07-19",995966],["2025-07-21",1190687],["2025-07-24",1129772],["2025-07-28",1071448],["2025-08-01",1140299],["2025-08-08",1081710],["2025-08-12",1026189],["2025-08-16",1076845],["2025-08-20",1021749],["2025-08-21",966947],["2025-08-29",1018664],["2025-08-31",1050108],["2025-09-04",994921],["2025-09-04",940271],["2025-09-14",1124363],["2025-09-16",1234464],["2025-09-19",1176607],["2025-09-19",1111969],["2025-09-29",1330034],["2025-09-30",1273401],["2025-10-01",1540194],["2025-10-10",1526789],["2025-10-10",1689432],["2025-10-11",2024279],["2025-10-11",1939389],["2025-10-14",1841673],["2025-10-19",1838614],["2025-10-23",1744165],["2025-10-26",2113330],["2025-10-28",2004518],["2025-11-04",2078910],["2025-11-04",1975190],["2025-11-07",2380862],["2025-11-08",2557391],["2025-11-08",2438025],["2025-11-22",2547432],["2025-11-22",2429738],["2025-12-01",2912738],["2025-12-02",2786479],["2025-12-09",2639148],["2025-12-09",2497040],["2025-12-11",2369144],["2025-12-12",2247307],["2025-12-17",2131599],["2025-12-18",2021921],["2025-12-19",1919171],["2025-12-19",1806921],["2025-12-24",1714015],["2025-12-29",1622609],["2026-01-04",1727732],["2026-01-11",1784721],["2026-01-16",1839249],["2026-01-19",1745121],["2026-01-25",2085009],["2026-01-27",2172955],["2026-01-28",2067064],["2026-02-05",2471817],["2026-02-07",2757002],["2026-02-11",2614328],["2026-02-11",2480395],["2026-02-13",2672091],["2026-02-19",2537878],["2026-02-20",2400224],["2026-02-25",2277064],["2026-02-27",2405072],["2026-03-01",2282612],["2026-03-04",2159110],["2026-03-06",2042271],["2026-03-16",2442621],["2026-03-18",2317978],["2026-03-22",2194596],["2026-03-23",2080362],["2026-03-25",1968656],["2026-03-26",1868385],["2026-04-04",1956635],["2026-04-07",2230148],["2026-04-09",2676260],["2026-04-12",2536071],["2026-04-19",2406769],["2026-04-22",2283796],["2026-04-23",2161722],["2026-04-27",2045570],["2026-04-29",1933801],["2026-05-05",1828771],["2026-05-05",2213835],["2026-05-09",2654463],["2026-05-10",3088620],["2026-05-12",2929817],["2026-05-24",2947956],["2026-05-27",3000855],["2026-06-01",2848061],["2026-06-03",3437292],["2026-06-04",3293361],["2026-06-11",3525326],["2026-06-13",3580683],["2026-06-21",3398514],["2026-06-22",3221404],["2026-06-22",3055625],["2026-06-26",2896359],["2026-07-01",3050845],["2026-07-05",3343489],["2026-07-11",3471770],["2026-07-13",3294949],["2026-07-22",3125418],["2026-07-23",2948803],["2026-07-27",2798523],["2026-08-01",3007414],["2026-08-02",2850872],["2026-08-02",2710319],["2026-08-07",2563060],["2026-08-11",2419996],["2026-08-17",2352287],["2026-08-17",2222551],["2026-08-17",2101165],["2026-08-18",1981613],["2026-08-20",2368413],["2026-08-21",2782973],["2026-08-28",3089244],["2026-08-29",3326790],["2026-09-02",3154152],["2026-09-04",2990957],["2026-09-12",3293019],["2026-09-15",3116677],["2026-09-23",3738129],["2026-09-24",3548021],["2026-09-26",4049544],["2026-09-28",3842583],["2026-10-02",3637991],["2026-10-07",3449079],["2026-10-12",3275257],["2026-10-14",3108962],["2026-10-15",2951569],["2026-10-17",3042397],["2026-10-19",2885231],["2026-10-19",2731289]],"restart":{"2020":2731289,"2021":1187009,"2022":90813,"2023":77140,"2024":18563,"2025":6118,"2026":1584}}}};
+const PEOPLE = [
+  { k: 'raf', name: 'Manager', put: 'Jan 1 · ₱5,000', c: '--p0' },
+  { k: 'ana', name: 'Friend A', put: 'Feb 1 · ₱1,000', c: '--p1' },
+  { k: 'ben', name: 'Friend B', put: 'Feb 15 · ₱2,500', c: '--p2' },
+  { k: 'cris', name: 'Friend C', put: 'Mar 1 · ₱500', c: '--p3' },
+];
+const RATE = 58;
+let risk = '0.01', who = 2;
+const peso = (n) => '₱' + Math.round(n).toLocaleString('en-PH');
+const speso = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + peso(Math.abs(n));
+const pc = (n, d = 1) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(d) + '%';
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dlabel = (d) => MON[+d.slice(5, 7) - 1] + ' ' + +d.slice(8, 10);
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const css = (v) => `var(${v})`;
+function niceTicks(lo, hi, n = 4) {
+  const span = hi - lo || 1, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= step0);
+  const a = Math.floor(lo / step) * step, out = [];
+  for (let v = a; v <= hi + step * 0.001; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+
+// ---------- growth chart (all four people)
+function drawGrowth() {
+  const W = DATA[risk].weekly, box = document.getElementById('growth');
+  box.innerHTML = '';
+  const w = 700, h = 300, L = 54, R = 10, T = 10, B = 26;
+  let lo = Infinity, hi = 0;
+  W.forEach((r) => r.v.forEach((v, i) => { if (r.n[i] > 0) { lo = Math.min(lo, v, r.n[i]); hi = Math.max(hi, v, r.n[i]); } }));
+  lo = 0; const ticks = niceTicks(lo, hi * 1.05); hi = ticks[ticks.length - 1];
+  const X = (i) => L + (i / (W.length - 1)) * (w - L - R), Y = (v) => T + (1 - (v - lo) / (hi - lo)) * (h - T - B);
+  const svg = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': 'Balance of each person over 2026' }, box);
+  ticks.forEach((t) => { el('line', { x1: L, x2: w - R, y1: Y(t), y2: Y(t), stroke: css('--line'), 'stroke-width': 1 }, svg); const tx = el('text', { x: L - 8, y: Y(t) + 4, 'text-anchor': 'end' }, svg); tx.textContent = t >= 1000 ? '₱' + t / 1000 + 'k' : '₱' + t; });
+  let lastM = '';
+  W.forEach((r, i) => { const m = r.d.slice(5, 7); if (m !== lastM) { lastM = m; const tx = el('text', { x: X(i), y: h - 6, 'text-anchor': 'middle' }, svg); tx.textContent = MON[+m - 1]; } });
+  W.forEach((r, i) => { if (r.k === 'close') { el('line', { x1: X(i), x2: X(i), y1: T, y2: h - B, stroke: css('--muted'), 'stroke-dasharray': '2 4', 'stroke-width': 1 }, svg); const tx = el('text', { x: X(i) + 4, y: T + 10 }, svg); tx.textContent = 'Q' + Math.ceil(+r.d.slice(5, 7) / 3) + ' close'; } });
+  PEOPLE.forEach((p, k) => {
+    const idx = W.map((r, i) => i).filter((i) => W[i].n[k] > 0);
+    const line = (key) => idx.map((i, j) => (j ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(W[i][key][k]).toFixed(1)).join('');
+    el('path', { d: line('n'), fill: 'none', stroke: css(p.c), 'stroke-width': 1.3, 'stroke-dasharray': '4 4', opacity: 0.7 }, svg);
+    el('path', { class: 'ln', d: line('v'), fill: 'none', stroke: css(p.c), 'stroke-width': 2.4, 'stroke-linejoin': 'round' }, svg);
+    const e = idx[idx.length - 1]; el('circle', { cx: X(e), cy: Y(W[e].v[k]), r: 4, fill: css(p.c) }, svg);
+  });
+  const vline = el('line', { y1: T, y2: h - B, stroke: css('--ink'), 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; box.appendChild(tip);
+  const show = (ev) => {
+    const r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * w;
+    const i = Math.max(0, Math.min(W.length - 1, Math.round(((x - L) / (w - L - R)) * (W.length - 1))));
+    vline.setAttribute('x1', X(i)); vline.setAttribute('x2', X(i)); vline.setAttribute('visibility', 'visible');
+    tip.innerHTML = `<b>${dlabel(W[i].d)}${W[i].k === 'close' ? ' · quarter close' : ''}</b><br>` + PEOPLE.map((p, k) => W[i].n[k] > 0 ? `${p.name}: ${peso(W[i].v[k])} <span style="opacity:.7">(${pc((W[i].v[k] / W[i].n[k] - 1) * 100)})</span>` : `${p.name}: not in yet`).join('<br>');
+    tip.hidden = false; const px = (X(i) / w) * r.width; tip.style.left = Math.max(90, Math.min(r.width - 90, px)) + 'px';
+  };
+  svg.addEventListener('pointermove', show); svg.addEventListener('pointerdown', show);
+  svg.addEventListener('pointerleave', () => { tip.hidden = true; vline.setAttribute('visibility', 'hidden'); });
+  document.getElementById('legend').innerHTML = PEOPLE.map((p) => `<span><i class="dot" style="background:${css(p.c)}"></i>${p.name} <span class="note">(${p.put})</span></span>`).join('');
+}
+
+// ---------- month-end table
+function drawMonths() {
+  const W = DATA[risk].weekly, byM = new Map();
+  W.forEach((r) => byM.set(r.d.slice(0, 7), r));
+  const rows = [...byM.entries()];
+  let prev = [0, 0, 0, 0], prevN = [0, 0, 0, 0], prevAll = [0, 0, 0, 0], prevAllN = [0, 0, 0, 0];
+  const sum = (a) => a.reduce((t, x) => t + x, 0);
+  const body = rows.map(([m, r], j) => {
+    const cells = PEOPLE.map((p, k) => {
+      if (!r.n[k]) return '<td>—</td>';
+      const ch = r.v[k] - prev[k] - (r.n[k] - prevN[k]);
+      return `<td>${peso(r.v[k])}<small class="${ch >= 0 ? 'up' : 'down'}">${speso(ch)}</small></td>`;
+    }).join('');
+    prev = r.v; prevN = r.n;
+    const label = j === rows.length - 1 ? 'Oct 21 (today)' : MON[+m.slice(5) - 1];
+    const pool = sum(r.v), pch = pool - sum(prevAll) - (sum(r.n) - sum(prevAllN)); prevAll = r.v; prevAllN = r.n;
+    return `<tr><td>${label}</td>${cells}<td>${peso(pool)}<small class="${pch >= 0 ? 'up' : 'down'}">${speso(pch)}</small></td></tr>`;
+  }).join('');
+  const last = rows[rows.length - 1][1];
+  const put = last.n, now = last.v, gain = now.map((v, k) => v - put[k]);
+  const cell = (k) => `<td class="${gain[k] >= 0 ? 'up' : 'down'}">${speso(gain[k])}<small>${pc(DATA[risk].fin[PEOPLE[k].k].np)}</small></td>`;
+  const tg = sum(now) - sum(put);
+  const foot = `<tfoot>
+    <tr><td>Total put in</td>${put.map((v) => `<td>${peso(v)}</td>`).join('')}<td>${peso(sum(put))}</td></tr>
+    <tr><td>Worth today</td>${now.map((v) => `<td>${peso(v)}</td>`).join('')}<td>${peso(sum(now))}</td></tr>
+    <tr class="sum"><td>Total gain</td>${PEOPLE.map((p, k) => cell(k)).join('')}<td class="${tg >= 0 ? 'up' : 'down'}">${speso(tg)}<small>${pc(tg / sum(put) * 100)}</small></td></tr></tfoot>`;
+  document.getElementById('months').innerHTML = `<thead><tr><th>Month</th>${PEOPLE.map((p) => `<th>${p.name}</th>`).join('')}<th>Whole pool</th></tr></thead><tbody>${body}</tbody>${foot}`;
+}
+
+// ---------- the 10% maths for one person
+function drawMath() {
+  const p = PEOPLE[who], f = DATA[risk].fin[p.k], made = f.gross - f.in;
+  const isMgr = p.k === 'raf';
+  document.getElementById('math').innerHTML = `
+    <div class="row"><span>${p.name} put in</span><span>${peso(f.in)}</span></div>
+    <div class="row"><span>The trading made</span><span class="${made >= 0 ? 'up' : 'down'}">${speso(made)} &nbsp;(${pc(f.gp)})</span></div>
+    <div class="row"><span>${isMgr ? 'Profit share paid' : "Manager's 10% share<br><span class='note'>taken at the June and September quarter ends, at today's value</span>"}</span><span>${isMgr ? '₱0 (manager pays none)' : '−' + peso(f.cut) + ' &nbsp;(−' + (f.cut / f.in * 100).toFixed(1) + ' pts)'}</span></div>
+    <div class="row"><span>Yours, after the share</span><span><span class="${f.net - f.in >= 0 ? 'up' : 'down'}">${speso(f.net - f.in)} &nbsp;(${pc(f.np)})</span><br><span class="note" style="font-weight:600">balance ${peso(f.net)}</span></span></div>
+    ${isMgr ? '' : `<p class="note" style="margin-top:10px">${made > 0 ? `The share is ${Math.round(f.cut / made * 100)}% of the ${peso(made)} the trading made for ${p.name}. It is more than 10% because it was taken at the September high and October then fell; nothing new is taken until the pool passes that high again.` : ''}</p>`}`;
+  document.getElementById('who').innerHTML = PEOPLE.map((q, k) => `<button type="button" aria-pressed="${k === who}" data-who="${k}"><i class="dot" style="background:${css(q.c)}"></i>${q.name}</button>`).join('');
+  drawHwm();
+}
+
+// ---------- best-ever line for the chosen person
+function drawHwm() {
+  const W = DATA[risk].weekly, k = who === 0 ? 1 : who, box = document.getElementById('hwm');
+  const p = PEOPLE[k], start = W.findIndex((r) => r.n[k] > 0), S = W.slice(start);
+  let best = S[0].p; const B = S.map((r) => { if (r.k === 'close' && r.p > best) best = r.p; return best; });
+  const bestAt = S.map((r, i) => (i && S[i - 1] ? B[i - 1] : B[0]));   // the line in force during the week (it moves up at a close)
+  box.innerHTML = '';
+  const w = 700, h = 230, L = 46, R = 10, T = 10, Bm = 26;
+  const ps = S.map((r) => r.p), lo0 = Math.min(...ps, ...B), hi0 = Math.max(...ps, ...B), ticks = niceTicks(lo0 * 0.98, hi0 * 1.02);
+  const lo = ticks[0], hi = ticks[ticks.length - 1];
+  const X = (i) => L + (i / (S.length - 1)) * (w - L - R), Y = (v) => T + (1 - (v - lo) / (hi - lo)) * (h - T - Bm);
+  const svg = el('svg', { viewBox: `0 0 ${w} ${h}`, role: 'img', 'aria-label': `Unit price and ${p.name}'s best-ever line` }, box);
+  ticks.forEach((t) => { el('line', { x1: L, x2: w - R, y1: Y(t), y2: Y(t), stroke: css('--line') }, svg); const tx = el('text', { x: L - 8, y: Y(t) + 4, 'text-anchor': 'end' }, svg); tx.textContent = t.toFixed(2); });
+  let lastM = ''; S.forEach((r, i) => { const m = r.d.slice(5, 7); if (m !== lastM) { lastM = m; const tx = el('text', { x: X(i), y: h - 6, 'text-anchor': 'middle' }, svg); tx.textContent = MON[+m - 1]; } });
+  // shaded new profit: price above the line in force
+  S.forEach((r, i) => { if (!i) return; const a = bestAt[i]; if (r.p > a || S[i - 1].p > a) {
+    const y0 = Y(Math.max(S[i - 1].p, a)), y1 = Y(Math.max(r.p, a));
+    el('path', { d: `M${X(i - 1)},${Y(a)} L${X(i - 1)},${y0} L${X(i)},${y1} L${X(i)},${Y(a)} Z`, fill: css('--accent'), opacity: 0.55 }, svg); } });
+  el('path', { d: S.map((r, i) => (i ? 'L' + X(i) + ',' + Y(bestAt[i]) + ' ' : 'M' + X(0) + ',' + Y(B[0]) + ' ') + 'L' + X(i) + ',' + Y(B[i])).join(' '), fill: 'none', stroke: css('--warn'), 'stroke-width': 2, 'stroke-dasharray': '6 4' }, svg);
+  el('path', { d: S.map((r, i) => (i ? 'L' : 'M') + X(i) + ',' + Y(r.p)).join(''), fill: 'none', stroke: css('--ink'), 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, svg);
+  S.forEach((r, i) => { if (r.k === 'close') { el('circle', { cx: X(i), cy: Y(r.p), r: 4.5, fill: css('--warn'), stroke: css('--surface'), 'stroke-width': 2 }, svg); const tx = el('text', { x: X(i), y: Y(r.p) - 10, 'text-anchor': 'middle' }, svg); tx.textContent = 'Q' + Math.ceil(+r.d.slice(5, 7) / 3); } });
+  const last = S[S.length - 1], lb = B[B.length - 1];
+  document.getElementById('hwmNote').innerHTML = `${p.name}'s line starts at the price they joined at (${S[0].p.toFixed(4)} on ${dlabel(S[0].d)}). At each quarter end (dots) 10% of the green part is shared and the line moves up to that price. Today the price is ${last.p.toFixed(4)}, ${last.p < lb ? `<b>below</b> the line at ${lb.toFixed(4)}, so nothing more is owed until it climbs back above` : 'above the line, so a share is building for the next quarter end'}.${who === 0 ? ' (The manager pays no share; this shows Friend A.)' : ''}`;
+}
+
+// ---------- risks + comparison
+function drawRisk() {
+  const D = DATA[risk], W = D.weekly;
+  let pk = 0, dd = 0, ddAt = '';
+  W.forEach((r) => { pk = Math.max(pk, r.p); const d = 1 - r.p / pk; if (d > dd) { dd = d; ddAt = r.d; } });
+  const sep = W.find((r) => r.d.startsWith('2026-09-30') || (r.k === 'close' && r.d.startsWith('2026-09'))), now = W[W.length - 1];
+  const oct = (now.p / sep.p - 1) * 100, b = D.low[2], lose = countLosingMonths(W);
+  document.getElementById('risks').innerHTML = `
+    <div class="risk"><span class="big">${pc(-dd * 100)}</span><p><b>Biggest drop from a high</b> at ${risk === '0.01' ? '1%' : '5%'} risk, reached ${dlabel(ddAt)}. Everyone in the pool felt it by the same %. Switch the risk level above to compare.</p></div>
+    <div class="risk"><span class="big">${peso(b.m)}</span><p><b>Friend B's ₱2,500 at its lowest</b> (${dlabel(b.at)}), six weeks after joining. Had they needed the money then, they would have taken a loss.</p></div>
+    <div class="risk"><span class="big">${pc(oct)}</span><p><b>October 1 to 21.</b> Three weeks took back most of August and September's gains, right after the September share was taken.</p></div>
+    <div class="risk"><span class="big">${lose} of 10</span><p><b>Months that lost money.</b> Gains came in bursts (May, August, September); most other months were flat or down.</p></div>`;
+  const faqLow = document.getElementById('faqLow'); if (faqLow) faqLow.textContent = peso(b.m) + ` (at ${risk === '0.01' ? '1%' : '5%'} risk)`;
+}
+function countLosingMonths(W) {
+  const byM = new Map(); W.forEach((r) => byM.set(r.d.slice(0, 7), r.p));
+  let prev = 1, n = 0; for (const p of byM.values()) { if (p < prev) n++; prev = p; } return n;
+}
+function drawCompare() {
+  const card = (r, title, tag, good) => {
+    const D = DATA[r], W = D.weekly; let pk = 0, dd = 0; W.forEach((x) => { pk = Math.max(pk, x.p); dd = Math.max(dd, 1 - x.p / pk); });
+    const f = D.fin.ben, b = D.low[2];
+    return `<div class="panel"><span class="tag ${good ? 'good' : ''}">${tag}</span><h3>${title}</h3>
+      <div class="row"><span>Trading result, Jan 1 → today</span><b class="up">${pc((W[W.length - 1].p - 1) * 100)}</b></div>
+      <div class="row"><span>Friend B: ₱2,500 became</span><b>${peso(f.net)} (${pc(f.np)})</b></div>
+      <div class="row"><span>Friend B at the lowest point</span><b class="down">${peso(b.m)}</b></div>
+      <div class="row"><span>Biggest drop from a high</span><b class="down">${pc(-dd * 100)}</b></div></div>`;
+  };
+  document.getElementById('compare').innerHTML = card('0.01', '1% risk per trade', 'Calmer', true) + card('0.05', '5% risk per trade', 'Bumpier', false);
+}
+
+const setJoin = () => {
+  const W = DATA[risk].weekly, r = W.find((x) => x.n[1] > 0), units = 1000 / RATE / r.p;
+  document.getElementById('joinEx').innerHTML = `Friend A joined at the Sunday valuation on <b>Feb 1</b>, when one unit cost <b>${r.p.toFixed(4)}</b> USDT (the pool had already grown since January). ₱1,000 ≈ ${(1000 / RATE).toFixed(2)} USDT bought <b>${units.toFixed(2)} units</b>.`;
+};
+function render() { drawGrowth(); drawMonths(); drawMath(); drawRisk(); setJoin(); }
+document.addEventListener('click', (e) => {
+  const r = e.target.closest('[data-risk]'); if (r) { risk = r.dataset.risk; document.querySelectorAll('[data-risk]').forEach((b) => b.setAttribute('aria-pressed', b === r)); render(); }
+  const w = e.target.closest('[data-who]'); if (w) { who = +w.dataset.who; drawMath(); }
+});
+
+// ---------- since 2020: ₱1,000 compounding per trade
+function drawYearsOne(id, r, title, logScale) {
+  const D = YEARS.r[r], box = document.getElementById(id), C = D.curve, yrs = Object.keys(D.years);
+  const lowIdx = C.findIndex((p) => p[0] === D.ddAt);
+  const years = (Date.parse('2026-10-21') - Date.parse('2020-03-12')) / 31557600000, cagr = ((D.bal / 1000) ** (1 / years) - 1) * 100;
+  const rows = yrs.map((Y) => {
+    const v = D.years[Y], g = (v.end / v.start - 1) * 100;
+    const tag = Y === '2020' ? ' <span class="note">(from Mar)</span>' : Y === '2026' ? ' <span class="note">(to Oct 21)</span>' : '';
+    return '<tr><td>' + Y + tag + '</td><td>' + peso(v.start) + '</td><td>' + peso(v.end) + '</td><td class="' + (g >= 0 ? 'up' : 'down') + '">' + pc(g) + '</td>'
+      + '<td><span class="up">' + v.w + '</span> / <span class="down">' + v.l + '</span></td><td class="down">' + pc(-v.dd * 100) + '</td><td>' + v.maxS + '</td><td>' + peso(D.restart[Y]) + '</td></tr>';
+  }).join('');
+  box.innerHTML = '<div class="panel" style="display:grid;gap:14px">'
+    + '<div class="yrhead"><h3 style="font-size:20px">' + title + '</h3><span class="big">₱1,000 → ' + peso(D.bal) + '</span><span class="note">₱100 would be <b style="color:var(--ink)">' + peso(D.bal / 10) + '</b></span></div>'
+    + '<div class="stats">'
+    + '<div class="stat"><span class="k">Biggest drop from a high</span><span class="v down">' + pc(-D.dd * 100) + '</span><span class="note">bottom on ' + dlabel(D.ddAt) + ', ' + D.ddAt.slice(0, 4) + '</span></div>'
+    + '<div class="stat"><span class="k">Longest losing streak</span><span class="v">' + D.maxS + ' trades</span><span class="note">lost in a row</span></div>'
+    + '<div class="stat"><span class="k">Wins / losses</span><span class="v"><span class="up">' + D.W + '</span> / <span class="down">' + D.L + '</span></span><span class="note">' + Math.round(D.W / (D.W + D.L) * 100) + '% of ' + (D.W + D.L) + ' trades won</span></div>'
+    + '<div class="stat"><span class="k">Average per year</span><span class="v up">' + pc(cagr, 0) + '</span><span class="note">compounded</span></div>'
+    + '</div>'
+    + '<div class="chart" id="' + id + 'c"></div>'
+    + '<p class="note">' + (logScale ? 'Each grid line up is 10× the one below, so the early years stay visible. ' : '') + 'The red dot marks the bottom of the biggest drop. There are more losing trades than winning ones; it still grows because the wins are bigger than the losses.</p>'
+    + '<div class="tablewrap"><table><thead><tr><th>Year</th><th>Start of year</th><th>End of year</th><th>Year</th><th>Won / lost</th><th>Worst drop</th><th>Losing streak</th><th>₱1,000 put in Jan 1 → today</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody>'
+    + '<tfoot><tr><td>All years</td><td>₱1,000</td><td>' + peso(D.bal) + '</td><td class="up">' + pc((D.bal / 1000 - 1) * 100, 0) + '</td><td><span class="up">' + D.W + '</span> / <span class="down">' + D.L + '</span></td><td class="down">' + pc(-D.dd * 100) + '</td><td>' + D.maxS + '</td><td></td></tr></tfoot>'
+    + '</table></div></div>';
+
+  const cb = document.getElementById(id + 'c'), w = 700, h = 240, L = 58, R = 12, T = 12, B = 26;
+  const t0 = Date.parse(C[0][0]), t1 = Date.parse(C[C.length - 1][0]);
+  const vals = [1000].concat(C.map((p) => p[1])), vmax = Math.max.apply(null, vals), vmin = Math.min.apply(null, vals);
+  let ticks, Yf;
+  if (logScale) {
+    const a = Math.floor(Math.log10(vmin)), b = Math.ceil(Math.log10(vmax)); ticks = []; for (let e = a; e <= b; e++) ticks.push(10 ** e);
+    Yf = (v) => T + (1 - (Math.log10(v) - a) / (b - a)) * (h - T - B);
+  } else { ticks = niceTicks(0, vmax * 1.05); const top = ticks[ticks.length - 1]; Yf = (v) => T + (1 - v / top) * (h - T - B); }
+  const X = (d) => L + ((Date.parse(d) - t0) / (t1 - t0)) * (w - L - R);
+  const svg = el('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': title + ': balance since 2020' }, cb);
+  const fmtK = (t) => (t >= 1e6 ? '₱' + t / 1e6 + 'M' : t >= 1000 ? '₱' + t / 1000 + 'k' : '₱' + t);
+  ticks.forEach((t) => { el('line', { x1: L, x2: w - R, y1: Yf(t), y2: Yf(t), stroke: css('--line') }, svg); const tx = el('text', { x: L - 8, y: Yf(t) + 4, 'text-anchor': 'end' }, svg); tx.textContent = fmtK(t); });
+  for (let yv = 2021; yv <= 2026; yv++) { const x = X(yv + '-01-01'); el('line', { x1: x, x2: x, y1: T, y2: h - B, stroke: css('--line'), 'stroke-dasharray': '2 4' }, svg); const tx = el('text', { x: x, y: h - 6, 'text-anchor': 'middle' }, svg); tx.textContent = yv; }
+  const pts = [[C[0][0], 1000]].concat(C);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ',' + Yf(p[1]).toFixed(1)).join('');
+  el('path', { d: line + 'L' + X(pts[pts.length - 1][0]) + ',' + (h - B) + 'L' + X(pts[0][0]) + ',' + (h - B) + 'Z', fill: css('--p0'), opacity: 0.1 }, svg);
+  el('path', { d: line, fill: 'none', stroke: css('--p0'), 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+  if (lowIdx >= 0) el('circle', { cx: X(C[lowIdx][0]), cy: Yf(C[lowIdx][1]), r: 5, fill: css('--down'), stroke: css('--surface'), 'stroke-width': 2 }, svg);
+  el('circle', { cx: X(C[C.length - 1][0]), cy: Yf(C[C.length - 1][1]), r: 4, fill: css('--p0') }, svg);
+}
+function drawYears() { drawYearsOne('yr1', '0.01', '1% risk per trade', false); drawYearsOne('yr5', '0.05', '5% risk per trade', true); }
+drawCompare(); drawYears(); render();
+</script>
+</body>
+</html>

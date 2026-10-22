@@ -1,5 +1,13 @@
 [
   {
+    "slug": "how-lucidyo-works",
+    "title": "How Lucidyo Works — Guide for Friends",
+    "summary": "Plain-language guide to share: joining and units, the 10% share on new profit (best-ever line), a 2026 example of four people at 1% vs 5% risk, and where it is uncertain. No strategy rules.",
+    "updated": "22 Oct 2026",
+    "kind": "Guide",
+    "file": "reports/how-lucidyo-works.html"
+  },
+  {
     "slug": "sol-zec-backtest",
     "title": "7-Year Backtest — What $100 Could Have Become",
     "summary": "Growth of $100, year-by-year and month-by-month returns, drawdowns, and which months tend to be weak. Compounded once a year.",

@@ -4,7 +4,9 @@
 // share must show up as the only difference between an investor's % and the manager's.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+// a migration stays in supabase/migrations/ until it has been run on the live database, then moves to supabase/migrations/applied/
+const mig = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { createRequire } from 'node:module';
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
@@ -19,7 +21,7 @@ async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions;
     grant usage on schema public to anon, authenticated;`);
-  for (const m of MIGRATIONS) await db.exec(readFileSync(new URL('../supabase/migrations/' + m, import.meta.url), 'utf8'));
+  for (const m of MIGRATIONS) await db.exec(readFileSync(mig(m), 'utf8'));
   await db.exec(`update public.ledger_settings set value = '0' where key = 'min_days_between_closes'`);
   await db.exec(`update public.ledger_settings set value = '0' where key = 'lock_months'`);
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
