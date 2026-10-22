@@ -1,0 +1,51 @@
+/* features.css: month-by-month table, statements (screen + print), activity log. Loaded after the main <style>. */
+
+.print-only { display: none; }
+
+/* month by month */
+.mtab { margin: 2px -4px 0; }
+.mtab .mh, .mtab .mrow { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px; align-items: center; padding: 9px 4px; text-align: right; font-size: 13.5px; font-weight: 700; }
+.mtab .mh { font-size: 10.5px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--divider); }
+.mtab .mh span:first-child, .mtab .mrow span:first-child { text-align: left; }
+.mtab .mrow { all: unset; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px; align-items: center; width: 100%;
+  padding: 9px 4px; text-align: right; font: 700 13.5px/1.3 Manrope, system-ui, sans-serif; color: var(--ink); border-bottom: 1px solid var(--divider); cursor: pointer; border-radius: 10px; }
+.mtab .mrow span:first-child { text-align: left; }
+.mtab .mrow:last-child { border-bottom: 0; }
+.mtab .mrow:hover { background: var(--soft-bg); }
+.mtab .mrow.on { background: var(--accent-soft); }
+.mtab .mrow:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
+.mtab .mrow i { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+
+/* statement */
+.stmt-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.stmt-top select { width: auto; min-height: 40px; padding: 8px 34px 8px 12px; font-size: 14px; }
+.stmt-foot { margin-top: 14px; }
+
+/* activity log */
+.alog .arow { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--divider); font-size: 13.5px; line-height: 1.4; }
+.alog .arow:last-child { border-bottom: 0; }
+.alog .at { color: var(--muted); font-size: 12px; font-weight: 600; }
+.alog .ab { color: var(--ink-2); overflow-wrap: anywhere; }
+.alog .ab b { color: var(--ink); }
+
+/* "Save as PDF": print only the statement, black on white */
+@media print {
+  @page { margin: 16mm; }
+  html:root, html:root:not([data-theme="light"]), html:root[data-theme="dark"], html:root[data-theme="light"] {
+    --page: #fff !important; --surface: #fff !important; --ink: #111 !important; --ink-2: #333 !important; --muted: #666 !important; --line: #ccc !important; --divider: #ddd !important;
+    --up: #14692a !important; --down: #b3261e !important; --warn: #8a5a00 !important; --card-bg: #fff !important; --card-img: none !important; --card-border: #ccc !important;
+    --card-shadow: none !important; --blur: none !important; --rim: 0 !important; --soft-bg: #f6f6f6 !important; --soft-border: #ddd !important; --accent-soft: #eee !important; --accent-text: #111 !important;
+    color-scheme: light !important;
+  }
+  html, body { background: #fff !important; color: #111 !important; padding: 0 !important; min-height: 0 !important; }
+  .backdrop, header, nav.tabs, .viewas, #toast, .noprint, .btns, .sidesw, .disc { display: none !important; }
+  .wrap { max-width: none !important; column-count: auto !important; margin: 0 !important; }
+  .wrap > :not(#stmt) { display: none !important; }
+  #stmt { display: block !important; border: 0 !important; padding: 0 !important; margin: 0 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  #stmt::after { display: none !important; }
+  #stmt .print-only { display: block !important; margin-bottom: 14px; }
+  #stmt .pt { font-size: 22px; font-weight: 800; }
+  #stmt .ps { font-size: 13px; color: #444; margin-top: 2px; }
+  #stmt .row, #stmt .tx { break-inside: avoid; }
+  #stmt .stmt-foot { font-size: 11px; color: #444; }
+}

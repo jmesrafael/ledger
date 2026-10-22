@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
@@ -29,13 +30,14 @@ const MARKET = COINS.every((c) => c.startsWith('MEXC_'))
 
 // ---------------------------------------------------------------- the story (Philippine time, UTC+8)
 const pw = () => randomBytes(9).toString('base64url');   // 12 characters, temporary
+const INV_PASS = (opt('inv-pass', '') || '').split(',').filter(Boolean);   // --inv-pass a,b,c keeps the investors' passwords the same as an earlier run
 const MANAGER_PASS = opt('manager-pass', null);
 if (!MANAGER_PASS || MANAGER_PASS.length < 8) { console.error('give --manager-pass (at least 8 characters)'); process.exit(1); }
 const PEOPLE = [   // slot = how the SQL file refers to the person
   { slot: 'manager', user: opt('manager-user', 'raf'), name: opt('manager-name', 'Raf'), pass: MANAGER_PASS, admin: true },
-  { slot: 'joined_2025_03_03', user: 'investor1', name: 'Investor 1', pass: pw(), php: 5000, when: '3 Mar 2025' },
-  { slot: 'joined_2025_12_25', user: 'investor2', name: 'Investor 2', pass: pw(), php: 5000, when: '25 Dec 2025' },
-  { slot: 'joined_2026_02_21', user: 'investor3', name: 'Investor 3', pass: pw(), php: 3000, when: '21 Feb 2026' },
+  { slot: 'joined_2025_03_03', user: 'investor1', name: 'Investor 1', pass: INV_PASS[0] || pw(), php: 5000, when: '3 Mar 2025' },
+  { slot: 'joined_2025_12_25', user: 'investor2', name: 'Investor 2', pass: INV_PASS[1] || pw(), php: 5000, when: '25 Dec 2025' },
+  { slot: 'joined_2026_02_21', user: 'investor3', name: 'Investor 3', pass: INV_PASS[2] || pw(), php: 3000, when: '21 Feb 2026' },
 ];
 const PH = (s) => new Date(s + '+08:00');
 const DEPOSITS = [   // [when (PH), who, pesos]
@@ -157,7 +159,8 @@ truncate table public.lot_log, public.holder_lots, public.pending_deposits, publ
 -- 5. the history, oldest first
 ${lines.join('\n')}
 
--- 6. done
+-- 6. done: the activity log starts empty, so simulated setup never looks like real activity
+do $$ begin if to_regclass('public.audit_log') is not null then truncate table public.audit_log restart identity; end if; end $$;
 delete from public.sessions where token_hash = encode(extensions.digest(:tok, 'sha256'), 'hex');
 commit;
 `.replaceAll(':tok', S(tok));
@@ -236,6 +239,7 @@ try { await dbD.exec(sql); failures.push('wrong manager: file was not refused');
 catch (e) { if (!/manager account here is someone-else/.test(e.message)) failures.push('wrong manager: unexpected error ' + e.message); await dbD.exec('rollback').catch(() => {}); }
 if ((await dbD.query(`select count(*)::int n from public.pool_equity`)).rows[0].n !== 1 || (await dbD.query(`select count(*)::int n from public.profiles`)).rows[0].n !== 1) failures.push('wrong manager: data changed');
 
+if ((await dbB.query(`select count(*)::int n from public.audit_log`)).rows[0].n !== 0) failures.push('activity log is not empty after the seed');
 const sumVal = B.all.reduce((t, h) => t + Number(h.value_usdt), 0);
 const eqDiff = Math.abs(Number(B.pool.equity_usdt) - bal), sumDiff = Math.abs(sumVal - Number(B.pool.equity_usdt)), mgr = Math.abs(B.out.manager.tr - (Number(B.pool.unit_price) - 1));
 if (eqDiff > 1e-4) failures.push('ledger equity differs from the simulated account');
@@ -243,5 +247,5 @@ if (sumDiff > 1e-4) failures.push("everyone's values do not add up to the pool")
 if (mgr > 1e-9) failures.push('manager trading % differs from the unit price');
 console.log(`\nChecks: empty db = replay ${sameAs(A, B).toExponential(1)} · existing accounts = replay ${sameAs(A, C).toExponential(1)} · ledger vs simulated account ${eqDiff.toExponential(1)} USDT · values vs pool ${sumDiff.toExponential(1)} · manager % vs unit price ${mgr.toExponential(1)} · wrong manager refused, nothing changed`);
 if (failures.length) { console.log('FAILED, SQL not written:\n  ' + failures.join('\n  ')); process.exit(1); }
-writeFileSync(new URL('../' + OUT, import.meta.url), sql);
+writeFileSync(path.isAbsolute(OUT) ? OUT : new URL('../' + OUT, import.meta.url), sql);
 console.log(`ALL CHECKS PASS → wrote ${OUT} (${lines.length} entries)\nLogins: ${PEOPLE.map((p) => `${p.user} / ${p.pass}`).join(' · ')}`);

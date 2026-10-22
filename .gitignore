@@ -9,3 +9,7 @@ supabase/local-*.sql
 
 # generated seed files contain account passwords
 supabase/reset-and-seed-backtest.sql
+
+# ledger backups hold everyone's data; the key file can read the whole ledger
+backups/
+backup.config.json
