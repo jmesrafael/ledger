@@ -916,7 +916,7 @@ end $$;
 -- ---------------------------------------------------------------- 12. backups include the new tables; the per-deposit check is replaced
 create or replace function public._export_all() returns jsonb language sql stable security definer set search_path = public as $$
   select jsonb_build_object(
-    'format', 'lucidyo-ledger-backup-1',
+    'format', 'lucid-io-ledger-backup-1',
     'exported_at', now(),
     'people', (select coalesce(jsonb_agg(to_jsonb(p) - 'pass_hash' - 'failed_attempts' - 'locked_until' order by p.created_at, p.id), '[]'::jsonb) from profiles p),
     'pool_equity', (select coalesce(jsonb_agg(to_jsonb(e) order by e.id), '[]'::jsonb) from pool_equity e),

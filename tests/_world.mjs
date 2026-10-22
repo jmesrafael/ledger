@@ -17,7 +17,7 @@ export const r6 = (x) => Math.round(Number(x) * 1e6) / 1e6;
 
 export async function build({ integrity = true, rate = 0.1, gap = 0, maxMove = null, users = ['john', 'dino', 'eve'] } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
+  await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of OLD_CHAIN) await db.exec(readFileSync(mig(f), 'utf8'));
   const seedAfterOld = async () => {
     await db.exec(`update public.ledger_settings set value = '${gap}' where key = 'min_days_between_closes'; update public.ledger_settings set value = '4' where key = 'bcrypt_cost';`);

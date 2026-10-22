@@ -1,4 +1,4 @@
-/* desktop.css — wide-screen layout for Lucidyo Ledger. Loaded after the main <style> in index.html.
+/* desktop.css — wide-screen layout for Lucid'io Ledger. Loaded after the main <style> in index.html.
    Every rule is inside a min-width query, so phones and tablets (< 1024px) render exactly as before.
 
    Signed-in views with two or more regular cards flow into balanced columns (top-to-bottom, then the next column, like a board).

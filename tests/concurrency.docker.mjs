@@ -8,7 +8,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { OLD_CHAIN, INTEGRITY } from './_world.mjs';
 
-const NAME = 'lucidyo-ledger-race-' + process.pid;
+const NAME = 'lucid-io-ledger-race-' + process.pid;
 const mig = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 const hasDocker = spawnSync('docker', ['version', '--format', '{{.Server.Version}}'], { encoding: 'utf8' }).status === 0;
 

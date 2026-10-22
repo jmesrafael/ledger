@@ -1,4 +1,4 @@
-# Lucidyo Ledger: accounting model and integrity remediation
+# Lucid'io Ledger: accounting model and integrity remediation
 
 Status: **implemented and tested, not applied to any database.** The change is one migration,
 [`20261101000000_ledger_integrity.sql`](../supabase/migrations/20261101000000_ledger_integrity.sql), plus small changes to
@@ -245,7 +245,7 @@ select (select value from public.ledger_settings where key = 'fee_engine')      
   under the new rule. Exception: an investor who withdrew during the current period had the fee on the withdrawn share taken by the OLD
   rule, so the profit counted so far for them is forgiven once (`credit`), to avoid charging that share twice. Check this list in staging.
 - **No loss recovery** is a business decision (rule 6 of the brief), disclosed in the investor terms (version `2026-10-23`: every investor is
-  asked to agree again). The guide `reports/how-lucidyo-works.html` still describes the old best-ever-level rule and its figures were
+  asked to agree again). The guide `reports/how-lucid-io-works.html` still describes the old best-ever-level rule and its figures were
   generated from it: it must be regenerated before it is shared.
 - **Default fee rate.** New accounts still default to 10% (`ledger_settings.default_fee_rate`). The 15% default you proposed is a business
   and terms change. It is not applied here: change the setting and the investor terms together. 10%, 15% and 20% are all supported per person.

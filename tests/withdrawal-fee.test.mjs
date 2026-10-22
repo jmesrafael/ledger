@@ -13,7 +13,7 @@ const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a
 
 async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
+  await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months');
                  update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
@@ -48,31 +48,31 @@ const deposit = async (db, A, ids) => {
   await call(db, 'admin_post_equity', A, 200, 56);                          // records the peso rate
 };
 
-test('young account pays 5% on what it withdraws, paid to the fund manager', async () => {
+test('the withdrawal fee is switched off for now (young account pays nothing extra)', async () => {
   const { db, A, ids, J } = await world();
   await deposit(db, A, ids);
   const info = await call(db, 'exit_fee_info', J);
-  near(info.min_php, 500); near(info.people[0].rate, 0.05); assert.equal(info.people.length, 1);
+  near(info.min_php, 500); near(info.people[0].rate, 0); assert.equal(info.people.length, 1);
   const w = await call(db, 'admin_withdraw', A, ids.john, 20, 200, 56, null, true);
-  near(w.fee_units, 1); near(w.net_units, 19);                              // 5% of 20 units, no profit so no quarter fee
-  const rows = (await call(db, 'admin_ledger', A)).filter((l) => l.note === 'withdrawal fee');
-  assert.equal(rows.length, 2);
+  near(w.fee_units, 0); near(w.net_units, 20);                              // no profit and no withdrawal fee
+  assert.equal((await call(db, 'admin_ledger', A)).filter((l) => l.note === 'withdrawal fee').length, 0);
 });
 
-test('after a year the withdrawal fee is 2%', async () => {
+test('an account over a year old also pays no withdrawal fee while it is off', async () => {
   const { db, A, ids } = await world();
   await deposit(db, A, ids);
   await db.query(`update public.profiles set created_at = now() - interval '400 days' where username = 'john'`);
   const w = await call(db, 'admin_withdraw', A, ids.john, 20, 200, 56, null, true);
-  near(w.fee_units, 0.4);
+  near(w.fee_units, 0);
 });
 
 test('minimum withdrawal is 500 pesos, but everything can always be taken out', async () => {
   const { db, A, ids, J } = await world();
   await deposit(db, A, ids);
+  await call(db, 'set_my_payout', J, 'gcash', 'John', '09171234567');
   await assert.rejects(() => call(db, 'request_withdrawal', J, 5), /minimum withdrawal/);   // 5 units x 56 = 280 pesos
   await call(db, 'request_withdrawal', J, 10);                                              // 560 pesos
   await assert.rejects(() => call(db, 'admin_withdraw', A, ids.john, 5, 200, 56, null, false), /minimum withdrawal/);
   const w = await call(db, 'admin_withdraw', A, ids.john, 100, 200, 56, null, false);       // all of it
-  near(w.net_units, 95);
+  near(w.net_units, 100);
 });

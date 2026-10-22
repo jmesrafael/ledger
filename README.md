@@ -1,6 +1,6 @@
-# Lucidyo Ledger
+# Lucid'io Ledger
 
-**Lucidyo**: clear rules, real growth. A phone-friendly paper ledger for a small pooled account (friends & family). **No money moves through this app.** The real money sits in one merged exchange account; this app records who owns what and shows everyone their own number.
+**Lucid'io**: clear rules, real growth. A phone-friendly paper ledger for a small pooled account (friends & family). **No money moves through this app.** The real money sits in one merged exchange account; this app records who owns what and shows everyone their own number.
 
 - Pool is valued in **USDT**. Everything is **shown in pesos by default** using the live USD→PHP rate (free `open.er-api.com`, falling back to `frankfurter.dev`, cached 1 hour; USDT is treated as 1 USD). The ₱ / $ button in the header flips the view. The rate never changes anyone's USDT return. Deposits are typed in **pesos** (e.g. 5000); the app converts to USDT at the rate shown (editable) and to units for you.
 - Ownership is tracked in **units**. Unit price = pool equity (USDT) ÷ total units. A person's value = their units × unit price.

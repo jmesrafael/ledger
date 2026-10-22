@@ -16,7 +16,7 @@ const KEY = 'a'.repeat(64), HASH = createHash('sha256').update(KEY).digest('hex'
 
 async function world() {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
+  await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of CHAIN) await db.exec(readFileSync(mig(f), 'utf8'));
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
   await db.exec(`update public.ledger_settings set value = '1000' where key = 'valuation_max_move'`);

@@ -13,7 +13,7 @@ const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a
 
 async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);
+  await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months');
                  update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
@@ -57,6 +57,7 @@ test('activity log: who did what, with the right person as actor, and only the m
   await call(db, 'admin_receive_deposit', A, ids.john, 50, 56, 2800);
   await reading(db, A);                                        // the waiting money joins at this reading
   await call(db, 'admin_post_equity', A, 160);                 // +? just a reading
+  await call(db, 'set_my_payout', J, 'gcash', 'John', '09171234567');
   await call(db, 'request_withdrawal', J, 15);                  // John asks (actor: John)
   const req = (await call(db, 'my_requests', J))[0];
   await call(db, 'cancel_withdrawal_request', J, req.id);
@@ -116,7 +117,7 @@ test('backup export: complete, no password hashes or sessions, numbers re-check,
   await call(db, 'admin_receive_deposit', A, ids.raf, 100, 56, 5600); await call(db, 'admin_receive_deposit', A, ids.john, 50, 56, 2800);
   await reading(db, A); await reading(db, A, 1.2); await call(db, 'admin_close_quarter', A, 190);
   const x = await call(db, 'admin_export_all', A), text = JSON.stringify(x);
-  assert.equal(x.format, 'lucidyo-ledger-backup-1');
+  assert.equal(x.format, 'lucid-io-ledger-backup-1');
   assert.equal(x.people.length, 3); assert.ok(x.ledger.length >= 4); assert.ok(x.pool_equity.length >= 4);
   assert.ok(!/pass_hash|\$2[aby]\$/.test(text), 'a password hash is in the export');
   assert.equal(x.sessions, undefined);
@@ -139,7 +140,7 @@ test('backup key: made by the manager, shown once, can only read the export, rev
   assert.match(key, /^[0-9a-f]{48}$/);
   assert.equal((await db.query(`select count(*)::int n from public.backup_keys where key_hash = $1`, [key])).rows[0].n, 0);   // the key itself is not stored
   const x = await call(db, 'backup_export', key);
-  assert.equal(x.format, 'lucidyo-ledger-backup-1'); assert.equal(x.people.length, 3);
+  assert.equal(x.format, 'lucid-io-ledger-backup-1'); assert.equal(x.people.length, 3);
   const st = await call(db, 'admin_backup_status', A);
   assert.equal(st.keys.length, 1); assert.equal(st.keys[0].label, 'VPS nightly'); assert.ok(st.keys[0].last_used_at); assert.ok(st.last_automatic);
   await assert.rejects(() => call(db, 'admin_backup_status', J), /admin only/);

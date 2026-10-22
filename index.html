@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lucidyo Ledger</title>
-<meta name="description" content="Lucidyo Ledger: the paper record of your share in the pooled account.">
+<title>Lucid'io Ledger</title>
+<meta name="description" content="Lucid'io Ledger: the paper record of your share in the pooled account.">
 <meta name="theme-color" content="#0A0A0A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -332,11 +332,14 @@ svg.donut .dv { font-size: 14px; font-weight: 800; }
 .boot .ring { display: inline-block; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); animation: spin 1s linear infinite; }
 .boot p { font-size: 15px; line-height: 1.5; font-weight: 600; margin: 16px auto 6px; max-width: 30ch; }
 .boot small { color: var(--muted); font-weight: 700; }
-.splash { text-align: center; padding-top: 10vh; }
-.splash .quote { margin: 24px auto 0; max-width: 30ch; font-size: 22px; line-height: 1.35; font-weight: 800; letter-spacing: -0.3px; }
+.splash { text-align: center; min-height: calc(100svh - 48px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4px; }
+.splash .quote { margin: 28px auto 0; max-width: 28ch; font-size: 24px; line-height: 1.4; font-weight: 600; font-style: italic; letter-spacing: -0.2px; font-family: Georgia, "Times New Roman", serif; }
+.splash .quote .qm { font-size: 1.5em; line-height: 0; vertical-align: -0.2em; }
+.splash .rule { width: 44px; height: 3px; border-radius: 99px; margin: 20px auto 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); animation: fadein .6s 3.2s both; }
 .splash .quote span { display: inline-block; animation: rise .5s ease both; animation-delay: calc(var(--i, 0) * .14s); }
 .splash .quote .qm { color: var(--accent-text); }
-.splash .by { margin: 12px 0 0; color: var(--muted); font-weight: 700; font-size: 13px; animation: fadein .6s 3.2s both; }
+.splash .by { margin: 12px 0 0; color: var(--ink-2); font-weight: 700; font-size: 15px; letter-spacing: .4px; font-style: italic; animation: fadein .6s 3.2s both; }
+.splash .by::before { content: "— "; }
 .splash .both { margin: 16px auto 0; max-width: 34ch; color: var(--ink-2); font-size: 14px; line-height: 1.5; animation: fadein .8s 3.8s both; }
 .loadbar { height: 4px; border-radius: 99px; background: var(--variant); margin: 26px auto 10px; max-width: 220px; overflow: hidden; }
 .loadbar i { display: block; height: 100%; background: var(--accent-text); animation: fillbar linear both; }

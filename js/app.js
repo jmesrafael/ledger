@@ -1,4 +1,4 @@
-// Lucidyo Ledger: paper record of a pooled account, valued in USDT and shown in pesos at the live rate. All numbers come from database functions;
+// Lucid'io Ledger: paper record of a pooled account, valued in USDT and shown in pesos at the live rate. All numbers come from database functions;
 // every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
@@ -532,7 +532,7 @@
     const rows = myMonths(), entries = inMonth(m), who = S.me.name || S.me.username, feeLabel = mgr ? 'Fee received' : 'Fee';
     const line = (l, v, sub, strong) => `<div class="row"><span class="l">${strong ? `<b style="color:var(--ink)">${l}</b>` : l}${sub ? `<br><span class="note">${sub}</span>` : ''}</span><span class="r">${strong ? `<b>${v}</b>` : v}</span></div>`;
     return `<div class="card stmt" id="stmt">
-      <div class="print-only"><div class="pt">Lucidyo · Statement</div><div class="ps">${esc(who)} · ${monthName(m.key)}${m.partial ? ' (to date)' : ''} · generated ${day(new Date().toISOString())}</div></div>
+      <div class="print-only"><div class="pt">Lucid'io · Statement</div><div class="ps">${esc(who)} · ${monthName(m.key)}${m.partial ? ' (to date)' : ''} · generated ${day(new Date().toISOString())}</div></div>
       <div class="noprint stmt-top"><h2 style="margin:0">Statement</h2>
         <select data-stmt aria-label="Month">${[...rows].reverse().map((x) => `<option value="${x.key}" ${x.key === m.key ? 'selected' : ''}>${monthName(x.key)}${x.partial ? ' (to date)' : ''}</option>`).join('')}</select></div>
       ${line('Opening balance', usdt(m.opening))}
@@ -572,7 +572,7 @@
   }
   function printStatement() {
     const t = document.title, m = stmtMonth(myMonths());
-    document.title = `Lucidyo statement ${m ? m.key : ''} ${S.me.name || S.me.username}`.trim();   // the suggested file name when saving as PDF
+    document.title = `Lucid'io statement ${m ? m.key : ''} ${S.me.name || S.me.username}`.trim();   // the suggested file name when saving as PDF
     window.print(); setTimeout(() => { document.title = t; }, 500);
   }
   document.addEventListener('change', (ev) => {   // GCash / bank: show the bank name only for a bank, relabel the number
@@ -653,8 +653,8 @@
   }
   async function backupDownload(kind) {
     const x = await call('admin_export_all'), stamp = new Date().toISOString().slice(0, 10);
-    if (kind === 'json') download(`lucidyo-ledger-backup-${stamp}.json`, JSON.stringify(x, null, 1), 'application/json');
-    else download(`lucidyo-ledger-entries-${stamp}.csv`, Returns.toCsv([['id', (l) => l.id], ['date', (l) => l.ts], ['person', (l) => (x.people.find((p) => p.id === l.profile_id) || {}).username || l.profile_id], ['kind', (l) => l.kind],
+    if (kind === 'json') download(`lucid-io-ledger-backup-${stamp}.json`, JSON.stringify(x, null, 1), 'application/json');
+    else download(`lucid-io-ledger-entries-${stamp}.csv`, Returns.toCsv([['id', (l) => l.id], ['date', (l) => l.ts], ['person', (l) => (x.people.find((p) => p.id === l.profile_id) || {}).username || l.profile_id], ['kind', (l) => l.kind],
       ['usdt', (l) => l.usdt], ['units', (l) => l.units], ['unit_price', (l) => l.unit_price], ['php_amount', (l) => l.php_amount], ['php_rate', (l) => l.php_rate], ['note', (l) => l.note]], x.ledger));
     await loadAdminExtras(); render(); toast(`Backup downloaded (${x.checks.ledger_rows} entries)`);
   }
@@ -813,7 +813,7 @@
         <div class="btns" style="margin-top:12px">
           <a class="btn full" href="${esc(r.file)}" target="_blank" rel="noopener">Open report ↗</a>
           ${r.pdf ? `<a class="btn ghost sm" href="${esc(r.pdf)}" target="_blank" rel="noopener">PDF</a>` : ''}</div></div>`).join('')}
-      <p class="note" style="margin:4px 2px 0">These pages are plain links, outside the sign-in area, so the address can be handed straight to someone outside Lucidyo — the "Open library" button above is the public, shareable page.</p>`;
+      <p class="note" style="margin:4px 2px 0">These pages are plain links, outside the sign-in area, so the address can be handed straight to someone outside Lucid'io — the "Open library" button above is the public, shareable page.</p>`;
   }
   // ---------------------------------------------------------------- shell
   const TABS = {
@@ -843,7 +843,7 @@
   function termsSections() {
     const rate = pc(S.me.fee_rate);
     return [
-      ['You can lose money, and it could be a lot', `Lucidyo trades in cryptocurrency markets, which can move very fast and very far, sometimes within minutes. The account may use leverage (trading with more than the money in it), which can make losses bigger as well as gains. The pool can fall sharply, <b>you can lose a large part or all of the money you put in</b>, and there will be weeks and months when your balance is down. Only use money you can afford to lose: never money for rent, food, school, bills or emergencies, and never borrowed money.`],
+      ['You can lose money, and it could be a lot', `Lucid'io trades in cryptocurrency markets, which can move very fast and very far, sometimes within minutes. The account may use leverage (trading with more than the money in it), which can make losses bigger as well as gains. The pool can fall sharply, <b>you can lose a large part or all of the money you put in</b>, and there will be weeks and months when your balance is down. Only use money you can afford to lose: never money for rent, food, school, bills or emergencies, and never borrowed money.`],
       ['Nothing is guaranteed', `Nobody has promised you any return, and nobody can. Past results and backtests are simulations made with hindsight. They are not a promise, and a good stretch says nothing certain about the next one.`],
       ['Not a bank, not insured', `This app is a record, kept by the fund manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the fund manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
       ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked. ${EXIT_FEE_ON ? `<b>Withdrawal fee:</b> ${S.exit ? `${pc(S.exit.young_rate)}% of what you withdraw while your account is under 1 year old, and ${pc(S.exit.mature_rate)}% after that` : '5% of what you withdraw while your account is under 1 year old, and 2% after that'}. It comes off the payout, on top of the quarter fee. ` : `<b>Withdrawal fee:</b> none for now. ${FEE_SOON} `}<b>Minimum withdrawal:</b> ${php(minPhp() || 500)} (taking everything you hold is always allowed).`],
@@ -855,7 +855,7 @@
   }
   function termsView() {
     const ro = S.termsRO;
-    app.innerHTML = `<header><span class="hello">Lucidyo · before you start</span><div class="hdr-actions">${themeBtn()}</div></header>
+    app.innerHTML = `<header><span class="hello">Lucid'io · before you start</span><div class="hdr-actions">${themeBtn()}</div></header>
       <div class="login-brand welcome"><span class="logo">${ICON.alert}</span><h1>Please read this first</h1>
         <p class="note">${ro ? `You agreed on ${day(S.me.terms_accepted_at)}.` : 'Your money is at risk. Read each point, tick the boxes, and only then continue.'}</p></div>
       <div class="card terms">${termsSections().map(([t, b], i) => `<div class="tsec" style="--i:${i}"><h3>${i + 1}. ${t}</h3><p class="about">${b}</p></div>`).join('')}</div>
@@ -884,7 +884,8 @@
     if (!S.splashT) S.splashT = setTimeout(() => { S.splashT = null; if (S.gate === 'splash') startTour(); }, SPLASH_MS);
     app.innerHTML = `<div class="splash"><div class="login-brand" style="padding:0"><span class="logo">${ICON.logo}</span></div>
       <blockquote class="quote"><span class="qm" style="--i:0">“</span>${QUOTE.split(' ').map((w, k) => `<span style="--i:${k}">${w}</span>`).join(' ')}<span class="qm" style="--i:20">”</span></blockquote>
-      <p class="by">Attributed to Albert Einstein</p>
+      <div class="rule" aria-hidden="true"></div>
+      <p class="by">Albert Einstein</p>
       <p class="both">It works in both directions: gains build on gains, and losses build on losses.</p>
       <div class="loadbar"><i style="animation-duration:${SPLASH_MS}ms"></i></div><p class="note">Getting your account ready…</p>
       <button class="ghost sm" data-action="splashskip">Skip</button></div>`;
@@ -941,8 +942,8 @@
   function tourSteps() {
     const m = S.me, first = esc(String(m.name || m.username).split(' ')[0]);
     if (isAdmin()) return [
-      [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
-        <p class="about">This is the fund manager side of Lucidyo Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
+      [ICON.logo, `Welcome to Lucid'io, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
+        <p class="about">This is the fund manager side of Lucid'io Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
       [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
         <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
@@ -953,7 +954,7 @@
     ];
     const keep = Math.round((1 - Number(m.fee_rate)) * 10000) / 100;
     return [
-      [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
+      [ICON.logo, `Welcome to Lucid'io, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
         <p class="about">Here is a one-minute tour of what you will see, in plain words. Tap <b>Skip</b> any time; you can replay it from <b>Welcome tour</b> at the bottom of any page.</p>`],
       [ICON.pool, 'Your share of the pool', `<p class="about">Everyone’s money goes into <b>one pool</b>: a single trading account, together with the fund manager’s own money. When you put money in you get <b>units</b>, slices of the pool.</p>
         <p class="about"><b>Unit price</b> is what one slice is worth today. Your balance is simply your units × the unit price.</p>`, SCENE.pool()],
@@ -970,7 +971,7 @@
   }
   function tourView() {
     const steps = tourSteps(), i = Math.max(0, Math.min(S.welcome, steps.length - 1)), [icon, title, body, scene] = steps[i], last = i === steps.length - 1;
-    app.innerHTML = `<header><span class="hello">Lucidyo · ${i + 1} of ${steps.length}</span>
+    app.innerHTML = `<header><span class="hello">Lucid'io · ${i + 1} of ${steps.length}</span>
       <div class="hdr-actions">${themeBtn()}${last ? '' : '<button class="ghost sm" data-action="welcomedone">Skip</button>'}</div></header>
       <div class="login-brand welcome"><span class="logo">${icon}</span><h1>${title}</h1></div>
       <div class="card enter">${scene || ''}${body}
@@ -982,7 +983,7 @@
 
   function loginView() {
     syncNav();
-    app.innerHTML = `<div class="login-brand login"><span class="logo">${ICON.logo}</span><h1>Lucidyo</h1><p class="note">Ledger · your share of the pool, at a glance.</p></div>
+    app.innerHTML = `<div class="login-brand login"><span class="logo">${ICON.logo}</span><h1>Lucid'io</h1><p class="tagline">Where Markets Meet Compounding</p><p class="note">Ledger · your share of the pool, at a glance.</p></div>
       <div class="card"><h2>Sign in</h2>
       <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required>
       <label>Password</label>${pw('password', 'current-password')}
@@ -1174,8 +1175,8 @@
     else if (a === 'refresh') await refresh('Up to date');
     else if (a === 'welcome') startTour();
     else if (a === 'stmtpick') { S.stmt = id; render(); const el = $f('stmt'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-    else if (a === 'stmtcsv') { const m = stmtMonth(myMonths()); if (m) download(`lucidyo-statement-${m.key}.csv`, stmtMonthCsv(m)); }
-    else if (a === 'stmtallcsv') download('lucidyo-statements-all-months.csv', stmtAllCsv());
+    else if (a === 'stmtcsv') { const m = stmtMonth(myMonths()); if (m) download(`lucid-io-statement-${m.key}.csv`, stmtMonthCsv(m)); }
+    else if (a === 'stmtallcsv') download('lucid-io-statements-all-months.csv', stmtAllCsv());
     else if (a === 'stmtprint') printStatement();
     else if (a === 'auditfilter') { S.auditFilter = id; render(); }
     else if (a === 'auditmore') { try { const more = await call('admin_audit_log', { p_limit: 200, p_before: S.audit[S.audit.length - 1].id }); S.audit = S.audit.concat(more); S.auditMore = more.length >= 200; render(); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }

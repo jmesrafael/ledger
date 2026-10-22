@@ -76,3 +76,4 @@ button.busy::after, .btn.busy::after { content: ""; position: absolute; left: 50
 @keyframes spin { to { transform: rotate(360deg); } }
 button.busy:disabled { opacity: .8; }
 .login-brand.login { padding: calc(4vh + env(safe-area-inset-top)) 0 4px; }
+.login-brand .tagline { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .5px; color: var(--accent-text); }

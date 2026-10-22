@@ -25,8 +25,9 @@ if (opt('schedule')) {
   if (!/^\d{2}:\d{2}$/.test(time || '')) { console.error('use --schedule HH:MM, e.g. --schedule 02:30'); process.exit(1); }
   if (process.platform !== 'win32') { console.error('--schedule is for Windows. On Linux/macOS add a cron line: 30 2 * * * node ' + path.join(ROOT, 'scripts/backup-ledger.mjs')); process.exit(1); }
   const cmd = path.join(ROOT, 'backup-ledger.cmd');
-  const r = spawnSync('schtasks', ['/create', '/tn', 'Lucidyo ledger backup', '/tr', `"${cmd}"`, '/sc', 'daily', '/st', time, '/f'], { stdio: 'inherit' });
-  console.log(r.status === 0 ? `Scheduled: every day at ${time} (task "Lucidyo ledger backup"). Remove it with: schtasks /delete /tn "Lucidyo ledger backup" /f` : 'Could not create the task. Try running this from an Administrator terminal.');
+  const r = spawnSync('schtasks', ['/create', '/tn', "Lucid'io ledger backup", '/tr', `"${cmd}"`, '/sc', 'daily', '/st', time, '/f'], { stdio: 'inherit' });
+  if (r.status === 0) spawnSync('schtasks', ['/delete', '/tn', 'Lucidyo ledger backup', '/f'], { stdio: 'ignore' });   // the task from before the rename, if there is one
+  console.log(r.status === 0 ? `Scheduled: every day at ${time} (task "Lucid'io ledger backup"). Remove it with: schtasks /delete /tn "Lucid'io ledger backup" /f` : 'Could not create the task. Try running this from an Administrator terminal.');
   process.exit(r.status === 0 ? 0 : 1);
 }
 

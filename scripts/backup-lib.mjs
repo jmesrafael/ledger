@@ -9,7 +9,7 @@ const FOLDER = /^ledger-\d{4}-\d{2}-\d{2}_\d{6}$/;
 
 export function verify(x, prev = null) {
   const problems = [], warnings = [], c = x && x.checks;
-  if (!x || x.format !== 'lucidyo-ledger-backup-1') return { problems: ['not a ledger backup (unknown format)'], warnings };
+  if (!x || !['lucid-io-ledger-backup-1', 'lucidyo-ledger-backup-1'].includes(x.format)) return { problems: ['not a ledger backup (unknown format)'], warnings };
   for (const t of TABLES) if (!Array.isArray(x[t])) problems.push(`missing table: ${t}`);
   if (!c) { problems.push('missing checks'); return { problems, warnings }; }
   if (problems.length) return { problems, warnings };

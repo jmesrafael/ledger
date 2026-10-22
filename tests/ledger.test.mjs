@@ -22,7 +22,7 @@ const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a}
 
 async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
-  await db.exec(`create role anon; create role authenticated; create schema extensions;
+  await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security;
     grant usage on schema public to anon, authenticated;`);
   await db.exec(readFileSync(MIGRATION, 'utf8'));
   await db.exec(readFileSync(HIDE_POOL, 'utf8'));

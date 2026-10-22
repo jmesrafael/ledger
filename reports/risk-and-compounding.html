@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Risk &amp; Compounding</title>
-<meta name="description" content="Lucidyo reference data: October 2026 drawdown, yearly drawdowns, and compounding at 1–5% risk per trade.">
+<meta name="description" content="Lucid'io reference data: October 2026 drawdown, yearly drawdowns, and compounding at 1–5% risk per trade.">
 <meta name="theme-color" content="#0A0A0A">
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -56,13 +56,13 @@ tr.hl td { background: var(--soft); font-weight: 700; }
 <div class="wrap">
   <a class="back" href="./">← Reports</a>
   <h1>Risk &amp; Compounding</h1>
-  <div class="meta">Reference data · Lucidyo · data to 21 Oct 2026</div>
+  <div class="meta">Reference data · Lucid'io · data to 21 Oct 2026</div>
   <p class="lead">Three questions answered with backtest data: why October 2026 is red, how deep drawdowns have gone, and what happens when each trade risks 1%–5% of the balance with compounding. "R" is the amount risked on one trade (at $1 risk, 1R = $1).</p>
 
   <div class="card">
     <h2>How these numbers were made</h2>
     <ul>
-      <li>Strategy: Lucidyo, our in-house trend-following system. Its rules are confidential and are not described here. Every trade has a fixed stop, so a loss is capped at about 1R.</li>
+      <li>Strategy: Lucid'io, our in-house trend-following system. Its rules are confidential and are not described here. Every trade has a fixed stop, so a loss is capped at about 1R.</li>
       <li>Prices: Binance USDT-M futures, Jan 2021 → 21 Oct 2026. Fees, slippage and real funding are included.</li>
       <li>Coins: <b>SOL + ZEC</b> (the starting plan) and <b>4 coins</b> (SOL, ZEC, NEAR, ADA).</li>
       <li>Compounding: before each trade, risk = balance × risk %. The balance updates when a trade closes. Both coins share one balance.</li>
