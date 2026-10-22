@@ -2,11 +2,11 @@
 // every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
-  const TERMS_VERSION = '2026-10-23';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
-  const SPLASH_MS = 5600;               // how long the quote screen stays (tap Skip to leave sooner)
+  const TERMS_VERSION = '2026-10-24';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
+  const SPLASH_MS = 10000;               // how long the quote screen stays (tap Skip to leave sooner)
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
-  const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the manager's own session while "viewing as"
+  const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the fund manager's own session while "viewing as"
   const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
 
   // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
@@ -21,6 +21,7 @@
     log: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     mine: svg('<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.2"/>'),
     refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
     moon: svg('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
     auto: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
@@ -35,6 +36,7 @@
     about: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/>'),
     logo: svg('<path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/>'),
     lock: svg('<rect x="5" y="11" width="14" height="10" rx="2.5"/><g class="shackle"><path d="M8 11V8a4 4 0 0 1 8 0v3"/></g>'),
+    close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
     reports: svg('<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16.5h6M9 9.5h2"/>'),
   };
 
@@ -112,19 +114,19 @@
     return r;
   }
   function signedOut(msg) {
-    if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the manager
-    S.token = null; S.me = null; S.welcome = null; S.welcomeDone = false; S.gate = null; S.termsRO = false; clearTimeout(S.splashT); S.splashT = null; store.set(null); loginView(); if (msg) toast(msg, true);
+    if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the fund manager
+    S.token = null; S.me = null; S.modal = null; S.welcome = null; S.welcomeDone = false; S.gate = null; S.termsRO = false; clearTimeout(S.splashT); S.splashT = null; store.set(null); loginView(); if (msg) toast(msg, true);
   }
   async function viewAs(id) {
     const r = await call('admin_view_as', { p_profile: id });
     S.adminToken = S.token; store.set(S.token, ADMIN_KEY);
-    S.token = r.token; store.set(r.token); S.range = 'ALL';
+    S.token = r.token; store.set(r.token); S.range = 'ALL'; S.modal = null; S.tab = null;
     await refresh(`Viewing as ${r.name} (read-only)`);
   }
   async function backToManager(msg) {
     const t = S.token; S.token = S.adminToken; S.adminToken = null; store.set(S.token); store.set(null, ADMIN_KEY);
     try { await rpc('logout', { p_token: t }); } catch { /* already expired */ }
-    S.side = 'fund'; S.tab = 'users'; S.uid = null; await refresh(msg);
+    S.side = 'fund'; S.tab = 'users'; S.modal = null; S.uid = null; await refresh(msg);
     S.tab = 'users'; render();
   }
 
@@ -133,13 +135,23 @@
     S.me = await call('my_summary');
     if (!S.me) { signedOut(); throw new Error('Signed out'); }
     if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
-    const admin = S.me.role === 'admin';   // only the manager sees the pool; investors get just their own money
+    const admin = S.me.role === 'admin';   // only the fund manager sees the pool; investors get just their own money
     const [pool, hist, history, led, reqs, all, elog, pend] = await Promise.all([admin ? call('pool_summary') : null, admin ? call('price_history') : [], call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, call(admin ? 'admin_pending' : 'my_pending'),
       loadFx(), admin ? loadReports() : null, loadFund(), admin ? loadAdminExtras() : null]);
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
+    try { S.exit = await call('exit_fee_info'); } catch (e) { if (e.message === 'Signed out') throw e; S.exit = null; }   // null until the withdrawal-fee migration is run
   }
+  // withdrawal fee: young accounts pay more; the database decides, the app only shows it
+  const exitInfo = (id) => (S.exit && (S.exit.people || []).find((x) => x.id === id)) || null;
+  const exitRate = (id) => { const x = exitInfo(id); return x ? Number(x.rate) : 0; };
+  const exitTurns = (x) => { const d = new Date(x.since); d.setDate(d.getDate() + Number(S.exit.after_days)); return d; };
+  const exitNote = (id) => {
+    const x = exitInfo(id); if (!x) return '';
+    return Number(x.rate) > Number(S.exit.mature_rate) + 1e-9 ?`Account under 1 year old. Drops to ${pc(S.exit.mature_rate)}% on ${day(exitTurns(x).toISOString())}.` : 'Account over 1 year old.';
+  };
+  const minPhp = () => (S.exit ? Number(S.exit.min_php) : 0);
   async function loadFund() { try { S.fund = (await rpc('fund_returns', { p_token: S.token })) || []; } catch { S.fund = []; } }
   // reports/index.json: a small registry of compiled HTML reports (see reports/README or the folder itself to add one).
   // Plain static files, not database rows — missing or unreadable just means an empty Reports tab, never a hard error.
@@ -147,7 +159,7 @@
     try { const r = await fetch('reports/index.json', { cache: 'no-store' }); S.reports = r.ok ? await r.json() : []; }
     catch { S.reports = []; }
   }
-  // live USD -> PHP (USDT trades ~1:1 with USD). Two free sources, cached for an hour, falls back to the last rate the manager recorded.
+  // live USD -> PHP (USDT trades ~1:1 with USD). Two free sources, cached for an hour, falls back to the last rate the fund manager recorded.
   const FX_KEY = 'ledger.fx', FX_SRC = [['https://open.er-api.com/v6/latest/USD', 'open.er-api.com'], ['https://api.frankfurter.dev/v1/latest?base=USD&symbols=PHP', 'frankfurter.dev']];
   async function loadFx() {
     let cached = null; try { cached = JSON.parse(localStorage.getItem(FX_KEY) || 'null'); } catch { /* none */ }
@@ -162,8 +174,15 @@
     if (!S.fx) S.fx = cached;   // stale beats nothing
   }
   const rate = () => (S.fx && S.fx.rate) || (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
-  const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${new Date(S.fx.t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the manager recorded)` : 'Peso rate unavailable');
-  const curBtn = () => (rate() ? `<button class="iconbtn txt" data-action="cur" aria-label="Showing ${inPeso() ? 'pesos' : 'USDT'}. Tap to switch" title="${rateNote()}">${inPeso() ? '₱' : '$'}</button>` : '');
+  const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${new Date(S.fx.t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
+  const settingsMenu = () => {
+    const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
+    return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
+      <button data-action="refresh">${ICON.refresh}<span>Refresh</span></button>
+      <button data-action="theme">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}<span>Theme</span><span class="val">${tl}</span></button>
+      ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}</div></details>`;
+  };
+  const curBtn = () =>(rate() ? `<button class="iconbtn txt" data-action="cur" aria-label="Showing ${inPeso() ? 'pesos' : 'USDT'}. Tap to switch" title="${rateNote()}">${inPeso() ? '₱' : '$'}</button>` : '');
 
   // ---------------------------------------------------------------- shared pieces
   // a line + soft gradient area underneath (shared by both charts)
@@ -183,17 +202,34 @@
       ${area('pfill', ys.map((_, i) => (i / (ys.length - 1)) * W), ys.map((y) => H - ((y - a) / (b - a)) * H), W, H, color)}</svg>
       <div class="row"><span class="l">Low / High</span><span class="r">${f(lo, 4)} / ${f(hi, 4)}</span></div>`;
   }
-  // ---------------------------------------------------------------- manager dashboard (the pool is for the manager's eyes only)
+  // donut chart of [name, units, color] slices, with a legend beside it showing the share and the value of each slice
+  function donut(seg, tot) {
+    const R = 42, C = 2 * Math.PI * R, gap = seg.filter(([, u]) => Number(u) > 0).length > 1 ? 1.2 : 0;
+    let off = 0;
+    const arcs = seg.map(([n, u, c]) => {
+      const len = (Number(u) / tot) * C; if (!(len > 0)) return '';
+      const d = Math.max(0, len - gap), el = `<circle class="arc" r="${R}" cx="60" cy="60" fill="none" stroke-width="16" stroke-linecap="butt" style="stroke:${c}" stroke-dasharray="${d.toFixed(2)} ${(C - d).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"><title>${n}</title></circle>`;
+      off += len; return el;
+    }).join('');
+    const price = Number(S.pool.unit_price);
+    return `<div class="donutwrap"><svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Who owns the pool">
+        <circle r="${R}" cx="60" cy="60" fill="none" stroke-width="16" style="stroke:var(--variant)"/>
+        <g transform="rotate(-90 60 60)">${arcs}</g>
+        <text x="60" y="57" text-anchor="middle" class="dk">Units</text><text x="60" y="73" text-anchor="middle" class="dv">${f(tot, 2)}</text></svg>
+      <div class="dleg">${seg.map(([n, u, c]) => `<div><b style="background:${c}"></b><span class="dn">${n}</span><span class="dp">${f((Number(u) / tot) * 100, 1)}%<small>${money(Number(u) * price)}</small></span></div>`).join('')}</div></div>`;
+  }
+  // ---------------------------------------------------------------- manager dashboard (the pool is for the fund manager's eyes only)
   function viewDashboard() {
     const p = S.pool, tot = Number(p.total_units) || 1, inv = S.all.filter((h) => h.role === 'investor');
     const sum = (a, k) => a.reduce((t, h) => t + Number(h[k]), 0);
     const invValue = sum(inv, 'value_usdt'), invIn = sum(inv, 'net_in_usdt'), due = sum(inv, 'accrued_fee_usdt');
     const pend = S.reqs.filter((q) => q.status === 'pending'), pendUsdt = pend.reduce((t, q) => t + Number(q.units) * Number(p.unit_price), 0);
-    const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Manager capital', p.admin_capital_units, 'var(--seg1)'], ["Fees earned", p.admin_fee_units, 'var(--seg3)']];
-    return `<div class="card hero"><h2>Fund value</h2>
+    const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Fund manager capital', p.admin_capital_units, 'var(--seg1)'], ["Fees earned", p.admin_fee_units, 'var(--seg3)']];
+    return `<div class="card hero"><h2>Total Fund</h2>
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
         <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}</p>${lastClose()}</div>
+      <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
@@ -201,10 +237,8 @@
         <div class="stat"><div class="k">Their fee due</div><div class="v">${money(due)}</div></div></div>
         ${S.pend.length ? `<div class="btns"><button class="ghost" data-tab="record" data-rec="dep">${S.pend.length} deposit${S.pend.length === 1 ? '' : 's'} waiting to join · ${money(pendTotal())}</button></div>` : ''}
         ${pend.length ? `<div class="btns"><button class="ghost" data-tab="log">${pend.length} withdrawal request${pend.length === 1 ? '' : 's'} · ${money(pendUsdt)}</button></div>` : '<p class="note" style="margin:12px 0 0">No withdrawal requests waiting.</p>'}</div>
-      <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
       <div class="card"><h2>Who owns the pool</h2>
-        <div class="split">${seg.map(([, u, c]) => `<i style="width:${(Number(u) / tot) * 100}%;background:${c}"></i>`).join('')}</div>
-        <div class="legend">${seg.map(([n, u, c]) => `<span><b style="background:${c}"></b>${n} ${f((Number(u) / tot) * 100, 1)}%</span>`).join('')}</div>
+        ${donut(seg, tot)}
         <p class="note" style="margin-top:8px">The fee comes only from profits and stays invested in the pool. Investors cannot see any of this page.</p></div>
       <p class="disc">${rateNote()}</p>`;
   }
@@ -213,6 +247,7 @@
     fee_out: ['Fee paid', 'share', 'share'], fee_in: ['Fee received', 'in', 'share'],
   };
   function activityRows(rows, withName) {
+    if (!withName && S.me && S.me.role === 'investor') rows = rows.filter((l) => l.kind !== 'fee_out');   // investors never see fee lines: it is already taken out of their balance
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
       const [label, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'];
@@ -234,7 +269,7 @@
     const m = S.me, investor = m.role === 'investor';
     const pend = S.reqs.filter((q) => q.status === 'pending' && q.profile_id === m.id);
     const price = Number(m.unit_price), cut = lotFee(m, Number(m.unlocked_units), price) * price;   // fee that would come off (USDT)
-    const avail = Number(m.unlocked_units) * price - cut;
+    const xr = exitRate(m.id), avail = Math.max(0, Number(m.unlocked_units) * (1 - xr) * price - cut);
     const mine = S.pend.filter((d) => !d.profile_id || d.profile_id === m.id);
     const waiting = investor && mine.length ? `<div class="card"><h2>Waiting to join the pool</h2>
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
@@ -243,7 +278,9 @@
       ${investor ? growthMathCard(m) + sameBoatCard() + profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
         <div class="row"><span class="l">Available to withdraw now<br><span class="note">after any fee</span></span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
         <div class="row"><span class="l">Next part unlocks</span><span class="r">${day(m.next_unlock)}</span></div>
-        <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. If a fee is due, it comes off the payout.</p>
+        ${exitInfo(m.id) ? `<div class="row"><span class="l">Withdrawal fee<br><span class="note">${exitNote(m.id)}</span></span><span class="r">${pc(xr)}%</span></div>` : ''}
+        ${minPhp() ? `<div class="row"><span class="l">Minimum withdrawal<br><span class="note">taking everything is always allowed</span></span><span class="r">${php(minPhp())}</span></div>` : ''}
+        <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. The withdrawal fee${xr ? ` (${pc(xr)}%)` : ''} and any quarter fee come off the payout.</p>
         ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (${inPeso() ? '₱' : 'USDT'})</label>
           <input id="rq-u" name="amount" type="number" step="any" min="0" inputmode="decimal" required>
           <div class="btns"><button type="button" class="ghost" data-action="maxunits">Everything available</button><button>Request withdrawal</button></div></form>`}
@@ -255,28 +292,27 @@
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
     <div class="btns"><button class="ghost" data-tab="about">Read how it works</button></div></div>`;
-  // investor: the trading result, minus the manager's share, = what is theirs. Simple % on the money put in.
+  // investor: the trading result, minus the fund manager's share, = what is theirs. Simple % on the money put in.
   function growthMathCard(m) {
     if (m.gross_return_pct == null || m.net_return_pct == null) return '';
-    const paid = Number(m.fee_paid_units) * Number(m.unit_price), acc = Number(m.accrued_fee_usdt), share = Number(m.profit_share_usdt);
+    const acc = Number(m.accrued_fee_usdt), share = Number(m.profit_share_usdt);
     return `<div class="card"><h2>How your growth is worked out</h2>
       <div class="row"><span class="l">You put in</span><span class="r">${putIn(m)}</span></div>
       ${inPeso() ? fxRow(m) : ''}
       <div class="row"><span class="l">The trading made</span><span class="r ${cls(m.gross_profit_usdt)}">${smoney(m.gross_profit_usdt)}<br><span class="note">${pct(m.gross_return_pct, 1)}</span></span></div>
-      <div class="row"><span class="l">Fee (${pc(m.fee_rate)}% of each quarter's profit)<br><span class="note">${share > 0 ? `already taken ${money(paid)}${acc > 0 ? ` · owed this quarter ${money(acc)}` : ''}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
+      <div class="row"><span class="l">Fee (${pc(m.fee_rate)}% of each quarter's profit)<br><span class="note">${acc > 0 ? `owed this quarter ${money(acc)}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
       <div class="row"><span class="l"><b>Yours, after the fee</b></span><span class="r"><b class="${cls(m.net_profit_usdt)}">${smoney(m.net_profit_usdt)}</b><br><span class="note"><b>${pct(m.net_return_pct, 1)}</b> · balance ${money(m.net_value_usdt)}</span></span></div>
-      <p class="note">Your balance and % on this page are always shown <b>after</b> the fee, so it is what is yours. The fee is ${pc(m.fee_rate)}% of the profit your units make in each quarter, worked out at each quarter end. A quarter that loses money costs no fee, but that loss is not carried forward, so the next quarter's profit is charged in full even if your balance is still below what you put in. If the fund drops after a quarter end, the fee already taken stays taken. The fee already taken is shown at today's value.</p></div>`;
+      <p class="note">Your balance and % on this page are always shown <b>after</b> the fee, so it is what is yours. The fee is ${pc(m.fee_rate)}% of the profit your units make in each quarter, worked out at each quarter end. A quarter that loses money costs no fee, but that loss is not carried forward, so the next quarter's profit is charged in full even if your balance is still below what you put in. If the fund drops after a quarter end, the fee already taken stays taken. </p></div>`;
   }
   function profitShareCard(m) {
-    const keep = 1 - Number(m.fee_rate), paid = -S.ledger.filter((l) => l.kind === 'fee_out' && l.profile_id === m.id).reduce((a, l) => a + Number(l.usdt), 0);
+    const keep = 1 - Number(m.fee_rate);
     const above = Number(m.accrued_fee_usdt) > 0;
     return `<div class="card"><h2>Fee</h2>
       <div class="split"><i style="width:${keep * 100}%;background:var(--up)"></i><i style="width:${(1 - keep) * 100}%;background:var(--seg3)"></i></div>
-      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep)}%</span></div>
+      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Fund manager ${pc(1 - keep)}%</span></div>
       ${m.fee_rate_next != null ? `<p class="note" style="margin:0 0 6px">From the next quarter close your fee becomes <b>${pc(m.fee_rate_next)}%</b>. Profit made before then is charged at ${pc(m.fee_rate)}%.</p>` : ''}
       <div class="row"><span class="l">${above ? 'Fee due at quarter end (estimate)' : 'Fee due now'}</span><span class="r">${above ? money(m.accrued_fee_usdt) : 'None: below your best'}</span></div>
       <div class="row"><span class="l">Your balance after it</span><span class="r"><b>${money(m.value_after_fee_usdt)}</b></span></div>
-      <div class="row"><span class="l">Shared so far</span><span class="r">${money(paid)}</span></div>
       <p class="note">The fee is charged on the profit your units make in <b>each quarter</b>, never on the money you put in and never on profit made before you joined. A quarter with a loss costs nothing, but it is not carried forward or offset against the next one. It is settled once a quarter inside the pool; no cash moves. If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal.</p></div>`;
   }
   function recentCard() {
@@ -351,24 +387,24 @@
   const viewAbout = () => {
     const rate = S.me && S.me.role === 'investor' ? pc(S.me.fee_rate) : '10';
     return `<div class="card"><h2>Growing this together</h2>
-      <p class="about">This is a small fund we are growing together. Your money goes into one trading account that the manager trades, and the manager's own money is in the same pool. Whatever the trading makes or loses is shared by how much each person has in, so everyone is on the same side.</p>
+      <p class="about">This is a small fund we are growing together. Your money goes into one trading account that the fund manager trades, and the fund manager's own money is in the same pool. Whatever the trading makes or loses is shared by how much each person has in, so everyone is on the same side.</p>
       <p class="about"><b>It is your money and you can take it out.</b> After the ${C.LOCK_MONTHS}-month lock-up on each deposit, ask for a withdrawal on the Home page. You can take part of it or all of it, and it is paid within ${C.WITHDRAW_BUSINESS_DAYS} business days at the value on the day of payout.</p>
       <p class="about"><b>Fair to everyone who joins later.</b> New money waits until the next valuation and then buys in at that day's price. So it never shares in profit made before it arrived, and never pays for losses from before either.</p>
       <p class="about">Profits stay in the pool and grow with it, so the balance moves up and down with the results instead of paying out each month. Some weeks and months will be flat or down.</p>
       <p class="about"><b>You can still lose money.</b> Nothing is guaranteed or insured, and past or backtested results are not a promise. Please put in only what you are comfortable with.</p></div>
     <div class="card"><h2>The fee</h2>
       <p class="about"><b>We only charge when you earn.</b> The fee is ${rate}% of <b>each quarter's profit</b> and nothing else: no sign-up charge, no yearly charge, and nothing on your own money.</p>
-      <p class="about">If the fund is down, no fee is charged. After a dip it has to climb back above your previous best before any fee is charged again. The fee is worked out once a quarter inside the pool, so no cash moves.</p>
-      <p class="about"><b>Your rate is ${rate}%</b>, as agreed with the manager. Rates are set per person and can change at any time, for example for people who join later as the fund grows.</p></div>
+      <p class="about">We charge a fee on every profit, and nothing when there is a loss. The fee is worked out once a quarter inside the pool, so no cash moves.</p>
+      <p class="about"><b>Your rate is ${rate}%</b>, as agreed with the fund manager. Rates are set per person and can change at any time, for example for people who join later as the fund grows.</p></div>
     <div class="card"><h2>Pesos</h2>
-      <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. The ₱ / $ button at the top switches the view.</p></div>
+      <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. Use Settings (the gear at the top) to switch the view.</p></div>
     <div class="card"><h2>Good to know</h2>
-      <p class="about">This page is a record kept by the manager. It is not a bank account and is not covered by deposit insurance.</p></div>${glossCard()}${termsCard()}`;
+      <p class="about">This page is a record kept by the fund manager. It is not a bank account and is not covered by deposit insurance.</p></div>${glossCard()}${termsCard()}`;
   };
   const viewActivity = () => `<div class="card"><h2>Your activity</h2>${activityRows(S.ledger, false)}</div>`;
 
-  // ---------------------------------------------------------------- manager: "My account" side (only the manager's own money, never the pool)
-  // For the manager S.ledger holds everyone's entries, so everything here is filtered to the manager's own profile.
+  // ---------------------------------------------------------------- manager: "My account" side (only the fund manager's own money, never the pool)
+  // For the fund manager S.ledger holds everyone's entries, so everything here is filtered to the fund manager's own profile.
   const myRows = (kinds) => S.ledger.filter((l) => l.profile_id === S.me.id && (!kinds || kinds.includes(l.kind)));
   function viewMine() {
     const m = S.me, mine = myRows(), fees = myRows(['fee_in']), feeTotal = fees.reduce((t, l) => t + Number(l.usdt), 0);
@@ -397,7 +433,7 @@
 
   // ---------------------------------------------------------------- returns from trading (maths in js/returns.js)
   // S.history: the signed-in person's points (one per pool event since they joined). S.fund: the unit price at every pool
-  // event and whether the manager's own money was in. Money added or taken out never counts in any % here.
+  // event and whether the fund manager's own money was in. Money added or taken out never counts in any % here.
   const tms = (ts) => new Date(ts).getTime();
   function pctChart(lines) {   // lines: [{ name, color, dash, pts: [[time, return], ...] }]
     if (lines.some((l) => l.pts.length < 2)) return '<p class="note">The chart starts after the next equity reading.</p>';
@@ -417,23 +453,23 @@
     return { H, yours: Returns.yourGrowth(H.map((p) => ({ v: Number(p.value), n: Number(p.net_in) }))),
              trading: Returns.tradingGrowth(H.map((p) => ({ u: Number(p.units), price: Number(p.price) }))) };
   }
-  // investor: proof that the manager's own money made the same trading return over the same time
+  // investor: proof that the fund manager's own money made the same trading return over the same time
   function sameBoatCard() {
     const { H, yours, trading } = myGrowths(), F = S.fund || [];
     if (H.length < 2 || !F.length) return '';
     const mg = Returns.managerGrowth(F), at = new Map(F.map((r, i) => [r.id, i])), j0 = at.get(H[0].id);
     if (j0 == null || H.some((p) => !at.has(p.id))) return '';
     const mgr = H.map((p) => mg[at.get(p.id)] / mg[j0] - 1), you = yours.map((g) => g / yours[0] - 1), fundAll = Returns.total(mg);
-    const lines = [{ name: "Manager's own money", color: 'var(--seg1)', pts: withNow(H.map((p, k) => [tms(p.ts), mgr[k]])) },
+    const lines = [{ name: "Fund manager's own money", color: 'var(--seg1)', pts: withNow(H.map((p, k) => [tms(p.ts), mgr[k]])) },
                    { name: 'You, after fee', color: 'var(--seg2)', dash: true, pts: withNow(H.map((p, k) => [tms(p.ts), you[k]])) }];
-    return `<div class="card"><h2>Same trading as the manager</h2>
+    return `<div class="card"><h2>Same trading as the fund manager</h2>
       ${pctChart(lines)}
       <div class="grid" style="margin-top:12px">
         <div class="stat"><div class="k">Your trading return</div><div class="v ${cls(Returns.total(trading))}">${pct(Returns.total(trading))}</div></div>
-        <div class="stat"><div class="k">Manager's own money, same time</div><div class="v ${cls(mgr[mgr.length - 1])}">${pct(mgr[mgr.length - 1])}</div></div></div>
+        <div class="stat"><div class="k">Fund manager's own money, same time</div><div class="v ${cls(mgr[mgr.length - 1])}">${pct(mgr[mgr.length - 1])}</div></div></div>
       <div class="row"><span class="l">You, after fee</span><span class="r ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</span></div>
-      <div class="row"><span class="l">Manager's own money since the fund started</span><span class="r ${cls(fundAll)}">${pct(fundAll)}</span></div>
-      <p class="note">The manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the fee on each quarter's profit. Money added or taken out by anyone never counts in these %.</p></div>`;
+      <div class="row"><span class="l">Fund manager's own money since the fund started</span><span class="r ${cls(fundAll)}">${pct(fundAll)}</span></div>
+      <p class="note">The fund manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the fee on each quarter's profit. Money added or taken out by anyone never counts in these %.</p></div>`;
   }
   // manager: own return from trading only, and with the fee received
   function myReturnsCard() {
@@ -447,7 +483,7 @@
       <div class="grid" style="margin-top:12px">
         <div class="stat"><div class="k">Trading only</div><div class="v ${cls(Returns.total(trading))}">${pct(Returns.total(trading))}</div></div>
         <div class="stat"><div class="k">With fee</div><div class="v ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</div></div></div>
-      <p class="note"><b>Trading only</b> is what the trading did to your money, and it is exactly what investors see as "Manager's own money". Money you add or take out never counts. <b>With fee</b> adds the fees you received from investors, so it also moves with how much of your own money is in.</p></div>`;
+      <p class="note"><b>Trading only</b> is what the trading did to your money, and it is exactly what investors see as "Fund manager's own money". Money you add or take out never counts. <b>With fee</b> adds the fees you received from investors, so it also moves with how much of your own money is in.</p></div>`;
   }
 
   // ---------------------------------------------------------------- pesos: "put in" is what was really paid
@@ -508,7 +544,7 @@
       ${line('Money added', sUsdt(m.deposits) || usdt(0), m.phpIn > 0 ? `${php(m.phpIn)} paid in` : '')}
       ${line('Money taken out', m.withdrawals ? '−' + usdt(m.withdrawals) : usdt(0), m.phpOut > 0 ? `${php(m.phpOut)} paid out` : '')}
       ${line('Trading result', sUsdt(m.trading) || usdt(0), `${pct(m.tradingPct, 2)} on the money in the fund`)}
-      ${line(feeLabel, sUsdt(m.profitShare) || usdt(0), mgr ? 'received from investors' : 'taken from the quarter profit')}
+      ${mgr ? line(feeLabel, sUsdt(m.profitShare) || usdt(0), 'received from investors') : ''}
       ${line('Closing balance', usdt(m.closing), `${pct(m.yourPct, 2)} this month${mgr ? ', with the fee received' : ', after the fee'}`, true)}
       ${entries.length ? `<h2 style="margin-top:16px">Entries this month</h2>${activityRows(entries, false)}` : ''}
       <p class="note stmt-foot">Balances are in USDT, a dollar-linked coin, because that is what the fund is counted in. Pesos move with the exchange rate, so they are shown only where pesos were really paid in or out.${isSim() ? ' <b>This history includes simulated (backtest) entries, not real trading.</b>' : ''} Past results do not promise future ones. You can lose money.</p>
@@ -559,7 +595,7 @@
   function auditText(r) {
     const d = r.detail || {}, self = !!r.subject_id && r.subject_id === r.actor_id, who = `<b>${esc(r.subject_name || '')}</b>`, own = self ? 'their' : `${who}'s`, u = (v) => `${usdt(Math.abs(Number(v)))}${rate() ? ' ' + peso(Math.abs(Number(v)), rate()) : ''}`;
     switch (r.action) {
-      case 'user_created': return `created the account for ${who}${d.role === 'admin' ? ' (manager)' : ` (fee ${pc(d.fee_rate)}%)`}`;
+      case 'user_created': return `created the account for ${who}${d.role === 'admin' ? ' (fund manager)' : ` (fee ${pc(d.fee_rate)}%)`}`;
       case 'rate_changed': return `changed ${who}'s fee from ${pc(d.from)}% to ${pc(d.to)}%`;
       case 'rate_scheduled': return `set ${who}'s fee to become ${pc(d.to)}% after the next quarter close`;
       case 'deactivated': return `deactivated ${who}'s account`;
@@ -623,41 +659,53 @@
 
   // ---------------------------------------------------------------- admin views
   function viewUsers() {
+    const card = (h) => {
+      const inv = h.role === 'investor' && h.net_profit_usdt != null, val = inv ? h.net_value_usdt : h.value_usdt, gain = inv ? h.net_profit_usdt : h.profit_usdt, nm = esc(h.name || h.username);
+      return `<div class="card ucard${h.active ? '' : ' off'}"><div class="ubody"><div class="unm">${nm}${h.role === 'admin' ? ' <span class="chip">fund manager</span>' : ''}${h.active ? '' : ' <span class="chip down">off</span>'}</div>
+          <div class="uval"><b>${money(val)}</b> <span class="${cls(gain)}">(${smoney(gain)})</span></div></div>
+        <button class="iconbtn" data-action="userview" data-id="${h.id}" aria-label="View ${nm}" title="View ${nm}">${ICON.eye}</button></div>`;
+    };
     return `<div class="sechead"><h2>Users (${S.all.length})</h2><button class="sm ${S.addUser ? 'ghost' : ''}" data-action="adduser">${S.addUser ? 'Cancel' : '+ Add user'}</button></div>
       ${S.addUser ? `<div class="card"><h2>New user</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
-      <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div>
+      <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\-]{3,30}" required></div>
         <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="10" required></div></div>
         <label>Full name</label><input name="name" required>
         <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
         <button class="full">Create account</button></form></div>` : ''}
-      <div class="card">${S.all.map((h) => `<div class="person">
-        <div class="top"><span class="nm">${esc(h.name || h.username)} <span class="chip">${h.role === 'admin' ? 'manager' : 'investor'}</span>${h.active ? '' : ' <span class="chip down">off</span>'}</span>
-          <span><b>${money(h.value_usdt)}</b></span></div>
-        <div class="top"><span class="note">@${esc(h.username)}</span>${h.role === 'investor' && h.active ? `<button class="ghost sm" data-action="viewas" data-id="${h.id}">View as</button>` : ''}</div>
-        <div class="mini">
-          <div><span>Put in</span>${putIn(h)}</div>
-          ${h.role === 'investor' && h.net_profit_usdt != null
-            ? `<div><span>Profit, theirs after fee</span><i class="${cls(h.net_profit_usdt)}" style="font-style:normal">${smoney(h.net_profit_usdt)}${h.net_return_pct != null ? ' (' + pct(h.net_return_pct, 1) + ')' : ''}</i></div>
-          <div><span>Before fee</span><i class="${cls(h.gross_profit_usdt)}" style="font-style:normal">${smoney(h.gross_profit_usdt)}${h.gross_return_pct != null ? ' (' + pct(h.gross_return_pct, 1) + ')' : ''}</i></div>
-          <div><span>Your fee (worth now)</span>${money(h.profit_share_usdt)}</div>
-          <div><span>Balance after fee</span>${money(h.net_value_usdt)}</div>`
-            : `<div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${smoney(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>`}
-          <div><span>Share</span>${h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%'}</div>
-          <div><span>Units</span>${f(h.units, 3)}</div>
-          <div><span>Fee rate</span>${h.role === 'admin' ? '—' : rateText(h)}</div>
-          <div><span>${h.role === 'admin' ? 'Fees earned' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
-        ${termsLine(h)}<details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
-          ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
-            <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
-            <p class="note" style="margin:6px 0 0">Lowering applies at once. Raising only starts after the next quarter close, so it never touches profit already made.${h.fee_rate_next != null ? ` Scheduled: ${pc(h.fee_rate_next)}%. Type the current % again to cancel it.` : ''}</p>
-            <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
-          <form class="resetForm" data-id="${h.id}"><label>New password for ${esc(h.name || h.username)}</label>
-            <input name="password" type="text" minlength="8" autocomplete="off" required>
-            <div class="btns"><button class="ghost">Set password</button></div></form></details></div>`).join('')}</div>`;
+      ${S.all.map(card).join('')}`;
+  }
+  // everything about one person, in a sheet over the Users list; "View as" is the last thing in it
+  function userModal() {
+    const h = S.modal && S.all.find((x) => x.id === S.modal); if (!h) return '';
+    const inv = h.role === 'investor', net = inv && h.net_profit_usdt != null, nm = esc(h.name || h.username);
+    const line = (l, v) => `<div class="row"><span class="l">${l}</span><span class="r">${v}</span></div>`;
+    const gainOf = (g, p) => `<i class="${cls(g)}" style="font-style:normal">${smoney(g)}${p != null ? ' (' + pct(p, 1) + ')' : ''}</i>`;
+    return `<div class="modal-bg" data-action="closemodal"><div class="sheet" role="dialog" aria-modal="true" aria-label="${nm}">
+      <div class="sheet-head"><div><div class="sheet-nm">${nm}${h.active ? '' : ' <span class="chip down">off</span>'}</div><div class="note">@${esc(h.username)}${inv ? '' : ' · fund manager'}</div></div>
+        <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
+      ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
+      ${line('Put in', putIn(h))}
+      ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
+        : line('Profit', gainOf(h.profit_usdt, h.return_pct))}
+      ${line('Share of the pool', h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%')}
+      ${line('Units', f(h.units, 3))}
+      ${line('Quarter fee rate', inv ? rateText(h) : '—')}
+      ${inv && exitInfo(h.id) ? line(`Withdrawal fee<br><span class="note">${exitNote(h.id)}</span>`, pc(exitRate(h.id)) + '%') : ''}
+      ${line(inv ? 'Locked until' : 'Fees earned (units)', inv ? day(h.lock_until) : f(h.fee_units_earned, 3))}
+      ${termsLine(h)}
+      <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
+        ${inv ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
+          <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
+          <p class="note" style="margin:6px 0 0">Lowering applies at once. Raising only starts after the next quarter close, so it never touches profit already made.${h.fee_rate_next != null ? ` Scheduled: ${pc(h.fee_rate_next)}%. Type the current % again to cancel it.` : ''}</p>
+          <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
+        <form class="resetForm" data-id="${h.id}"><label>New password for ${nm}</label>
+          <input name="password" type="text" minlength="8" autocomplete="off" required>
+          <div class="btns"><button class="ghost">Set password</button></div></form></details>
+      ${inv && h.active ? `<div class="btns"><button class="full" data-action="viewas" data-id="${h.id}">${ICON.eye}<span>View as ${nm}</span></button></div>` : ''}</div></div>`;
   }
   const holderOpts = (sel) => S.all.filter((h) => h.active)
-    .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (manager)' : ''}</option>`).join('');
+    .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (fund manager)' : ''}</option>`).join('');
   const atOf = (fm) => (fv(fm, 'at') ? new Date(fv(fm, 'at')).toISOString() : null);   // optional "when" for late entries
   // optional extras. The peso rate defaults to the live rate; the deposit form shows the rate up front instead
   const phpField = (withRate = true) => `<details><summary>More options: date${withRate ? ', peso rate' : ''}</summary><label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local">${withRate ? `<label>Peso rate (₱ per USDT, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">` : ''}</details>`;
@@ -712,9 +760,13 @@
       ${pick('wd', `<div class="card"><h2>Record a withdrawal</h2>
         <p class="note">Enter the pool equity from MEXC just before you pay out.${pendNote()} Any fee due (on gains above their best) is settled in units first.</p>
         <form id="wdForm"><label>Person</label><select name="who">${holderOpts(S.recWho)}</select>
+        <label>Pool equity before this payout (USDT, the MEXC total)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
+        <div class="grid form2"><div><label>Value to withdraw</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="1000"></div>
+          <div><label>In</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
+        <p class="note" style="margin:6px 0 0">Type how much they want (e.g. ₱1,000) and the units below fill in at today's price. Or type the units directly.</p>
         <label>Units to redeem</label><input name="units" type="number" step="any" inputmode="decimal" required>
         <div class="btns"><button type="button" class="ghost" data-action="allunits">All their units</button></div>
-        <label>Pool equity before this payout (USDT, the MEXC total)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
+        <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay them from my own money. Nothing leaves MEXC: their value is moved to my fund manager account in the ledger.</span></label>
         ${phpField()}<label>Note (optional)</label><input name="note"><input type="hidden" name="reqid">
         <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Override lock-up</label>
         <div class="preview" id="wdPrev">—</div><button class="full">Record withdrawal</button></form></div>`)}`;
@@ -763,7 +815,7 @@
   const TABS = {
     investor: [['home', 'Home'], ['statements', 'Statements'], ['activity', 'Activity'], ['about', 'About']],
     admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Quarter'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
-    adminMe: [['mine', 'My account'], ['statements', 'Statements'], ['myhistory', 'History']],                                                                              // side "My account": only the manager's own money
+    adminMe: [['mine', 'My account'], ['statements', 'Statements'], ['myhistory', 'History']],                                                                              // side "My account": only the fund manager's own money
   };
   const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
   const TABICON = { users: 'people', dashboard: 'dash', myhistory: 'activity', statements: 'reports' };
@@ -771,7 +823,7 @@
 
   // ---------------------------------------------------------------- gates after sign-in: terms -> quote screen -> tour
   // An investor must agree to the terms (saved in the database, per version) before seeing anything. Then a quote screen, then the animated
-  // tour (once per device; "Welcome tour" at the bottom replays it). None of this shows while the manager is "viewing as" someone.
+  // tour (once per device; "Welcome tour" at the bottom replays it). None of this shows while the fund manager is "viewing as" someone.
   const welcomeKey = (id) => 'ledger.welcomed.' + id;
   const welcomed = (id) => { try { return localStorage.getItem(welcomeKey(id)) === '1'; } catch { return false; } };
   const needsTerms = () => !!S.me && S.me.role === 'investor' && !S.me.impersonated && S.me.terms_version !== TERMS_VERSION;
@@ -789,11 +841,11 @@
     return [
       ['You can lose money, and it could be a lot', `Lucidyo trades in cryptocurrency markets, which can move very fast and very far, sometimes within minutes. The account may use leverage (trading with more than the money in it), which can make losses bigger as well as gains. The pool can fall sharply, <b>you can lose a large part or all of the money you put in</b>, and there will be weeks and months when your balance is down. Only use money you can afford to lose: never money for rent, food, school, bills or emergencies, and never borrowed money.`],
       ['Nothing is guaranteed', `Nobody has promised you any return, and nobody can. Past results and backtests are simulations made with hindsight. They are not a promise, and a good stretch says nothing certain about the next one.`],
-      ['Not a bank, not insured', `This app is a record, kept by the manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
-      ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked.`],
-      ['How new money joins', `Money you hand over first waits. It joins the pool at the next valuation (when the manager updates the pool’s total value) and buys units at that day’s price. So the price you get can be higher or lower than on the day you handed the money over. This protects everyone: nobody shares in profit made before their money was in.`],
+      ['Not a bank, not insured', `This app is a record, kept by the fund manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the fund manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
+      ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked. <b>Withdrawal fee:</b> ${S.exit ? `${pc(S.exit.young_rate)}% of what you withdraw while your account is under 1 year old, and ${pc(S.exit.mature_rate)}% after that` : '5% of what you withdraw while your account is under 1 year old, and 2% after that'}. It comes off the payout, on top of the quarter fee. <b>Minimum withdrawal:</b> ${php(minPhp() || 500)} (taking everything you hold is always allowed).`],
+      ['How new money joins', `Money you hand over first waits. It joins the pool at the next valuation (when the fund manager updates the pool’s total value) and buys units at that day’s price. So the price you get can be higher or lower than on the day you handed the money over. This protects everyone: nobody shares in profit made before their money was in.`],
       ['The fee', `The fee is <b>${rate}%</b> of the <b>net profit your units make in each quarter</b> (the part of the price change that happened while you held them), settled once a quarter inside the pool (no cash moves). Nothing is charged on the money you put in or on profit made before you joined. <b>A quarter with a loss costs no fee, but the loss is not carried forward: the next quarter's profit is charged in full even if your balance is still below what you put in.</b> If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal. The rate can be lowered at any time; a higher rate only starts after the next quarter close, and your Home page tells you before it does.`],
-      ['What the numbers mean', `Your balance is an estimate. It follows the pool’s value as entered by the manager from the exchange account (daily or weekly, not live), and it is shown in pesos at an exchange rate that moves on its own, so your peso balance can change even when the trading did not.`],
+      ['What the numbers mean', `Your balance is an estimate. It follows the pool’s value as entered by the fund manager from the exchange account (daily or weekly, not live), and it is shown in pesos at an exchange rate that moves on its own, so your peso balance can change even when the trading did not.`],
       ['Your login and this agreement', `Keep your password private: anything done with your login counts as done by you. We save the date you agreed to these terms. If the terms change, you will be asked to read and agree again.`],
     ];
   }
@@ -840,7 +892,7 @@
     ['Equity', 'The total value of the whole pool right now, including trades that are still open.'],
     ['Unit', 'A slice of the pool. You own a number of units. It only changes when you add money, take money out, or pay a fee.'],
     ['Unit price', 'What one unit is worth today. It rises when the pool gains and falls when it loses, by the same % for everyone.'],
-    ['Valuation', 'When the manager updates the pool’s total value. New money joins at the price set at a valuation.'],
+    ['Valuation', 'When the fund manager updates the pool’s total value. New money joins at the price set at a valuation.'],
     ['Compounding', 'Profit staying in the pool and earning on itself. Losses compound too: they shrink what future gains build on.'],
     ['Drawdown', 'How far the balance has fallen from its highest point. A 50% fall needs a 100% gain to get back.'],
     ['Quarter profit', 'What the price moved on the units you held, between two quarter closes. The fee is charged on it when it is positive. A loss is not carried into the next quarter.'],
@@ -877,7 +929,7 @@
         <path class="ln hot" pathLength="1" clip-path="url(#above)" d="M0 116 L40 100 L80 108 L120 70 L160 50 L200 78 L240 40 L300 30"/>
         <text class="lab hot" x="4" y="14" style="--d:1.6s">Fee on the gain over the quarter</text></svg>
       <div class="split" style="margin-top:12px"><i class="grow-x" style="width:${keep}%;background:var(--up)"></i><i class="grow-x" style="width:${100 - keep}%;background:var(--seg3)"></i></div>
-      <div class="legend"><span><b style="background:var(--up)"></b>You keep ${pc(keep / 100)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep / 100)}%</span></div></div>`,
+      <div class="legend"><span><b style="background:var(--up)"></b>You keep ${pc(keep / 100)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Fund manager ${pc(1 - keep / 100)}%</span></div></div>`,
     tabs: () => `<div class="scene"><div class="mininav" aria-hidden="true">${[['home', 'Home'], ['activity', 'Activity'], ['about', 'About']].map(([k, l], i) => `<span style="--i:${i}">${ICON[k]}<b>${l}</b></span>`).join('')}</div>
       <div class="tabrows">${[['Home', 'your balance, a growth chart, your fee and your withdrawals.'], ['Activity', 'every deposit, withdrawal and fee, in order.'], ['About', 'how it all works, in plain words, and your agreement.']]
         .map(([t, d], i) => `<p style="--i:${i}"><b>${t}</b> · ${d}</p>`).join('')}</div></div>`,
@@ -886,7 +938,7 @@
     const m = S.me, first = esc(String(m.name || m.username).split(' ')[0]);
     if (isAdmin()) return [
       [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
-        <p class="about">This is the manager side of Lucidyo Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
+        <p class="about">This is the fund manager side of Lucidyo Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
       [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
         <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
@@ -899,16 +951,16 @@
     return [
       [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
         <p class="about">Here is a one-minute tour of what you will see, in plain words. Tap <b>Skip</b> any time; you can replay it from <b>Welcome tour</b> at the bottom of any page.</p>`],
-      [ICON.pool, 'Your share of the pool', `<p class="about">Everyone’s money goes into <b>one pool</b>: a single trading account, together with the manager’s own money. When you put money in you get <b>units</b>, slices of the pool.</p>
+      [ICON.pool, 'Your share of the pool', `<p class="about">Everyone’s money goes into <b>one pool</b>: a single trading account, together with the fund manager’s own money. When you put money in you get <b>units</b>, slices of the pool.</p>
         <p class="about"><b>Unit price</b> is what one slice is worth today. Your balance is simply your units × the unit price.</p>`, SCENE.pool()],
       [ICON.arrowOut, 'Ups and downs', `<p class="about">Trading results move the unit price: gains lift every unit, losses lower every unit, by the same % for everyone.</p>
         <p class="about">Profit stays in the pool and keeps working. That is <b>compounding</b>, and it works both ways: a loss shrinks what future gains build on. A fall from the highest point is a <b>drawdown</b>. It will happen, and climbing back takes longer than falling (a 50% fall needs a 100% gain to recover).</p>`, SCENE.ups()],
-      [ICON.record, 'New money joins fairly', `<p class="about">Money you hand over does not join instantly. It waits for the next <b>valuation</b> (when the manager updates the pool’s total value) and buys units at that day’s price.</p>
+      [ICON.record, 'New money joins fairly', `<p class="about">Money you hand over does not join instantly. It waits for the next <b>valuation</b> (when the fund manager updates the pool’s total value) and buys units at that day’s price.</p>
         <p class="about">So nobody shares in profit made before their money was in, you included. While it waits, you will see it on Home under <b>Waiting to join</b>.</p>`, SCENE.join()],
       [ICON.lock, 'Lock-up and withdrawals', `<p class="about">Each deposit is <b>locked</b> for <b>${C.LOCK_MONTHS} months</b> from the day it joins. After that, tap <b>Request withdrawal</b> on Home. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b>, at the value on the day it is paid.</p>`, SCENE.lock()],
       [ICON.fee, 'The fee', `<p class="about">The fee applies only when a quarter earns: <b>${pc(m.fee_rate)}%</b> of that <b>quarter's profit</b> on your units. Nothing on the money you put in, nothing on profit made before you joined, and nothing for a quarter that loses.</p>
         <p class="about">It is settled once a quarter inside the pool, so no cash moves. A loss is not carried into the next quarter, so the next quarter is charged on its own profit.</p>`, SCENE.share(keep)],
-      [ICON.home, 'Your screens', `<p class="about">The <b>₱ / $</b> button switches between pesos and USDT. The <b>moon</b> button changes light and dark. Everything is read-only: you can look, and request a withdrawal.</p>`, SCENE.tabs()],
+      [ICON.home, 'Your screens', `<p class="about">Open <b>Settings</b> (the gear, top right) to refresh, switch between pesos and USD, and change light or dark. Everything is read-only: you can look, and request a withdrawal.</p>`, SCENE.tabs()],
       [ICON.about, 'Words you’ll see', glossHtml()],
     ];
   }
@@ -925,6 +977,7 @@
   const gateView = () => (S.gate === 'terms' ? termsView() : S.gate === 'splash' ? splashView() : tourView());
 
   function loginView() {
+    syncNav();
     app.innerHTML = `<header><span></span><div class="hdr-actions">${themeBtn()}</div></header>
       <div class="login-brand"><span class="logo">${ICON.logo}</span><h1>Lucidyo</h1><p class="note">Ledger · your share of the pool, at a glance.</p></div>
       <div class="card"><h2>Sign in</h2>
@@ -932,7 +985,7 @@
       <label>Password</label>${pw('password', 'current-password')}
       <div id="loginErr" class="alert" role="alert" hidden></div>
       <button class="full">Sign in</button></form>
-      <p class="note" style="margin-bottom:0">No account? Ask the manager to create one for you.</p></div>${DISC}`;
+      <p class="note" style="margin-bottom:0">No account? Ask the fund manager to create one for you.</p></div>${DISC}`;
   }
   // password field with a show/hide (eye) button
   const pw = (name, ac, min) => `<div class="pw"><input name="${name}" type="password" autocomplete="${ac}" ${min ? `minlength="${min}"` : ''} required>
@@ -956,15 +1009,54 @@
     const tabs = tabsFor();
     if (!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
-        <button data-action="exitview">Back to manager</button></div>` : ''}
-      <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
-      <div class="hdr-actions">${curBtn()}${themeBtn()}<button class="iconbtn" data-action="refresh" aria-label="Refresh">${ICON.refresh}</button></div></header>
+        <button data-action="exitview">Back to fund manager</button></div>` : ''}
+      <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
+      <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu()}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
       ${viewing ? '' : '<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="welcome">Welcome tour</button><button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>'}
-      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}<span>${l}</span></button>`).join('')}</div></nav>`;
-    wirePreviews(); wireChart();
+      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>
+      ${viewing ? '' : userModal()}`;
+    wirePreviews(); wireChart(); syncNav();
   }
+
+  // ---------------------------------------------------------------- Back button (phone and browser)
+  // Every screen the person moves to (tab, side, an open user sheet, "view as") is a history entry, so Back steps through the app instead of leaving it.
+  // Re-rendering for fresh data changes nothing here; the sign-in and the terms/tour screens replace the entry instead of adding one.
+  const NAV_KEYS = ['uid', 'tab', 'side', 'rec', 'modal', 'vw', 'gate'];
+  function syncNav() {
+    try {
+      document.body.style.overflow = S.modal ? 'hidden' : '';
+      const p = history.state;
+      if (!S.me) { if (!(p && p.out)) history.replaceState({ app: 1, out: 1 }, ''); return; }
+      const s = { app: 1, uid: S.me.id, tab: S.tab, side: S.side === 'me' ? 'me' : 'fund', rec: S.rec, modal: S.modal || null, vw: !!S.adminToken, gate: !!S.gate };
+      const live = p && p.app && !p.out && !p.gate && !s.gate && !S.navReplace;
+      const move = live && (p.uid === s.uid ? (p.tab !== s.tab || p.side !== s.side || p.modal !== s.modal) : p.vw !== s.vw);
+      s.vd = s.vw ? (move ? (p.vw ? p.vd + 1 : 0) : (p && p.vw ? p.vd : 0)) : 0;               // entries added since "view as" opened
+      s.ve = s.vw ? (move ? (p.vw ? p.ve : true) : !!(p && p.vw && p.ve)) : false;             // true when "view as" opened on its own entry
+      if (p && p.app && NAV_KEYS.every((k) => p[k] === s[k])) { S.nav = p; return; }
+      S.nav = s; move ? history.pushState(s, '') : history.replaceState(s, '');
+    } catch { /* no history access: Back simply leaves the page */ }
+  }
+  const stay = () => { try { history.pushState(S.nav || { app: 1, out: 1 }, ''); } catch { /* ignore */ } };   // undo a Back that must not leave the current screen
+  window.addEventListener('popstate', async (ev) => {
+    const st = ev.state;
+    if (!S.me) return loginView();
+    if (S.gate && !S.me.impersonated) return stay();                       // the terms must be agreed to; the tour has its own Back button
+    if (S.adminToken && !(st && st.vw)) {                                   // Back out of "view as": return to the fund manager where they were
+      S.navReplace = true;
+      try { await backToManager(); if (st && st.app && st.uid === S.me.id) { S.tab = st.tab; S.side = st.side; S.rec = st.rec; S.modal = st.modal; render(); } } finally { S.navReplace = false; }
+      return;
+    }
+    if (!st || !st.app || st.out || st.gate || st.uid !== S.me.id || !!st.vw !== !!S.adminToken) return stay();
+    S.tab = st.tab; S.side = st.side; S.rec = st.rec; S.modal = st.modal; S.navReplace = true;
+    try { render(); } finally { S.navReplace = false; }
+    window.scrollTo(0, 0);
+  });
+  function closeModal() {
+    if (history.state && history.state.modal) history.back(); else { S.modal = null; render(); }
+  }
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && S.modal) closeModal(); });
   async function refresh(msg) {
     try { await load(); render(); if (msg) toast(msg); }
     catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
@@ -975,7 +1067,7 @@
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
     for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', qPrev]]) {
-      const el = $f(id); if (el) { el.addEventListener('input', () => fn(el)); fn(el); }
+      const el = $f(id); if (el) { el.addEventListener('input', (e) => { el.dataset.last = e.target.name || ''; fn(el); }); fn(el); }
     }
   }
   const setPrev = (id, html) => { const el = $f(id); if (el) el.innerHTML = html; };
@@ -1000,7 +1092,7 @@
     if (d.usdt == null) return setPrev('depPrev', 'Enter the peso rate to convert.');
     setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until your next equity reading, then buys units at that price. Lock-up ${C.LOCK_MONTHS} months from then.${termsWarn(fv(fm, 'who'))}`);
   }
-  // after an "Edit" undoes the last entry, refill the matching form with its old values so the manager just fixes the typo and re-saves
+  // after an "Edit" undoes the last entry, refill the matching form with its old values so the fund manager just fixes the typo and re-saves
   function prefillEdit(e, rows) {
     if (e.kind === 'update') {
       const fm = $f('eqForm'); if (!fm) return;
@@ -1021,14 +1113,25 @@
   }
   const holder = (id) => S.all.find((h) => h.id === id);
   function wdPrev(fm) {
-    const h = holder(fv(fm, 'who')), units = num(fv(fm, 'units')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
+    const h = holder(fv(fm, 'who')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
+    // a typed value (pesos or USDT) becomes units at the price this payout will use; typing the units directly clears the value
+    if (fm.dataset.last === 'units') fm.elements.amt.value = '';
+    else if (num(fv(fm, 'amt')) > 0 && eq != null && u && eq - pendTotal() > 0) {
+      const price = (eq - pendTotal()) / u, r = num(fv(fm, 'rate')) || rate(), a = num(fv(fm, 'amt'));
+      const usd = fv(fm, 'ccy') === 'USDT' ? a : r > 0 ? a / r : null;
+      if (usd != null) fm.elements.units.value = Math.round((usd / price) * 1e8) / 1e8;
+    }
+    const units = num(fv(fm, 'units'));
     if (!h || units == null || eq == null || !u) return setPrev('wdPrev', '—');
     if (eq - pendTotal() <= 0) return setPrev('wdPrev', `<span class="down">Must be more than the ${usdt(pendTotal())} still waiting.</span>`);
-    const price = (eq - pendTotal()) / u, fee = lotFee(h, Math.min(units, Number(h.units)), price);
+    const price = (eq - pendTotal()) / u, xr = exitRate(h.id), fee = Math.min(units, lotFee(h, Math.min(units, Number(h.units)), price) + units * xr);
     const net = units - fee, pay = net * price;
-    const warn = units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
-      : h.role === 'investor' && units > Number(h.unlocked_units) + 1e-8 && !fm.elements.force.checked ? '<br><span class="warn">Inside lock-up. Tick override to allow.</span>' : '';
-    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>. Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.${warn}`);
+    const small = h.role === 'investor' && minPhp() && rate() && units < Number(h.units) - 1e-8 && units * price * rate() < minPhp() && !fm.elements.force.checked
+      ? `<br><span class="warn">Under the ${php(minPhp())} minimum. Tick override to allow.</span>` : '';
+    const warn = small + (units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
+      : h.role === 'investor' && units > Number(h.unlocked_units) + 1e-8 && !fm.elements.force.checked ? '<br><span class="warn">Inside lock-up. Tick override to allow.</span>' : '');
+    const mgr = fm.elements.tomgr.checked, mgrWarn = mgr && h.role !== 'investor' ? '<br><span class="down">Only an investor\'s money can be moved to you.</span>' : '';
+    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>${xr ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} (${f(net, 4)} units) to your fund manager account. Nothing leaves MEXC: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.`}${mgrWarn}${warn}`);
   }
   function qPrev(fm) {
     const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units);
@@ -1047,6 +1150,7 @@
     try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
   }
   document.addEventListener('click', async (ev) => {
+    document.querySelectorAll('details.settings[open]').forEach((d) => { if (!d.contains(ev.target) || ev.target.closest('[data-action]')) d.removeAttribute('open'); });
     const side = ev.target.closest('[data-side]');
     if (side) { S.side = side.dataset.side === 'me' ? 'me' : 'fund'; S.tab = null; render(); window.scrollTo(0, 0); return; }
     const tab = ev.target.closest('[data-tab]');
@@ -1089,7 +1193,7 @@
         const r = await call('accept_terms', { p_version: TERMS_VERSION });
         S.me.terms_version = r.version; S.me.terms_accepted_at = r.accepted_at; S.gate = afterTerms(); render(); window.scrollTo(0, 0);
       } catch (e) {
-        if (e.message !== 'Signed out') toast(/function|schema cache/i.test(e.message) ? 'The database needs its latest update before your agreement can be saved. Please tell the manager.' : e.message, true);
+        if (e.message !== 'Signed out') toast(/function|schema cache/i.test(e.message) ? 'The database needs its latest update before your agreement can be saved. Please tell the fund manager.' : e.message, true);
         if (b.isConnected) b.disabled = false;
       }
     }
@@ -1107,9 +1211,14 @@
       if (on && !confirm('Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.')) return;
       act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
     }
-    else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; wdPrev(fm); } }
+    else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); } }
     else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
-    else if (a === 'exitview') backToManager();
+    else if (a === 'exitview') {
+      const st = history.state;
+      if (st && st.vw && st.ve) history.go(-(st.vd + 1)); else backToManager();   // the pop handler returns to the manager
+    }
+    else if (a === 'userview') { S.modal = id; render(); const x = document.querySelector('.sheet [data-action="closemodal"]'); if (x) x.focus(); }
+    else if (a === 'closemodal') { if (ev.target === b || b.classList.contains('iconbtn') || ev.target.closest('.iconbtn')) closeModal(); }
     else if (a === 'undolast') {
       if (!confirm('Delete the most recent entry? This appends a correction that cancels it out — nothing is erased from the history.')) return;
       act(() => call('admin_undo_last', { p_note: 'correction: deleted' }), 'Last entry deleted (correction added)');
@@ -1162,6 +1271,7 @@
         const want = num(fv(fm, 'amount')) / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // amount -> units
         const tol = 0.01 / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // within a centavo of the maximum means "everything" (the Max button rounds down)
         const units = Math.abs(want - Number(S.me.unlocked_units)) <= tol ? Number(S.me.unlocked_units) : want;   // more than that is left for the database to refuse
+        if (minPhp() && rate() && units < Number(S.me.units) - 1e-8 && units * Number(S.me.unit_price) * rate() < minPhp()) throw new Error(`The minimum withdrawal is ${php(minPhp())}. Taking everything you hold is always allowed.`);
         const r = await call('request_withdrawal', { p_units: units, p_note: null });
         await refresh(`Requested. You will be paid by ${day(r.pay_by)}.`);
       } else if (id === 'eqForm') {
@@ -1173,9 +1283,11 @@
           p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(`Received ${d.php != null ? php(d.php) + ' = ' : ''}${usdt(d.usdt)}. It buys units at your next equity reading.`);
       } else if (id === 'wdForm') {
-        const r = await moneyCall(fm, 'admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
+        const mgr = fm.elements.tomgr.checked;
+        const r = await moneyCall(fm, mgr ? 'admin_withdraw_to_manager' : 'admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
           p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
-        await refresh(`Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
+        await refresh(mgr ? `Moved ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())} to your fund manager account. Nothing left MEXC.`
+          : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
       } else if (id === 'qForm') {
         if (!confirm('Charge fees and close the quarter? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
         const r = await moneyCall(fm, 'admin_close_quarter', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });

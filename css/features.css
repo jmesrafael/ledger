@@ -49,3 +49,18 @@
   #stmt .row, #stmt .tx { break-inside: avoid; }
   #stmt .stmt-foot { font-size: 11px; color: #444; }
 }
+
+/* users: one compact card per person, details in a sheet */
+.ucard { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-top: 12px; }
+.ucard.off { opacity: .6; }
+.ucard .ubody { min-width: 0; }
+.ucard .unm { font-weight: 800; font-size: 16px; overflow-wrap: anywhere; }
+.ucard .uval { margin-top: 2px; font-size: 14px; color: var(--ink-2); }
+.ucard .uval b { color: var(--ink); }
+.modal-bg { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.5); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.sheet { width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; overscroll-behavior: contain; padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0; background: var(--page); border: 1px solid var(--soft-border); box-shadow: var(--sheet-shadow); }
+.sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.sheet-nm { font-weight: 800; font-size: 20px; }
+.sheet .btns button svg { width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px; }
+@media (min-width: 700px) { .modal-bg { align-items: center; } .sheet { border-radius: 24px; } }

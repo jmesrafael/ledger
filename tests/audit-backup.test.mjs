@@ -57,7 +57,7 @@ test('activity log: who did what, with the right person as actor, and only the m
   await call(db, 'admin_receive_deposit', A, ids.john, 50, 56, 2800);
   await reading(db, A);                                        // the waiting money joins at this reading
   await call(db, 'admin_post_equity', A, 160);                 // +? just a reading
-  await call(db, 'request_withdrawal', J, 5);                  // John asks (actor: John)
+  await call(db, 'request_withdrawal', J, 15);                  // John asks (actor: John)
   const req = (await call(db, 'my_requests', J))[0];
   await call(db, 'cancel_withdrawal_request', J, req.id);
   await call(db, 'change_my_password', J, 'john-password', 'john-new-pass-1');
