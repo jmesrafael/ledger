@@ -12,6 +12,8 @@ const CORRECTIONS = new URL('../supabase/migrations/20261024000001_ledger_correc
 const FEE_10 = new URL('../supabase/migrations/20261025000000_profit_share_10.sql', import.meta.url);
 const PENDING = new URL('../supabase/migrations/20261026000000_pending_deposits.sql', import.meta.url);
 const HARDEN = new URL('../supabase/migrations/20261027000000_profit_share_hardening.sql', import.meta.url);
+const TERMS = new URL('../supabase/migrations/20261028000000_terms_acceptance.sql', import.meta.url);
+const NET = new URL('../supabase/migrations/20261030000000_net_of_fee_returns.sql', import.meta.url);
 const near =(a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function setup() {
@@ -24,6 +26,8 @@ async function setup() {
   await db.exec(readFileSync(FEE_10, 'utf8'));
   await db.exec(readFileSync(PENDING, 'utf8'));
   await db.exec(readFileSync(HARDEN, 'utf8'));
+  await db.exec(readFileSync(TERMS, 'utf8'));
+  await db.exec(readFileSync(NET, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '0' where key = 'min_days_between_closes'`);   // tests close quarters back to back
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);   // fast hashing for tests
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
@@ -109,7 +113,7 @@ test('security: everything needs a token; investors see only their own data; has
   await own(db, 'admin_deposit', A, ids.raf, 50); await own(db, 'admin_deposit', A, ids.john, 30, 50); await own(db, 'admin_deposit', A, ids.dino, 20, 80);
   const J = await token(db, 'john', 'john-password');
 
-  for (const t of ['profiles', 'ledger', 'sessions', 'pool_equity', 'ledger_settings', 'holder_state', 'withdrawal_requests', 'pending_deposits', 'holder_lots', 'lot_log']) {
+  for (const t of ['profiles', 'ledger', 'sessions', 'pool_equity', 'ledger_settings', 'holder_state', 'withdrawal_requests', 'pending_deposits', 'holder_lots', 'lot_log', 'terms_acceptances']) {
     await db.exec('set role anon');
     try { await assert.rejects(() => db.query(`select * from public.${t}`), /permission denied/, t); } finally { await db.exec('reset role'); }
   }
@@ -477,4 +481,59 @@ test('stress: 150 random actions (money in, readings, withdrawals, closes, undos
     near(sumVal, Number((await call(db, 'pool_summary', A)).equity_usdt), 1e-4);   // everyone's money adds up to the fund
   }
   assert.ok(ok > 120, `only ${ok} actions ran`);
+});
+
+test('terms: nobody has agreed at first; agreeing is saved with version + time, once per version, and can never be edited or faked', async () => {
+  const { db, A, ids } = await world();
+  const jT = await token(db, 'john', 'john-password');
+  let me = await call(db, 'my_summary', jT);
+  assert.equal(me.terms_version, null); assert.equal(me.terms_accepted_at, null);
+  assert.equal((await holder(db, A, ids.john)).terms_version, null);            // the manager sees "not yet"
+  const r = await call(db, 'accept_terms', jT, '2026-10-22');
+  assert.equal(r.version, '2026-10-22');
+  me = await call(db, 'my_summary', jT);
+  assert.equal(me.terms_version, '2026-10-22'); assert.ok(me.terms_accepted_at);
+  const seen = await holder(db, A, ids.john);
+  assert.equal(seen.terms_version, '2026-10-22'); assert.ok(seen.terms_accepted_at);   // ...and "accepted <date>"
+  assert.equal((await holder(db, A, ids.dino)).terms_version, null);            // only John agreed
+  const again = await call(db, 'accept_terms', jT, '2026-10-22');                // same version again: no second row, same time
+  assert.equal(again.accepted_at, r.accepted_at);
+  assert.equal((await db.query(`select count(*)::int n from public.terms_acceptances`)).rows[0].n, 1);
+  await call(db, 'accept_terms', jT, '2027-01-01');                              // new wording: asked again, newest version wins
+  assert.equal((await call(db, 'my_summary', jT)).terms_version, '2027-01-01');
+  await assert.rejects(() => db.query(`update public.terms_acceptances set version = 'x'`), /append-only/);
+  await assert.rejects(() => db.query(`delete from public.terms_acceptances`), /append-only/);
+  await assert.rejects(() => call(db, 'accept_terms', jT, '   '), /version missing/);
+  await assert.rejects(() => call(db, 'accept_terms', jT, 'x'.repeat(41)), /version missing/);
+  await assert.rejects(() => call(db, 'accept_terms', 'not-a-token', '2026-10-22'), /not signed in/);
+});
+
+test('terms: the manager cannot agree on someone else\'s behalf while viewing as them', async () => {
+  const { db, A, ids } = await world();
+  const v = await call(db, 'admin_view_as', A, ids.john);
+  await assert.rejects(() => call(db, 'accept_terms', v.token, '2026-10-22'), /view-only/);
+  assert.equal((await db.query(`select count(*)::int n from public.terms_acceptances`)).rows[0].n, 0);
+  assert.equal((await call(db, 'my_summary', v.token)).terms_version, null);     // the app skips the gate for "view as" sessions
+});
+
+test('net of fee: balance and % shown after the profit share (taken + owed); gross - cut = net, also after a drop', async () => {
+  const { db, A, ids } = await world();   // John pays 20%
+  await own(db, 'admin_deposit', A, ids.raf, 50, null, 58, 2900, null);
+  await own(db, 'admin_deposit', A, ids.john, 50, 50, 58, 2900, null);
+  await call(db, 'admin_post_equity', A, 120);   // price 1.20, nothing charged yet: the cut is only owed
+  let j = await holder(db, A, ids.john);
+  near(j.gross_return_pct, 0.2); near(j.accrued_fee_usdt, 2); near(j.profit_share_usdt, 2);
+  near(j.net_value_usdt, 58); near(j.net_profit_usdt, 8); near(j.net_return_pct, 0.16); near(j.profit_share_pct_points, 0.04);
+
+  await call(db, 'admin_close_quarter', A, 120);   // charged: same numbers, now as units moved
+  j = await holder(db, A, ids.john);
+  near(j.fee_paid_units, 2 / 1.2); near(j.fee_paid_usdt, 2); near(j.accrued_fee_usdt, 0); near(j.net_value_usdt, 58); near(j.net_return_pct, 0.16);
+
+  await call(db, 'admin_post_equity', A, 108);   // -10%: the cut already taken stays taken, nothing new owed
+  j = await holder(db, A, ids.john);
+  near(j.gross_value_usdt, 54); near(j.gross_return_pct, 0.08); near(j.accrued_fee_usdt, 0);
+  near(j.profit_share_usdt, 1.8); near(j.net_value_usdt, 52.2); near(j.net_return_pct, 0.044);
+  near(j.gross_return_pct - j.profit_share_pct_points, j.net_return_pct);
+  const me = await holder(db, A, ids.raf);   // the manager pays no cut: gross = net = value
+  near(me.profit_share_usdt, 0); near(me.net_value_usdt, me.value_usdt); near(me.gross_value_usdt, me.value_usdt);
 });

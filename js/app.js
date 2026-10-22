@@ -2,10 +2,12 @@
 // every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
+  const TERMS_VERSION = '2026-10-22';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
+  const SPLASH_MS = 5600;               // how long the quote screen stays (tap Skip to leave sooner)
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the manager's own session while "viewing as"
-  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false };
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
 
   // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -32,6 +34,7 @@
     dash: svg('<rect x="3" y="3" width="7.5" height="9" rx="2"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="2"/><rect x="3" y="15" width="7.5" height="6" rx="2"/>'),
     about: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5h.01"/>'),
     logo: svg('<path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/>'),
+    lock: svg('<rect x="5" y="11" width="14" height="10" rx="2.5"/><g class="shackle"><path d="M8 11V8a4 4 0 0 1 8 0v3"/></g>'),
     reports: svg('<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16.5h6M9 9.5h2"/>'),
   };
 
@@ -95,7 +98,7 @@
   }
   function signedOut(msg) {
     if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the manager
-    S.token = null; S.me = null; S.welcome = null; S.welcomeDone = false; store.set(null); loginView(); if (msg) toast(msg, true);
+    S.token = null; S.me = null; S.welcome = null; S.welcomeDone = false; S.gate = null; S.termsRO = false; clearTimeout(S.splashT); S.splashT = null; store.set(null); loginView(); if (msg) toast(msg, true);
   }
   async function viewAs(id) {
     const r = await call('admin_view_as', { p_profile: id });
@@ -106,7 +109,7 @@
   async function backToManager(msg) {
     const t = S.token; S.token = S.adminToken; S.adminToken = null; store.set(S.token); store.set(null, ADMIN_KEY);
     try { await rpc('logout', { p_token: t }); } catch { /* already expired */ }
-    S.tab = 'users'; S.uid = null; await refresh(msg);
+    S.side = 'fund'; S.tab = 'users'; S.uid = null; await refresh(msg);
     S.tab = 'users'; render();
   }
 
@@ -119,9 +122,10 @@
     const [pool, hist, history, led, reqs, all, elog, pend] = await Promise.all([admin ? call('pool_summary') : null, admin ? call('price_history') : [], call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, call(admin ? 'admin_pending' : 'my_pending'),
-      loadFx(), admin ? loadReports() : null]);
+      loadFx(), admin ? loadReports() : null, loadFund()]);
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
   }
+  async function loadFund() { try { S.fund = (await rpc('fund_returns', { p_token: S.token })) || []; } catch { S.fund = []; } }
   // reports/index.json: a small registry of compiled HTML reports (see reports/README or the folder itself to add one).
   // Plain static files, not database rows — missing or unreadable just means an empty Reports tab, never a hard error.
   async function loadReports() {
@@ -221,7 +225,7 @@
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in, and your lock-up starts when it joins.</p></div>` : '';
     return `${waiting}${growthCard(investor ? 'Your balance' : 'Your holdings')}
-      ${investor ? profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
+      ${investor ? growthMathCard(m) + sameBoatCard() + profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
         <div class="row"><span class="l">Available to withdraw now<br><span class="note">after any profit share</span></span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
         <div class="row"><span class="l">Next part unlocks</span><span class="r">${day(m.next_unlock)}</span></div>
         <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. If a profit share is due, it comes off the payout.</p>
@@ -236,6 +240,17 @@
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
     <div class="btns"><button class="ghost" data-tab="about">Read how it works</button></div></div>`;
+  // investor: the trading result, minus the manager's share, = what is theirs. Simple % on the money put in.
+  function growthMathCard(m) {
+    if (m.gross_return_pct == null || m.net_return_pct == null) return '';
+    const paid = Number(m.fee_paid_units) * Number(m.unit_price), acc = Number(m.accrued_fee_usdt), share = Number(m.profit_share_usdt);
+    return `<div class="card"><h2>How your growth is worked out</h2>
+      <div class="row"><span class="l">You put in</span><span class="r">${money(m.net_in_usdt)}</span></div>
+      <div class="row"><span class="l">The trading made</span><span class="r ${cls(m.gross_profit_usdt)}">${smoney(m.gross_profit_usdt)}<br><span class="note">${pct(m.gross_return_pct, 1)}</span></span></div>
+      <div class="row"><span class="l">Manager's profit share (${pc(m.fee_rate)}% of new profit)<br><span class="note">${share > 0 ? `already taken ${money(paid)}${acc > 0 ? ` · owed this quarter ${money(acc)}` : ''}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
+      <div class="row"><span class="l"><b>Yours, after the profit share</b></span><span class="r"><b class="${cls(m.net_profit_usdt)}">${smoney(m.net_profit_usdt)}</b><br><span class="note"><b>${pct(m.net_return_pct, 1)}</b> · balance ${money(m.net_value_usdt)}</span></span></div>
+      <p class="note">Your balance and % on this page are always shown <b>after</b> the profit share, so it is what is yours. The share is ${pc(m.fee_rate)}% of new profit above your best-ever level, worked out at each quarter end. If the fund drops after a quarter end, the share already taken stays taken, so it can be more than ${pc(m.fee_rate)}% of the profit you have left; nothing new is taken until your balance climbs back above that best level. The share already taken is shown at today's value.</p></div>`;
+  }
   function profitShareCard(m) {
     const keep = 1 - Number(m.fee_rate), paid = -S.ledger.filter((l) => l.kind === 'fee_out' && l.profile_id === m.id).reduce((a, l) => a + Number(l.usdt), 0);
     const above = Number(m.accrued_fee_usdt) > 0;
@@ -256,8 +271,14 @@
 
   // ---------------------------------------------------------------- growth chart (Robinhood-style: drag across it to see any day)
   const RANGES = [['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['1Y', 365, 'Past year'], ['ALL', null, 'All time']];
+  // an investor's history with the latest point after the profit share owed so far, so the balance and % are what is theirs
+  function netHistory() {
+    const H = (S.history || []).map((p) => ({ ...p })), acc = S.me && S.me.role === 'investor' ? Number(S.me.accrued_fee_usdt) || 0 : 0;
+    if (acc > 0 && H.length) H[H.length - 1].value = Number(H[H.length - 1].value) - acc;
+    return H;
+  }
   function series() {
-    const H = S.history.map((p) => ({ t: new Date(p.ts).getTime(), v: Number(p.value), n: Number(p.net_in) }));
+    const H = netHistory().map((p) => ({ t: new Date(p.ts).getTime(), v: Number(p.value), n: Number(p.net_in) }));
     if (!H.length) return [];
     const now = Date.now(), r = RANGES.find((x) => x[0] === S.range)[1];
     const start = r == null ? -Infinity : r === 'ytd' ? Date.UTC(new Date().getUTCFullYear(), 0, 1) : now - r * 864e5;
@@ -275,7 +296,7 @@
     const t0 = a.t, t1 = Math.max(z.t, t0 + 1), lo = Math.min(...pts.map((p) => Math.min(p.v, p.n))), hi = Math.max(...pts.map((p) => Math.max(p.v, p.n)));
     const pad = (hi - lo || Math.max(hi, 1) * 0.05) * 0.12, y0 = lo - pad, y1 = hi + pad, W = 300, H = 130;
     const X = (t) => ((t - t0) / (t1 - t0)) * W, Y = (v) => H - ((v - y0) / (y1 - y0)) * H;
-    S.chart = { pts, X, Y, W, H };
+    S.chart = { pts, X, Y, W, H, g: Returns.yourGrowth(pts) };
     const color = `var(--${up ? 'up' : 'down'})`;
     const dashed = `<polyline fill="none" stroke="var(--muted)" stroke-opacity=".7" stroke-width="1.2" stroke-dasharray="3 4" vector-effect="non-scaling-stroke" points="${pts.map((p) => `${X(p.t).toFixed(2)},${Y(p.n).toFixed(2)}`).join(' ')}"/>`;
     return `<div class="card hero" style="--dot:${color}"><h2>${title}</h2>
@@ -286,17 +307,17 @@
         <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-opacity=".6" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
       </svg><span class="dot live" id="gdot"></span></div>
       <div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>
-      <p class="note" style="margin:8px 0 0">Line: what your money is worth. Dashed: what you have put in. Drag across the chart to see any day.</p>
+      <p class="note" style="margin:8px 0 0">Line: what your money is worth${m.role === 'investor' ? ', after the profit share' : ''}. Dashed: what you have put in. Drag across the chart to see any day.</p>
       <p class="note" style="margin:4px 0 0">${rateNote()}. Pesos move with the exchange rate even when your USDT does not.</p></div>`;
   }
   function showPoint(i) {   // update the big number to the point under the finger (or the latest point)
     const { pts, X, Y, W, H } = S.chart, p = pts[i], a = pts[0], d = (p.v - p.n) - (a.v - a.n);
     const dot = $f('gdot'); dot.style.left = (X(p.t) / W) * 100 + '%'; dot.style.top = (Y(p.v) / H) * 100 + '%'; dot.classList.toggle('live', i === pts.length - 1);
-    const base = a.v > 0 ? a.v + (p.n - a.n) : p.n, label = RANGES.find((x) => x[0] === S.range)[2];
+    const g = S.chart.g, label = RANGES.find((x) => x[0] === S.range)[2];
     $f('gv').textContent = money(p.v);
     $f('gp').textContent = alt(p.v);
     $f('gd').className = 'delta ' + cls(d);
-    $f('gd').textContent = `${smoney(d)} (${base > 0 ? pct(d / base) : '—'}) ${i === pts.length - 1 ? label : new Date(p.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    $f('gd').textContent = `${smoney(d)} (${pct(g[i] / g[0] - 1)}) ${i === pts.length - 1 ? label : new Date(p.t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   }
   function wireChart() {
     const svg = $f('gc'); if (!svg || !S.chart) return;
@@ -326,9 +347,91 @@
     <div class="card"><h2>Pesos</h2>
       <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. The ₱ / $ button at the top switches the view.</p></div>
     <div class="card"><h2>Good to know</h2>
-      <p class="about">This page is a record kept by the manager. It is not a bank account and is not covered by deposit insurance.</p></div>`;
+      <p class="about">This page is a record kept by the manager. It is not a bank account and is not covered by deposit insurance.</p></div>${glossCard()}${termsCard()}`;
   };
   const viewActivity = () => `<div class="card"><h2>Your activity</h2>${activityRows(S.ledger, false)}</div>`;
+
+  // ---------------------------------------------------------------- manager: "My account" side (only the manager's own money, never the pool)
+  // For the manager S.ledger holds everyone's entries, so everything here is filtered to the manager's own profile.
+  const myRows = (kinds) => S.ledger.filter((l) => l.profile_id === S.me.id && (!kinds || kinds.includes(l.kind)));
+  function viewMine() {
+    const m = S.me, mine = myRows(), fees = myRows(['fee_in']), feeTotal = fees.reduce((t, l) => t + Number(l.usdt), 0);
+    return `${growthCard('My capital')}
+      <div class="card"><h2>My money in the fund</h2><div class="grid">
+        <div class="stat"><div class="k">Put in</div><div class="v">${money(m.net_in_usdt)}</div></div>
+        <div class="stat"><div class="k">Worth now</div><div class="v">${money(m.value_usdt)}</div></div>
+        <div class="stat"><div class="k">Total gain</div><div class="v ${cls(m.profit_usdt)}">${smoney(m.profit_usdt)}</div></div>
+        <div class="stat"><div class="k">Share of the pool</div><div class="v">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</div></div></div>
+        <div class="row"><span class="l">Units held</span><span class="r">${f(m.units, 4)}</span></div>
+        <div class="row"><span class="l">Unit price now</span><span class="r">${f(m.unit_price, 4)}</span></div>
+        <p class="note">Total gain includes the profit share below, because those units are part of what you hold. New money joins at the next equity reading, at that day's price, like everyone's.</p>
+        <div class="btns"><button class="ghost" data-tab="record" data-rec="dep" data-who="me" data-goside="fund">Add money</button><button class="ghost" data-tab="record" data-rec="wd" data-who="me" data-goside="fund">Take money out</button></div></div>
+      ${myReturnsCard()}
+      <div class="card"><h2>Profit share received</h2>
+        <div class="row"><span class="l">Received so far<br><span class="note">value when each share arrived</span></span><span class="r">${money(feeTotal)}<br><span class="note">${alt(feeTotal)}</span></span></div>
+        <div class="row"><span class="l">Worth now<br><span class="note">${f(m.fee_units_earned, 4)} units, still invested in the fund</span></span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${alt(m.fee_units_value_usdt)}</span></span></div>
+        ${fees.length ? activityRows(fees.slice(0, 5), false) : '<p class="note">None yet. It arrives at a quarter close or when an investor withdraws, and only on profit above their best level.</p>'}
+        ${fees.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all</button></div>` : ''}</div>
+      <div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
+        ${mine.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all ${mine.length}</button></div>` : ''}</div>
+      ${passwordCard()}`;
+  }
+  const viewMyHistory = () => `<div class="card"><h2>My transactions</h2>${activityRows(myRows(), false)}</div>`;
+
+  // ---------------------------------------------------------------- returns from trading (maths in js/returns.js)
+  // S.history: the signed-in person's points (one per pool event since they joined). S.fund: the unit price at every pool
+  // event and whether the manager's own money was in. Money added or taken out never counts in any % here.
+  const tms = (ts) => new Date(ts).getTime();
+  function pctChart(lines) {   // lines: [{ name, color, dash, pts: [[time, return], ...] }]
+    if (lines.some((l) => l.pts.length < 2)) return '<p class="note">The chart starts after the next equity reading.</p>';
+    const all = lines.flatMap((l) => l.pts);
+    const t0 = Math.min(...all.map((p) => p[0])), t1 = Math.max(t0 + 1, ...all.map((p) => p[0]));
+    let lo = Math.min(0, ...all.map((p) => p[1])), hi = Math.max(0, ...all.map((p) => p[1]));
+    const pad = (hi - lo || 0.01) * 0.12; lo -= pad; hi += pad;
+    const W = 300, H = 120, X = (t) => ((t - t0) / (t1 - t0)) * W, Y = (r) => H - ((r - lo) / (hi - lo)) * H;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Return from trading over time">
+      <line x1="0" x2="${W}" y1="${Y(0).toFixed(2)}" y2="${Y(0).toFixed(2)}" stroke="var(--muted)" stroke-opacity=".55" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>
+      ${lines.map((l) => `<polyline fill="none" stroke="${l.color}" stroke-width="2.2" ${l.dash ? 'stroke-dasharray="6 4"' : ''} stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${l.pts.map((p) => `${X(p[0]).toFixed(2)},${Y(p[1]).toFixed(2)}`).join(' ')}"/>`).join('')}</svg>
+      <div class="legend" style="margin-top:8px">${lines.map((l) => { const r = l.pts[l.pts.length - 1][1]; return `<span><b style="background:${l.color}"></b>${l.name} <span class="${cls(r)}">${pct(r)}</span></span>`; }).join('')}</div>`;
+  }
+  const withNow = (pts) => (pts.length ? [...pts, [Date.now(), pts[pts.length - 1][1]]] : pts);   // flat until today
+  function myGrowths() {
+    const H = netHistory();
+    return { H, yours: Returns.yourGrowth(H.map((p) => ({ v: Number(p.value), n: Number(p.net_in) }))),
+             trading: Returns.tradingGrowth(H.map((p) => ({ u: Number(p.units), price: Number(p.price) }))) };
+  }
+  // investor: proof that the manager's own money made the same trading return over the same time
+  function sameBoatCard() {
+    const { H, yours, trading } = myGrowths(), F = S.fund || [];
+    if (H.length < 2 || !F.length) return '';
+    const mg = Returns.managerGrowth(F), at = new Map(F.map((r, i) => [r.id, i])), j0 = at.get(H[0].id);
+    if (j0 == null || H.some((p) => !at.has(p.id))) return '';
+    const mgr = H.map((p) => mg[at.get(p.id)] / mg[j0] - 1), you = yours.map((g) => g / yours[0] - 1), fundAll = Returns.total(mg);
+    const lines = [{ name: "Manager's own money", color: 'var(--seg1)', pts: withNow(H.map((p, k) => [tms(p.ts), mgr[k]])) },
+                   { name: 'You, after profit share', color: 'var(--seg2)', dash: true, pts: withNow(H.map((p, k) => [tms(p.ts), you[k]])) }];
+    return `<div class="card"><h2>Same trading as the manager</h2>
+      ${pctChart(lines)}
+      <div class="grid" style="margin-top:12px">
+        <div class="stat"><div class="k">Your trading return</div><div class="v ${cls(Returns.total(trading))}">${pct(Returns.total(trading))}</div></div>
+        <div class="stat"><div class="k">Manager's own money, same time</div><div class="v ${cls(mgr[mgr.length - 1])}">${pct(mgr[mgr.length - 1])}</div></div></div>
+      <div class="row"><span class="l">You, after profit share</span><span class="r ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</span></div>
+      <div class="row"><span class="l">Manager's own money since the fund started</span><span class="r ${cls(fundAll)}">${pct(fundAll)}</span></div>
+      <p class="note">The manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the profit share on new profit, which you pay and the manager receives. Money added or taken out by anyone never counts in these %.</p></div>`;
+  }
+  // manager: own return from trading only, and with the profit share received
+  function myReturnsCard() {
+    const { H, yours, trading } = myGrowths();
+    if (!H.length) return '';
+    const tr = trading.map((g) => g / trading[0] - 1), yo = yours.map((g) => g / yours[0] - 1);
+    const lines = [{ name: 'Trading only', color: 'var(--seg1)', pts: withNow(H.map((p, k) => [tms(p.ts), tr[k]])) },
+                   { name: 'With profit share received', color: 'var(--seg2)', dash: true, pts: withNow(H.map((p, k) => [tms(p.ts), yo[k]])) }];
+    return `<div class="card"><h2>My return from trading</h2>
+      ${pctChart(lines)}
+      <div class="grid" style="margin-top:12px">
+        <div class="stat"><div class="k">Trading only</div><div class="v ${cls(Returns.total(trading))}">${pct(Returns.total(trading))}</div></div>
+        <div class="stat"><div class="k">With profit share</div><div class="v ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</div></div></div>
+      <p class="note"><b>Trading only</b> is what the trading did to your money, and it is exactly what investors see as "Manager's own money". Money you add or take out never counts. <b>With profit share</b> adds the share you received from investors, so it also moves with how much of your own money is in.</p></div>`;
+  }
 
   // ---------------------------------------------------------------- admin views
   function viewUsers() {
@@ -346,12 +449,17 @@
         <div class="top"><span class="note">@${esc(h.username)}</span>${h.role === 'investor' && h.active ? `<button class="ghost sm" data-action="viewas" data-id="${h.id}">View as</button>` : ''}</div>
         <div class="mini">
           <div><span>Put in</span>${money(h.net_in_usdt)}</div>
-          <div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${smoney(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>
+          ${h.role === 'investor' && h.net_profit_usdt != null
+            ? `<div><span>Profit, theirs after cut</span><i class="${cls(h.net_profit_usdt)}" style="font-style:normal">${smoney(h.net_profit_usdt)}${h.net_return_pct != null ? ' (' + pct(h.net_return_pct, 1) + ')' : ''}</i></div>
+          <div><span>Before cut</span><i class="${cls(h.gross_profit_usdt)}" style="font-style:normal">${smoney(h.gross_profit_usdt)}${h.gross_return_pct != null ? ' (' + pct(h.gross_return_pct, 1) + ')' : ''}</i></div>
+          <div><span>Your cut (worth now)</span>${money(h.profit_share_usdt)}</div>
+          <div><span>Balance after cut</span>${money(h.net_value_usdt)}</div>`
+            : `<div><span>Profit</span><i class="${cls(h.profit_usdt)}" style="font-style:normal">${smoney(h.profit_usdt)}${h.return_pct != null ? ' (' + pct(h.return_pct, 1) + ')' : ''}</i></div>`}
           <div><span>Share</span>${h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%'}</div>
           <div><span>Units</span>${f(h.units, 3)}</div>
-          <div><span>Your cut</span>${h.role === 'admin' ? '—' : rateText(h)}</div>
+          <div><span>Cut rate</span>${h.role === 'admin' ? '—' : rateText(h)}</div>
           <div><span>${h.role === 'admin' ? 'Earned share' : 'Locked until'}</span>${h.role === 'admin' ? f(h.fee_units_earned, 3) : day(h.lock_until)}</div></div>
-        <details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
+        ${termsLine(h)}<details style="margin-top:8px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
           ${h.role === 'investor' ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
             <div><label>Profit share %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
             <p class="note" style="margin:6px 0 0">Lowering applies at once. Raising only starts after the next quarter close, so it never touches profit already made.${h.fee_rate_next != null ? ` Scheduled: ${pc(h.fee_rate_next)}%. Type the current % again to cancel it.` : ''}</p>
@@ -407,7 +515,7 @@
         ${phpField()}<label>Note (optional)</label><input name="note"><div class="preview" id="eqPrev">—</div><button class="full" ${empty ? 'disabled' : ''}>Save equity</button></form></div>${pendingCard()}`)}
       ${pick('dep', `<div class="card"><h2>Money received</h2>
         <p class="note">Type what they handed over in pesos. It <b>waits</b> and owns nothing until your next <b>Update equity</b>; then it buys units at that day's price. So a newcomer never shares in profit made before their money was in, and never pays for losses from before either.${noUnits ? ' The very first money starts at 1.00 per unit.' : ''}</p>
-        <form id="depForm"><label>Person</label><select name="who">${holderOpts()}</select>
+        <form id="depForm"><label>Person</label><select name="who">${holderOpts(S.recWho)}</select>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
           <div><label>In</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <label>Rate (₱ per USDT)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() ? Number(rate()).toFixed(2) : ''}">
@@ -415,7 +523,7 @@
         ${phpField(false)}<label>Note (optional)</label><input name="note"><div class="preview" id="depPrev">—</div><button class="full">Record money received</button></form></div>${pendingCard()}`)}
       ${pick('wd', `<div class="card"><h2>Record a withdrawal</h2>
         <p class="note">Enter the pool equity from MEXC just before you pay out.${pendNote()} Any profit share due (on gains above their best) is settled in units first.</p>
-        <form id="wdForm"><label>Person</label><select name="who">${holderOpts()}</select>
+        <form id="wdForm"><label>Person</label><select name="who">${holderOpts(S.recWho)}</select>
         <label>Units to redeem</label><input name="units" type="number" step="any" inputmode="decimal" required>
         <div class="btns"><button type="button" class="ghost" data-action="allunits">All their units</button></div>
         <label>Pool equity before this payout (USDT, the MEXC total)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
@@ -466,49 +574,167 @@
   // ---------------------------------------------------------------- shell
   const TABS = {
     investor: [['home', 'Home'], ['activity', 'Activity'], ['about', 'About']],
-    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Quarter'], ['reports', 'Reports'], ['log', 'Log'], ['home', 'Mine']],
+    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Quarter'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
+    adminMe: [['mine', 'My account'], ['myhistory', 'History']],                                                                              // side "My account": only the manager's own money
   };
-  const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports };
-  const TABICON = { users: 'people', dashboard: 'dash' };
+  const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory };
+  const TABICON = { users: 'people', dashboard: 'dash', myhistory: 'activity' };
+  const tabsFor = () => (isAdmin() ? TABS[S.side === 'me' ? 'adminMe' : 'admin'] : TABS.investor);
 
-  // ---------------------------------------------------------------- welcome (onboarding)
-  // Shown once per person on each device after they sign in; "Welcome tour" at the bottom of every page replays it. Never shown while viewing as someone.
+  // ---------------------------------------------------------------- gates after sign-in: terms -> quote screen -> tour
+  // An investor must agree to the terms (saved in the database, per version) before seeing anything. Then a quote screen, then the animated
+  // tour (once per device; "Welcome tour" at the bottom replays it). None of this shows while the manager is "viewing as" someone.
   const welcomeKey = (id) => 'ledger.welcomed.' + id;
   const welcomed = (id) => { try { return localStorage.getItem(welcomeKey(id)) === '1'; } catch { return false; } };
-  function welcomeSteps() {
+  const needsTerms = () => !!S.me && S.me.role === 'investor' && !S.me.impersonated && S.me.terms_version !== TERMS_VERSION;
+  const afterTerms = () => ((welcomed(S.me.id) || S.welcomeDone) ? null : 'splash');
+  const startTour = () => { clearTimeout(S.splashT); S.splashT = null; S.gate = 'tour'; S.welcome = 0; render(); window.scrollTo(0, 0); };
+
+  const TERMS_CHECKS = [
+    'I understand I can lose a large part or all of the money I put in.',
+    'I understand nothing is guaranteed or insured, and that past or backtested results are not a promise.',
+    'I am only using money I can afford to lose.',
+    'I have read the lock-up, withdrawal, new-money and profit-share rules above, and I accept them.',
+  ];
+  function termsSections() {
+    const rate = pc(S.me.fee_rate);
+    return [
+      ['You can lose money, and it could be a lot', `Lucidyo trades in cryptocurrency markets, which can move very fast and very far, sometimes within minutes. The account may use leverage (trading with more than the money in it), which can make losses bigger as well as gains. The pool can fall sharply, <b>you can lose a large part or all of the money you put in</b>, and there will be weeks and months when your balance is down. Only use money you can afford to lose: never money for rent, food, school, bills or emergencies, and never borrowed money.`],
+      ['Nothing is guaranteed', `Nobody has promised you any return, and nobody can. Past results and backtests are simulations made with hindsight. They are not a promise, and a good stretch says nothing certain about the next one.`],
+      ['Not a bank, not insured', `This app is a record, kept by the manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
+      ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked.`],
+      ['How new money joins', `Money you hand over first waits. It joins the pool at the next valuation (when the manager updates the pool’s total value) and buys units at that day’s price. So the price you get can be higher or lower than on the day you handed the money over. This protects everyone: nobody shares in profit made before their money was in.`],
+      ['The profit share', `The manager takes <b>${rate}%</b> of <b>new profit</b> above your best-ever level, settled once a quarter inside the pool (no cash moves). Nothing is taken on the money you put in, and nothing while your balance is below its best level. The rate can be lowered at any time; a higher rate only starts after the next quarter close, and your Home page tells you before it does.`],
+      ['What the numbers mean', `Your balance is an estimate. It follows the pool’s value as entered by the manager from the exchange account (daily or weekly, not live), and it is shown in pesos at an exchange rate that moves on its own, so your peso balance can change even when the trading did not.`],
+      ['Your login and this agreement', `Keep your password private: anything done with your login counts as done by you. We save the date you agreed to these terms. If the terms change, you will be asked to read and agree again.`],
+    ];
+  }
+  function termsView() {
+    const ro = S.termsRO;
+    app.innerHTML = `<header><span class="hello">Lucidyo · before you start</span><div class="hdr-actions">${themeBtn()}</div></header>
+      <div class="login-brand welcome"><span class="logo">${ICON.alert}</span><h1>Please read this first</h1>
+        <p class="note">${ro ? `You agreed on ${day(S.me.terms_accepted_at)}.` : 'Your money is at risk. Read each point, tick the boxes, and only then continue.'}</p></div>
+      <div class="card terms">${termsSections().map(([t, b], i) => `<div class="tsec" style="--i:${i}"><h3>${i + 1}. ${t}</h3><p class="about">${b}</p></div>`).join('')}</div>
+      ${ro ? '<div class="btns"><button data-action="termsback">Back</button></div>' : `<div class="card"><h2>I confirm that</h2>
+        ${TERMS_CHECKS.map((t) => `<label class="tck-row"><input type="checkbox" class="tck"><span>${t}</span></label>`).join('')}
+        <div class="btns"><button class="ghost" data-action="declineterms">I don’t agree, sign out</button><button id="acceptBtn" data-action="acceptterms" disabled>I agree, continue</button></div>
+        <p class="note">Your agreement is saved with today’s date. Nothing is shown until you agree.</p></div>`}`;
+  }
+  document.addEventListener('change', (ev) => {   // "I agree" stays off until every box is ticked
+    if (!ev.target.classList || !ev.target.classList.contains('tck')) return;
+    const btn = document.getElementById('acceptBtn');
+    if (btn) btn.disabled = ![...document.querySelectorAll('.tck')].every((c) => c.checked);
+  });
+  const termsLine = (h) => (h.role !== 'investor' ? '' : `<p class="note" style="margin:8px 0 0">Terms: ${h.terms_version === TERMS_VERSION ? 'agreed ' + day(h.terms_accepted_at)
+    : h.terms_version ? `<span class="warn">agreed an older version (${day(h.terms_accepted_at)}); they are asked again at the next sign-in</span>`
+    : '<span class="warn">not agreed yet: they see the terms at their next sign-in</span>'}</p>`);
+  const termsWarn = (id) => { const h = S.all.find((x) => x.id === id); return h && h.role === 'investor' && h.terms_version !== TERMS_VERSION
+    ? `<br><span class="warn">${esc(h.name || h.username)} has not agreed to the terms yet. Ask them to sign in and agree before you take their money.</span>` : ''; };
+  const termsCard = () => (S.me.role === 'investor' && !S.me.impersonated && S.me.terms_accepted_at ? `<div class="card"><h2>Your agreement</h2>
+    <p class="about">You read and agreed to the terms on <b>${day(S.me.terms_accepted_at)}</b>.</p>
+    <div class="btns"><button class="ghost" data-action="readterms">Read the terms again</button><button class="ghost" data-action="welcome">Replay the tour</button></div></div>` : '');
+
+  // quote screen (shown after the terms, while the tour is "loading")
+  const QUOTE = 'Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn’t, pays it.';
+  function splashView() {
+    if (!S.splashT) S.splashT = setTimeout(() => { S.splashT = null; if (S.gate === 'splash') startTour(); }, SPLASH_MS);
+    app.innerHTML = `<div class="splash"><div class="login-brand" style="padding:0"><span class="logo">${ICON.logo}</span></div>
+      <blockquote class="quote"><span class="qm" style="--i:0">“</span>${QUOTE.split(' ').map((w, k) => `<span style="--i:${k}">${w}</span>`).join(' ')}<span class="qm" style="--i:20">”</span></blockquote>
+      <p class="by">Attributed to Albert Einstein</p>
+      <p class="both">It works in both directions: gains build on gains, and losses build on losses.</p>
+      <div class="loadbar"><i style="animation-duration:${SPLASH_MS}ms"></i></div><p class="note">Getting your account ready…</p>
+      <button class="ghost sm" data-action="splashskip">Skip</button></div>`;
+  }
+
+  // plain-words glossary (tour + About page)
+  const GLOSSARY = [
+    ['USDT', 'A digital coin built to stay worth about 1 US dollar. The pool is counted in USDT; the app shows it in pesos at the day’s exchange rate.'],
+    ['Equity', 'The total value of the whole pool right now, including trades that are still open.'],
+    ['Unit', 'A slice of the pool. You own a number of units. It only changes when you add money, take money out, or pay a profit share.'],
+    ['Unit price', 'What one unit is worth today. It rises when the pool gains and falls when it loses, by the same % for everyone.'],
+    ['Valuation', 'When the manager updates the pool’s total value. New money joins at the price set at a valuation.'],
+    ['Compounding', 'Profit staying in the pool and earning on itself. Losses compound too: they shrink what future gains build on.'],
+    ['Drawdown', 'How far the balance has fallen from its highest point. A 50% fall needs a 100% gain to get back.'],
+    ['Best-ever level', 'Also called the high-water mark. The highest price your deposit has already been charged a profit share at. The manager earns only on profit above it.'],
+    ['Lock-up', 'The time after each deposit when it cannot be withdrawn.'],
+    ['Leverage', 'Trading with more exposure than the money in the account. It can magnify gains and losses.'],
+  ];
+  const glossHtml = () => `<dl class="gloss">${GLOSSARY.map(([t, d], i) => `<div style="--i:${i}"><dt>${t}</dt><dd>${d}</dd></div>`).join('')}</dl>`;
+  const glossCard = () => `<div class="card"><h2>Words you’ll see</h2>${glossHtml()}</div>`;
+
+  // animated scenes for the tour (CSS only; the resting state is the finished picture, so reduced-motion still reads fine)
+  const LINE = 'M0 110 L40 92 L80 70 L120 44 L165 96 L205 78 L250 46 L300 22';
+  const SCENE = {
+    pool: () => `<div class="scene"><div class="jar" aria-hidden="true">${[[8, 4, '--accent'], [34, 4, '--seg2'], [60, 4, '--accent'], [86, 4, '--seg2'], [21, 28, '--seg2'], [47, 28, '--accent'], [73, 28, '--accent']]
+        .map(([l, b, c], k) => `<i style="--l:${l}px;--b:${b}px;--i:${k};--c:var(${c})"></i>`).join('')}</div>
+      <div class="legend" style="justify-content:center"><span><b style="background:var(--accent)"></b>You</span><span><b style="background:var(--seg2)"></b>Everyone else</span></div>
+      <div class="calc" role="img" aria-label="Example: 100 units times 1.20 equals 120 USDT"><span style="--i:0"><b>100</b><small>your units</small></span><em style="--i:1">×</em>
+        <span style="--i:2"><b>1.20</b><small>unit price</small></span><em style="--i:3">=</em><span style="--i:4"><b>120</b><small>USDT: your balance</small></span></div>
+      <p class="note" style="text-align:center;margin:8px 0 0">Example numbers</p></div>`,
+    ups: () => `<div class="scene"><svg viewBox="0 0 300 130" class="mini" role="img" aria-label="A balance that rises, dips, then recovers to a new high">
+        <line class="dash" x1="0" y1="44" x2="300" y2="44"/><path class="area" d="${LINE} L300 130 L0 130Z"/>
+        <path class="ln" pathLength="1" d="${LINE}"/>
+        <text class="lab" x="4" y="38" style="--d:1.0s">previous high</text><text class="lab dn" x="140" y="118" style="--d:1.5s">dip (drawdown)</text><text class="lab hot" x="214" y="16" style="--d:2.1s">new high</text></svg></div>`,
+    join: () => `<div class="scene"><div class="flow">
+        <div class="chip" style="--i:0"><span>Money received</span><small>waits, owns nothing yet</small></div><em>→</em>
+        <div class="chip" style="--i:1"><span>Next valuation</span><small>the price is set</small></div><em>→</em>
+        <div class="chip" style="--i:2"><span>You join</span><small>units bought at that price</small></div></div></div>`,
+    lock: () => `<div class="scene"><div class="lockrow"><span class="lk" aria-hidden="true">${ICON.lock}</span><div class="grow">
+        <div class="split lockbar"><i></i></div><div class="lkcap"><span>Deposit joins</span><span>${C.LOCK_MONTHS} months</span><span>Can withdraw</span></div></div></div>
+      <div class="flow"><div class="chip" style="--i:0"><span>You request</span></div><em>→</em><div class="chip" style="--i:1"><span>Up to ${C.WITHDRAW_BUSINESS_DAYS} business days</span></div><em>→</em><div class="chip" style="--i:2"><span>Paid</span></div></div></div>`,
+    share: (keep) => `<div class="scene"><svg viewBox="0 0 300 130" class="mini" role="img" aria-label="Only the part of the line above the best-ever level is shared">
+        <clipPath id="above"><rect x="0" y="0" width="300" height="80"/></clipPath>
+        <line class="dash" x1="0" y1="80" x2="300" y2="80"/><text class="lab" x="4" y="95" style="--d:.8s">your best-ever level</text>
+        <path class="ln faint" pathLength="1" d="M0 116 L40 100 L80 108 L120 70 L160 50 L200 78 L240 40 L300 30"/>
+        <path class="ln hot" pathLength="1" clip-path="url(#above)" d="M0 116 L40 100 L80 108 L120 70 L160 50 L200 78 L240 40 L300 30"/>
+        <text class="lab hot" x="4" y="14" style="--d:1.6s">Profit share applies only above the line</text></svg>
+      <div class="split" style="margin-top:12px"><i class="grow-x" style="width:${keep}%;background:var(--up)"></i><i class="grow-x" style="width:${100 - keep}%;background:var(--seg3)"></i></div>
+      <div class="legend"><span><b style="background:var(--up)"></b>You keep ${pc(keep / 100)}% of new profit</span><span><b style="background:var(--seg3)"></b>Manager ${pc(1 - keep / 100)}%</span></div></div>`,
+    tabs: () => `<div class="scene"><div class="mininav" aria-hidden="true">${[['home', 'Home'], ['activity', 'Activity'], ['about', 'About']].map(([k, l], i) => `<span style="--i:${i}">${ICON[k]}<b>${l}</b></span>`).join('')}</div>
+      <div class="tabrows">${[['Home', 'your balance, a growth chart, your profit share and your withdrawals.'], ['Activity', 'every deposit, withdrawal and profit share, in order.'], ['About', 'how it all works, in plain words, and your agreement.']]
+        .map(([t, d], i) => `<p style="--i:${i}"><b>${t}</b> · ${d}</p>`).join('')}</div></div>`,
+  };
+  function tourSteps() {
     const m = S.me, first = esc(String(m.name || m.username).split(' ')[0]);
     if (isAdmin()) return [
       [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
-        <p class="about">This is the manager side of Lucidyo Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>`],
-      [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly with the pool's total from MEXC, open trades included.</p>
-        <p class="about"><b>Deposits and withdrawals:</b> always enter the equity <i>just before</i> the money lands, so nobody buys into profit they did not earn.</p>
-        <p class="about"><b>Quarter:</b> once a quarter, check the preview and settle the profit share.</p>`],
-      [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they can change it themselves.</p>
+        <p class="about">This is the manager side of Lucidyo Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
+        <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the profit share you have earned and your own growth.</p>`],
+      [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
+        <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
+        <p class="about"><b>Quarter:</b> at least 80 days apart. Check the preview, then settle the profit share. A raised % starts after the next close.</p>`],
+      [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they must agree to the terms before they see anything, and you can see who has.</p>
         <p class="about"><b>View as</b> opens the app exactly as that person sees it (read-only).</p>
         <p class="about"><b>Log</b> keeps every entry. Nothing is erased: a mistake is fixed with a correction entry.</p>`],
     ];
+    const keep = Math.round((1 - Number(m.fee_rate)) * 10000) / 100;
     return [
       [ICON.logo, `Welcome to Lucidyo, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
-        <p class="about">Lucidyo Ledger is your window into the pool. Check what your share is worth any day, in pesos or USDT, and see every deposit, withdrawal and profit share.</p>`],
-      [ICON.pool, 'How your money works', `<p class="about">Your money joins one trading account, together with the manager's own money. Your deposit buys <b>units</b> of the pool.</p>
-        <p class="about">When the trading gains, every unit is worth more; when it loses, every unit is worth less. Everyone shares the same results, by how much they have in.</p>
-        <p class="about">New money waits for the next valuation and joins at that day's price, so nobody gets profit made before their money was in.</p>`],
-      [ICON.arrowOut, 'Your money, your call', `<p class="about">Each deposit is locked for <b>${C.LOCK_MONTHS} months</b>. After that, request a withdrawal on Home; it is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b>.</p>
-        <p class="about">The manager earns <b>${pc(m.fee_rate)}% of new profit</b> only, above your best-ever balance. Nothing on the money you put in, and nothing while you are down.</p>`],
-      [ICON.alert, 'Before you start', `<p class="about"><b>You can lose money.</b> Your balance moves up and down with the trading, and some weeks and months will be down.</p>
-        <p class="about">This is a record kept by the manager. It is not a bank account and is not insured. Past or backtested results are not a promise.</p>`],
+        <p class="about">Here is a one-minute tour of what you will see, in plain words. Tap <b>Skip</b> any time; you can replay it from <b>Welcome tour</b> at the bottom of any page.</p>`],
+      [ICON.pool, 'Your share of the pool', `<p class="about">Everyone’s money goes into <b>one pool</b>: a single trading account, together with the manager’s own money. When you put money in you get <b>units</b>, slices of the pool.</p>
+        <p class="about"><b>Unit price</b> is what one slice is worth today. Your balance is simply your units × the unit price.</p>`, SCENE.pool()],
+      [ICON.arrowOut, 'Ups and downs', `<p class="about">Trading results move the unit price: gains lift every unit, losses lower every unit, by the same % for everyone.</p>
+        <p class="about">Profit stays in the pool and keeps working. That is <b>compounding</b>, and it works both ways: a loss shrinks what future gains build on. A fall from the highest point is a <b>drawdown</b>. It will happen, and climbing back takes longer than falling (a 50% fall needs a 100% gain to recover).</p>`, SCENE.ups()],
+      [ICON.record, 'New money joins fairly', `<p class="about">Money you hand over does not join instantly. It waits for the next <b>valuation</b> (when the manager updates the pool’s total value) and buys units at that day’s price.</p>
+        <p class="about">So nobody shares in profit made before their money was in, you included. While it waits, you will see it on Home under <b>Waiting to join</b>.</p>`, SCENE.join()],
+      [ICON.lock, 'Lock-up and withdrawals', `<p class="about">Each deposit is <b>locked</b> for <b>${C.LOCK_MONTHS} months</b> from the day it joins. After that, tap <b>Request withdrawal</b> on Home. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b>, at the value on the day it is paid.</p>`, SCENE.lock()],
+      [ICON.fee, 'The profit share', `<p class="about">The manager earns only when you earn: <b>${pc(m.fee_rate)}%</b> of <b>new profit</b>, above your <b>best-ever level</b>. Nothing on the money you put in, and nothing while you are below your best level.</p>
+        <p class="about">It is settled once a quarter inside the pool, so no cash moves. Each deposit keeps its own best-ever level.</p>`, SCENE.share(keep)],
+      [ICON.home, 'Your screens', `<p class="about">The <b>₱ / $</b> button switches between pesos and USDT. The <b>moon</b> button changes light and dark. Everything is read-only: you can look, and request a withdrawal.</p>`, SCENE.tabs()],
+      [ICON.about, 'Words you’ll see', glossHtml()],
     ];
   }
-  function welcomeView() {
-    const steps = welcomeSteps(), i = Math.max(0, Math.min(S.welcome, steps.length - 1)), [icon, title, body] = steps[i], last = i === steps.length - 1;
+  function tourView() {
+    const steps = tourSteps(), i = Math.max(0, Math.min(S.welcome, steps.length - 1)), [icon, title, body, scene] = steps[i], last = i === steps.length - 1;
     app.innerHTML = `<header><span class="hello">Lucidyo · ${i + 1} of ${steps.length}</span>
       <div class="hdr-actions">${themeBtn()}${last ? '' : '<button class="ghost sm" data-action="welcomedone">Skip</button>'}</div></header>
       <div class="login-brand welcome"><span class="logo">${icon}</span><h1>${title}</h1></div>
-      <div class="card">${body}
+      <div class="card enter">${scene || ''}${body}
         <div class="steps" aria-hidden="true">${steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
         <div class="btns">${i ? '<button class="ghost" data-action="welcomeback">Back</button>' : ''}
-          <button data-action="${last ? 'welcomedone' : 'welcomenext'}">${last ? (isAdmin() ? 'Open the dashboard' : 'I understand, let\u2019s go') : 'Next'}</button></div></div>`;
+          <button data-action="${last ? 'welcomedone' : 'welcomenext'}">${last ? (isAdmin() ? 'Open the dashboard' : 'Take me to my account') : 'Next'}</button></div></div>`;
   }
+  const gateView = () => (S.gate === 'terms' ? termsView() : S.gate === 'splash' ? splashView() : tourView());
 
   function loginView() {
     app.innerHTML = `<header><span></span><div class="hdr-actions">${themeBtn()}</div></header>
@@ -537,14 +763,15 @@
   function render() {
     if (!S.me) return loginView();
     const viewing = S.me.impersonated;
-    if (!viewing && S.welcome == null && !S.welcomeDone && !welcomed(S.me.id)) S.welcome = 0;
-    if (!viewing && S.welcome != null) return welcomeView();
-    const tabs = TABS[isAdmin() ? 'admin' : 'investor'];
+    if (!viewing && S.gate == null) { if (needsTerms()) S.gate = 'terms'; else if (!S.welcomeDone && !welcomed(S.me.id)) S.gate = 'splash'; }
+    if (!viewing && S.gate) return gateView();
+    const tabs = tabsFor();
     if (!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
         <button data-action="exitview">Back to manager</button></div>` : ''}
-      <header><div><div class="hello">${greeting()}${isAdmin() ? ' · manager' : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
+      <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
       <div class="hdr-actions">${curBtn()}${themeBtn()}<button class="iconbtn" data-action="refresh" aria-label="Refresh">${ICON.refresh}</button></div></header>
+      ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
       ${viewing ? '' : '<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="welcome">Welcome tour</button><button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>'}
       <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}<span>${l}</span></button>`).join('')}</div></nav>`;
@@ -583,7 +810,7 @@
     const d = depUsdt(fm);
     if (!d) return setPrev('depPrev', '—');
     if (d.usdt == null) return setPrev('depPrev', 'Enter the peso rate to convert.');
-    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until your next equity reading, then buys units at that price. Lock-up ${C.LOCK_MONTHS} months from then.`);
+    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until your next equity reading, then buys units at that price. Lock-up ${C.LOCK_MONTHS} months from then.${termsWarn(fv(fm, 'who'))}`);
   }
   // after an "Edit" undoes the last entry, refill the matching form with its old values so the manager just fixes the typo and re-saves
   function prefillEdit(e, rows) {
@@ -632,26 +859,42 @@
     try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
   }
   document.addEventListener('click', async (ev) => {
+    const side = ev.target.closest('[data-side]');
+    if (side) { S.side = side.dataset.side === 'me' ? 'me' : 'fund'; S.tab = null; render(); window.scrollTo(0, 0); return; }
     const tab = ev.target.closest('[data-tab]');
-    if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
+    if (tab) { S.tab = tab.dataset.tab; if (tab.dataset.rec) S.rec = tab.dataset.rec; S.recWho = tab.dataset.who === 'me' ? S.me.id : tab.dataset.who || null; if (tab.dataset.goside) S.side = tab.dataset.goside; render(); window.scrollTo(0, 0); return; }
     const rc = ev.target.closest('[data-rec]');
     if (rc) { S.rec = rc.dataset.rec; render(); return; }
     const rg = ev.target.closest('[data-range]');
     if (rg) { S.range = rg.dataset.range; render(); return; }
     const b = ev.target.closest('[data-action]'); if (!b) return;
     const a = b.dataset.action, id = b.dataset.id;
-    if (a === 'signout') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
+    if (a === 'signout' || a === 'declineterms') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
     else if (a === 'eye') {
       const inp = b.parentElement.querySelector('input'), show = inp.type === 'password';
       inp.type = show ? 'text' : 'password'; b.innerHTML = ICON[show ? 'eyeOff' : 'eye'];
       b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); inp.focus();
     }
     else if (a === 'refresh') refresh('Up to date');
-    else if (a === 'welcome') { S.welcome = 0; render(); window.scrollTo(0, 0); }
+    else if (a === 'welcome') startTour();
+    else if (a === 'splashskip') startTour();
     else if (a === 'welcomenext' || a === 'welcomeback') { S.welcome += a === 'welcomenext' ? 1 : -1; render(); window.scrollTo(0, 0); }
     else if (a === 'welcomedone') {
       try { localStorage.setItem(welcomeKey(S.me.id), '1'); } catch { /* not saved: shows again on the next visit */ }
-      S.welcome = null; S.welcomeDone = true; render(); window.scrollTo(0, 0);
+      S.gate = null; S.welcome = null; S.welcomeDone = true; render(); window.scrollTo(0, 0);
+    }
+    else if (a === 'readterms') { S.gate = 'terms'; S.termsRO = true; render(); window.scrollTo(0, 0); }
+    else if (a === 'termsback') { S.gate = null; S.termsRO = false; render(); window.scrollTo(0, 0); }
+    else if (a === 'acceptterms') {
+      if (![...document.querySelectorAll('.tck')].every((c) => c.checked)) return;
+      b.disabled = true;
+      try {
+        const r = await call('accept_terms', { p_version: TERMS_VERSION });
+        S.me.terms_version = r.version; S.me.terms_accepted_at = r.accepted_at; S.gate = afterTerms(); render(); window.scrollTo(0, 0);
+      } catch (e) {
+        if (e.message !== 'Signed out') toast(/function|schema cache/i.test(e.message) ? 'The database needs its latest update before your agreement can be saved. Please tell the manager.' : e.message, true);
+        if (b.isConnected) b.disabled = false;
+      }
     }
     else if (a === 'theme') { const p = themePref(); applyTheme(THEMES[(THEMES.indexOf(p) + 1) % THEMES.length]); if (S.me) render(); else loginView(); }
     else if (a === 'cur') { S.cur = inPeso() ? 'USDT' : 'PHP'; try { localStorage.setItem('ledger.cur', S.cur); } catch { /* not saved */ } render(); }
