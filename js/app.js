@@ -141,11 +141,17 @@
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, call(admin ? 'admin_pending' : 'my_pending'),
       loadFx(), admin ? loadReports() : null, loadFund(), admin ? loadAdminExtras() : null]);
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
+    try { S.payout = admin ? null : await call('my_payout'); S.payouts = admin ? (await call('admin_payouts')) || [] : []; }
+    catch (e) { if (e.message === 'Signed out') throw e; S.payout = null; S.payouts = []; }   // empty until the payout-details migration is run
     try { S.exit = await call('exit_fee_info'); } catch (e) { if (e.message === 'Signed out') throw e; S.exit = null; }   // null until the withdrawal-fee migration is run
   }
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
   const exitInfo = (id) => (S.exit && (S.exit.people || []).find((x) => x.id === id)) || null;
-  const exitRate = (id) => { const x = exitInfo(id); return x ? Number(x.rate) : 0; };
+  // The withdrawal fee is OFF for now (the database returns 0 as well). Set to true when it is switched back on: the previews, the
+  // fee rows and the note in "How it works" below all follow this one switch.
+  const EXIT_FEE_ON = false;
+  const exitRate = (id) => { const x = EXIT_FEE_ON && exitInfo(id); return x ? Number(x.rate) : 0; };
+  const FEE_SOON = 'A withdrawal fee will be introduced soon: a small percentage of what you withdraw, lower the longer your account has been open. Plan your withdrawals with this in mind.';
   const exitTurns = (x) => { const d = new Date(x.since); d.setDate(d.getDate() + Number(S.exit.after_days)); return d; };
   const exitNote = (id) => {
     const x = exitInfo(id); if (!x) return '';
@@ -264,6 +270,33 @@
     <p class="note">Your other phones/browsers will be signed out.</p></div>`;
   const DISC = `<p class="disc">This is a record of your share of a pooled trading account, shown in pesos at today's exchange rate. The balance grows or shrinks with the trading results. It is not a bank balance and is not insured. You can still lose money.</p>`;
 
+  // ---------------------------------------------------------------- where each person wants to be paid (the QR image lives in Supabase Storage)
+  const PAY_LABEL = { gcash: 'GCash', bank: 'Bank transfer' };
+  const payUrl = (path) => sb.storage.from('payout-qr').getPublicUrl(path).data.publicUrl;
+  const payOf = (id) => (S.payouts || []).find((d) => d.profile_id === id) || null;
+  // read-only view of someone's receiving details (fund manager side)
+  function payoutBlock(d) {
+    if (!d) return '<p class="note warn">No payout details on file for this person yet.</p>';
+    return `<div class="payblock"><div class="row"><span class="l">Send via</span><span class="r">${PAY_LABEL[d.method]}${d.bank_name ? ' · ' + esc(d.bank_name) : ''}</span></div>
+      <div class="row"><span class="l">Account name</span><span class="r">${esc(d.account_name)}</span></div>
+      <div class="row"><span class="l">${d.method === 'gcash' ? 'GCash number' : 'Account number'}</span><span class="r">${esc(d.account_number)}</span></div>
+      ${d.qr_path ? `<a href="${payUrl(d.qr_path)}" target="_blank" rel="noopener"><img class="payqr" src="${payUrl(d.qr_path)}" alt="Receiving QR code" loading="lazy"></a>` : '<p class="note">No QR image uploaded.</p>'}</div>`;
+  }
+  function payoutCard(m) {
+    const d = S.payout, method = (d && d.method) || 'gcash';
+    const head = `<div class="card"><h2>Where to send my money</h2>`;
+    if (m.impersonated) return `${head}${d ? payoutBlock(d) : '<p class="note">Not added yet.</p>'}</div>`;
+    return `${head}<p class="note" style="margin-top:0">${d ? 'Your withdrawals are sent here.' : 'Add this before you request a withdrawal.'} We will contact you to confirm these details before any money is sent.</p>
+      <form id="payoutForm"><label>Receive by</label>
+        <select name="method"><option value="gcash" ${method === 'gcash' ? 'selected' : ''}>GCash</option><option value="bank" ${method === 'bank' ? 'selected' : ''}>Bank transfer</option></select>
+        <div data-for="bank" ${method === 'bank' ? '' : 'hidden'}><label>Bank name</label><input name="bank" value="${esc((d && d.bank_name) || '')}" autocomplete="off"></div>
+        <label>Account name</label><input name="pname" value="${esc((d && d.account_name) || '')}" autocomplete="off" required>
+        <label data-numlabel>${method === 'gcash' ? 'GCash number' : 'Account number'}</label><input name="pnum" value="${esc((d && d.account_number) || '')}" inputmode="numeric" autocomplete="off" required>
+        <label>${method === 'gcash' ? 'Your GCash QR code (to receive money)' : 'QR code (optional)'}</label>
+        ${d && d.qr_path ? `<img class="payqr" src="${payUrl(d.qr_path)}" alt="Your saved QR code"><p class="note" style="margin:0">Saved. Choose a new picture only if you want to replace it.</p>` : ''}
+        <input name="qr" type="file" accept="image/png,image/jpeg,image/webp">
+        <button class="full">${d ? 'Update details' : 'Save details'}</button></form></div>`;
+  }
   // ---------------------------------------------------------------- investor / shared views
   function viewHome() {
     const m = S.me, investor = m.role === 'investor';
@@ -275,46 +308,23 @@
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in, and your lock-up starts when it joins.</p></div>` : '';
     return `${waiting}${growthCard(investor ? 'Your balance' : 'Your holdings')}
-      ${investor ? growthMathCard(m) + sameBoatCard() + profitShareCard(m) : ''}${investor ? `<div class="card"><h2>Withdrawals</h2>
-        <div class="row"><span class="l">Available to withdraw now<br><span class="note">after any fee</span></span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
+      ${investor ? `<div class="card"><h2>Withdrawals</h2>
+        <div class="row"><span class="l">Available to withdraw now<br><span class="note">what you would receive</span></span><span class="r">${money(avail)}<br><span class="note">${alt(avail)}</span></span></div>
         <div class="row"><span class="l">Next part unlocks</span><span class="r">${day(m.next_unlock)}</span></div>
-        ${exitInfo(m.id) ? `<div class="row"><span class="l">Withdrawal fee<br><span class="note">${exitNote(m.id)}</span></span><span class="r">${pc(xr)}%</span></div>` : ''}
+        ${EXIT_FEE_ON && exitInfo(m.id) ? `<div class="row"><span class="l">Withdrawal fee<br><span class="note">${exitNote(m.id)}</span></span><span class="r">${pc(xr)}%</span></div>` : ''}
         ${minPhp() ? `<div class="row"><span class="l">Minimum withdrawal<br><span class="note">taking everything is always allowed</span></span><span class="r">${php(minPhp())}</span></div>` : ''}
-        <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. The withdrawal fee${xr ? ` (${pc(xr)}%)` : ''} and any quarter fee come off the payout.</p>
-        ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (${inPeso() ? '₱' : 'USDT'})</label>
+        <p class="note">Each deposit is locked for ${C.LOCK_MONTHS} months. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. ${xr ? `The withdrawal fee (${pc(xr)}%) comes off the payout.` : `<b>Heads up:</b> ${FEE_SOON}`} You will be contacted to confirm your payout details before any money is sent.</p>
+        ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : !S.payout ? '<p class="note warn">Add where you want to be paid (below, under "Where to send my money") before you can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (${inPeso() ? '₱' : 'USDT'})</label>
           <input id="rq-u" name="amount" type="number" step="any" min="0" inputmode="decimal" required>
           <div class="btns"><button type="button" class="ghost" data-action="maxunits">Everything available</button><button>Request withdrawal</button></div></form>`}
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
         <div class="row"><span class="l">Stays invested in the pool</span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${f(m.fee_units_earned, 4)} units</span></span></div></div>`}
-      ${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
+      ${investor ? payoutCard(m) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
     <div class="btns"><button class="ghost" data-tab="about">Read how it works</button></div></div>`;
-  // investor: the trading result, minus the fund manager's share, = what is theirs. Simple % on the money put in.
-  function growthMathCard(m) {
-    if (m.gross_return_pct == null || m.net_return_pct == null) return '';
-    const acc = Number(m.accrued_fee_usdt), share = Number(m.profit_share_usdt);
-    return `<div class="card"><h2>How your growth is worked out</h2>
-      <div class="row"><span class="l">You put in</span><span class="r">${putIn(m)}</span></div>
-      ${inPeso() ? fxRow(m) : ''}
-      <div class="row"><span class="l">The trading made</span><span class="r ${cls(m.gross_profit_usdt)}">${smoney(m.gross_profit_usdt)}<br><span class="note">${pct(m.gross_return_pct, 1)}</span></span></div>
-      <div class="row"><span class="l">Fee (${pc(m.fee_rate)}% of each quarter's profit)<br><span class="note">${acc > 0 ? `owed this quarter ${money(acc)}` : 'none so far'}</span></span><span class="r">${share > 0 ? '−' + money(share) : money(0)}<br><span class="note">${share > 0 ? '−' + f(Number(m.profit_share_pct_points) * 100, 1) + ' pts' : ''}</span></span></div>
-      <div class="row"><span class="l"><b>Yours, after the fee</b></span><span class="r"><b class="${cls(m.net_profit_usdt)}">${smoney(m.net_profit_usdt)}</b><br><span class="note"><b>${pct(m.net_return_pct, 1)}</b> · balance ${money(m.net_value_usdt)}</span></span></div>
-      <p class="note">Your balance and % on this page are always shown <b>after</b> the fee, so it is what is yours. The fee is ${pc(m.fee_rate)}% of the profit your units make in each quarter, worked out at each quarter end. A quarter that loses money costs no fee, but that loss is not carried forward, so the next quarter's profit is charged in full even if your balance is still below what you put in. If the fund drops after a quarter end, the fee already taken stays taken. </p></div>`;
-  }
-  function profitShareCard(m) {
-    const keep = 1 - Number(m.fee_rate);
-    const above = Number(m.accrued_fee_usdt) > 0;
-    return `<div class="card"><h2>Fee</h2>
-      <div class="split"><i style="width:${keep * 100}%;background:var(--up)"></i><i style="width:${(1 - keep) * 100}%;background:var(--seg3)"></i></div>
-      <div class="legend" style="margin-bottom:6px"><span><b style="background:var(--up)"></b>You keep ${pc(keep)}% of each quarter's profit</span><span><b style="background:var(--seg3)"></b>Fund manager ${pc(1 - keep)}%</span></div>
-      ${m.fee_rate_next != null ? `<p class="note" style="margin:0 0 6px">From the next quarter close your fee becomes <b>${pc(m.fee_rate_next)}%</b>. Profit made before then is charged at ${pc(m.fee_rate)}%.</p>` : ''}
-      <div class="row"><span class="l">${above ? 'Fee due at quarter end (estimate)' : 'Fee due now'}</span><span class="r">${above ? money(m.accrued_fee_usdt) : 'None: below your best'}</span></div>
-      <div class="row"><span class="l">Your balance after it</span><span class="r"><b>${money(m.value_after_fee_usdt)}</b></span></div>
-      <p class="note">The fee is charged on the profit your units make in <b>each quarter</b>, never on the money you put in and never on profit made before you joined. A quarter with a loss costs nothing, but it is not carried forward or offset against the next one. It is settled once a quarter inside the pool; no cash moves. If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal.</p></div>`;
-  }
   function recentCard() {
     const mine = S.ledger.filter((l) => l.profile_id === S.me.id);
     return `<div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
@@ -359,7 +369,7 @@
         <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-opacity=".6" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
       </svg><span class="dot live" id="gdot"></span></div>
       <div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>
-      <p class="note" style="margin:8px 0 0">Line: what your money is worth${m.role === 'investor' ? ', after the fee' : ''}. Dashed: what you have put in. Drag across the chart to see any day.</p>
+      <p class="note" style="margin:8px 0 0">Line: what your money is worth. Dashed: what you have put in. Drag across the chart to see any day.</p>
       <p class="note" style="margin:4px 0 0">${rateNote()}. Pesos move with the exchange rate even when your USDT does not.</p></div>`;
   }
   function showPoint(i) {   // update the big number to the point under the finger (or the latest point)
@@ -453,24 +463,6 @@
     return { H, yours: Returns.yourGrowth(H.map((p) => ({ v: Number(p.value), n: Number(p.net_in) }))),
              trading: Returns.tradingGrowth(H.map((p) => ({ u: Number(p.units), price: Number(p.price) }))) };
   }
-  // investor: proof that the fund manager's own money made the same trading return over the same time
-  function sameBoatCard() {
-    const { H, yours, trading } = myGrowths(), F = S.fund || [];
-    if (H.length < 2 || !F.length) return '';
-    const mg = Returns.managerGrowth(F), at = new Map(F.map((r, i) => [r.id, i])), j0 = at.get(H[0].id);
-    if (j0 == null || H.some((p) => !at.has(p.id))) return '';
-    const mgr = H.map((p) => mg[at.get(p.id)] / mg[j0] - 1), you = yours.map((g) => g / yours[0] - 1), fundAll = Returns.total(mg);
-    const lines = [{ name: "Fund manager's own money", color: 'var(--seg1)', pts: withNow(H.map((p, k) => [tms(p.ts), mgr[k]])) },
-                   { name: 'You, after fee', color: 'var(--seg2)', dash: true, pts: withNow(H.map((p, k) => [tms(p.ts), you[k]])) }];
-    return `<div class="card"><h2>Same trading as the fund manager</h2>
-      ${pctChart(lines)}
-      <div class="grid" style="margin-top:12px">
-        <div class="stat"><div class="k">Your trading return</div><div class="v ${cls(Returns.total(trading))}">${pct(Returns.total(trading))}</div></div>
-        <div class="stat"><div class="k">Fund manager's own money, same time</div><div class="v ${cls(mgr[mgr.length - 1])}">${pct(mgr[mgr.length - 1])}</div></div></div>
-      <div class="row"><span class="l">You, after fee</span><span class="r ${cls(Returns.total(yours))}">${pct(Returns.total(yours))}</span></div>
-      <div class="row"><span class="l">Fund manager's own money since the fund started</span><span class="r ${cls(fundAll)}">${pct(fundAll)}</span></div>
-      <p class="note">The fund manager's own money is in this same pool and bought units at the same prices as yours, so the trading made the same % for both. The only difference is the fee on each quarter's profit. Money added or taken out by anyone never counts in these %.</p></div>`;
-  }
   // manager: own return from trading only, and with the fee received
   function myReturnsCard() {
     const { H, yours, trading } = myGrowths();
@@ -512,13 +504,16 @@
     const m = stmtMonth(rows), mgr = isAdmin();
     return `${monthTableCard(rows, m, mgr)}${dropCard(mgr)}${statementCard(m, mgr)}`;
   }
+  // an investor's income for the month: what the money earned, with any withdrawal fee counted as money taken out
+  const takenOut = (m, mgr) => m.withdrawals + (mgr ? 0 : m.withdrawalFee || 0);
+  const income = (m) => m.closing - m.opening - m.deposits + takenOut(m, false);
   function monthTableCard(rows, sel, mgr) {
     return `<div class="card noprint"><h2>Month by month</h2>
-      <div class="mtab"><div class="mh"><span>Month</span><span>Trading</span><span>${mgr ? 'With fee' : 'After fee'}</span><span>Balance</span></div>
+      <div class="mtab"><div class="mh"><span>Month</span><span>${mgr ? 'Trading' : 'Income'}</span><span>${mgr ? 'With fee' : 'Return'}</span><span>Balance</span></div>
       ${[...rows].reverse().map((m) => `<button class="mrow ${m.key === sel.key ? 'on' : ''}" data-action="stmtpick" data-id="${m.key}">
         <span>${monthName(m.key).slice(0, 3)} ${m.key.slice(0, 4)}${m.partial ? ' <i>to date</i>' : ''}</span>
-        <span class="${cls(m.tradingPct)}">${pct(m.tradingPct, 1)}</span><span class="${cls(m.yourPct)}">${pct(m.yourPct, 1)}</span><span>${f(m.closing)}</span></button>`).join('')}</div>
-      <p class="note" style="margin:8px 0 0"><b>Trading</b> is what the trading did that month. <b>${mgr ? 'With fee' : 'After fee'}</b> ${mgr ? 'adds the fee you received.' : 'is what was yours after the fee.'} Money you add or take out never counts in either %. Balance is in USDT at the end of the month. Tap a month to open its statement below.</p></div>`;
+        ${mgr ? `<span class="${cls(m.tradingPct)}">${pct(m.tradingPct, 1)}</span>` : `<span class="${cls(income(m))}">${sgn(income(m))}</span>`}<span class="${cls(m.yourPct)}">${pct(m.yourPct, 1)}</span><span>${f(m.closing)}</span></button>`).join('')}</div>
+      <p class="note" style="margin:8px 0 0">${mgr ? '<b>Trading</b> is what the trading did that month. <b>With fee</b> adds the fee you received.' : '<b>Income</b> is what your money earned that month, in USDT.'} Money you add or take out never counts in the %. Balance is in USDT at the end of the month. Tap a month to open its statement below.</p></div>`;
   }
   function dropCard(mgr) {
     const H = S.history || [];
@@ -531,7 +526,7 @@
       ${line('Your worst drop', dd.worst < 0 ? `${d(dd.peakAt)} → ${d(dd.troughAt)} · ${dd.recoveredAt ? 'back at that high on ' + d(dd.recoveredAt) : 'not back at that high yet'}` : 'your balance has not fallen from a high yet', dd.worst)}
       <div class="row"><span class="l">Right now<br><span class="note">${dd.current < 0 ? 'below your highest, reached ' + d(dd.highAt) : 'at your highest'}</span></span><span class="r ${cls(dd.current)}">${dd.current < 0 ? pct(dd.current, 1) : 'At the high'}</span></div>
       ${fd ? line('Whole fund, worst drop since it started', fd.worst < 0 ? `${d(fd.peakAt)} → ${d(fd.troughAt)}` : 'no fall yet', fd.worst) : ''}
-      <p class="note">Measured on your own return${mgr ? '' : ' after the fee'}, so money you add or take out does not count. It uses each equity reading, so a fall between two readings can be deeper than shown. Drops like these are normal for a fund that trades crypto, and a past drop does not limit a future one.</p></div>`;
+      <p class="note">Measured on your own return, so money you add or take out does not count. It uses each equity reading, so a fall between two readings can be deeper than shown. Drops like these are normal for a fund that trades crypto, and a past drop does not limit a future one.</p></div>`;
   }
   function statementCard(m, mgr) {
     const rows = myMonths(), entries = inMonth(m), who = S.me.name || S.me.username, feeLabel = mgr ? 'Fee received' : 'Fee';
@@ -542,10 +537,10 @@
         <select data-stmt aria-label="Month">${[...rows].reverse().map((x) => `<option value="${x.key}" ${x.key === m.key ? 'selected' : ''}>${monthName(x.key)}${x.partial ? ' (to date)' : ''}</option>`).join('')}</select></div>
       ${line('Opening balance', usdt(m.opening))}
       ${line('Money added', sUsdt(m.deposits) || usdt(0), m.phpIn > 0 ? `${php(m.phpIn)} paid in` : '')}
-      ${line('Money taken out', m.withdrawals ? '−' + usdt(m.withdrawals) : usdt(0), m.phpOut > 0 ? `${php(m.phpOut)} paid out` : '')}
-      ${line('Trading result', sUsdt(m.trading) || usdt(0), `${pct(m.tradingPct, 2)} on the money in the fund`)}
-      ${mgr ? line(feeLabel, sUsdt(m.profitShare) || usdt(0), 'received from investors') : ''}
-      ${line('Closing balance', usdt(m.closing), `${pct(m.yourPct, 2)} this month${mgr ? ', with the fee received' : ', after the fee'}`, true)}
+      ${line('Money taken out', takenOut(m, mgr) ? '−' + usdt(takenOut(m, mgr)) : usdt(0), m.phpOut > 0 ? `${php(m.phpOut)} paid out` : '')}
+      ${mgr ? line('Trading result', sUsdt(m.trading) || usdt(0), `${pct(m.tradingPct, 2)} on the money in the fund`) + line(feeLabel, sUsdt(m.profitShare) || usdt(0), 'received from investors')
+        : line('Income', sUsdt(income(m)) || usdt(0), `${pct(m.yourPct, 2)} this month`)}
+      ${line('Closing balance', usdt(m.closing), mgr ? `${pct(m.yourPct, 2)} this month, with the fee received` : '', true)}
       ${entries.length ? `<h2 style="margin-top:16px">Entries this month</h2>${activityRows(entries, false)}` : ''}
       <p class="note stmt-foot">Balances are in USDT, a dollar-linked coin, because that is what the fund is counted in. Pesos move with the exchange rate, so they are shown only where pesos were really paid in or out.${isSim() ? ' <b>This history includes simulated (backtest) entries, not real trading.</b>' : ''} Past results do not promise future ones. You can lose money.</p>
       <div class="btns noprint"><button class="ghost" data-action="stmtcsv">Download this month (CSV)</button><button class="ghost" data-action="stmtallcsv">All months (CSV)</button><button data-action="stmtprint">Save as PDF</button></div></div>`;
@@ -558,15 +553,17 @@
   function stmtAllCsv() {
     const mgr = isAdmin();
     return Returns.toCsv([['Month', (m) => m.key], ['Part of month', (m) => (m.partial ? 'to date' : 'full month')], ['Opening (USDT)', (m) => money2(m.opening)],
-      ['Money added (USDT)', (m) => money2(m.deposits)], ['Money taken out (USDT)', (m) => money2(m.withdrawals)], ['Trading result (USDT)', (m) => money2(m.trading)],
-      [(mgr ? 'Fee received' : 'Fee') + ' (USDT)', (m) => money2(m.profitShare)], ['Closing (USDT)', (m) => money2(m.closing)],
-      ['Trading return (%)', (m) => (m.tradingPct * 100).toFixed(2)], [(mgr ? 'Return with fee received' : 'Return after fee') + ' (%)', (m) => (m.yourPct * 100).toFixed(2)],
+      ['Money added (USDT)', (m) => money2(m.deposits)], ['Money taken out (USDT)', (m) => money2(takenOut(m, mgr))],
+      ...(mgr ? [['Trading result (USDT)', (m) => money2(m.trading)], ['Fee received (USDT)', (m) => money2(m.profitShare)]] : [['Income (USDT)', (m) => money2(income(m))]]),
+      ['Closing (USDT)', (m) => money2(m.closing)],
+      ...(mgr ? [['Trading return (%)', (m) => (m.tradingPct * 100).toFixed(2)]] : []), [(mgr ? 'Return with fee received' : 'Return') + ' (%)', (m) => (m.yourPct * 100).toFixed(2)],
       ['Pesos paid in', (m) => money2(m.phpIn)], ['Pesos paid out', (m) => money2(m.phpOut)]], myMonths());
   }
   function stmtMonthCsv(m) {
     const mgr = isAdmin(), lines = [['Statement', monthName(m.key) + (m.partial ? ' (to date)' : '')], ['Name', S.me.name || S.me.username], ['Opening balance (USDT)', money2(m.opening)],
-      ['Money added (USDT)', money2(m.deposits)], ['Money taken out (USDT)', money2(m.withdrawals)], ['Trading result (USDT)', money2(m.trading)], [(mgr ? 'Fee received' : 'Fee') + ' (USDT)', money2(m.profitShare)],
-      ['Closing balance (USDT)', money2(m.closing)], ['Trading return (%)', (m.tradingPct * 100).toFixed(2)], [(mgr ? 'Return with fee received' : 'Return after fee') + ' (%)', (m.yourPct * 100).toFixed(2)],
+      ['Money added (USDT)', money2(m.deposits)], ['Money taken out (USDT)', money2(takenOut(m, mgr))],
+      ...(mgr ? [['Trading result (USDT)', money2(m.trading)], ['Fee received (USDT)', money2(m.profitShare)]] : [['Income (USDT)', money2(income(m))]]),
+      ['Closing balance (USDT)', money2(m.closing)], ...(mgr ? [['Trading return (%)', (m.tradingPct * 100).toFixed(2)]] : []), [(mgr ? 'Return with fee received' : 'Return') + ' (%)', (m.yourPct * 100).toFixed(2)],
       ['Pesos paid in', money2(m.phpIn)], ['Pesos paid out', money2(m.phpOut)]];
     const top = Returns.toCsv([['Item', (r) => r[0]], ['Value', (r) => r[1]]], lines);
     const ent = Returns.toCsv([['Date', (l) => new Date(l.ts).toISOString().slice(0, 16).replace('T', ' ') + ' UTC'], ['Type', (l) => (KIND[l.kind] || [l.kind])[0]], ['USDT', (l) => money2(l.usdt)], ['Units', (l) => Number(l.units).toFixed(8)],
@@ -578,6 +575,11 @@
     document.title = `Lucidyo statement ${m ? m.key : ''} ${S.me.name || S.me.username}`.trim();   // the suggested file name when saving as PDF
     window.print(); setTimeout(() => { document.title = t; }, 500);
   }
+  document.addEventListener('change', (ev) => {   // GCash / bank: show the bank name only for a bank, relabel the number
+    const sel = ev.target.matches && ev.target.matches('#payoutForm select[name="method"]') ? ev.target : null; if (!sel) return;
+    const fm = sel.form; fm.querySelector('[data-for="bank"]').hidden = sel.value !== 'bank';
+    fm.querySelector('[data-numlabel]').textContent = sel.value === 'gcash' ? 'GCash number' : 'Account number';
+  });
   document.addEventListener('change', (ev) => { const s = ev.target.closest && ev.target.closest('select[data-stmt]'); if (s) { S.stmt = s.value; render(); } });
 
   // ---------------------------------------------------------------- manager: activity log and backups
@@ -691,7 +693,7 @@
       ${line('Share of the pool', h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%')}
       ${line('Units', f(h.units, 3))}
       ${line('Quarter fee rate', inv ? rateText(h) : '—')}
-      ${inv && exitInfo(h.id) ? line(`Withdrawal fee<br><span class="note">${exitNote(h.id)}</span>`, pc(exitRate(h.id)) + '%') : ''}
+      ${EXIT_FEE_ON && inv && exitInfo(h.id) ? line(`Withdrawal fee<br><span class="note">${exitNote(h.id)}</span>`, pc(exitRate(h.id)) + '%') : ''}
       ${line(inv ? 'Locked until' : 'Fees earned (units)', inv ? day(h.lock_until) : f(h.fee_units_earned, 3))}
       ${termsLine(h)}
       <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
@@ -765,6 +767,7 @@
           <div><label>In</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <p class="note" style="margin:6px 0 0">Type how much they want (e.g. ₱1,000) and the units below fill in at today's price. Or type the units directly.</p>
         <label>Units to redeem</label><input name="units" type="number" step="any" inputmode="decimal" required>
+        <div id="wdPay"></div>
         <div class="btns"><button type="button" class="ghost" data-action="allunits">All their units</button></div>
         <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay them from my own money. Nothing leaves MEXC: their value is moved to my fund manager account in the ledger.</span></label>
         ${phpField()}<label>Note (optional)</label><input name="note"><input type="hidden" name="reqid">
@@ -789,8 +792,9 @@
   }
   function viewLog() {
     const pend = S.reqs.filter((q) => q.status === 'pending');
-    return `<div class="card"><h2>Withdrawal requests</h2>${pend.length ? pend.map((q) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(q.name)}</b><br>${money(q.units * S.pool.unit_price)} (${f(q.units, 4)} units) · asked ${day(q.requested_at)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span>
-      <span class="r"><button data-action="payreq" data-id="${q.id}" data-who="${q.profile_id}" data-units="${q.units}">Prepare payout</button></span></div>`).join('') : '<p class="note">None pending.</p>'}</div>
+    return `<div class="card"><h2>Withdrawal requests</h2><p class="note" style="margin-top:0">You send these by hand. Their receiving details are under each request; contact them to confirm before sending.</p>${pend.length ? pend.map((q) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(q.name)}</b><br>${money(q.units * S.pool.unit_price)} (${f(q.units, 4)} units) · asked ${day(q.requested_at)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span>
+      <span class="r"><button data-action="payreq" data-id="${q.id}" data-who="${q.profile_id}" data-units="${q.units}">Prepare payout</button></span></div>
+      <details class="paydet" open><summary class="note">Where to send it</summary>${payoutBlock(payOf(q.profile_id))}</details>`).join('') : '<p class="note">None pending.</p>'}</div>
       <div class="card"><h2>All entries</h2>${activityRows(S.ledger, true)}</div>
       <div class="card"><h2>Equity readings</h2>${S.elog.length ? S.elog.slice(0, 60).map((e) => `<div class="row"><span class="l">${day(e.ts)} · ${esc(e.kind)}${e.note ? `<br><span class="note">${esc(e.note)}</span>` : ''}</span>
         <span class="r">${money(e.equity_usdt)}<br><span class="note">${usdt(e.equity_usdt)} · price ${f(e.unit_price, 4)}</span></span></div>`).join('') : '<p class="note">None yet.</p>'}</div>${auditCard()}${backupCard()}`;
@@ -842,7 +846,7 @@
       ['You can lose money, and it could be a lot', `Lucidyo trades in cryptocurrency markets, which can move very fast and very far, sometimes within minutes. The account may use leverage (trading with more than the money in it), which can make losses bigger as well as gains. The pool can fall sharply, <b>you can lose a large part or all of the money you put in</b>, and there will be weeks and months when your balance is down. Only use money you can afford to lose: never money for rent, food, school, bills or emergencies, and never borrowed money.`],
       ['Nothing is guaranteed', `Nobody has promised you any return, and nobody can. Past results and backtests are simulations made with hindsight. They are not a promise, and a good stretch says nothing certain about the next one.`],
       ['Not a bank, not insured', `This app is a record, kept by the fund manager, of your share of a pooled trading account. It is not a bank account or a deposit, and it is not insured or guaranteed by any bank or government body. If the exchange, the account or the fund manager has a problem (a hack, an outage, a mistake, a freeze), <b>you may not get your money back</b>.`],
-      ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked. <b>Withdrawal fee:</b> ${S.exit ? `${pc(S.exit.young_rate)}% of what you withdraw while your account is under 1 year old, and ${pc(S.exit.mature_rate)}% after that` : '5% of what you withdraw while your account is under 1 year old, and 2% after that'}. It comes off the payout, on top of the quarter fee. <b>Minimum withdrawal:</b> ${php(minPhp() || 500)} (taking everything you hold is always allowed).`],
+      ['Lock-up and withdrawals', `Each deposit is locked for <b>${C.LOCK_MONTHS} months</b> from the day it joins the pool. After that you can ask to withdraw some or all of it. It is paid within <b>${C.WITHDRAW_BUSINESS_DAYS} business days</b> (Monday to Friday, not counting weekends), at the value on the day it is paid, which can be lower than on the day you asked. ${EXIT_FEE_ON ? `<b>Withdrawal fee:</b> ${S.exit ? `${pc(S.exit.young_rate)}% of what you withdraw while your account is under 1 year old, and ${pc(S.exit.mature_rate)}% after that` : '5% of what you withdraw while your account is under 1 year old, and 2% after that'}. It comes off the payout, on top of the quarter fee. ` : `<b>Withdrawal fee:</b> none for now. ${FEE_SOON} `}<b>Minimum withdrawal:</b> ${php(minPhp() || 500)} (taking everything you hold is always allowed).`],
       ['How new money joins', `Money you hand over first waits. It joins the pool at the next valuation (when the fund manager updates the pool’s total value) and buys units at that day’s price. So the price you get can be higher or lower than on the day you handed the money over. This protects everyone: nobody shares in profit made before their money was in.`],
       ['The fee', `The fee is <b>${rate}%</b> of the <b>net profit your units make in each quarter</b> (the part of the price change that happened while you held them), settled once a quarter inside the pool (no cash moves). Nothing is charged on the money you put in or on profit made before you joined. <b>A quarter with a loss costs no fee, but the loss is not carried forward: the next quarter's profit is charged in full even if your balance is still below what you put in.</b> If you withdraw part-way through a quarter, the fee on that share of your profit so far is taken at the withdrawal. The rate can be lowered at any time; a higher rate only starts after the next quarter close, and your Home page tells you before it does.`],
       ['What the numbers mean', `Your balance is an estimate. It follows the pool’s value as entered by the fund manager from the exchange account (daily or weekly, not live), and it is shown in pesos at an exchange rate that moves on its own, so your peso balance can change even when the trading did not.`],
@@ -978,14 +982,13 @@
 
   function loginView() {
     syncNav();
-    app.innerHTML = `<header><span></span><div class="hdr-actions">${themeBtn()}</div></header>
-      <div class="login-brand"><span class="logo">${ICON.logo}</span><h1>Lucidyo</h1><p class="note">Ledger · your share of the pool, at a glance.</p></div>
+    app.innerHTML = `<div class="login-brand login"><span class="logo">${ICON.logo}</span><h1>Lucidyo</h1><p class="note">Ledger · your share of the pool, at a glance.</p></div>
       <div class="card"><h2>Sign in</h2>
       <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required>
       <label>Password</label>${pw('password', 'current-password')}
       <div id="loginErr" class="alert" role="alert" hidden></div>
       <button class="full">Sign in</button></form>
-      <p class="note" style="margin-bottom:0">No account? Ask the fund manager to create one for you.</p></div>${DISC}`;
+      </div>${DISC}`;
   }
   // password field with a show/hide (eye) button
   const pw = (name, ac, min) => `<div class="pw"><input name="${name}" type="password" autocomplete="${ac}" ${min ? `minlength="${min}"` : ''} required>
@@ -1114,6 +1117,7 @@
   const holder = (id) => S.all.find((h) => h.id === id);
   function wdPrev(fm) {
     const h = holder(fv(fm, 'who')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
+    const wp = $f('wdPay'); if (wp) wp.innerHTML = h && h.role === 'investor' ? `<details class="paydet" open><summary class="note">Where to send their money</summary>${payoutBlock(payOf(h.id))}</details>` : '';
     // a typed value (pesos or USDT) becomes units at the price this payout will use; typing the units directly clears the value
     if (fm.dataset.last === 'units') fm.elements.amt.value = '';
     else if (num(fv(fm, 'amt')) > 0 && eq != null && u && eq - pendTotal() > 0) {
@@ -1149,7 +1153,7 @@
   async function act(fn, okMsg) {
     try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
   }
-  document.addEventListener('click', async (ev) => {
+  async function onClick(ev) {
     document.querySelectorAll('details.settings[open]').forEach((d) => { if (!d.contains(ev.target) || ev.target.closest('[data-action]')) d.removeAttribute('open'); });
     const side = ev.target.closest('[data-side]');
     if (side) { S.side = side.dataset.side === 'me' ? 'me' : 'fund'; S.tab = null; render(); window.scrollTo(0, 0); return; }
@@ -1167,7 +1171,7 @@
       inp.type = show ? 'text' : 'password'; b.innerHTML = ICON[show ? 'eyeOff' : 'eye'];
       b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); inp.focus();
     }
-    else if (a === 'refresh') refresh('Up to date');
+    else if (a === 'refresh') await refresh('Up to date');
     else if (a === 'welcome') startTour();
     else if (a === 'stmtpick') { S.stmt = id; render(); const el = $f('stmt'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     else if (a === 'stmtcsv') { const m = stmtMonth(myMonths()); if (m) download(`lucidyo-statement-${m.key}.csv`, stmtMonthCsv(m)); }
@@ -1203,13 +1207,13 @@
     else if (a === 'maxunits') { const v = Number(S.me.unlocked_units) * Number(S.me.unit_price) * (inPeso() ? rate() : 1); $f('rq-u').value = Math.floor(v * 100) / 100; }
     else if (a === 'cancelpend') {
       if (!confirm('Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.')) return;
-      act(() => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
+      await act(() => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
     }
-    else if (a === 'cancelreq') act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
+    else if (a === 'cancelreq') await act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
     else if (a === 'toggleactive') {
       const on = b.dataset.active === 'true';
       if (on && !confirm('Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.')) return;
-      act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
+      await act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
     }
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); } }
     else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
@@ -1221,7 +1225,7 @@
     else if (a === 'closemodal') { if (ev.target === b || b.classList.contains('iconbtn') || ev.target.closest('.iconbtn')) closeModal(); }
     else if (a === 'undolast') {
       if (!confirm('Delete the most recent entry? This appends a correction that cancels it out — nothing is erased from the history.')) return;
-      act(() => call('admin_undo_last', { p_note: 'correction: deleted' }), 'Last entry deleted (correction added)');
+      await act(() => call('admin_undo_last', { p_note: 'correction: deleted' }), 'Last entry deleted (correction added)');
     }
     else if (a === 'editlast') {
       const e = S.elog[0]; if (!e) return;
@@ -1240,6 +1244,16 @@
       S.tab = 'record'; S.rec = 'wd'; render(); const fm = $f('wdForm');
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();
     }
+  }
+  // a button that has to wait shows a spinner until it is done (and ignores a second tap), so it never looks like nothing happened
+  const WAITS = new Set(['signout', 'declineterms', 'refresh', 'acceptterms', 'cancelpend', 'cancelreq', 'toggleactive', 'viewas', 'exitview', 'undolast', 'editlast', 'auditmore', 'backupjson', 'backupcsv', 'makekey', 'revokekeys']);
+  const spin = (b) => { b.style.setProperty('--spin', getComputedStyle(b).color); b.classList.add('busy'); };
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-action]');
+    if (!b || !WAITS.has(b.dataset.action)) return onClick(ev);
+    if (b.classList.contains('busy')) return;
+    spin(b);
+    return Promise.resolve(onClick(ev)).finally(() => b.classList.remove('busy'));
   });
   document.addEventListener('input', (ev) => {
     if (ev.target.closest('#loginForm') && ev.target.getAttribute('aria-invalid')) ev.target.removeAttribute('aria-invalid');
@@ -1247,7 +1261,7 @@
   document.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fm = ev.target, id = fm.id, btn = fm.querySelector('button:not([type=button])');
-    if (btn) btn.disabled = true;
+    if (btn) { btn.disabled = true; spin(btn); }
     try {
       if (id === 'loginForm') {
         loginError(null, fm);
@@ -1267,6 +1281,19 @@
       } else if (fm.classList.contains('profForm')) {
         await call('admin_set_profile', { p_profile: fm.dataset.id, p_name: fv(fm, 'name'), p_active: null, p_fee_rate: num(fv(fm, 'fee')) / 100 });
         await refresh('Saved');
+      } else if (id === 'payoutForm') {
+        let qr = (S.payout && S.payout.qr_path) || null; const file = fm.elements.qr.files[0];
+        if (file) {
+          const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
+          if (!ext) throw new Error('The QR must be a PNG, JPG or WebP picture.');
+          if (file.size > 2 * 1024 * 1024) throw new Error('That picture is over 2 MB. Choose a smaller screenshot.');
+          const path = `${crypto.randomUUID()}.${ext}`;
+          const up = await sb.storage.from('payout-qr').upload(path, file, { contentType: file.type, upsert: false });
+          if (up.error) throw new Error('Could not upload the QR: ' + up.error.message);
+          qr = path;
+        }
+        await call('set_my_payout', { p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: fv(fm, 'bank') || null, p_qr: qr });
+        await refresh('Payout details saved');
       } else if (id === 'reqForm') {
         const want = num(fv(fm, 'amount')) / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // amount -> units
         const tol = 0.01 / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // within a centavo of the maximum means "everything" (the Max button rounds down)
@@ -1298,7 +1325,7 @@
         : /function|schema cache/i.test(e.message) ? 'The database is not set up yet (run the migration).' : e.message, fm);
       else if (e.message !== 'Signed out') toast(e.message || String(e), true);
       if (btn && btn.isConnected) btn.disabled = false;
-    }
+    } finally { if (btn) btn.classList.remove('busy'); }
   });
 
   // ---------------------------------------------------------------- start

@@ -64,3 +64,15 @@
 .sheet-nm { font-weight: 800; font-size: 20px; }
 .sheet .btns button svg { width: 18px; height: 18px; margin-right: 6px; vertical-align: -3px; }
 @media (min-width: 700px) { .modal-bg { align-items: center; } .sheet { border-radius: 24px; } }
+
+/* no arrow after the settings gear */
+.settings > summary::after, .settings[open] > summary::after { content: none !important; }
+
+/* a button that is working: its label hides behind a spinner */
+button.busy, .btn.busy { position: relative; color: transparent !important; pointer-events: none; }
+button.busy > *, .btn.busy > * { opacity: 0; }
+button.busy::after, .btn.busy::after { content: ""; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+  border: 2.5px solid var(--spin, currentColor); border-right-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+button.busy:disabled { opacity: .8; }
+.login-brand.login { padding: calc(4vh + env(safe-area-inset-top)) 0 4px; }

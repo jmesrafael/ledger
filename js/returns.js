@@ -58,7 +58,7 @@
     const pts = (H || []).map((p) => ({ t: typeof p.ts === 'number' ? p.ts : Date.parse(p.ts), v: Number(p.value), n: Number(p.net_in), u: Number(p.units), price: Number(p.price) }));
     if (!pts.length) return [];
     const gy = yourGrowth(pts), gt = tradingGrowth(pts), rows = [];
-    const lg = (L || []).map((l) => ({ t: typeof l.ts === 'number' ? l.ts : Date.parse(l.ts), kind: l.kind, usdt: Number(l.usdt), pa: l.php_amount == null ? null : Number(l.php_amount), pr: l.php_rate == null ? null : Number(l.php_rate) }));
+    const lg = (L || []).map((l) => ({ t: typeof l.ts === 'number' ? l.ts : Date.parse(l.ts), kind: l.kind, note: l.note || '', usdt: Number(l.usdt), pa: l.php_amount == null ? null : Number(l.php_amount), pr: l.php_rate == null ? null : Number(l.php_rate) }));
     const lastBefore = (limit) => { let k = -1; for (let i = 0; i < pts.length; i++) { if (pts[i].t < limit) k = i; else break; } return k; };
     for (let from = monthStart(pts[0].t); from <= now; from = nextMonth(from)) {
       const to = nextMonth(from), o = lastBefore(from), c = lastBefore(to);
@@ -66,8 +66,9 @@
       const base = o >= 0 ? o : 0, inM = lg.filter((l) => l.t >= from && l.t < to);
       const sum = (f) => inM.filter(f).reduce((t, l) => t + l.usdt, 0);
       const deposits = sum((l) => l.kind === 'deposit'), withdrawals = -sum((l) => l.kind === 'withdrawal'), profitShare = sum((l) => l.kind === 'fee_in' || l.kind === 'fee_out');
+      const withdrawalFee = -sum((l) => l.kind === 'fee_out' && l.note === 'withdrawal fee');
       const opening = o >= 0 ? pts[o].v : 0, closing = pts[c].v;
-      rows.push({ key: monthKey(from), from, to, partial: to > now, opening, deposits, withdrawals, profitShare, closing,
+      rows.push({ key: monthKey(from), from, to, partial: to > now, opening, deposits, withdrawals, withdrawalFee, profitShare, closing,
         trading: closing - opening - deposits + withdrawals - profitShare,
         tradingPct: gt[c] / gt[base] - 1, yourPct: gy[c] / gy[base] - 1, entries: inM.length,
         phpIn: inM.filter((l) => l.kind === 'deposit').reduce((t, l) => t + (l.pa != null ? l.pa : l.usdt * (l.pr || 0)), 0),
