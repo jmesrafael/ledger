@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#0A0A0A">
+<title>Lucid'io Bot</title>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  // Apply the saved theme before first paint (system | light | dark), so there is no flash.
+  try { var t = localStorage.getItem('bot.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="hello">Lucid'io · MEXC futures bot</div>
+      <h1>Bot dashboard</h1>
+    </div>
+    <div class="hdr-actions">
+      <select id="modeSelect" aria-label="Mode" hidden style="width:auto;min-height:36px;padding:6px 32px 6px 12px;border-radius:999px;font-size:13px"></select>
+      <button type="button" class="ghost sm" id="tzBtn" title="Show times in UTC or in your local time">UTC</button>
+      <button type="button" class="ghost sm" id="themeBtn" title="Light or dark">Theme</button>
+      <button type="button" class="ghost sm" id="refreshBtn">Refresh</button>
+      <button type="button" class="ghost sm" id="logoutBtn" hidden>Log out</button>
+    </div>
+  </header>
+
+  <section id="login" class="card narrow" hidden>
+    <h2>Log in</h2>
+    <p class="muted">This page shows trading data, so it is password protected.</p>
+    <form id="loginForm">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <button type="submit">Log in</button>
+      <p id="loginMsg" class="err" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <section id="banner" class="card hero" role="status"></section>
+
+    <div class="board">
+      <section class="card"><h2>Open positions <span class="modeTag"></span></h2><div id="open" class="scroll"></div></section>
+
+      <section class="card"><h2>Equity curve (R) <span class="modeTag"></span></h2><div id="equityChart" class="chart"></div><p id="equityNote" class="muted chartnote"></p></section>
+      <section class="card"><h2>Drawdown (R) <span class="modeTag"></span></h2><div id="ddChart" class="chart"></div><p id="ddNow" class="muted chartnote"></p></section>
+
+      <section class="card wide">
+        <h2>Trades <span class="modeTag"></span></h2>
+        <div class="filters">
+          <label>Coin <select id="fCoin"><option value="">All</option></select></label>
+          <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
+          <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>time</option><option>abort</option></select></label>
+          <label>From <input id="fFrom" type="date"></label>
+          <label>To <input id="fTo" type="date"></label>
+        </div>
+        <p id="tradeSummary" class="strong"></p>
+        <div id="trades" class="scroll"></div>
+      </section>
+
+      <section class="card wide"><h2>Per coin <span class="modeTag"></span></h2><div id="perCoin" class="scroll"></div></section>
+      <section class="card"><h2>Skipped signals <span class="modeTag"></span></h2><div id="skipped" class="scroll"></div></section>
+      <section class="card"><h2>Live vs backtest <span class="modeTag"></span></h2><div id="compare"></div></section>
+    </div>
+
+    <p id="footer" class="muted footer"></p>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
