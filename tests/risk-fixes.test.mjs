@@ -10,23 +10,24 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { buildRestoreSql } from '../scripts/restore-ledger.mjs';
 
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl)),
-  ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];
+const APPLIED = readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl));
+const PENDING = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir));
+const FILES = [...APPLIED, ...PENDING];
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 const BOOT = `create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`;
 const NOTE = 'checked the MEXC total against the MEXC app by hand';
 const err = async (f) => { try { await f(); return null; } catch (e) { return e.message; } };
 
-async function fresh() {
+async function fresh(pending = true) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(BOOT);
-  for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
+  for (const f of pending ? FILES : APPLIED) await db.exec(readFileSync(f, 'utf8'));
   await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move';`);
   return db;
 }
 
-async function world({ users = ['john', 'dino'] } = {}) {
-  const db = await fresh();
+async function world({ users = ['john', 'dino'], pending = true } = {}) {
+  const db = await fresh(pending);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   const call = async (fn, ...a) => {
     await db.exec('set role anon');
@@ -284,4 +285,40 @@ test('R8 a close cannot be written directly; the records cannot be changed; inve
     assert.ok(await err(() => w.db.query(`select public.${fn}(1)`)), `anon can call ${fn}`);
   await w.db.exec('reset role');
   assert.ok(await err(() => w.db.exec(`update public.pool_equity set equity_usdt = 1`)), 'pool entries cannot be edited');
+});
+
+// ============================================================ 7. upgrading a database that already has data
+test('R9 the migration upgrades a database that already has a settlement without changing one number, and is safe to run twice', async () => {
+  const w = await world({ users: ['john'], pending: false });                      // production as it is today: applied/* only
+  await w.join('raf', 500, '01-03'); await w.join('john', 1000, '01-04');
+  await w.reading(1.1, '02-20');
+  const t = await w.total(1.1);
+  await w.call('admin_attest_settlement', w.A, t, NOTE, w.at('03-03'));              // the way it was done before this migration
+  const old = await w.call('admin_close_quarter', w.A, t, 58, null, w.at('03-03'), null);
+  await w.join('john', 300, '03-10');
+  await w.withdraw('john', 100, 1.1, '03-12');
+  const snap = async () => {
+    const x = (await w.q(`select public._export_all() x`))[0].x;
+    return JSON.stringify(['ledger', 'pool_equity', 'settlements', 'settlement_lines', 'investor_hwm', 'hwm_log', 'pending_deposits'].map((k) => x[k]));
+  };
+  const before = await snap();
+  const sql = readFileSync(PENDING.find((u) => u.pathname.includes('20261109')), 'utf8');
+  await w.db.exec(sql);
+  await w.db.exec(sql);                                                           // twice
+  const after = (await w.q(`select public._export_all() x`))[0].x;
+  const strip = (rows) => rows.map(({ covered_from, covered_to, days_after_period_end, late, backdated_days, exception_ids, open_positions_at_settlement, ...r }) => r);
+  assert.equal(JSON.stringify(['ledger', 'pool_equity', 'settlement_lines', 'investor_hwm', 'hwm_log', 'pending_deposits'].map((k) => after[k])),
+               JSON.stringify(JSON.parse(before).filter((_, i) => [0, 1, 3, 4, 5, 6].includes(i))), 'no existing number changed');
+  assert.equal(JSON.stringify(strip(after.settlements)), JSON.stringify(JSON.parse(before)[2]), 'the earlier settlement is unchanged');
+  assert.equal((await w.q(`select count(*)::int n from public.settlements where late = false and exception_ids = '{}'`))[0].n, 1, 'the old settlement gets neutral values for the new columns');
+  assert.deepEqual((await w.call('admin_backup_coverage', w.A)).missing, []);
+  // the new rules apply from now on
+  await w.reading(1.3, '04-20');
+  const t2 = await w.total(1.3);
+  assert.match(await err(() => w.call('admin_close_quarter', w.A, t2, 58, null, w.at('05-03'), null)), /RECONCILE/);
+  await w.call('admin_approve_settlement_exception', w.A, 'unreconciled', t2, NOTE, w.at('05-03'), 0);
+  const s2 = await w.call('admin_close_quarter', w.A, t2, 58, null, w.at('05-03'), null);
+  assert.ok(Number(s2.settlement_id) > Number(old.settlement_id));
+  assert.equal(new Date((await w.q(`select covered_from from public.settlements order by id desc limit 1`))[0].covered_from).toISOString(), '2026-03-03T04:00:00.000Z', 'covers from the previous settlement');
+  assert.equal((await w.call('admin_integrity_report', w.A)).worst, -1);
 });

@@ -23,6 +23,8 @@ export const RESTORE_ORDER = [
   ['idempotency_keys', 'idempotency_keys'], ['audit_log', 'audit_log'], ['investor_perf_draft_archive', 'investor_perf_draft_archive'],
   ['perf_log_draft_archive', 'perf_log_draft_archive'],
 ];
+// the two draft archives exist only in a database that once ran the earlier trial migration; a fresh project does not have them, so they are skipped there
+export const OPTIONAL = new Set(['investor_perf_draft_archive', 'perf_log_draft_archive']);
 const KEYED = new Set(['settings']);   // loaded with "on conflict": the migrations already created these rows
 
 export function buildRestoreSql(backup) {
@@ -42,7 +44,11 @@ export function buildRestoreSql(backup) {
     const conflict = KEYED.has(key) ? ' on conflict (key) do update set value = excluded.value' : '';
     // the migrations themselves write a few activity-log rows into a fresh project; the backup's log replaces them (its triggers are off here)
     if (table === 'audit_log') parts.push('delete from public.audit_log;');
-    parts.push(`insert into public.${table} select * from jsonb_populate_recordset(null::public.${table}, ${tag}${json}${tag}::jsonb)${conflict};`);
+    const ins = `insert into public.${table} select * from jsonb_populate_recordset(null::public.${table}, ${tag}${json}${tag}::jsonb)${conflict};`;
+    if (OPTIONAL.has(table)) parts.push(`do $r$ begin if to_regclass('public.${table}') is null then raise notice 'skipped ${table}: this project does not have it (a draft archive)'; else
+${ins}
+end if; end $r$;`);
+    else parts.push(ins);
   }
   const totalUnits = (backup.ledger || []).reduce((t, r) => t + Number(r.units), 0);
   const lastUnits = (backup.pool_equity || []).length ? Number(backup.pool_equity[backup.pool_equity.length - 1].total_units) : 0;
@@ -58,14 +64,14 @@ end $r$;
 
 -- load without the activity-log and guard triggers (foreign keys stay on)
 do $r$ declare t text; begin
-  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop execute format('alter table public.%I disable trigger user', t); end loop;
+  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I disable trigger user', t); end if; end loop;
   alter table public.pool_equity disable trigger user;
 end $r$;
 
 ${parts.join('\n\n')}
 
 do $r$ declare t text; begin
-  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop execute format('alter table public.%I enable trigger user', t); end loop;
+  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I enable trigger user', t); end if; end loop;
   alter table public.pool_equity enable trigger user;
 end $r$;
 
@@ -73,7 +79,7 @@ end $r$;
 do $r$ declare t text; s text; begin
   foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop
     s := null;
-    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t and column_name = 'id') then s := pg_get_serial_sequence('public.' || t, 'id'); end if;
+    if to_regclass('public.' || quote_ident(t)) is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t and column_name = 'id') then s := pg_get_serial_sequence('public.' || t, 'id'); end if;
     if s is not null then execute format('select setval(%L, greatest(coalesce((select max(id) from public.%I), 1), 1), (select max(id) from public.%I) is not null)', s, t, t); end if;
   end loop;
 end $r$;
@@ -82,7 +88,8 @@ end $r$;
 do $r$ declare c jsonb := ${tag}${JSON.stringify(counts)}${tag}::jsonb; t text; n bigint; u numeric; l numeric; begin
   for t in select jsonb_object_keys(c) loop
     if to_regclass('public.' || quote_ident(t)) is null then
-      if (c->>t)::bigint > 0 then raise exception 'restore check failed: table % does not exist here', t; end if;
+      if t = any(array[${[...OPTIONAL].map((t) => `'${t}'`).join(', ')}]) then raise notice 'not checked: % (not in this project)', t;
+      elsif (c->>t)::bigint > 0 then raise exception 'restore check failed: table % does not exist here', t; end if;
     else
       execute format('select count(*) from public.%I', t) into n;
       if t = 'ledger_settings' then

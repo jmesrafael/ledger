@@ -1,15 +1,12 @@
 # High-water mark, loss carry-forward and the two-month settlement (`investor_hwm_v2`)
 
-Status: **proposal, tested on PGlite only, not applied anywhere.** File:
-[`supabase/proposals/20261107000000_hwm_bimonthly_settlement.sql`](../supabase/proposals/20261107000000_hwm_bimonthly_settlement.sql).
-**Rebased on `20261105000000_hwm_arrival_lockup.sql` (applied):** the high-water mark is 1105's stored `investor_hwm`. This file does not
-redefine it; it calls `_hwm_value` / `_hwm_close`. Section 3 describes rules that are identical in 1105. The parts of section 3 about
-replay, `hwm_carry_after_exit` and `hwm_epoch_equity_id` describe the earlier draft only: 1105 always carries the shortfall, and it seeded each
-mark from the last close. Field names follow 1105's `_holder_summary` (`hwm_value`, `below_hwm_usdt`, `period_profit_usdt` = E − H).
-**Interaction with 20261106 (capital workflow):** `admin_settle_quarter` calls `admin_close_quarter`, so it must call `admin_attest_settlement`
-first (or have a verified snapshot) and respect the two-month period.
-Tests: [`tests/hwm-settlement.test.mjs`](../tests/hwm-settlement.test.mjs). The open business decisions are listed in section 9; settings flagged
-**(confirm)** are defaults chosen so the code runs, not decisions.
+Status: **live in production** (2026-10-23). The high-water mark is `20261105000000_hwm_arrival_lockup.sql` (stored in `investor_hwm`,
+undo via `hwm_log`). The two-month settlement is `20261107000000_hwm_bimonthly_settlement.sql`. `20261108000000_settlement_workflow_integration.sql`
+makes a confirmed manual balance check count as verification, saves each period's results, and restores the complete backup export. All three are in
+`supabase/migrations/applied/`. `20261109000000_settlement_controls_backup.sql` (settlement window, exceptions, backup coverage) is pending;
+see [settlement-controls.md](settlement-controls.md).
+Tests: `tests/hwm-settlement.test.mjs`, `tests/settlement-workflow.test.mjs` (full migration chain). The open business decisions are in
+section 9; settings flagged **(confirm)** are defaults chosen so the code runs, not decisions.
 
 ## 1. What was wrong with the engine it replaces (`flat_period_v1`)
 
@@ -40,10 +37,9 @@ Deposits and withdrawals can therefore never show up as profit or loss.
 
 ## 3. The HWM algorithm: an investor-level loss-carry-forward account in USDT
 
-Each investor has one benchmark **H** (USDT). The fee is charged on `E − H` when it is positive. H is **not stored**: it is replayed from
-the append-only ledger (`_hwm_state(profile, before_entry)`), using the facts already recorded (units, prices and the fee rows actually
-posted). Corrections (an entry and its reversal) are skipped as a pair. Replaying means an undo, a retried request or a later audit can never
-leave H out of step with the books.
+Each investor has one benchmark **H** (USDT), stored in `investor_hwm.hwm_value` and changed only by `_hwm_deposit`, `_hwm_take` and `_hwm_close`.
+Every change is logged in `hwm_log`, so undoing the newest entry restores H exactly. The investor summary shows it as `hwm_value`, the
+shortfall as `below_hwm_usdt`, and `E − H` as `period_profit_usdt`. Fund M has no mark: its own capital is never charged under `external_investors`.
 
 | Event (at price P) | Rule | Why |
 |---|---|---|
@@ -51,7 +47,7 @@ leave H out of step with the books.
 | Settlement | `fee = r × max(0, E − H)` ; `H := max(H, E − fee)` | Fee only above the mark. The mark moves up to the value after the fee and never moves down, so a recovered loss is never charged. |
 | Withdrawal of share `s = gross units ÷ units held`, in profit (E > H) | `fee = r × s × (E − H)` ; `H := H × (1 − s)` | The redeemed share's profit is crystallized now. The units that stay keep their own `(1 − s)` share of the uncharged profit. |
 | Withdrawal, at or below the mark (E ≤ H) | no fee ; `H := H − s × E` | The **whole** shortfall `H − E` stays with the investor. Withdrawing cannot be used to escape a loss. |
-| Full exit (s = 1) | as above: in profit `H := 0`; in a loss `H := shortfall L` | The shortfall is carried to a later re-entry: `H = L + D` (setting `hwm_carry_after_exit`, **confirm**). |
+| Full exit (s = 1) | as above: in profit `H := 0`; in a loss `H := shortfall L` | The shortfall is always carried to a later re-entry: `H = L + D`. |
 
 **Properties (each has a test):**
 
@@ -87,7 +83,7 @@ can never exceed the loss the investor actually suffered. The manager forgoes at
    the mark, not on the period.
 
 **Order inside the one transaction** (single writer lock, idempotency key): period checks → MEXC gate (if on) → valuation sanity check →
-settlement entry written at P → **reconciliation** → per-investor fees (from `_hwm_state`) → `settlement_lines` → Fund M split →
+settlement entry written at P → **reconciliation** → per-investor fees (`_hwm_close` on the stored mark) → `settlement_lines` → Fund M split →
 `settlements` row → scheduled fee-rate rises take effect → waiting deposits admitted at P → books check.
 
 **Reconciliation (`_settlement_recon`).** For the period since the last settlement:
@@ -152,8 +148,6 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
 |---|---|---|
 | `fee_engine` | `investor_hwm_v2` | marker only |
 | `fee_basis` | `external_investors` | `external_investors`, `all_pool` |
-| `hwm_carry_after_exit` | `on` | `on`, `off` |
-| `hwm_epoch_equity_id` | `0` (replay from inception) | an entry id: H restarts at value at that entry |
 | `settlement_schedule` | `bimonthly` | `bimonthly`, `free` (tests / emergencies only) |
 | `settlement_period_months` / `settlement_anchor` / `settlement_tz` | `2` / `2026-01-01` / `Asia/Manila` | |
 | `settlement_recon` | `require` | `require`, `warn`, `off` |
@@ -165,23 +159,20 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
 ## 8. Cutover and rollout
 
 - **No data is rewritten.** The migration adds tables and functions, replaces function bodies, and changes settings. Every existing ledger row and settlement stays as it is.
-- **Opening marks.** With `hwm_epoch_equity_id = 0` H is replayed from inception, using the fees actually charged under earlier engines.
-  A fee charged under the flat rule while an investor was below their mark therefore becomes part of their shortfall (investor-favourable).
-  The alternative is to set the epoch to the last entry before go-live, so everyone starts at their current value (**confirm**).
-- Run order: diagnostic → backup → staging restore → apply → `admin_integrity_report` → compare each investor's `hwm_usdt` / accrued
-  fee with a hand calculation → production. Do not apply to production without explicit approval.
-- Rollback before the first settlement under the new engine: re-run the previous function definitions. Nothing stored depends on the new
-  engine until then.
-- Not yet available from the bot: transfer history, realized P&L, trading fees and funding. Until then every settlement is `unverified`
-  and needs a written attestation.
+- **Opening marks (done).** 1105 seeded each investor's mark from where the last quarter close left them. A copy of the tables from before
+  the change is in schema `backup_20261023`.
+- **Applied 2026-10-23:** 1105, 1106, 1107, then 1108 (approved by the user). The live checks afterwards: units diff 0, every holder has a mark,
+  and the backup includes every table.
+- Not yet available from the bot: transfer history, realized P&L, trading fees and funding. Until then a settlement needs the manager's
+  confirmed balance check (1108) or a written attestation.
 
 ## 9. Open business decisions
 
 1. **Fee basis**: external investors only (default) or also Fund M's own capital (internal reclassification only)?
 2. **Withdrawal crystallization**: the default charges the redeemed share's profit at the withdrawal (`s × r × (E − H)`). The alternative
    is to crystallize the whole account's profit at any withdrawal. Confirm.
-3. **Carry after a full exit**: keep the shortfall for a later re-entry (default) or forget it? Should it expire?
-4. **Opening marks at cutover**: replay from inception (default) or start everyone at today's value?
+3. *(decided by 1105)* The shortfall is always kept after a full exit; it does not expire.
+4. *(decided by 1105)* Opening marks were seeded from the last quarter close.
 5. **Period grid**: Jan–Feb… in Manila time? A grace period for late settlements, or a strict cut-off that refuses entries dated after B?
 6. **Fund M withdrawals**: are they taken pro rata, from fees first, or from capital first?
 7. **Absolute-USDT carry-forward**: accept that a top-up recovers an old shortfall faster?
