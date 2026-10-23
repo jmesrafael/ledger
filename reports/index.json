@@ -1,5 +1,13 @@
 [
   {
+    "slug": "how-lucid-io-works-v2",
+    "title": "How Your Money Works — Investor Guide (new)",
+    "summary": "Redesigned guide with today's rules: units, the 10% fee on new profit above your best level (settled every two months), how deposits join, withdrawals, risks and the backtest. Interactive examples.",
+    "updated": "23 Oct 2026",
+    "kind": "Guide",
+    "file": "reports/how-lucid-io-works-v2.html"
+  },
+  {
     "slug": "how-lucid-io-works",
     "title": "How Lucid'io Works — Guide for Friends",
     "summary": "Plain-language guide to share: joining and units, the 10% share on new profit (best-ever line), a 2026 example of four people at 1% vs 5% risk, and where it is uncertain. No strategy rules.",

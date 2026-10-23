@@ -153,12 +153,12 @@ footer p { max-width: none }
     <span class="brand"><i aria-hidden="true"></i>Lucid'io</span>
     <h1>How your money works in the pool</h1>
     <p class="lead">A plain-language guide for friends who are thinking of joining. It follows four people through 2026 so you can see what joining, growing, the 10% fee and the bad weeks actually look like.</p>
-    <p class="note">The example uses a <b>backtest</b>: the trading bot's rules replayed on real 2026 prices (Jan 1 to Oct 21). It shows how things work, not what will happen.</p>
+    <p class="note">The example uses a <b>backtest</b>: the trading rules replayed on real 2026 prices (Jan 1 to Oct 21). It shows how things work, not what will happen.</p>
   </header>
 
   <section aria-labelledby="s-short">
     <span class="eyebrow">The short version</span>
-    <h2 id="s-short">One account, one bot, everyone owns a slice</h2>
+    <h2 id="s-short">One account, everyone owns a slice</h2>
     <div class="facts">
       <div class="fact"><span class="k">1 pool</span><p class="note">All the money sits in one trading account. The manager's own money is in it too, trading the same way.</p></div>
       <div class="fact"><span class="k">Units</span><p class="note">Your money buys units. Your balance is your units × the unit price. The price moves only with the trading.</p></div>
@@ -192,7 +192,7 @@ footer p { max-width: none }
         <button type="button" data-risk="0.01" aria-pressed="true">1% risk per trade</button>
         <button type="button" data-risk="0.05" aria-pressed="false">5% risk per trade</button>
       </div>
-      <span class="note">Risk = how much of the pool the bot can lose on one trade.</span>
+      <span class="note">Risk = how much of the pool can be lost on one trade.</span>
     </div>
     <div class="panel">
       <div class="legend" id="legend"></div>
@@ -231,7 +231,7 @@ footer p { max-width: none }
     <div class="risks" id="risks"></div>
     <div class="risks">
       <div class="risk"><h3>Past results are not a promise</h3><p>This is a replay on past prices. The coins were picked <b>after</b> seeing how they did, so real trading will very likely do worse than this.</p></div>
-      <div class="risk"><h3>The exchange and the bot</h3><p>The money sits on a crypto exchange. The exchange can freeze, fail or be blocked, and the bot can stop or make mistakes. Any of these can cost money.</p></div>
+      <div class="risk"><h3>The exchange and trading errors</h3><p>The money sits on a crypto exchange. The exchange can freeze, fail or be blocked, and trading can stop or go wrong. Any of these can cost money.</p></div>
       <div class="risk"><h3>Not a bank, not registered</h3><p>This is a private arrangement among friends, kept in a ledger by the manager. It is not a bank account, not insured and not a registered investment.</p></div>
       <div class="risk"><h3>Your money is locked for 3 months</h3><p>Each deposit can be withdrawn only 3 months after it joins, then within 7 business days. Only put in money you will not need soon.</p></div>
     </div>
@@ -258,14 +258,14 @@ footer p { max-width: none }
   <section aria-labelledby="s-years">
     <span class="eyebrow">Looking further back</span>
     <h2 id="s-years">₱1,000 left to compound since 2020</h2>
-    <div class="label"><b>Backtest on real past market data.</b> SOL and ZEC combined, Binance futures prices, from the first trade on <b>Mar 12, 2020</b> (when the price history starts) to <b>Oct 21, 2026</b>: about 6 years and 7 months. Each trade risks 1% (or 5%) of the balance at that moment, so every win and loss compounds into the next trade. Trading fees, slippage and funding costs are included. Shown before the 10% fee, with no money added or taken out. The two coins were chosen after seeing these results, so real trading will very likely do worse.</div>
+    <div class="label"><b>Backtest on real past market data.</b> Actual historical market prices, from the first trade on <b>Mar 12, 2020</b> (when the price history starts) to <b>Oct 21, 2026</b>: about 6 years and 7 months. Each trade risks 1% (or 5%) of the balance at that moment, so every win and loss compounds into the next trade. Trading fees, slippage and funding costs are included. Shown before the 10% fee, with no money added or taken out. The two coins were chosen after seeing these results, so real trading will very likely do worse.</div>
     <div class="yr" id="yr1"></div>
     <div class="yr" id="yr5"></div>
-    <div class="warnbox"><b>Read the 5% numbers with care.</b> A balance that falls by about two thirds before recovering is very hard to sit through, and most people would stop at the bottom. At large sizes real orders also move the price, so the later years at 5% could not be repeated in practice. The bot also limits how much it risks on one trade, which would slow the growth. The 1% line is the more realistic picture.</div>
+    <div class="warnbox"><b>Read the 5% numbers with care.</b> A balance that falls by about two thirds before recovering is very hard to sit through, and most people would stop at the bottom. At large sizes real orders also move the price, so the later years at 5% could not be repeated in practice. A cap on how much is risked on one trade would also slow the growth. The 1% line is the more realistic picture.</div>
   </section>
 
   <footer>
-    <p><b>About the numbers.</b> Hypothetical backtest of the Lucid'io bot on SOL and ZEC combined, Jan 1 to Oct 21, 2026 (the since-2020 section: Mar 12, 2020 to Oct 21, 2026), using real exchange prices and including trading fees, slippage and funding costs. Pool balances run through the same ledger rules the app uses (weekly valuations, quarter closes on Mar 31, Jun 30, Sep 30, 10% fee above each deposit's best-ever level). Pesos at a fixed ₱58 per USDT; in real life the exchange rate also moves your peso balance. Join dates for the friends are examples.</p>
+    <p><b>About the numbers.</b> Hypothetical backtest of the Lucid'io trading rules on actual market data, Jan 1 to Oct 21, 2026 (the since-2020 section: Mar 12, 2020 to Oct 21, 2026), including trading fees, slippage and funding costs. Pool balances run through the same ledger rules the app uses (weekly valuations, quarter closes on Mar 31, Jun 30, Sep 30, 10% fee above each deposit's best-ever level). Pesos at a fixed ₱58 per USDT; in real life the exchange rate also moves your peso balance. Join dates for the friends are examples.</p>
     <p>This guide explains how the pool works. It is not an offer, advice or a promise of returns.</p>
   </footer>
 </div>
