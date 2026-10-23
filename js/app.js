@@ -789,7 +789,7 @@
   const inMexc = () => S.pend.filter((d) => d.arrived_at), inMexcTotal = () => inMexc().reduce((t, d) => t + Number(d.usdt), 0);
   const pendNote = () => (inMexc().length ? ` Includes <b>${usdt(inMexcTotal())}</b> of deposits already in MEXC and still waiting; they are taken out first.` : '')
     + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In MEXC": they are NOT taken out. If their money is already in MEXC, mark them first.</span>` : '');
-  // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through the Capital tab (the database refuses the old direct
+  // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through Record → Balance (the database refuses the old direct
   // routes). The old forms are replaced by instructions, so nobody meets an error message.
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   function pendingCard() {
@@ -798,8 +798,8 @@
     return `<div class="card"><h2>Waiting to join (${S.pend.length}) · ${money(pendTotal())}</h2>
       <p class="note">${g ? Gate.TEXT.waiting
         : 'Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In MEXC</b>, at the next <b>Update equity</b> (or settlement), at that day\'s price. Mark it as soon as the money reaches MEXC.'}</p>
-      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in MEXC: admit it on the Capital tab' : 'in MEXC, joins at the next reading') : '<span class="warn">not in MEXC yet</span>'}</span></span>
-        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In MEXC</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="capital">Open the Capital tab</button></div>' : ''}</div>`;
+      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in MEXC: admit it under Record → Balance' : 'in MEXC, joins at the next reading') : '<span class="warn">not in MEXC yet</span>'}</span></span>
+        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In MEXC</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
   }
   function viewRecord() {
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
@@ -809,7 +809,7 @@
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
     return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
       ${pick('dep', `<div class="card"><h2>Money in</h2>
-        <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached MEXC and admit it on the Capital tab.</p>
+        <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached MEXC and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
@@ -819,7 +819,7 @@
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
       ${pick('wd', Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
-        <p class="note">Requests from investors are handled on the <b>Capital</b> tab (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
+        <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <label>MEXC balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="1000"></div>
@@ -832,11 +832,11 @@
           <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Inside lock-up: allow</label>
           <label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`)}
-      ${pick('eq', gBal ? gBal + pendingCard() : `<div class="card"><h2>Balance</h2>
-        <p class="note">Type the MEXC total (open trades included). Prefer the <b>Capital</b> tab, which checks and confirms it first.</p>
+      ${pick('eq', `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
+        <p class="note">The quick old way. The checked route above is safer.</p>
         <form id="eqForm"><label>MEXC total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
-        <input type="hidden" name="rate" value="${rate() || ''}"><details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
-        <div class="preview" id="eqPrev">—</div><button class="full" ${empty ? 'disabled' : ''}>Save</button></form></div>${pendingCard()}`)}
+        <input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
+        <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`)}
       ${pick('hist', `<div class="card"><h2>History</h2>
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
   }
@@ -845,7 +845,7 @@
     if (gSet) return gSet + `<div class="card">${lastClose()}</div>`;
     return `<div class="card"><h2>Two-month settlement</h2>
       <p class="note">Takes each investor's fee (their own %, 10% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. Example: they gain $100 above it and the 10% fee = $10; the mark then moves up, so that $100 is never charged again. After a loss nothing is charged until they are back above the mark.</p>
-      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the MEXC balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the MEXC balance under <b>Capital</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
+      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the MEXC balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the MEXC balance under <b>Record → Balance</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
       ${lastClose()}
       ${S.pend.length ? `<p class="note">${pendNote()} Deposits in MEXC buy units at the close price after the fee, so they pay nothing for this period.</p>` : ''}
       <form id="qForm"><label>Pool equity now (USDT, the MEXC total)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
@@ -868,7 +868,7 @@
         <span class="r">${money(e.equity_usdt)}<br><span class="note">${usdt(e.equity_usdt)} · price ${f(e.unit_price, 4)}</span></span></div>`).join('') : '<p class="note">None yet.</p>'}</div>${auditCard()}${backupCard()}`;
   }
 
-  // ---------------------------------------------------------------- Capital desk (manager): balance check, queue, payouts. All numbers come from the database.
+  // ---------------------------------------------------------------- Balance desk (manager, shown under Record → Balance): balance check, queue, payouts. All numbers come from the database.
   const RD = () => (S.queue && S.queue.ready) || { ok: false, reasons: [] };
   function viewCapital() {
     if (!S.queue) return '<div class="card"><p class="note">The capital workflow is not installed in the database yet (run 20261106000000_capital_workflow.sql).</p></div>';
@@ -896,7 +896,7 @@
         : w.state === 'payout_failed' ? `<button class="sm" data-action="wfretry" data-id="${w.id}">Retry</button>` : ''}
         ${w.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="withdrawal" data-id="${w.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No withdrawal requests open.</p>';
     return `<div class="card"><h2>Balance check</h2>
-        <p class="note">${rd.ok ? '<b class="up">Ready:</b> a confirmed, flat, explained balance is available for deposits, payouts and settlement.' : '<b class="warn">Capital is waiting.</b> ' + rd.reasons.map((r) => esc(r.text)).join(' ')}${q.gate === 'on' ? '' : ' (The workflow gate is off: the old direct forms still work.)'}</p>
+        <p class="note">${rd.ok ? '<b class="up">Ready:</b> a confirmed, flat, explained balance is available for deposits, payouts and settlement.' : '<b class="warn">Money is waiting.</b> ' + rd.reasons.map((r) => esc(r.text)).join(' ')}${q.gate === 'on' ? '' : ' (The workflow gate is off: the old direct forms still work.)'}</p>
         <form id="wfBal"><label>MEXC total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>
           <div class="grid form2"><div><label>Open positions (0, 1 or 2)</label><input name="pos" type="number" min="0" max="2" value="0" required></div><div><label>Open orders</label><input name="ord" type="number" min="0" value="0"></div></div>
           <button class="full">Enter balance (not confirmed yet)</button></form>${bal}</div>
@@ -949,11 +949,11 @@
   // ---------------------------------------------------------------- shell
   const TABS = {
     investor: [['home', 'Home'], ['statements', 'Statements'], ['activity', 'Activity'], ['about', 'About']],
-    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['capital', 'Capital'], ['record', 'Record'], ['quarter', 'Settle'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
+    admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Settle'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
     adminMe: [['mine', 'My account'], ['statements', 'Statements'], ['myhistory', 'History']],                                                                              // side "My account": only the fund manager's own money
   };
   const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, capital: viewCapital, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
-  const TABICON = { users: 'people', dashboard: 'dash', myhistory: 'activity', statements: 'reports' };
+  const TABICON = { users: 'people', capital: 'pool', dashboard: 'dash', myhistory: 'activity', statements: 'reports' };
   const tabsFor = () => (isAdmin() ? TABS[S.side === 'me' ? 'adminMe' : 'admin'] : TABS.investor);
 
   // ---------------------------------------------------------------- gates after sign-in: terms -> quote screen -> tour
@@ -1078,7 +1078,7 @@
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
       [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
         <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
-        <p class="about"><b>Settle:</b> every two months. Confirm the MEXC balance under Capital, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
+        <p class="about"><b>Settle:</b> every two months. Confirm the MEXC balance under Record → Balance, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
       [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they must agree to the terms before they see anything, and you can see who has.</p>
         <p class="about"><b>View as</b> opens the app exactly as that person sees it (read-only).</p>
         <p class="about"><b>Log</b> keeps every entry. Nothing is erased: a mistake is fixed with a correction entry.</p>`],

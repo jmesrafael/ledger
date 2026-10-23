@@ -24,7 +24,7 @@ test('G2 gate on: the withdrawal and settlement forms become instructions with a
   for (const [kind, words] of [['withdrawal', ['Approve', 'Quote', 'Redeem', 'confirmed balance']], ['settlement', ['Valuation and settlement', 'confirm the MEXC balance', '7 days', 'exception']]]) {
     const h = Gate.oldForm(kind, q);
     assert.ok(h && h.includes('The workflow gate is on'), kind);
-    assert.ok(h.includes('data-tab="capital"'), kind + ' links to the Capital tab');
+    assert.ok(h.includes('data-tab="record" data-rec="eq"'), kind + ' links to Record → Balance');
     assert.ok(!/<form|<input|<select/.test(h), kind + ' has no form to fill in');
     assert.ok(!/error|blocked|refused|failed|cannot/i.test(h), kind + ' does not read like an error');
     for (const w of words) assert.ok(h.includes(w), `${kind} mentions "${w}"`);
