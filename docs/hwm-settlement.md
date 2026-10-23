@@ -3,10 +3,11 @@
 Status: **live in production** (2026-10-23). The high-water mark is `20261105000000_hwm_arrival_lockup.sql` (stored in `investor_hwm`,
 undo via `hwm_log`). The two-month settlement is `20261107000000_hwm_bimonthly_settlement.sql`. `20261108000000_settlement_workflow_integration.sql`
 makes a confirmed manual balance check count as verification, saves each period's results, and restores the complete backup export. All three are in
-`supabase/migrations/applied/`. `20261109000000_settlement_controls_backup.sql` (settlement window, exceptions, backup coverage) is pending;
-see [settlement-controls.md](settlement-controls.md).
-Tests: `tests/hwm-settlement.test.mjs`, `tests/settlement-workflow.test.mjs` (full migration chain). The open business decisions are in
-section 9; settings flagged **(confirm)** are defaults chosen so the code runs, not decisions.
+`supabase/migrations/applied/`. `20261109000000_settlement_controls_backup.sql` (settlement window, audited exceptions, complete backups) is
+**pending, rehearsed on a restored copy of the production data, and not applied**; see [settlement-controls.md](settlement-controls.md).
+Tests: `tests/hwm-settlement.test.mjs`, `tests/settlement-workflow.test.mjs`, `tests/risk-fixes.test.mjs` (full migration chain), and
+`node scripts/rehearse-migration.mjs <backup>` for the rehearsal on your own data. The open business decisions are in section 9; settings
+flagged **(confirm)** are defaults chosen so the code runs, not decisions.
 
 ## 1. What was wrong with the engine it replaces (`flat_period_v1`)
 
@@ -74,7 +75,10 @@ can never exceed the loss the investor actually suffered. The manager forgoes at
 
 **Cut-off rules.**
 1. The settlement for the period ending at boundary B is made with a valuation dated T ≥ B. It is refused before B, and refused again once
-   a settlement dated ≥ B exists (one per period; also a unique index on `settlements.period_end`).
+   a settlement dated ≥ B exists (one per period; also a unique index on `settlements.period_end`). **Window (1109):** T must be before
+   B + `settlement_window_days` (7). After that the settlement is *late* and is refused unless a `late` exception was approved
+   (`admin_approve_settlement_exception`, written reason, activity log). A missed window is not lost: the next window's settlement covers
+   everything since the last one.
 2. A capital movement belongs to the period of its **pool entry** (admission or payment), not the day the money was received or requested.
 3. Deposits still waiting at the settlement are admitted after the fees, at the settlement price, so they never pay for or share in the period being settled.
 4. A withdrawal request not yet paid keeps its units, and those units are settled. It is paid later at the price on the day it is paid.
@@ -98,8 +102,12 @@ MEXC total   =  closing NAV + deposits waiting (liability)
 |---|---|---|
 | `internal_mismatch` | The two trading-P&L figures differ by more than `recon_internal_tolerance` (0.01 USDT): some entry's equity does not follow from its flows | **always refused** (`settlement_recon` ≠ `off`) |
 | `unmatched_transfers` | A MEXC transfer is not matched to a deposit or withdrawal, so part of the balance change is unexplained | **always refused** (`settlement_recon` ≠ `off`) |
-| `unverified` | No fresh, clean (or attested) MEXC snapshot that agrees with the typed total | refused unless the manager has filed a written explanation for this period and this total (`admin_attest_settlement`) |
+| `unverified` | No fresh, clean MEXC snapshot that agrees with the typed total | allowed only with (a) the newest **confirmed balance check** for the same total (`verified_manual`, 1108), or (b) an approved `unreconciled` exception for this period and total: written reason, open positions declared, activity log (1109) |
 | `verified` | All of the above agree | allowed |
+
+**Open trades (1109).** If any position or order is open (balance check, bot snapshot, or the declaration in the exception), the settlement is
+refused unless an `open_positions` exception was approved. This is what stops a fee being charged on a paper gain that later reverses.
+Each exception is used by one settlement only and is saved on it (`settlements.exception_ids`).
 
 Realized vs unrealized P&L, trading fees and funding are **inside** the MEXC total. The bot does not report them yet (section 8). With
 `settlement_gate = 'on'` a settlement additionally needs the pool to be flat, which makes the fee realized-only.
@@ -127,7 +135,9 @@ All functions take the session token first, like the existing RPCs. Unchanged si
 | Function | Use |
 |---|---|
 | `admin_settlement_preview(token, mexc_total, at default now)` → jsonb | **Read-only.** Period start/end, `can_settle` + `blocked_reasons[]`, reconciliation (opening NAV, deposits, withdrawals, trading P&L both ways, waiting-deposit liability, snapshot evidence, status), per-investor lines (units, value, hwm, eligible profit, fee USDT/units), fee totals, Fund M split, waiting deposits that will be admitted after. Show this before the manager confirms. |
-| `admin_attest_settlement(token, mexc_total, note ≥ 20 chars, at default now)` → jsonb | Files the written explanation an `unverified` period needs. It is bound to the period and to that MEXC total (± tolerance). Append-only. |
+| `admin_approve_settlement_exception(token, kind, mexc_total, note ≥ 20 chars, at default now, open positions)` → jsonb (1109) | Approves an exception: `kind` is `unreconciled`, `late` or `open_positions`. Bound to the period and the MEXC total (± tolerance), used by one settlement, audited, append-only. An internal mismatch or an unmatched MEXC transfer cannot be excepted. |
+| `admin_attest_settlement(token, mexc_total, note, at, open positions)` | The older name for an `unreconciled` exception. From 1109 it also needs the open-positions argument; without it the call is refused. |
+| `admin_backup_coverage(token)` → jsonb (1109) | Lists any ledger table that is neither in the backup nor deliberately excluded. Must be `[]`. |
 | `admin_close_quarter(token, equity, php_rate, note, at, idem, confirm)` = | Performs the settlement. It returns the old fields plus `settlement_id`, `period_start`, `period_end`, `fee_usdt`, `recon_status`. The name is kept so the app keeps working; it now settles the **two-month period**. |
 | `admin_settlements(token)` → jsonb | Every settlement with its lines (statement and audit view). |
 | `my_settlements(token)` → jsonb | The caller's own settlement lines (investor view; no pool size). |
@@ -136,7 +146,9 @@ All functions take the session token first, like the existing RPCs. Unchanged si
 | `admin_withdraw`, `admin_withdraw_to_manager`, deposits, undo | = signatures. The fee at a withdrawal now follows section 3. |
 
 Errors the UI should expect from `admin_close_quarter`: `the period ending … is already settled; the next settlement is allowed from …`,
-`no settlement period has ended yet`, `RECONCILE: …` (needs an attestation), `settlement refused: …` (needs a fix, not an attestation).
+`no settlement period has ended yet`, `LATE: …` (needs a late exception, or wait for the next window), `RECONCILE: …` (needs a confirmed balance
+check or an `unreconciled` exception), `OPEN TRADES: …` (close the trades or approve an `open_positions` exception), `settlement refused: …`
+(needs a fix; no exception can override it). The app (`settleWithExceptions` in `js/app.js`) turns the first three into an approval prompt.
 
 **Wording the UI must change (Agent 2):** "quarter" becomes "two-month period". The investor terms (section "The fee") and
 `reports/how-lucid-io-works.html` currently say *"the loss is not carried forward"*. Under this engine the loss **is** carried forward. The
@@ -150,7 +162,10 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
 | `fee_basis` | `external_investors` | `external_investors`, `all_pool` |
 | `settlement_schedule` | `bimonthly` | `bimonthly`, `free` (tests / emergencies only) |
 | `settlement_period_months` / `settlement_anchor` / `settlement_tz` | `2` / `2026-01-01` / `Asia/Manila` | |
-| `settlement_recon` | `require` | `require`, `warn`, `off` |
+| `settlement_window_days` (1109) | `7` | days after a period ends in which its settlement is on time |
+| `settlement_recon` | `require` | `require`, `warn`, `off` (owner-only; `off` also turns the exception checks off) |
+| `workflow_gate` | `off` | `on` = deposits, withdrawals and settlements only through the Capital desk (see settlement-controls.md) |
+| `lock_enforced` | `0` | `1` = the old lock-up refusal; `0` = lock-up is wording only |
 | `recon_internal_tolerance` | `0.01` | USDT |
 | `fund_m_withdrawal_order` | `pro_rata` | `pro_rata`, `fee_first`, `capital_first` |
 | `fund_m_own_fee_rate` | = `default_fee_rate` | used only with `all_pool` |
@@ -161,8 +176,12 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
 - **No data is rewritten.** The migration adds tables and functions, replaces function bodies, and changes settings. Every existing ledger row and settlement stays as it is.
 - **Opening marks (done).** 1105 seeded each investor's mark from where the last quarter close left them. A copy of the tables from before
   the change is in schema `backup_20261023`.
-- **Applied 2026-10-23:** 1105, 1106, 1107, then 1108 (approved by the user). The live checks afterwards: units diff 0, every holder has a mark,
-  and the backup includes every table.
+- **Applied 2026-10-23:** 1105, 1106, 1107, then 1108 (approved by the user). The live checks afterwards: units diff 0, every holder has a mark.
+  Note: at that point the backup export did not yet include `payout_details`, `idempotency_keys`, `holder_state` or the settlement exceptions;
+  1109 adds them (`_export_extra`) and `admin_backup_coverage` proves nothing is missing.
+- **Rehearsal (2026-10-23, before 1109).** A production backup was restored with `scripts/restore-ledger.mjs` into a throwaway PostgreSQL 17,
+  built from `applied/*`: all 27 tables equal production row for row (fingerprints), units and the books tie out, 1109 applies and re-applies
+  with no existing row changed, the integrity report is clean. Repeat it on a fresh backup right before any production change.
 - Not yet available from the bot: transfer history, realized P&L, trading fees and funding. Until then a settlement needs the manager's
   confirmed balance check (1108) or a written attestation.
 
@@ -173,7 +192,7 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
    is to crystallize the whole account's profit at any withdrawal. Confirm.
 3. *(decided by 1105)* The shortfall is always kept after a full exit; it does not expire.
 4. *(decided by 1105)* Opening marks were seeded from the last quarter close.
-5. **Period grid**: Jan–Feb… in Manila time? A grace period for late settlements, or a strict cut-off that refuses entries dated after B?
+5. *(decided: 7 days)* **Period grid**: Jan–Feb… in Manila time, with a 7-day window after each period ends; later settlements are logged late exceptions.
 6. **Fund M withdrawals**: are they taken pro rata, from fees first, or from capital first?
 7. **Absolute-USDT carry-forward**: accept that a top-up recovers an old shortfall faster?
 8. **Fee on a 0% rate period**: the mark resets to the post-period value when no fee is charged because the rate is 0. Gains made at 0% are never charged later.

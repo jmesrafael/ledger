@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
-import { buildRestoreSql } from '../scripts/restore-ledger.mjs';
+import { buildRestoreSql, splitTopLevel } from '../scripts/restore-ledger.mjs';
 
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
 const APPLIED = readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl));
@@ -91,7 +91,7 @@ test('R2 a backup restores into an empty database with every accounting record a
   const x = (await w.q(`select public._export_all() x`))[0].x;
   assert.ok(x.settlement_exceptions.length === 1 && x.payout_details.length === 1 && x.settlements.length === 1 && x.investor_hwm.length === 2);
 
-  const sql = buildRestoreSql(x);
+  const sql = buildRestoreSql((await w.q(`select public._export_all()::text x`))[0].x);        // the raw text, exactly like a backup file
   const db2 = await fresh();
   await db2.exec(sql);
   const y = (await db2.query(`select public._export_all() x`)).rows[0].x;
@@ -113,6 +113,31 @@ test('R2 a backup restores into an empty database with every accounting record a
   const rid = await call2('admin_receive_deposit', A2, w.ids.john, 50, 58, 2900, null, null, null, true);
   assert.ok(Number(rid.id) > Math.max(...x.pending_deposits.map((d) => d.id)), 'new ids continue after the restored ones');
   assert.match(await err(() => db2.exec(sql)), /restore refused/, 'a second restore into the same database is refused');
+});
+
+test('R2b a restore is exact to the last digit, tolerates the optional draft archives, and the splitter reads awkward text safely', async () => {
+  const w = await world({ users: ['john'] });
+  await w.join('raf', 500, '01-05'); await w.join('john', 1000, '01-06');
+  await w.reading(1.1, '02-10');
+  // a database that once ran the earlier trial migration has two archive tables a fresh project does not have
+  await w.db.exec(`create table public.investor_perf_draft_archive (profile_id uuid, hwm_value numeric); insert into public.investor_perf_draft_archive values (gen_random_uuid(), 1.5);
+                   create table public.perf_log_draft_archive (id bigserial primary key, note text); insert into public.perf_log_draft_archive(note) values ('has "quotes", {braces} and a \\ backslash')`);
+  // a 24-digit number, as PostgreSQL stores marks and prices (a JavaScript number would keep 17)
+  await w.db.exec(`update public.investor_hwm set hwm_value = 182.034541742533754240015171 where profile_id = '${w.ids.john}'`);
+  const text = (await w.q(`select public._export_all()::text x`))[0].x;
+  assert.ok(text.includes('182.034541742533754240015171'), 'the export carries all 24 digits');
+  const db2 = await fresh();
+  await db2.exec(buildRestoreSql(text));
+  assert.equal((await db2.query(`select hwm_value::text v from public.investor_hwm where profile_id = '${w.ids.john}'`)).rows[0].v, '182.034541742533754240015171', 'restored to the last digit');
+  const t = async (d) => (await d.query(`select public._export_all()::text x`)).rows[0].x;
+  const strip = (j) => { const o = JSON.parse(j); return JSON.stringify(['ledger', 'pool_equity', 'investor_hwm', 'settings'].map((k) => o[k].map((r) => JSON.stringify(r)).sort())); };
+  assert.equal(strip(await t(db2)), strip(text), 'every restored table equals the original');
+  assert.equal((await db2.query(`select to_regclass('public.investor_perf_draft_archive') x`)).rows[0].x, null, 'the optional archive was skipped, not invented');
+  // the splitter: strings with quotes, braces and backslashes do not confuse it; a cut-off file is rejected
+  const o = splitTopLevel('{"a": [1, {"b": "x]\\\\"}, "c"], "n": 0.123456789012345678901234, "s": "}", "t": {"u": []}}');
+  assert.deepEqual(Object.keys(o), ['a', 'n', 's', 't']); assert.equal(o.n, '0.123456789012345678901234');
+  assert.throws(() => splitTopLevel('{"a": [1, 2'), /truncated|ends early/);
+  assert.throws(() => buildRestoreSql('{"format": "something-else"}'), /not a Lucid/);
 });
 
 // ============================================================ 2. the settlement window (Manila time)
@@ -321,4 +346,28 @@ test('R9 the migration upgrades a database that already has a settlement without
   assert.ok(Number(s2.settlement_id) > Number(old.settlement_id));
   assert.equal(new Date((await w.q(`select covered_from from public.settlements order by id desc limit 1`))[0].covered_from).toISOString(), '2026-03-03T04:00:00.000Z', 'covers from the previous settlement');
   assert.equal((await w.call('admin_integrity_report', w.A)).worst, -1);
+});
+
+// ============================================================ 8. known limits, pinned down so a change is deliberate
+test('R10 backdating and missed windows, as they behave today (documented in docs/settlement-controls.md; changing them needs the owner approval)', async () => {
+  // 1. The window is judged on the VALUATION date. A valuation may be dated back as far as the last entry, so a settlement recorded
+  //    late can still be dated inside the window when no entry was recorded since. The settlement records how far back it was dated.
+  const w = await world({ users: ['john'] });
+  await w.join('john', 1000, '01-03'); await w.reading(1.1, '02-20');
+  const s = await w.settle(1.1, '03-05');                                  // recorded now (real clock), dated 5 March: inside the window
+  assert.equal(s.late, false, 'accepted as on time');
+  const row = (await w.q(`select backdated_days b from public.settlements`))[0];
+  assert.ok(Number(row.b) > 100, 'but the record shows it was dated ' + row.b + ' days before it was recorded');
+  // 2. A pool entry recorded after the window closed is what stops the backdating: the valuation date cannot go before the last entry.
+  const v = await world({ users: ['john'] });
+  await v.join('john', 1000, '01-03'); await v.reading(1.1, '02-20'); await v.reading(1.15, '03-12');
+  assert.match(await err(() => v.settle(1.15, '03-05')), /the date must be after the last entry/);
+  // 3. A missed window costs the fee on a peak that reverses: the fee is on the gain above the mark AT the settlement.
+  const peak = await world({ users: ['john'] });
+  await peak.join('raf', 500, '01-03'); await peak.join('john', 1000, '01-04'); await peak.reading(1.3, '02-25');
+  const onTime = await peak.total(1.3);                                    // what an on-time settlement would have charged
+  await peak.reading(1.0, '04-20');                                        // the window was missed and the price fell back
+  const merged = await peak.settle(1.0, '05-03');
+  near(merged.fee_usdt, 0, 1e-9);                                          // nothing is charged: the mark was never exceeded at the settlement
+  assert.ok(onTime > 0);
 });

@@ -3,6 +3,9 @@
 //
 //   node scripts/restore-ledger.mjs backups/<folder>/ledger.json restore.sql
 //
+// Numbers are NEVER parsed here: JavaScript would round the 24-digit values PostgreSQL stores (high-water marks, unit prices) to 17 digits.
+// The backup text is split into its top-level tables and each table is handed to PostgreSQL unchanged, so the restore is exact.
+//
 // The script refuses to run if the target already holds ledger data, restores in one transaction, switches the activity-log triggers
 // off while it loads (so the restore does not write fake history), resets the id sequences, and checks the row counts and the units
 // against the backup before it commits. Passwords are not in backups: set a new one for each person afterwards (see the end of the script).
@@ -27,33 +30,76 @@ export const RESTORE_ORDER = [
 export const OPTIONAL = new Set(['investor_perf_draft_archive', 'perf_log_draft_archive']);
 const KEYED = new Set(['settings']);   // loaded with "on conflict": the migrations already created these rows
 
-export function buildRestoreSql(backup) {
-  if (!backup || backup.format !== 'lucid-io-ledger-backup-1') throw new Error('not a Lucid\'io ledger backup (format lucid-io-ledger-backup-1 expected)');
-  const tag = '$lucid_restore$';
-  const parts = [];
-  const counts = {};
-  const tables = [];
-  for (const [key, table] of RESTORE_ORDER) {
-    let rows = backup[key];
-    if (!Array.isArray(rows) || !rows.length) { counts[table] = 0; continue; }
-    if (key === 'people') rows = rows.map((r) => ({ ...r, pass_hash: '!restored: set a new password', failed_attempts: 0 }));
-    const json = JSON.stringify(rows);
-    if (json.includes(tag)) throw new Error(`the backup contains the text ${tag}; cannot embed it safely`);
-    counts[table] = rows.length;
-    tables.push(table);
-    const conflict = KEYED.has(key) ? ' on conflict (key) do update set value = excluded.value' : '';
-    // the migrations themselves write a few activity-log rows into a fresh project; the backup's log replaces them (its triggers are off here)
-    if (table === 'audit_log') parts.push('delete from public.audit_log;');
-    const ins = `insert into public.${table} select * from jsonb_populate_recordset(null::public.${table}, ${tag}${json}${tag}::jsonb)${conflict};`;
-    if (OPTIONAL.has(table)) parts.push(`do $r$ begin if to_regclass('public.${table}') is null then raise notice 'skipped ${table}: this project does not have it (a draft archive)'; else
-${ins}
-end if; end $r$;`);
-    else parts.push(ins);
+// Splits the text of ONE JSON object into { key: raw text of its value } without parsing any value (so no number is ever rounded).
+export function splitTopLevel(text) {
+  const out = {};
+  let i = 0;
+  const ws = () => { while (i < text.length && ' \t\r\n'.includes(text[i])) i++; };
+  const str = () => {                                  // reads a JSON string starting at the opening quote; returns the raw text including quotes
+    const a = i; i++;
+    while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+    i++;
+    return text.slice(a, i);
+  };
+  ws();
+  if (text[i] !== '{') throw new Error('a backup is one JSON object');
+  i++;
+  for (;;) {
+    ws();
+    if (i >= text.length) throw new Error('the backup ends early (truncated file?)');
+    if (text[i] === '}') break;
+    if (text[i] === ',') { i++; continue; }
+    if (text[i] !== '"') throw new Error('unexpected text in the backup at position ' + i);
+    const key = JSON.parse(str());
+    ws(); if (text[i] !== ':') throw new Error('expected ":" after ' + key); i++; ws();
+    const a = i;
+    if (text[i] === '[' || text[i] === '{') {
+      let depth = 0;
+      for (; i < text.length; i++) {
+        const c = text[i];
+        if (c === '"') { str(); i--; }
+        else if (c === '[' || c === '{') depth++;
+        else if (c === ']' || c === '}') { depth--; if (depth === 0) { i++; break; } }
+      }
+      if (depth !== 0) throw new Error('the backup ends early inside ' + key + ' (truncated file?)');
+    } else if (text[i] === '"') str();
+    else while (i < text.length && !',}'.includes(text[i])) i++;
+    out[key] = text.slice(a, i).trim();
   }
-  const totalUnits = (backup.ledger || []).reduce((t, r) => t + Number(r.units), 0);
-  const lastUnits = (backup.pool_equity || []).length ? Number(backup.pool_equity[backup.pool_equity.length - 1].total_units) : 0;
-  if (Math.abs(totalUnits - lastUnits) > 1e-6) throw new Error(`the backup itself is inconsistent: ledger units ${totalUnits} vs last pool entry ${lastUnits}`);
-  return `-- Lucid'io Ledger RESTORE. Generated ${new Date().toISOString()} from a backup exported at ${backup.exported_at || '?'}.
+  return out;
+}
+
+export function buildRestoreSql(backup) {
+  const raw = splitTopLevel(typeof backup === 'string' ? backup : JSON.stringify(backup));
+  if (raw.format !== '"lucid-io-ledger-backup-1"') throw new Error('not a Lucid\'io ledger backup (format lucid-io-ledger-backup-1 expected)');
+  const tag = '$lucid_restore$';
+  const load = [], tables = [];
+  for (const [key, table] of RESTORE_ORDER) {
+    const json = raw[key];
+    if (!json || json === '[]') continue;
+    if (!json.startsWith('[')) throw new Error(`${key} is not a list in this backup`);
+    if (json.includes(tag)) throw new Error(`the backup contains the text ${tag}; cannot embed it safely`);
+    tables.push(table);
+    load.push(`insert into _restore_src values ('${table}', ${tag}${json}${tag}::jsonb);`);
+  }
+  const names = tables.map((t) => `'${t}'`).join(', ');
+  const optional = [...OPTIONAL].map((t) => `'${t}'`).join(', ');
+  const steps = [];
+  for (const [key, table] of RESTORE_ORDER) {
+    if (!tables.includes(table)) continue;
+    const src = `(select j from _restore_src where t = '${table}')`;
+    // people are restored without a password or lock state (the backup never contains them)
+    const rows = table === 'profiles'
+      ? `(select jsonb_agg(e || '{"pass_hash": "!restored: set a new password", "failed_attempts": 0}'::jsonb) from jsonb_array_elements(${src}) e)` : src;
+    const conflict = KEYED.has(key) ? ' on conflict (key) do update set value = excluded.value' : '';
+    const ins = `insert into public.${table} select * from jsonb_populate_recordset(null::public.${table}, ${rows})${conflict};`;
+    // the migrations themselves write a few activity-log rows into a fresh project; the backup's log replaces them (its triggers are off here)
+    const pre = table === 'audit_log' ? 'delete from public.audit_log;\n' : '';
+    steps.push(OPTIONAL.has(table)
+      ? `do $r$ begin if to_regclass('public.${table}') is null then raise notice 'skipped ${table}: this project does not have it (a draft archive)'; else\n${ins}\nend if; end $r$;`
+      : pre + ins);
+  }
+  return `-- Lucid'io Ledger RESTORE. Generated ${new Date().toISOString()} from a backup exported at ${JSON.parse(raw.exported_at || 'null') || '?'}.
 -- RUN THIS ONLY IN A FRESH STAGING PROJECT that already has every migration applied. It refuses to run on a database that has ledger data.
 begin;
 do $r$ begin
@@ -62,43 +108,45 @@ do $r$ begin
   end if;
 end $r$;
 
+-- the backup, table by table, exactly as exported (PostgreSQL reads every number itself)
+create temp table _restore_src (t text primary key, j jsonb not null) on commit drop;
+${load.join('\n')}
+
 -- load without the activity-log and guard triggers (foreign keys stay on)
 do $r$ declare t text; begin
-  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I disable trigger user', t); end if; end loop;
-  alter table public.pool_equity disable trigger user;
+  foreach t in array array[${names}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I disable trigger user', t); end if; end loop;
 end $r$;
 
-${parts.join('\n\n')}
+${steps.join('\n\n')}
 
 do $r$ declare t text; begin
-  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I enable trigger user', t); end if; end loop;
-  alter table public.pool_equity enable trigger user;
+  foreach t in array array[${names}] loop if to_regclass('public.' || quote_ident(t)) is not null then execute format('alter table public.%I enable trigger user', t); end if; end loop;
 end $r$;
 
 -- ids continue after the restored ones
 do $r$ declare t text; s text; begin
-  foreach t in array array[${[...new Set(tables)].map((t) => `'${t}'`).join(', ')}] loop
+  foreach t in array array[${names}] loop
     s := null;
     if to_regclass('public.' || quote_ident(t)) is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = t and column_name = 'id') then s := pg_get_serial_sequence('public.' || t, 'id'); end if;
     if s is not null then execute format('select setval(%L, greatest(coalesce((select max(id) from public.%I), 1), 1), (select max(id) from public.%I) is not null)', s, t, t); end if;
   end loop;
 end $r$;
 
--- prove the copy before committing
-do $r$ declare c jsonb := ${tag}${JSON.stringify(counts)}${tag}::jsonb; t text; n bigint; u numeric; l numeric; begin
-  for t in select jsonb_object_keys(c) loop
-    if to_regclass('public.' || quote_ident(t)) is null then
-      if t = any(array[${[...OPTIONAL].map((t) => `'${t}'`).join(', ')}]) then raise notice 'not checked: % (not in this project)', t;
-      elsif (c->>t)::bigint > 0 then raise exception 'restore check failed: table % does not exist here', t; end if;
+-- prove the copy before committing: every table has exactly the rows the backup has, and the units agree
+do $r$ declare x record; n bigint; u numeric; l numeric; begin
+  for x in select t, jsonb_array_length(j) c from _restore_src loop
+    if to_regclass('public.' || quote_ident(x.t)) is null then
+      if x.t = any(array[${optional}]) then raise notice 'not checked: % (not in this project)', x.t;
+      else raise exception 'restore check failed: table % does not exist here', x.t; end if;
     else
-      execute format('select count(*) from public.%I', t) into n;
-      if t = 'ledger_settings' then
-        if n < (c->>t)::bigint then raise exception 'restore check failed: ledger_settings has % rows, backup has %', n, c->>t; end if;
-      elsif n <> (c->>t)::bigint then raise exception 'restore check failed: % has % rows, backup has %', t, n, c->>t; end if;
+      execute format('select count(*) from public.%I', x.t) into n;
+      if x.t = 'ledger_settings' then
+        if n < x.c then raise exception 'restore check failed: ledger_settings has % rows, backup has %', n, x.c; end if;
+      elsif n <> x.c then raise exception 'restore check failed: % has % rows, backup has %', x.t, n, x.c; end if;
     end if;
   end loop;
   select coalesce(sum(units), 0) into u from public.ledger;
-  select coalesce(total_units, 0) into l from (select total_units from public.pool_equity order by id desc limit 1) x;
+  select coalesce(total_units, 0) into l from (select total_units from public.pool_equity order by id desc limit 1) q;
   if abs(u - coalesce(l, 0)) > 0.000001 then raise exception 'restore check failed: ledger units % vs last pool entry %', u, l; end if;
 end $r$;
 commit;
@@ -112,7 +160,7 @@ commit;
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [src, out] = process.argv.slice(2);
   if (!src || !out) { console.error('usage: node scripts/restore-ledger.mjs <backup ledger.json> <output restore.sql>'); process.exit(2); }
-  const sql = buildRestoreSql(JSON.parse(readFileSync(src, 'utf8')));
+  const sql = buildRestoreSql(readFileSync(src, 'utf8'));
   writeFileSync(out, sql);
   console.log(`wrote ${out} (${(sql.length / 1024).toFixed(0)} KB). Run it in a fresh staging project, never in production.`);
 }
