@@ -15,6 +15,11 @@ async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
+  // these tests are not about MEXC arrival or the settlement rules (tests/hwm-settlement.test.mjs): every deposit is treated as already in MEXC,
+  // and a close may happen any time without a reconciliation
+  await db.exec(`update public.ledger_settings set value = 'free' where key = 'settlement_schedule'; update public.ledger_settings set value = 'off' where key = 'settlement_recon';`);
+  await db.exec(`create function public._test_in_mexc() returns trigger language plpgsql as $t$ begin new.arrived_at := coalesce(new.arrived_at, now()); return new; end $t$;
+                 create trigger test_in_mexc before insert on public.pending_deposits for each row execute function public._test_in_mexc();`);
   await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months');
                  update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);

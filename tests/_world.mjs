@@ -11,11 +11,13 @@ export const OLD_CHAIN = ['20261022000000_ledger.sql', '20261023000000_hide_pool
   '20261028000000_terms_acceptance.sql', '20261029000000_fund_returns.sql', '20261030000000_net_of_fee_returns.sql',
   '20261031000000_pesos_backup_audit.sql', '20261031000001_bot_equity_sync.sql'];
 export const INTEGRITY = '20261101000000_ledger_integrity.sql';
+export const LATER = ['20261102000000_withdraw_to_manager.sql', '20261103000000_withdrawal_fee_minimum.sql', '20261104000000_payout_details_no_exit_fee.sql',
+  '20261105000000_hwm_arrival_lockup.sql'];
 export const BOT_KEY = 'b'.repeat(64);
 export const near = (a, b, eps = 1e-6) => Math.abs(Number(a) - b) <= eps;
 export const r6 = (x) => Math.round(Number(x) * 1e6) / 1e6;
 
-export async function build({ integrity = true, rate = 0.1, gap = 0, maxMove = null, users = ['john', 'dino', 'eve'] } = {}) {
+export async function build({ integrity = true, later = false, rate = 0.1, gap = 0, maxMove = null, users = ['john', 'dino', 'eve'] } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of OLD_CHAIN) await db.exec(readFileSync(mig(f), 'utf8'));
@@ -38,9 +40,12 @@ export async function build({ integrity = true, rate = 0.1, gap = 0, maxMove = n
   ctx.A = (await call('login', 'raf', 'admin-password-1')).token;
   ctx.ids = { raf: (await q(`select id from public.profiles where username='raf'`))[0].id };
   for (const u of users) ctx.ids[u] = await call('admin_create_user', ctx.A, u, u, u + '-password', rate);
+  // the migrations after the integrity one, up to the high-water mark (20261105000000_hwm_arrival_lockup.sql)
+  ctx.migrateLater = async () => { for (const f of LATER) await db.exec(readFileSync(mig(f), 'utf8')); };
   if (integrity) {
     await ctx.migrateIntegrity();
     if (maxMove !== null) await db.exec(`update public.ledger_settings set value = '${maxMove}' where key = 'valuation_max_move'`);
+    if (later) await ctx.migrateLater();
   }
   await db.exec(`insert into public.ledger_settings(key, value) values ('bot_key_hash', '${createHash('sha256').update(BOT_KEY).digest('hex')}') on conflict (key) do update set value = excluded.value`);
   ctx.tok = async (u) => (await call('login', u, u + '-password')).token;

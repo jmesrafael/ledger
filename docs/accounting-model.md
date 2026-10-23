@@ -1,5 +1,15 @@
 # Lucid'io Ledger: accounting model and integrity remediation
 
+> **Update (migration [`20261105000000_hwm_arrival_lockup.sql`](../supabase/migrations/20261105000000_hwm_arrival_lockup.sql), tests in
+> `tests/hwm.test.mjs`).** It replaces the flat period fee in section 3 with a **high-water mark per investor** (`fee_engine = 'investor_hwm_v2'`).
+> E = units × price, H = `investor_hwm.hwm_value`:
+> deposit D → H += D · close with E > H → fee = rate × (E − H), H := value after fee · withdrawal of share s → fee = rate × max(0, E − H) × s,
+> H := H − s × min(E, H) (a shortfall is never reduced by taking money out; a full exit keeps it, and money that comes back adds to it).
+> So the uncharged gain (or shortfall) E − H moves only with the unit price and with fees. Cutover: H = value after the last close.
+> Also: a waiting deposit is taken out of the MEXC total and joins **only once marked in MEXC** (`arrived_at`), whatever `settlement_gate` is;
+> any deposit not in MEXC needs an explicit yes on a reading and stops `bot_post_equity`. The lock-up is guidance: only an investor's
+> first deposit gets `lock_until`, and withdrawals are not refused unless `lock_enforced = '1'`. Sections 3 and 7 below describe the previous rule.
+
 Status: **implemented and tested, not applied to any database.** The change is one migration,
 [`20261101000000_ledger_integrity.sql`](../supabase/migrations/20261101000000_ledger_integrity.sql), plus small changes to
 [`js/app.js`](../js/app.js) and the bot's `ledger-sync.js`. Read section 9 before running it anywhere.
