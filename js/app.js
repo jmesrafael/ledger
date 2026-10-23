@@ -216,7 +216,7 @@
       <button data-action="refresh">${ICON.refresh}<span>Refresh</span></button>
       <button data-action="theme">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}<span>Theme</span><span class="val">${tl}</span></button>
       ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}
-      ${account ? `<button data-action="welcome">${ICON.tour}<span>Welcome tour</span></button>${isAdmin() ? `<button data-action="botdash">${ICON.bot}<span>Bot dashboard</span></button>` : ''}<button data-action="signout">${ICON.signout}<span>Sign out</span></button>` : ''}</div></details>`;
+      ${account ? `<button data-action="welcome">${ICON.tour}<span>Welcome tour</span></button>${isAdmin() ? `<button data-action="botdash">${ICON.bot}<span>Bot dashboard</span></button>` : ''}<button class="danger" data-action="signout">${ICON.signout}<span>Sign out</span></button>` : ''}</div></details>`;
   };
   const curBtn = () =>(rate() ? `<button class="iconbtn txt" data-action="cur" aria-label="Showing ${inPeso() ? 'pesos' : 'USDT'}. Tap to switch" title="${rateNote()}">${inPeso() ? '₱' : '$'}</button>` : '');
 
@@ -807,8 +807,8 @@
   }
   function viewRecord() {
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
-    if (empty && S.rec === 'eq') S.rec = 'dep';
     const pick = (k, html) => (S.rec === k ? html : '');
+    const noBal = '<div class="card"><h2>Balance</h2><p class="note">Nothing to balance yet. Record the first deposit under <b>Money in</b>, then confirm it reached MEXC and it will show up here.</p><div class="btns"><button data-rec="dep">Go to Money in</button></div></div>';
     const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
     return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
@@ -836,7 +836,7 @@
           <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Inside lock-up: allow</label>
           <label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`)}
-      ${pick('eq', `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
+      ${pick('eq', empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
         <p class="note">The quick old way. The checked route above is safer.</p>
         <form id="eqForm"><label>MEXC total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
         <input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">

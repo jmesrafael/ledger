@@ -121,6 +121,8 @@ header h1 { font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing
   background-color: var(--ghost-bg); background-image: var(--ghost-img); box-shadow: var(--ghost-shadow); border: 1px solid var(--soft-border); }
 .iconbtn svg { width: 20px; height: 20px; }
 .iconbtn.txt { font-size: 18px; font-weight: 800; color: var(--accent-text); }
+.iconbtn.add { background: var(--up-bg); border-color: var(--accent-text); color: var(--accent-text); }
+.iconbtn.add svg { color: inherit; }
 .hdr-actions { display: flex; gap: 8px; }
 .settings { position: relative; }
 .settings > summary { list-style: none; cursor: pointer; }
@@ -131,6 +133,10 @@ header h1 { font-size: 24px; line-height: 30px; font-weight: 800; letter-spacing
   border: 0; border-radius: 10px; background: transparent; box-shadow: none; color: var(--ink); font: inherit; font-weight: 600; text-align: left; }
 .settings .menu button:hover { background: var(--variant); }
 .settings .menu button svg { width: 18px; height: 18px; flex: none; color: var(--ink-2); }
+.settings .menu button.danger { background: var(--down-bg); color: var(--down); }
+.settings .menu button.danger svg { color: var(--down); }
+.settings .menu button.danger:hover { background: var(--down); color: #fff; }
+.settings .menu button.danger:hover svg { color: #fff; }
 .settings .menu .val { margin-left: auto; color: var(--muted); font-weight: 700; }
 .sechead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 16px 2px 0; }
 .sechead h2 { font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin: 0; }
@@ -372,9 +378,9 @@ svg.mini .lab.dn { fill: var(--down); }
 svg.mini .lab.hot { fill: var(--accent-text); }
 .flow { display: flex; align-items: stretch; justify-content: center; gap: 6px; }
 .flow em { align-self: center; font-style: normal; color: var(--muted); font-weight: 800; }
-.chip { flex: 1 1 0; min-width: 0; padding: 10px 8px; text-align: center; border-radius: 14px; background: var(--field-bg); border: 1px solid var(--soft-border); animation: lit 6s ease-in-out infinite; animation-delay: calc(var(--i) * 2s); }
-.chip span { display: block; font-weight: 800; font-size: 13px; line-height: 1.2; }
-.chip small { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); font-weight: 600; line-height: 1.25; }
+.flow .chip { flex: 1 1 0; min-width: 0; padding: 10px 8px; text-align: center; border-radius: 14px; background: var(--field-bg); border: 1px solid var(--soft-border); animation: lit 6s ease-in-out infinite; animation-delay: calc(var(--i) * 2s); }
+.flow .chip span { display: block; font-weight: 800; font-size: 13px; line-height: 1.2; }
+.flow .chip small { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); font-weight: 600; line-height: 1.25; }
 .lockrow { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .lockrow .lk { width: 46px; height: 46px; flex: none; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent-text); }
 .lockrow .lk svg { width: 24px; height: 24px; }
