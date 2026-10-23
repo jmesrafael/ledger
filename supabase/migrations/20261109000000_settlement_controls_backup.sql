@@ -7,6 +7,10 @@
 --    settlement covers everything since the last one (nothing is skipped, the high-water mark carries on), and no settlement can follow
 --    one a day later. Each settlement now saves the dates it actually covers, how many days after the period end it was valued, whether
 --    it was late, and the exceptions it used.
+-- 1b. NO BACKDATING. The window is judged on the LATER of the valuation date and the real recording time, so a settlement recorded after the
+--    window cannot be dated into it. A settlement dated more than settlement_backdate_minutes (60) before the moment it is recorded is refused
+--    unless a 'backdated' exception was approved (written reason, logged). Each settlement saves both times (valued_at, recorded_at) and
+--    whether it was backdated; existing rows are not changed.
 -- 2. RECONCILIATION OR AN AUDITED EXCEPTION. A settlement needs (a) a verified bot snapshot, or (b) the newest confirmed balance check for the
 --    same MEXC total. A typed note alone is no longer a verification: it is an EXCEPTION ('unreconciled'), approved with
 --    admin_approve_settlement_exception (or the older admin_attest_settlement, now a wrapper), with the open positions declared, written
@@ -14,6 +18,9 @@
 -- 3. NO FEES ON OPEN-TRADE GAINS by default. If any position or order is open (balance check, bot snapshot or the declaration), the
 --    settlement is refused unless an 'open_positions' exception was approved (written reason, logged).
 -- 4. A direct insert of a quarter close into pool_equity is refused unless it comes from admin_close_quarter (settle_guard).
+-- 4b. CLOSES A LIVE EXPOSURE. On Supabase every new function is callable by the public website role (anon) unless it is revoked. Four internal helpers
+--    that take no token were left that way by earlier migrations: _export_all() (the WHOLE ledger export), _account_since, _check_min_withdrawal and
+--    _exit_fee_rate. This migration revokes all four (the app's own functions run as the owner and are not affected).
 -- 5. BACKUP COVERS EVERY TABLE: payout_details, idempotency_keys, holder_state, the draft archives and settlement_exceptions join the export.
 --    admin_backup_coverage lists any table that is neither exported nor deliberately excluded (sessions, backup_keys: secrets;
 --    app_settings, backtest_runs: the backtester, not the ledger). scripts/restore-ledger.mjs turns a backup into a restore script.
@@ -26,12 +33,12 @@ begin
   end if;
 end $$;
 
-insert into public.ledger_settings(key, value) values ('settlement_window_days', '7') on conflict (key) do nothing;
+insert into public.ledger_settings(key, value) values ('settlement_window_days', '7'), ('settlement_backdate_minutes', '60') on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------- tables and columns
 create table if not exists public.settlement_exceptions (
   id             bigserial primary key,
-  kind           text not null check (kind in ('unreconciled', 'late', 'open_positions')),
+  kind           text not null,
   period_end     timestamptz not null,
   mexc_total     numeric not null check (mexc_total > 0),
   open_positions int check (open_positions between 0 and 50),     -- positions + orders the manager declares are open (unreconciled / open_positions)
@@ -41,6 +48,8 @@ create table if not exists public.settlement_exceptions (
   created_by     uuid not null references public.profiles(id),
   ts             timestamptz not null default now()
 );
+alter table public.settlement_exceptions drop constraint if exists settlement_exceptions_kind_check;
+alter table public.settlement_exceptions add constraint settlement_exceptions_kind_check check (kind in ('unreconciled', 'late', 'open_positions', 'backdated'));
 alter table public.settlement_exceptions enable row level security;
 revoke all on public.settlement_exceptions from public, anon, authenticated;
 revoke all on sequence public.settlement_exceptions_id_seq from public, anon, authenticated;
@@ -54,6 +63,11 @@ alter table public.settlements add column if not exists late boolean not null de
 alter table public.settlements add column if not exists backdated_days numeric;
 alter table public.settlements add column if not exists exception_ids bigint[] not null default '{}';
 alter table public.settlements add column if not exists open_positions_at_settlement int;
+alter table public.settlements add column if not exists recorded_at timestamptz;                        -- when the settlement was actually recorded (valued_at is the date it carries)
+alter table public.settlements add column if not exists backdated boolean not null default false;
+
+-- the moment a settlement is being recorded. It is now(); it sits behind one function only so that the tests can set the time.
+create or replace function public._clock() returns timestamptz language sql stable security definer set search_path = public as $$ select now() $$;
 
 -- ---------------------------------------------------------------- helpers
 -- the newest approved exception of this kind for this period and MEXC total that no settlement has used yet
@@ -88,12 +102,22 @@ declare
   v_per record; v_mode text := coalesce(_setting('settlement_recon'), 'require'); v_sched text := coalesce(_setting('settlement_schedule'), 'bimonthly');
   v_win int := coalesce(nullif(_setting('settlement_window_days'), '')::int, 7); v_tz text := coalesce(_setting('settlement_tz'), 'Asia/Manila');
   v_block jsonb := '[]'::jsonb; v_ids bigint[] := '{}'; v_rec jsonb := p_rec; v_win_end timestamptz; v_late boolean := false; v_x bigint;
-  v_chk record; v_bv bigint; v_att bigint; v_open int;
+  v_chk record; v_bv bigint; v_att bigint; v_open int; v_now timestamptz := _clock(); v_back boolean := false;
 begin
   select * into v_per from _settlement_period(p_at);
   if v_sched = 'bimonthly' then
+    -- a settlement dated before the moment it is recorded must say so: it needs its own audited exception
+    v_back := p_at < v_now - make_interval(mins => coalesce(nullif(_setting('settlement_backdate_minutes'), '')::int, 60));
+    if v_back then
+      v_x := _settlement_exception('backdated', v_per.o_end, p_equity);
+      if v_x is null then
+        v_block := v_block || to_jsonb(format('BACKDATED: this settlement is dated %s but is being recorded %s hours later. A settlement carries the date it is recorded, so a late settlement cannot be dated into the window. Record it now (leave the date empty), or approve a backdated exception with a written reason.',
+          to_char(p_at at time zone v_tz, 'YYYY-MM-DD HH24:MI'), round(extract(epoch from v_now - p_at) / 3600, 1)));
+      else v_ids := v_ids || v_x; end if;
+    end if;
+    -- the window is judged on the later of the valuation date and the recording time
     v_win_end := v_per.o_end + make_interval(days => v_win);
-    v_late := p_at >= v_win_end;
+    v_late := greatest(p_at, v_now) >= v_win_end;
     if v_late then
       v_x := _settlement_exception('late', v_per.o_end, p_equity);
       if v_x is null then
@@ -135,7 +159,7 @@ begin
       end if;
     end if;
   end if;
-  return jsonb_build_object('blocked', v_block, 'late', v_late, 'window_end', v_win_end, 'period_end', v_per.o_end, 'bv', v_bv, 'att', v_att,
+  return jsonb_build_object('blocked', v_block, 'late', v_late, 'backdated', v_back, 'recorded_at', v_now, 'window_end', v_win_end, 'period_end', v_per.o_end, 'bv', v_bv, 'att', v_att,
                             'open_positions', v_open, 'exception_ids', to_jsonb(v_ids), 'rec', v_rec);
 end $$;
 
@@ -146,7 +170,7 @@ language plpgsql security definer set search_path = public as $$
 declare v_actor uuid := _admin(p_token); v_at timestamptz := coalesce(p_at, now()); v_per record; v_rec jsonb; v_att bigint; v_id bigint;
 begin
   perform _ledger_lock();
-  if p_kind not in ('unreconciled', 'late', 'open_positions') then raise exception 'the exception is unreconciled, late or open_positions'; end if;
+  if p_kind not in ('unreconciled', 'late', 'open_positions', 'backdated') then raise exception 'the exception is unreconciled, late, backdated or open_positions'; end if;
   if p_equity is null or p_equity <= 0 then raise exception 'enter the MEXC total this exception is for'; end if;
   if p_note is null or length(trim(p_note)) < 20 then raise exception 'write the reason for the exception (at least 20 characters)'; end if;
   if p_kind in ('unreconciled', 'open_positions') and (p_open is null or p_open < 0) then
@@ -196,7 +220,7 @@ declare
   v_lastc timestamptz; v_fee numeric; v_total numeric := 0; v_total_usd numeric := 0; v_n int := 0; v_rate numeric; v_conv jsonb;
   v_gap int := coalesce(_setting('min_days_between_closes'), '0')::int; v_res jsonb; v_flag text; v_per record; v_rec jsonb;
   v_mode text := coalesce(_setting('settlement_recon'), 'require'); v_att bigint; v_u numeric; v_h numeric; v_e numeric; v_late int; v_fm jsonb;
-  v_from bigint; v_bv bigint; v_pp numeric; v_fm0 jsonb; v_period jsonb; v_req jsonb; v_cfrom timestamptz; v_ids bigint[]; v_open int;
+  v_from bigint; v_bv bigint; v_pp numeric; v_fm0 jsonb; v_period jsonb; v_req jsonb; v_cfrom timestamptz; v_ids bigint[]; v_open int; v_now timestamptz := _clock();
 begin
   perform _ledger_lock();
   v_res := _idem_get(p_idem, 'admin_close_quarter'); if v_res is not null then return v_res; end if;
@@ -256,21 +280,21 @@ begin
   v_fm := v_fm || jsonb_build_object('period', v_period);
   insert into settlements(equity_id, period_start, period_end, valued_at, mexc_total, nav, total_units, unit_price, opening_nav, deposits_usdt,
       withdrawals_usdt, trading_pnl_usdt, entries_after_period_end, fee_basis, investors_charged, fee_units, fee_usdt, fund_m, recon, recon_status, attestation_id, created_by,
-      balance_verification_id, covered_from, covered_to, days_after_period_end, late, backdated_days, exception_ids, open_positions_at_settlement)
+      balance_verification_id, covered_from, covered_to, days_after_period_end, late, backdated_days, exception_ids, open_positions_at_settlement, recorded_at, backdated)
   values (v_eq_id, v_per.o_start, v_per.o_end, v_at, p_equity, v_nav, u, v_price, (v_rec->>'opening_nav')::numeric, (v_rec->>'deposits_usdt')::numeric,
       (v_rec->>'withdrawals_usdt')::numeric, (v_rec->>'trading_pnl_usdt')::numeric, v_late, coalesce(_setting('fee_basis'), 'external_investors'), v_n, v_total, v_total_usd,
       v_fm, v_rec, v_rec->>'status', v_att, v_actor,
       v_bv, v_cfrom, v_at, round(extract(epoch from v_at - v_per.o_end) / 86400, 3), (v_req->>'late')::boolean,
-      round(greatest(0, extract(epoch from now() - v_at) / 86400)::numeric, 3), v_ids, v_open);
+      round(greatest(0, extract(epoch from v_now - v_at) / 86400)::numeric, 3), v_ids, v_open, v_now, coalesce((v_req->>'backdated')::boolean, false));
   update profiles set fee_rate = fee_rate_next, fee_rate_next = null where fee_rate_next is not null;
   v_conv := _convert_all_pending(v_price, v_at, v_actor);
   perform _check_books();
   perform _audit(v_actor, 'settlement_closed', null, jsonb_build_object('settlement_id', currval('settlements_id_seq'), 'equity_id', v_eq_id, 'period_end', v_per.o_end,
-    'covered_from', v_cfrom, 'covered_to', v_at, 'late', (v_req->>'late')::boolean, 'recon_status', v_rec->>'status', 'balance_verification_id', v_bv,
+    'covered_from', v_cfrom, 'covered_to', v_at, 'recorded_at', v_now, 'late', (v_req->>'late')::boolean, 'backdated', coalesce((v_req->>'backdated')::boolean, false), 'recon_status', v_rec->>'status', 'balance_verification_id', v_bv,
     'exception_ids', v_ids, 'open_positions', v_open, 'investors_charged', v_n, 'fee_usdt', v_total_usd, 'mexc_total', p_equity));
   return _idem_put(p_idem, 'admin_close_quarter', jsonb_build_object('unit_price', v_price, 'investors_charged', v_n, 'fee_units', v_total, 'fee_usdt', v_total_usd,
     'converted', v_conv->'converted', 'settlement_id', currval('settlements_id_seq'), 'period_start', v_per.o_start, 'period_end', v_per.o_end,
-    'covered_from', v_cfrom, 'covered_to', v_at, 'late', (v_req->>'late')::boolean, 'exception_ids', to_jsonb(v_ids),
+    'covered_from', v_cfrom, 'covered_to', v_at, 'recorded_at', v_now, 'late', (v_req->>'late')::boolean, 'backdated', coalesce((v_req->>'backdated')::boolean, false), 'exception_ids', to_jsonb(v_ids),
     'recon_status', v_rec->>'status', 'attestation_id', v_att, 'balance_verification_id', v_bv, 'fund_m_period', v_period), v_actor);
 end $$;
 
@@ -314,7 +338,7 @@ begin
                     '{capital,profit_usdt}', to_jsonb((v_fm->'capital'->>'units')::numeric * v_price + (v_fm->'capital'->>'withdrawn_usdt')::numeric - (v_fm->'capital'->>'contributed_usdt')::numeric));
   return jsonb_build_object('balance_verification_id', nullif(v_req->>'bv', '')::bigint, 'can_settle', jsonb_array_length(v_block) = 0, 'blocked_reasons', v_block,
     'period_start', v_per.o_start, 'period_end', v_per.o_end, 'next_period_end', v_per.o_next, 'valued_at', v_at,
-    'window_end', v_req->'window_end', 'late', v_req->'late', 'open_positions', v_req->'open_positions', 'exception_ids', v_req->'exception_ids',
+    'window_end', v_req->'window_end', 'late', v_req->'late', 'backdated', v_req->'backdated', 'recorded_at', v_req->'recorded_at', 'open_positions', v_req->'open_positions', 'exception_ids', v_req->'exception_ids',
     'covered_from', case when v_from > 0 then (select ts from pool_equity where id = v_from) else (select min(ts) from pool_equity) end,
     'mexc_total', p_equity, 'nav', v_nav, 'unit_price', v_price, 'total_units', _total_units(),
     'fee_basis', coalesce(_setting('fee_basis'), 'external_investors'), 'fee_usdt', v_tot, 'fee_units', v_totu, 'lines', v_lines,
@@ -361,7 +385,8 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------- access
-revoke all on function public._settlement_exception(text, timestamptz, numeric), public._settlement_check(numeric), public._settlement_requirements(numeric, timestamptz, jsonb),
+revoke all on function public._account_since(uuid), public._check_min_withdrawal(uuid, numeric, numeric, numeric), public._exit_fee_rate(uuid),
+  public._clock(), public._settlement_exception(text, timestamptz, numeric), public._settlement_check(numeric), public._settlement_requirements(numeric, timestamptz, jsonb),
   public._settle_guard(), public._dump_table(text), public._export_extra(), public._export_all() from public, anon, authenticated;
 revoke all on function public.admin_approve_settlement_exception(text, text, numeric, text, timestamptz, int), public.admin_attest_settlement(text, numeric, text, timestamptz, int),
   public.admin_backup_coverage(text), public.admin_close_quarter(text, numeric, numeric, text, timestamptz, text, boolean),
@@ -369,3 +394,6 @@ revoke all on function public.admin_approve_settlement_exception(text, text, num
 grant execute on function public.admin_approve_settlement_exception(text, text, numeric, text, timestamptz, int), public.admin_attest_settlement(text, numeric, text, timestamptz, int),
   public.admin_backup_coverage(text), public.admin_close_quarter(text, numeric, numeric, text, timestamptz, text, boolean),
   public.admin_settlement_preview(text, numeric, timestamptz) to anon, authenticated;
+
+-- the API layer reads the function list at start-up; tell it the functions changed
+notify pgrst, 'reload schema';

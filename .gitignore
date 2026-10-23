@@ -13,3 +13,7 @@ supabase/reset-and-seed-backtest.sql
 # ledger backups hold everyone's data; the key file can read the whole ledger
 backups/
 backup.config.json
+
+# local browser smoke test output (screenshots, throwaway Chrome profile)
+scripts/ui-smoke/out/
+scripts/ui-smoke/*.log

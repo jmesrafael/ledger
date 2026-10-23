@@ -10,12 +10,14 @@ const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL(
 const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl)),
   ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];   // applied/* then the pending migrations
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
+const CLOCK_SQL = `create or replace function public._clock() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, '2000-01-01T00:00:00Z'::timestamptz) $$;`;   // tests set the recording time with: set test.clock = '...' (default: the year 2000, before every date used here)
 const NOTE = 'bot has no realized PnL yet; checked against the MEXC app by hand';
 
 async function world({ settings = {} } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
+  await db.exec(CLOCK_SQL);
   const set = { lock_months: '0', bcrypt_cost: '4', valuation_max_move: '1000', ...settings };
   for (const [k, v] of Object.entries(set)) await db.query(`update public.ledger_settings set value = $2 where key = $1`, [k, v]);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);

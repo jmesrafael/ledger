@@ -75,9 +75,10 @@ can never exceed the loss the investor actually suffered. The manager forgoes at
 
 **Cut-off rules.**
 1. The settlement for the period ending at boundary B is made with a valuation dated T ≥ B. It is refused before B, and refused again once
-   a settlement dated ≥ B exists (one per period; also a unique index on `settlements.period_end`). **Window (1109):** T must be before
+   a settlement dated ≥ B exists (one per period; also a unique index on `settlements.period_end`). **Window (1109):** the later of T and the real recording time must be before
    B + `settlement_window_days` (7). After that the settlement is *late* and is refused unless a `late` exception was approved
-   (`admin_approve_settlement_exception`, written reason, activity log). A missed window is not lost: the next window's settlement covers
+   (`admin_approve_settlement_exception`, written reason, activity log). **No backdating:** a settlement dated more than `settlement_backdate_minutes` (60) before
+   the moment it is recorded is refused unless a `backdated` exception was approved; a settlement that is both needs both. A missed window is not lost: the next window's settlement covers
    everything since the last one.
 2. A capital movement belongs to the period of its **pool entry** (admission or payment), not the day the money was received or requested.
 3. Deposits still waiting at the settlement are admitted after the fees, at the settlement price, so they never pay for or share in the period being settled.
@@ -135,7 +136,7 @@ All functions take the session token first, like the existing RPCs. Unchanged si
 | Function | Use |
 |---|---|
 | `admin_settlement_preview(token, mexc_total, at default now)` → jsonb | **Read-only.** Period start/end, `can_settle` + `blocked_reasons[]`, reconciliation (opening NAV, deposits, withdrawals, trading P&L both ways, waiting-deposit liability, snapshot evidence, status), per-investor lines (units, value, hwm, eligible profit, fee USDT/units), fee totals, Fund M split, waiting deposits that will be admitted after. Show this before the manager confirms. |
-| `admin_approve_settlement_exception(token, kind, mexc_total, note ≥ 20 chars, at default now, open positions)` → jsonb (1109) | Approves an exception: `kind` is `unreconciled`, `late` or `open_positions`. Bound to the period and the MEXC total (± tolerance), used by one settlement, audited, append-only. An internal mismatch or an unmatched MEXC transfer cannot be excepted. |
+| `admin_approve_settlement_exception(token, kind, mexc_total, note ≥ 20 chars, at default now, open positions)` → jsonb (1109) | Approves an exception: `kind` is `unreconciled`, `late`, `backdated` or `open_positions`. Bound to the period and the MEXC total (± tolerance), used by one settlement, audited, append-only. An internal mismatch or an unmatched MEXC transfer cannot be excepted. |
 | `admin_attest_settlement(token, mexc_total, note, at, open positions)` | The older name for an `unreconciled` exception. From 1109 it also needs the open-positions argument; without it the call is refused. |
 | `admin_backup_coverage(token)` → jsonb (1109) | Lists any ledger table that is neither in the backup nor deliberately excluded. Must be `[]`. |
 | `admin_close_quarter(token, equity, php_rate, note, at, idem, confirm)` = | Performs the settlement. It returns the old fields plus `settlement_id`, `period_start`, `period_end`, `fee_usdt`, `recon_status`. The name is kept so the app keeps working; it now settles the **two-month period**. |
@@ -146,9 +147,9 @@ All functions take the session token first, like the existing RPCs. Unchanged si
 | `admin_withdraw`, `admin_withdraw_to_manager`, deposits, undo | = signatures. The fee at a withdrawal now follows section 3. |
 
 Errors the UI should expect from `admin_close_quarter`: `the period ending … is already settled; the next settlement is allowed from …`,
-`no settlement period has ended yet`, `LATE: …` (needs a late exception, or wait for the next window), `RECONCILE: …` (needs a confirmed balance
+`no settlement period has ended yet`, `LATE: …` (needs a late exception, or wait for the next window), `BACKDATED: …` (record it now, or approve a backdated exception), `RECONCILE: …` (needs a confirmed balance
 check or an `unreconciled` exception), `OPEN TRADES: …` (close the trades or approve an `open_positions` exception), `settlement refused: …`
-(needs a fix; no exception can override it). The app (`settleWithExceptions` in `js/app.js`) turns the first three into an approval prompt.
+(needs a fix; no exception can override it). The app (`withSettlementExceptions` in `js/app.js`, used by the old form and by the Capital tab) turns `LATE`, `BACKDATED`, `RECONCILE` and `OPEN TRADES` into an approval prompt.
 
 **Wording the UI must change (Agent 2):** "quarter" becomes "two-month period". The investor terms (section "The fee") and
 `reports/how-lucid-io-works.html` currently say *"the loss is not carried forward"*. Under this engine the loss **is** carried forward. The
@@ -162,7 +163,8 @@ terms version must be bumped so every investor agrees again (`terms_acceptances`
 | `fee_basis` | `external_investors` | `external_investors`, `all_pool` |
 | `settlement_schedule` | `bimonthly` | `bimonthly`, `free` (tests / emergencies only) |
 | `settlement_period_months` / `settlement_anchor` / `settlement_tz` | `2` / `2026-01-01` / `Asia/Manila` | |
-| `settlement_window_days` (1109) | `7` | days after a period ends in which its settlement is on time |
+| `settlement_window_days` (1109) | `7` | days after a period ends in which its settlement is on time (judged on the recording time) |
+| `settlement_backdate_minutes` (1109) | `60` | how far before the moment of recording a settlement may be dated without a `backdated` exception (clock skew) |
 | `settlement_recon` | `require` | `require`, `warn`, `off` (owner-only; `off` also turns the exception checks off) |
 | `workflow_gate` | `off` | `on` = deposits, withdrawals and settlements only through the Capital desk (see settlement-controls.md) |
 | `lock_enforced` | `0` | `1` = the old lock-up refusal; `0` = lock-up is wording only |

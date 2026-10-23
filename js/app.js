@@ -113,26 +113,28 @@
     delete fm.dataset.idem;
     return r;
   }
-  // A settlement that is late, not reconciled with MEXC, or made while trades are open is refused by the database. Here the manager can approve an
-  // exception: a written reason (at least 20 characters) and the open trades are declared, it is written to the activity log and saved on the settlement.
-  async function settleWithExceptions(fm, args) {
-    for (let i = 0; i < 4; i++) {
-      try { return await moneyCall(fm, 'admin_close_quarter', args); }
+  // A settlement that is late, backdated, not reconciled with MEXC, or made while trades are open is refused by the database. Here the manager can
+  // approve an exception: a written reason (at least 20 characters), and the open trades declared. It is written to the activity log and saved on the
+  // settlement. `run` makes the settlement call; equity and at are what the exception is bound to (the MEXC total and the valuation date).
+  async function withSettlementExceptions(run, equity, at) {
+    for (let i = 0; i < 5; i++) {
+      try { return await run(); }
       catch (e) {
-        const m = String(e.message), kind = /^LATE:/.test(m) ? 'late' : /^RECONCILE:/.test(m) ? 'unreconciled' : /^OPEN TRADES: [0-9]/.test(m) ? 'open_positions' : null;
+        const m = String(e.message), kind = /^LATE:/.test(m) ? 'late' : /^BACKDATED:/.test(m) ? 'backdated' : /^RECONCILE:/.test(m) ? 'unreconciled' : /^OPEN TRADES: [0-9]/.test(m) ? 'open_positions' : null;
         if (!kind) throw e;
         if (!confirm(m + '\n\nApprove an exception? It is written to the activity log with your reason, and saved on the settlement.')) throw new Error('Not settled.');
         const note = prompt('Why is this exception acceptable? (at least 20 characters)') || '';
         let open = null;
-        if (kind !== 'late') {
+        if (kind !== 'late' && kind !== 'backdated') {
           open = Number(prompt('How many positions and orders are open on MEXC right now? (0 if none)', kind === 'open_positions' ? '1' : '0'));
           if (!Number.isFinite(open) || open < 0) throw new Error('Enter 0, or the number of open positions and orders.');
         }
-        await call('admin_approve_settlement_exception', { p_kind: kind, p_equity: args.p_equity, p_note: note, p_at: args.p_at, p_open: open });
+        await call('admin_approve_settlement_exception', { p_kind: kind, p_equity: equity, p_note: note, p_at: at, p_open: open });
       }
     }
-    throw new Error('Not settled: more than three exceptions would be needed. Check the figures first.');
+    throw new Error('Not settled: more exceptions would be needed than are possible. Check the figures first.');
   }
+  const settleWithExceptions = (fm, args) => withSettlementExceptions(() => moneyCall(fm, 'admin_close_quarter', args), args.p_equity, args.p_at);
   function signedOut(msg) {
     if (S.adminToken) { backToManager('The view-as session ended.'); return; }   // an expired "view as" falls back to the fund manager
     S.token = null; S.me = null; S.modal = null; S.welcome = null; S.welcomeDone = false; S.gate = null; S.termsRO = false; clearTimeout(S.splashT); S.splashT = null; store.set(null); loginView(); if (msg) toast(msg, true);
@@ -163,6 +165,8 @@
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
     try { S.payout = admin ? null : await call('my_payout'); S.payouts = admin ? (await call('admin_payouts')) || [] : []; }
     catch (e) { if (e.message === 'Signed out') throw e; S.payout = null; S.payouts = []; }   // empty until the payout-details migration is run
+    try { S.contact = admin ? null : await call('my_contact'); S.contacts = admin ? (await call('admin_contacts')) || [] : []; S.contactOn = true; }
+    catch (e) { if (e.message === 'Signed out') throw e; S.contact = null; S.contacts = []; S.contactOn = false; }   // hidden until the contact-details migration is run
     try { S.pos = admin ? null : await call('my_position'); S.queue = admin ? await call('admin_capital_queue') : null; S.checks = admin ? await call('admin_balance_checks') : null; }
     catch (e) { if (e.message === 'Signed out') throw e; S.pos = null; S.queue = null; S.checks = null; }   // empty until the capital-workflow migration is run
     try { S.exit = await call('exit_fee_info'); } catch (e) { if (e.message === 'Signed out') throw e; S.exit = null; }   // null until the withdrawal-fee migration is run
@@ -304,6 +308,29 @@
       <div class="row"><span class="l">${d.method === 'gcash' ? 'GCash number' : 'Account number'}</span><span class="r">${esc(d.account_number)}</span></div>
       ${d.qr_path ? `<a href="${payUrl(d.qr_path)}" target="_blank" rel="noopener"><img class="payqr" src="${payUrl(d.qr_path)}" alt="Receiving QR code" loading="lazy"></a>` : '<p class="note">No QR image uploaded.</p>'}</div>`;
   }
+  const contactOf = (id) => (S.contacts || []).find((c) => c.profile_id === id) || null;
+  const contactMissing = (id) => !!S.contactOn && !!contactOf(id) && contactOf(id).missing;
+  // read-only view of how to reach someone (fund manager side)
+  function contactBlock(c) {
+    if (!c || c.missing) return '<p class="note warn">No contact details on file for this person yet.</p>';
+    const row = (l, v) => `<div class="row"><span class="l">${l}</span><span class="r">${v}</span></div>`;
+    return `<div class="payblock">${row('Phone', `<a href="tel:${esc(String(c.phone).replace(/[^+0-9]/g, ''))}">${esc(c.phone)}</a>`)}
+      ${row('Email', c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span class="note">none</span>')}
+      ${c.emergency_name ? row('Emergency contact', `${esc(c.emergency_name)}<br><a href="tel:${esc(String(c.emergency_phone).replace(/[^+0-9]/g, ''))}">${esc(c.emergency_phone)}</a>`) : row('Emergency contact', '<span class="note">none</span>')}
+      ${c.updated_at ? `<p class="note" style="margin:6px 0 0">Last updated ${day(c.updated_at)}</p>` : ''}</div>`;
+  }
+  function contactCard(m) {
+    if (!S.contactOn) return '';
+    const d = S.contact, head = `<div class="card"><h2>How to reach me</h2>`;
+    if (m.impersonated) return `${head}${d ? contactBlock({ ...d, missing: false }) : '<p class="note">Not added yet.</p>'}</div>`;
+    return `${head}<p class="note" style="margin-top:0">${d ? 'Used only to contact you about your account.' : '<b class="warn">Please add this.</b> If anything happens with your account or a withdrawal, this is how the fund manager reaches you.'}</p>
+      <form id="contactForm"><label>Phone number</label><input name="phone" type="tel" value="${esc((d && d.phone) || '')}" inputmode="tel" autocomplete="tel" placeholder="0917 123 4567" required>
+        <label>Email (optional)</label><input name="email" type="email" value="${esc((d && d.email) || '')}" autocomplete="email" placeholder="you@example.com">
+        <label>Someone we can call if we cannot reach you (optional)</label>
+        <div class="grid form2"><div><input name="en" value="${esc((d && d.emergency_name) || '')}" placeholder="Name" autocomplete="off"></div>
+          <div><input name="ep" type="tel" value="${esc((d && d.emergency_phone) || '')}" inputmode="tel" placeholder="Their number" autocomplete="off"></div></div>
+        <button class="full">${d ? 'Update contact details' : 'Save contact details'}</button></form></div>`;
+  }
   function payoutCard(m) {
     const d = S.payout, method = (d && d.method) || 'gcash';
     const head = `<div class="card"><h2>Where to send my money</h2>`;
@@ -340,7 +367,7 @@
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
         <div class="row"><span class="l">Stays invested in the pool</span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${f(m.fee_units_earned, 4)} units</span></span></div></div>`}
-      ${investor ? payoutCard(m) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
+      ${investor ? contactCard(m) + payoutCard(m) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
@@ -683,7 +710,7 @@
   function viewUsers() {
     const card = (h) => {
       const inv = h.role === 'investor' && h.net_profit_usdt != null, val = inv ? h.net_value_usdt : h.value_usdt, gain = inv ? h.net_profit_usdt : h.profit_usdt, nm = esc(h.name || h.username);
-      return `<div class="card ucard${h.active ? '' : ' off'}"><div class="ubody"><div class="unm">${nm}${h.role === 'admin' ? ' <span class="chip">fund manager</span>' : ''}${h.active ? '' : ' <span class="chip down">off</span>'}</div>
+      return `<div class="card ucard${h.active ? '' : ' off'}"><div class="ubody"><div class="unm">${nm}${h.role === 'admin' ? ' <span class="chip">fund manager</span>' : ''}${h.active ? '' : ' <span class="chip down">off</span>'}${h.role === 'investor' && contactMissing(h.id) ? ' <span class="chip down">no contact</span>' : ''}</div>
           <div class="uval"><b>${money(val)}</b> <span class="${cls(gain)}">(${smoney(gain)})</span></div></div>
         <button class="iconbtn" data-action="userview" data-id="${h.id}" aria-label="View ${nm}" title="View ${nm}">${ICON.eye}</button></div>`;
     };
@@ -716,6 +743,14 @@
       ${EXIT_FEE_ON && inv && exitInfo(h.id) ? line(`Withdrawal fee<br><span class="note">${exitNote(h.id)}</span>`, pc(exitRate(h.id)) + '%') : ''}
       ${line(inv ? 'Locked until' : 'Fees earned (units)', inv ? day(h.lock_until) : f(h.fee_units_earned, 3))}
       ${termsLine(h)}
+      ${S.contactOn ? `<details style="margin-top:12px" ${contactMissing(h.id) ? 'open' : ''}><summary class="note" style="cursor:pointer">Contact and payout details</summary>
+        ${contactBlock(contactOf(h.id))}${inv ? payoutBlock(payOf(h.id)) : ''}
+        <form class="adminContactForm" data-id="${h.id}"><p class="note" style="margin:8px 0 0">Record or correct ${nm}'s contact details (for example taken over the phone). The change is kept in a history.</p>
+          <label>Phone number</label><input name="phone" type="tel" value="${esc((contactOf(h.id) || {}).phone || '')}" inputmode="tel" required>
+          <label>Email (optional)</label><input name="email" type="email" value="${esc((contactOf(h.id) || {}).email || '')}">
+          <div class="grid form2"><div><label>Emergency contact</label><input name="en" value="${esc((contactOf(h.id) || {}).emergency_name || '')}" placeholder="Name"></div>
+            <div><label>Their number</label><input name="ep" type="tel" value="${esc((contactOf(h.id) || {}).emergency_phone || '')}"></div></div>
+          <div class="btns"><button class="ghost">Save contact details</button></div></form></details>` : ''}
       <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
         ${inv ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
           <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
@@ -754,17 +789,23 @@
   const inMexc = () => S.pend.filter((d) => d.arrived_at), inMexcTotal = () => inMexc().reduce((t, d) => t + Number(d.usdt), 0);
   const pendNote = () => (inMexc().length ? ` Includes <b>${usdt(inMexcTotal())}</b> of deposits already in MEXC and still waiting; they are taken out first.` : '')
     + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In MEXC": they are NOT taken out. If their money is already in MEXC, mark them first.</span>` : '');
+  // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through the Capital tab (the database refuses the old direct
+  // routes). The old forms are replaced by instructions, so nobody meets an error message.
+  const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   function pendingCard() {
     if (!S.pend.length) return '';
+    const g = gateOn();
     return `<div class="card"><h2>Waiting to join (${S.pend.length}) · ${money(pendTotal())}</h2>
-      <p class="note">Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In MEXC</b>, at the next <b>Update equity</b> (or settlement), at that day's price. Mark it as soon as the money reaches MEXC.</p>
-      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? 'in MEXC, joins at the next reading' : '<span class="warn">not in MEXC yet</span>'}</span></span>
-        <span class="r">${d.arrived_at ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In MEXC</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}</div>`;
+      <p class="note">${g ? Gate.TEXT.waiting
+        : 'Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In MEXC</b>, at the next <b>Update equity</b> (or settlement), at that day\'s price. Mark it as soon as the money reaches MEXC.'}</p>
+      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in MEXC: admit it on the Capital tab' : 'in MEXC, joins at the next reading') : '<span class="warn">not in MEXC yet</span>'}</span></span>
+        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In MEXC</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="capital">Open the Capital tab</button></div>' : ''}</div>`;
   }
   function viewRecord() {
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
     if (empty && S.rec === 'eq') S.rec = 'dep';
     const pick = (k, html) => (S.rec === k ? html : '');
+    const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
     return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
       ${pick('dep', `<div class="card"><h2>Money in</h2>
@@ -773,10 +814,11 @@
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <input type="hidden" name="rate" value="${rate() ? Number(rate()).toFixed(2) : ''}">
-        <label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in MEXC</span></label>
+        ${gateOn() ? '<p class="note"><b>The workflow gate is on.</b> ' + Gate.TEXT.deposit + '</p><input type="hidden" name="inmexc">'
+          : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in MEXC</span></label>'}
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
-      ${pick('wd', `<div class="card"><h2>Money out</h2>
+      ${pick('wd', Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
         <p class="note">Requests from investors are handled on the <b>Capital</b> tab (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <label>MEXC balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
@@ -790,7 +832,7 @@
           <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Inside lock-up: allow</label>
           <label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`)}
-      ${pick('eq', `<div class="card"><h2>Balance</h2>
+      ${pick('eq', gBal ? gBal + pendingCard() : `<div class="card"><h2>Balance</h2>
         <p class="note">Type the MEXC total (open trades included). Prefer the <b>Capital</b> tab, which checks and confirms it first.</p>
         <form id="eqForm"><label>MEXC total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
         <input type="hidden" name="rate" value="${rate() || ''}"><details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
@@ -799,6 +841,8 @@
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
   }
   function viewQuarter() {
+    const gSet = Gate.oldForm('settlement', S.queue);
+    if (gSet) return gSet + `<div class="card">${lastClose()}</div>`;
     return `<div class="card"><h2>Two-month settlement</h2>
       <p class="note">Takes each investor's fee (their own %, 10% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. Example: they gain $100 above it and the 10% fee = $10; the mark then moves up, so that $100 is never charged again. After a loss nothing is charged until they are back above the mark.</p>
       <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the MEXC balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the MEXC balance under <b>Capital</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
@@ -884,7 +928,7 @@
     wfretry: (id) => call('admin_payout_retry', { p_request: id }),
     wfescalate: (id, b) => call('admin_escalate', { p_kind: b.dataset.kind, p_id: id, p_note: ask('What will you do about it?') }),
     wfapply: () => moneyWF('admin_apply_balance', { p_vid: usable() }),
-    wfsettle: () => moneyWF('admin_settle_quarter', { p_vid: usable() }),
+    wfsettle: () => withSettlementExceptions(() => moneyWF('admin_settle_quarter', { p_vid: usable() }), Number(RD().balance), null),
   };
 
   function viewReports() {
@@ -1374,6 +1418,12 @@
       } else if (fm.classList.contains('profForm')) {
         await call('admin_set_profile', { p_profile: fm.dataset.id, p_name: fv(fm, 'name'), p_active: null, p_fee_rate: num(fv(fm, 'fee')) / 100 });
         await refresh('Saved');
+      } else if (id === 'contactForm') {
+        await call('set_my_contact', { p_phone: fv(fm, 'phone'), p_email: fv(fm, 'email') || null, p_emergency_name: fv(fm, 'en') || null, p_emergency_phone: fv(fm, 'ep') || null });
+        await refresh('Contact details saved');
+      } else if (fm.classList.contains('adminContactForm')) {
+        await call('admin_set_contact', { p_profile: fm.dataset.id, p_phone: fv(fm, 'phone'), p_email: fv(fm, 'email') || null, p_emergency_name: fv(fm, 'en') || null, p_emergency_phone: fv(fm, 'ep') || null });
+        await refresh('Contact details saved');
       } else if (id === 'payoutForm') {
         let qr = (S.payout && S.payout.qr_path) || null; const file = fm.elements.qr.files[0];
         if (file) {
