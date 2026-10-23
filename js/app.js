@@ -1147,7 +1147,7 @@
       <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu()}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
-      ${viewing ? '' : '<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="welcome">Welcome tour</button><button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>'}
+      ${viewing ? '' : `<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="welcome">Welcome tour</button>${isAdmin() ? '<button class="ghost sm" style="flex:none" data-action="botdash">Bot dashboard</button>' : ''}<button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>`}
       <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>
       ${viewing ? '' : userModal()}`;
     wirePreviews(); wireChart(); syncNav();
@@ -1296,6 +1296,15 @@
     const b = ev.target.closest('[data-action]'); if (!b) return;
     const a = b.dataset.action, id = b.dataset.id;
     if (a === 'signout' || a === 'declineterms') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
+    else if (a === 'botdash') {
+      // the fund manager's Ledger session is exchanged for the bot dashboard cookie, so there is no second password
+      b.disabled = true;
+      try {
+        const r = await fetch('/api/admin-enter', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: S.token }) });
+        if (!r.ok) throw new Error(r.status === 403 ? 'Only the fund manager can open the bot dashboard.' : 'Could not open the bot dashboard. Try again.');
+        location.href = '/bot-dashboard/';
+      } catch (e) { toast(e.message, true); b.disabled = false; }
+    }
     else if (a === 'eye') {
       const inp = b.parentElement.querySelector('input'), show = inp.type === 'password';
       inp.type = show ? 'text' : 'password'; b.innerHTML = ICON[show ? 'eyeOff' : 'eye'];

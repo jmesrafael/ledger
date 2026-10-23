@@ -9,7 +9,7 @@
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 <script>
   // Apply the saved theme before first paint (system | light | dark), so there is no flash.
   try { var t = localStorage.getItem('bot.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
@@ -20,61 +20,145 @@
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
 
 <div class="wrap">
-  <header>
-    <div>
-      <div class="hello">Lucid'io · MEXC futures bot</div>
-      <h1>Bot dashboard</h1>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">&gt;_</span>
+      <div>
+        <div class="prompt"><span class="p-user">lucidio@mexc</span><span class="p-sep">:</span><span class="p-path">~/bot</span><span class="p-dollar">$</span> <span id="promptCmd">status --watch</span><span class="cursor" aria-hidden="true"></span></div>
+        <h1>Bot dashboard</h1>
+      </div>
     </div>
-    <div class="hdr-actions">
-      <select id="modeSelect" aria-label="Mode" hidden style="width:auto;min-height:36px;padding:6px 32px 6px 12px;border-radius:999px;font-size:13px"></select>
-      <button type="button" class="ghost sm" id="tzBtn" title="Show times in UTC or in your local time">UTC</button>
-      <button type="button" class="ghost sm" id="themeBtn" title="Light or dark">Theme</button>
-      <button type="button" class="ghost sm" id="refreshBtn">Refresh</button>
-      <button type="button" class="ghost sm" id="logoutBtn" hidden>Log out</button>
+    <div class="top-right">
+      <span id="statusPill" class="pill" hidden></span>
+      <span id="clock" class="clock" title="Current time"></span>
+      <div class="menu-wrap">
+        <button type="button" class="icon-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="Settings">
+          <svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+        <div id="menu" class="menu" role="menu" hidden>
+          <div class="menu-sec" id="modeRow" hidden>
+            <span class="menu-k">Data</span>
+            <div class="seg" id="modeSeg" role="group" aria-label="Paper or live data"></div>
+          </div>
+          <div class="menu-sec">
+            <span class="menu-k">Times</span>
+            <div class="seg" role="group" aria-label="Time zone"><button type="button" data-tz="utc">UTC</button><button type="button" data-tz="local">Local</button></div>
+          </div>
+          <div class="menu-sec">
+            <span class="menu-k">Theme</span>
+            <div class="seg" role="group" aria-label="Theme"><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
+          </div>
+          <div class="menu-line"></div>
+          <button type="button" class="menu-item" role="menuitem" id="refreshBtn"><span>Refresh now</span><kbd>R</kbd></button>
+          <button type="button" class="menu-item" role="menuitem" id="vpsBtn" hidden><span>Server specs (VPS)</span></button>
+          <div class="menu-line"></div>
+          <button type="button" class="menu-item danger" role="menuitem" id="logoutBtn" hidden><span>Log out</span></button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <section id="login" class="card narrow" hidden>
-    <h2>Log in</h2>
-    <p class="muted">This page shows trading data, so it is password protected.</p>
-    <form id="loginForm">
-      <label for="pw">Password</label>
-      <input id="pw" type="password" autocomplete="current-password" required>
-      <button type="submit">Log in</button>
-      <p id="loginMsg" class="err" role="alert"></p>
-    </form>
+  <section id="login" class="panel narrow" hidden>
+    <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>auth / login</h2></div>
+    <div class="pb">
+      <p class="muted">This page shows trading data, so it is password protected.</p>
+      <form id="loginForm">
+        <label for="pw">Password</label>
+        <input id="pw" type="password" autocomplete="current-password" required>
+        <button type="submit">Log in</button>
+        <p id="loginMsg" class="err" role="alert"></p>
+      </form>
+    </div>
   </section>
 
   <div id="app" hidden>
-    <section id="banner" class="card hero" role="status"></section>
+    <div id="alert" class="alert" role="alert" hidden></div>
 
-    <div class="board">
-      <section class="card"><h2>Open positions <span class="modeTag"></span></h2><div id="open" class="scroll"></div></section>
+    <!-- headline numbers -->
+    <section class="kpis" aria-label="Headline numbers">
+      <div class="kpi hero-kpi">
+        <div class="k">Total capital <span class="modeTag"></span></div>
+        <div class="big" id="kCapital">—</div>
+        <div class="sub" id="kCapitalSub"></div>
+        <div class="spark" id="kSpark"></div>
+      </div>
+      <div class="kpi"><div class="k">Net result</div><div class="mid" id="kNet">—</div><div class="sub" id="kNetSub"></div></div>
+      <div class="kpi"><div class="k">Win rate · PF</div><div class="mid" id="kWin">—</div><div class="sub" id="kWinSub"></div></div>
+      <div class="kpi"><div class="k">Drawdown vs halt</div><div class="mid" id="kDd">—</div><div class="meter"><i id="kDdBar"></i></div><div class="sub" id="kDdSub"></div></div>
+    </section>
 
-      <section class="card"><h2>Equity curve (R) <span class="modeTag"></span></h2><div id="equityChart" class="chart"></div><p id="equityNote" class="muted chartnote"></p></section>
-      <section class="card"><h2>Drawdown (R) <span class="modeTag"></span></h2><div id="ddChart" class="chart"></div><p id="ddNow" class="muted chartnote"></p></section>
-
-      <section class="card wide">
-        <h2>Trades <span class="modeTag"></span></h2>
-        <div class="filters">
-          <label>Coin <select id="fCoin"><option value="">All</option></select></label>
-          <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
-          <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>time</option><option>abort</option></select></label>
-          <label>From <input id="fFrom" type="date"></label>
-          <label>To <input id="fTo" type="date"></label>
+    <div class="grid">
+      <section class="panel c5">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>system / health</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span></div>
+        <div class="pb">
+          <dl id="sys" class="kvlist"></dl>
+          <div class="sub-h">Uptime · last 7 days</div>
+          <div id="upBar" class="upbar" role="img" aria-label="Uptime timeline"></div>
+          <div id="upAxis" class="upaxis"></div>
+          <div class="sub-h">Downtime &amp; restarts</div>
+          <div id="downs" class="log short"></div>
         </div>
-        <p id="tradeSummary" class="strong"></p>
-        <div id="trades" class="scroll"></div>
       </section>
 
-      <section class="card wide"><h2>Per coin <span class="modeTag"></span></h2><div id="perCoin" class="scroll"></div></section>
-      <section class="card"><h2>Skipped signals <span class="modeTag"></span></h2><div id="skipped" class="scroll"></div></section>
-      <section class="card"><h2>Live vs backtest <span class="modeTag"></span></h2><div id="compare"></div></section>
+      <div class="col c7">
+        <section class="panel">
+          <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
+            <div class="tabs" id="chartTabs" role="tablist">
+              <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
+            </div>
+          </div>
+          <div class="pb"><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
+        </section>
+
+        <section class="panel grow">
+          <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>positions / open</h2><span class="modeTag"></span></div>
+          <div class="pb"><div id="open" class="scroll"></div></div>
+        </section>
+      </div>
+
+      <section class="panel c7">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>activity / log</h2><span class="count" id="actCount"></span></div>
+        <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
+      </section>
+
+      <section class="panel c5">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>verify / live vs backtest</h2><span class="modeTag"></span></div>
+        <div class="pb"><div id="compare"></div></div>
+      </section>
+
+      <section class="panel c12">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag"></span></div>
+        <div class="pb">
+          <div class="filters">
+            <label>Coin <select id="fCoin"><option value="">All</option></select></label>
+            <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
+            <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>time</option><option>abort</option></select></label>
+            <label>From <input id="fFrom" type="date"></label>
+            <label>To <input id="fTo" type="date"></label>
+          </div>
+          <p id="tradeSummary" class="summary"></p>
+          <div id="trades" class="scroll"></div>
+        </div>
+      </section>
+
+      <section class="panel c12">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>stats / per coin</h2><span class="modeTag"></span></div>
+        <div class="pb"><div id="perCoin" class="scroll"></div></div>
+      </section>
+
+      <section class="panel c12">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
+        <div class="pb"><div id="skipped" class="scroll capped"></div></div>
+      </section>
     </div>
 
-    <p id="footer" class="muted footer"></p>
+    <p id="footer" class="footer"></p>
   </div>
 </div>
+<dialog id="vpsDlg" class="vpsdlg" aria-label="VPS specs">
+  <div class="vpshead"><h2>VPS specs</h2><button type="button" class="ghost sm" id="vpsClose">Close</button></div>
+  <div id="vpsBody"></div>
+</dialog>
 <script src="app.js"></script>
 </body>
 </html>

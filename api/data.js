@@ -16,7 +16,9 @@ module.exports = async (req, res) => {
   try {
     store = store || createSupabaseStore({ url: process.env.SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY });
     const mode = new URL(req.url, 'http://x').searchParams.get('mode');
-    const [events, heartbeat] = await Promise.all([store.recent({ limit: 5000 }), store.latestHeartbeat()]);
-    send(res, 200, aggregate({ events, heartbeat, now: Date.now(), mode: mode === 'paper' || mode === 'live' ? mode : null }));
+    const now = Date.now();
+    // heartbeat history only feeds the uptime panel: if it fails, the rest of the page still loads
+    const [events, heartbeat, beats] = await Promise.all([store.recent({ limit: 5000 }), store.latestHeartbeat(), store.heartbeats({ sinceMs: now - 7 * 86400000 }).catch(() => null)]);
+    send(res, 200, aggregate({ events, heartbeat, beats, now, mode: mode === 'paper' || mode === 'live' ? mode : null }));
   } catch { send(res, 502, { error: 'store unavailable' }); }
 };
