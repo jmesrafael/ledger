@@ -21,6 +21,9 @@
     log: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     mine: svg('<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.2"/>'),
     refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    tour: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+    bot: svg('<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 7V4M9 12.5h.01M15 12.5h.01M9.5 16h5"/>'),
+    signout: svg('<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4M20 12H9"/>'),
     gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
     sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
     moon: svg('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
@@ -207,12 +210,13 @@
   }
   const rate = () => (S.fx && S.fx.rate) || (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
   const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${new Date(S.fx.t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
-  const settingsMenu = () => {
+  const settingsMenu = (account = false) => {
     const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
     return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
       <button data-action="refresh">${ICON.refresh}<span>Refresh</span></button>
       <button data-action="theme">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}<span>Theme</span><span class="val">${tl}</span></button>
-      ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}</div></details>`;
+      ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}
+      ${account ? `<button data-action="welcome">${ICON.tour}<span>Welcome tour</span></button>${isAdmin() ? `<button data-action="botdash">${ICON.bot}<span>Bot dashboard</span></button>` : ''}<button data-action="signout">${ICON.signout}<span>Sign out</span></button>` : ''}</div></details>`;
   };
   const curBtn = () =>(rate() ? `<button class="iconbtn txt" data-action="cur" aria-label="Showing ${inPeso() ? 'pesos' : 'USDT'}. Tap to switch" title="${rateNote()}">${inPeso() ? '₱' : '$'}</button>` : '');
 
@@ -958,7 +962,7 @@
 
   // ---------------------------------------------------------------- gates after sign-in: terms -> quote screen -> tour
   // An investor must agree to the terms (saved in the database, per version) before seeing anything. Then a quote screen, then the animated
-  // tour (once per device; "Welcome tour" at the bottom replays it). None of this shows while the fund manager is "viewing as" someone.
+  // tour (once per device; "Welcome tour" in the Settings menu replays it). None of this shows while the fund manager is "viewing as" someone.
   const welcomeKey = (id) => 'ledger.welcomed.' + id;
   const welcomed = (id) => { try { return localStorage.getItem(welcomeKey(id)) === '1'; } catch { return false; } };
   const needsTerms = () => !!S.me && S.me.role === 'investor' && !S.me.impersonated && S.me.terms_version !== TERMS_VERSION;
@@ -1084,7 +1088,7 @@
     const keep = Math.round((1 - Number(m.fee_rate)) * 10000) / 100;
     return [
       [ICON.logo, `Welcome to Lucid'io, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
-        <p class="about">Here is a one-minute tour of what you will see, in plain words. Tap <b>Skip</b> any time; you can replay it from <b>Welcome tour</b> at the bottom of any page.</p>`],
+        <p class="about">Here is a one-minute tour of what you will see, in plain words. Tap <b>Skip</b> any time; you can replay it from <b>Welcome tour</b> in Settings (the gear, top right).</p>`],
       [ICON.pool, 'Your share of the pool', `<p class="about">Everyone’s money goes into <b>one pool</b>: a single trading account, together with the fund manager’s own money. When you put money in you get <b>units</b>, slices of the pool.</p>
         <p class="about"><b>Unit price</b> is what one slice is worth today. Your balance is simply your units × the unit price.</p>`, SCENE.pool()],
       [ICON.arrowOut, 'Ups and downs', `<p class="about">Trading results move the unit price: gains lift every unit, losses lower every unit, by the same % for everyone.</p>
@@ -1144,10 +1148,9 @@
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
         <button data-action="exitview">Back to fund manager</button></div>` : ''}
       <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
-      <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu()}</div></header>
+      <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu(!viewing)}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
-      ${viewing ? '' : `<div class="btns" style="justify-content:center;margin:4px 0 8px"><button class="ghost sm" style="flex:none" data-action="welcome">Welcome tour</button>${isAdmin() ? '<button class="ghost sm" style="flex:none" data-action="botdash">Bot dashboard</button>' : ''}<button class="ghost sm" style="flex:none" data-action="signout">Sign out</button></div>`}
       <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>
       ${viewing ? '' : userModal()}`;
     wirePreviews(); wireChart(); syncNav();
@@ -1298,7 +1301,7 @@
     if (a === 'signout' || a === 'declineterms') { const t = S.token; signedOut(); try { await rpc('logout', { p_token: t }); } catch { /* already gone */ } }
     else if (a === 'botdash') {
       // the fund manager's Ledger session is exchanged for the bot dashboard cookie, so there is no second password
-      b.disabled = true;
+      b.disabled = true; toast('Opening the bot dashboard…');
       try {
         const r = await fetch('/api/admin-enter', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: S.token }) });
         if (!r.ok) throw new Error(r.status === 403 ? 'Only the fund manager can open the bot dashboard.' : 'Could not open the bot dashboard. Try again.');
@@ -1485,4 +1488,6 @@
   try { S.cur = localStorage.getItem('ledger.cur') === 'USDT' ? 'USDT' : 'PHP'; } catch { /* default pesos */ }
   S.token = store.get(); S.adminToken = store.get(ADMIN_KEY);
   if (S.token) refresh(); else loginView();
+  // coming back from the bot dashboard with the Back button restores this page as it was (Bot dashboard button still disabled): draw it fresh
+  window.addEventListener('pageshow', (ev) => { if (ev.persisted && S.token && S.me) render(); });
 })();

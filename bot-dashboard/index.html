@@ -9,7 +9,7 @@
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
   // Apply the saved theme before first paint (system | light | dark), so there is no flash.
   try { var t = localStorage.getItem('bot.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
@@ -22,7 +22,6 @@
 <div class="wrap">
   <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">&gt;_</span>
       <div>
         <div class="prompt"><span class="p-user">lucidio@mexc</span><span class="p-sep">:</span><span class="p-path">~/bot</span><span class="p-dollar">$</span> <span id="promptCmd">status --watch</span><span class="cursor" aria-hidden="true"></span></div>
         <h1>Bot dashboard</h1>
@@ -70,6 +69,8 @@
       </form>
     </div>
   </section>
+
+  <section id="boot" class="boot" role="status" aria-live="polite"><span class="spin" aria-hidden="true"></span><span>Loading bot dashboard…</span></section>
 
   <div id="app" hidden>
     <div id="alert" class="alert" role="alert" hidden></div>

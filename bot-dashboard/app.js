@@ -373,12 +373,12 @@
       if (res.status === 401) return showLogin('');
       if (res.status === 503) return showLogin('The dashboard login is not configured on the server (set DASHBOARD_PASSWORD and DASHBOARD_SESSION_SECRET in Vercel).');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      $('#login').hidden = true; $('#app').hidden = false; $('#logoutBtn').hidden = false; $('#vpsBtn').hidden = false;
+      $('#boot').hidden = true; $('#login').hidden = true; $('#app').hidden = false; $('#logoutBtn').hidden = false; $('#vpsBtn').hidden = false;
       render(await res.json());
     } catch (e) { showLogin(`Could not load data: ${e.message}`); }
     finally { $('#promptCmd').textContent = 'status --watch'; }
   }
-  function showLogin(msg) { $('#app').hidden = true; $('#login').hidden = false; $('#logoutBtn').hidden = true; $('#vpsBtn').hidden = true; $('#statusPill').hidden = true; $('#loginMsg').textContent = msg; }
+  function showLogin(msg) { $('#boot').hidden = true; $('#app').hidden = true; $('#login').hidden = false; $('#logoutBtn').hidden = true; $('#vpsBtn').hidden = true; $('#statusPill').hidden = true; $('#loginMsg').textContent = msg; }
 
   $('#loginForm').addEventListener('submit', async (ev) => {
     ev.preventDefault(); $('#loginMsg').textContent = '';
