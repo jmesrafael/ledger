@@ -3,7 +3,7 @@
 (() => {
   const C = window.CONFIG;
   const TERMS_VERSION = '2026-10-25';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
-  const SPLASH_MS = 10000;               // how long the quote screen stays (tap Skip to leave sooner)
+  const SPLASH_MS = 9000;               // how long the quote screen stays (tap Skip to leave sooner)
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the fund manager's own session while "viewing as"
@@ -1010,14 +1010,12 @@
     <div class="btns"><button class="ghost" data-action="readterms">Read the terms again</button><button class="ghost" data-action="welcome">Replay the tour</button></div></div>` : '');
 
   // quote screen (shown after the terms, while the tour is "loading")
-  const QUOTE = 'Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn’t, pays it.';
+  const QUOTE = ['Compound interest is the', 'eighth wonder of the world. He', 'who understands it, earns it.', 'He who doesn’t, pays it.'];
   function splashView() {
     if (!S.splashT) S.splashT = setTimeout(() => { S.splashT = null; if (S.gate === 'splash') startTour(); }, SPLASH_MS);
-    app.innerHTML = `<div class="splash"><div class="login-brand" style="padding:0"><span class="logo">${ICON.logo}</span></div>
-      <blockquote class="quote"><span class="qm" style="--i:0">“</span>${QUOTE.split(' ').map((w, k) => `<span style="--i:${k}">${w}</span>`).join(' ')}<span class="qm" style="--i:${QUOTE.split(' ').length}">”</span></blockquote>
-      <div class="rule" aria-hidden="true"></div>
-      <p class="by">Albert Einstein</p>
-      <p class="both">It works in both directions: gains build on gains, and losses build on losses.</p>
+    app.innerHTML = `<div class="splash" style="--ms:${SPLASH_MS}ms">
+      <div class="qwrap"><blockquote class="quote"><span class="qm">“</span>${QUOTE.join('<br>')}<span class="qm">”</span></blockquote>
+      <p class="by">Albert Einstein</p></div>
       <div class="foot"><div class="loadbar"><i style="animation-duration:${SPLASH_MS}ms"></i></div><p class="note" style="margin:0 0 8px">Getting your account ready…</p>
       <button class="ghost sm" data-action="splashskip">Skip</button></div></div>`;
   }

@@ -316,6 +316,8 @@ svg.donut .dv { font-size: 14px; font-weight: 800; }
 /* gates: terms, quote screen, animated tour. The resting state is the finished picture, so with reduced motion (animation: none) it still reads fine. */
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 @keyframes pop { from { opacity: 0; transform: scale(.55); } }
+@keyframes qfade { 0%, 4% { opacity: 0; transform: translateY(8px); } 16% { opacity: 1; transform: none; } 88% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes qfadeby { 0%, 14% { opacity: 0; } 26% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes fadein { from { opacity: 0; } }
 @keyframes draw { from { stroke-dashoffset: 1; } }
 @keyframes fall { from { opacity: 0; transform: translateY(-80px); } }
@@ -328,20 +330,20 @@ svg.donut .dv { font-size: 14px; font-weight: 800; }
 @keyframes unlock { 0%, 62% { transform: none; } 72%, 100% { transform: translateY(-3px); } }
 .card.enter { animation: rise .45s ease both; }
 .login-brand.welcome .logo { animation: pop .5s cubic-bezier(.3,1.5,.5,1) both; }
-.boot { text-align: center; padding-top: 22vh; color: var(--ink-2); animation: fadein .6s both; }
+.boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; animation: fadein .6s both; }
 .boot .ring { display: inline-block; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent-text); animation: spin 1s linear infinite; }
 .boot p { font-size: 15px; line-height: 1.5; font-weight: 600; margin: 16px auto 6px; max-width: 30ch; }
 .boot small { color: var(--muted); font-weight: 700; }
 .splash { position: relative; text-align: center; min-height: calc(100svh - 48px); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4px 96px; }
 .splash .foot { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; flex-direction: column; align-items: center; }
-.splash .quote { margin: 28px auto 0; max-width: 32ch; font-size: 15px; line-height: 1.6; font-weight: 400; font-style: italic; letter-spacing: 0; color: var(--muted); font-family: Georgia, "Times New Roman", serif; }
-.splash .quote .qm { font-size: 1.1em; line-height: 0; vertical-align: -0.2em; }
-.splash .rule { width: 44px; height: 3px; border-radius: 99px; margin: 20px auto 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); animation: fadein .6s 1.5s both; }
-.splash .quote span { display: inline-block; font-style: italic; animation: rise .5s ease both; animation-delay: calc(var(--i, 0) * .05s); }
-.splash .quote .qm { color: var(--accent-text); }
-.splash .by { margin: 12px 0 0; color: var(--ink-2); font-weight: 600; font-size: 14px; letter-spacing: .3px; font-style: italic; font-family: Georgia, "Times New Roman", serif; animation: fadein .6s 1.5s both; }
+.splash .qwrap { width: fit-content; max-width: 100%; margin: 0 auto; }
+.splash .quote { margin: 0; width: auto; text-align: left; font-size: 15px; line-height: 1.6; font-weight: 400; font-style: italic; letter-spacing: 0; color: var(--ink-2); font-family: Georgia, "Times New Roman", serif; }
+.splash .quote { animation: qfade var(--ms, 9000ms) ease both; }
+.splash .quote .qm { font-size: 1em; line-height: 1; margin-right: .15em; }
+.splash .quote .qm { color: inherit; }
+.splash .quote .qm:last-child { margin: 0 0 0 .05em; }
+.splash .by { margin: 10px 0 0; width: auto; text-align: right; color: var(--ink-2); font-weight: 400; font-size: 14px; font-style: italic; font-family: Georgia, "Times New Roman", serif; animation: qfadeby var(--ms, 9000ms) ease both; }
 .splash .by::before { content: "— "; }
-.splash .both { margin: 16px auto 0; max-width: 34ch; color: var(--ink-2); font-size: 14px; line-height: 1.5; animation: fadein .8s 2s both; }
 .loadbar { height: 4px; border-radius: 99px; background: var(--variant); margin: 26px auto 10px; max-width: 220px; overflow: hidden; }
 .loadbar i { display: block; height: 100%; background: var(--accent-text); animation: fillbar linear both; }
 .terms .tsec { margin-bottom: 16px; animation: rise .5s ease both; animation-delay: calc(var(--i) * .05s); }
@@ -417,7 +419,7 @@ svg.mini .lab.hot { fill: var(--accent-text); }
 </head>
 <body>
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
-<div class="wrap" id="app"><div class="boot"><span class="ring"></span><p>Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn’t, pays it.</p><small>Loading…</small></div></div>
+<div class="wrap" id="app"><div class="boot" role="status" aria-label="Loading"><span class="ring"></span></div></div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
