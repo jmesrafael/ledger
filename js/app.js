@@ -1014,12 +1014,12 @@
   function splashView() {
     if (!S.splashT) S.splashT = setTimeout(() => { S.splashT = null; if (S.gate === 'splash') startTour(); }, SPLASH_MS);
     app.innerHTML = `<div class="splash"><div class="login-brand" style="padding:0"><span class="logo">${ICON.logo}</span></div>
-      <blockquote class="quote"><span class="qm" style="--i:0">“</span>${QUOTE.split(' ').map((w, k) => `<span style="--i:${k}">${w}</span>`).join(' ')}<span class="qm" style="--i:20">”</span></blockquote>
+      <blockquote class="quote"><span class="qm" style="--i:0">“</span>${QUOTE.split(' ').map((w, k) => `<span style="--i:${k}">${w}</span>`).join(' ')}<span class="qm" style="--i:${QUOTE.split(' ').length}">”</span></blockquote>
       <div class="rule" aria-hidden="true"></div>
       <p class="by">Albert Einstein</p>
       <p class="both">It works in both directions: gains build on gains, and losses build on losses.</p>
-      <div class="loadbar"><i style="animation-duration:${SPLASH_MS}ms"></i></div><p class="note">Getting your account ready…</p>
-      <button class="ghost sm" data-action="splashskip">Skip</button></div>`;
+      <div class="foot"><div class="loadbar"><i style="animation-duration:${SPLASH_MS}ms"></i></div><p class="note" style="margin:0 0 8px">Getting your account ready…</p>
+      <button class="ghost sm" data-action="splashskip">Skip</button></div></div>`;
   }
 
   // plain-words glossary (tour + About page)
