@@ -23,8 +23,12 @@
   const pad = (n) => String(n).padStart(2, '0');
   const parts = (ms) => { const d = new Date(ms), u = tz === 'utc'; return { y: u ? d.getUTCFullYear() : d.getFullYear(), mo: (u ? d.getUTCMonth() : d.getMonth()) + 1, d: u ? d.getUTCDate() : d.getDate(), h: u ? d.getUTCHours() : d.getHours(), mi: u ? d.getUTCMinutes() : d.getMinutes(), s: u ? d.getUTCSeconds() : d.getSeconds() }; };
   const tzTag = () => (tz === 'utc' ? ' UTC' : '');
-  function fmtTime(ms) { if (ms == null) return '—'; const p = parts(ms); return `${p.y}-${pad(p.mo)}-${pad(p.d)} ${pad(p.h)}:${pad(p.mi)}${tzTag()}`; }
-  function fmtShort(ms) { if (ms == null) return '—'; const p = parts(ms); return `${pad(p.mo)}-${pad(p.d)} ${pad(p.h)}:${pad(p.mi)}`; }
+  // "Jan 20, 2026" and "9:00pm" (12-hour, no space), in UTC or local per the Times switch
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const clock12 = (p, secs) => `${p.h % 12 || 12}:${pad(p.mi)}${secs ? ':' + pad(p.s) : ''}${p.h < 12 ? 'am' : 'pm'}`;
+  const fmtDay = (ms) => { const p = parts(ms); return `${MON[p.mo - 1]} ${p.d}, ${p.y}`; };
+  function fmtTime(ms) { if (ms == null) return '—'; const p = parts(ms); return `${fmtDay(ms)} ${clock12(p)}${tzTag()}`; }
+  function fmtShort(ms) { if (ms == null) return '—'; const p = parts(ms); return `${fmtDay(ms)} ${clock12(p)}`; }
   function fmtHm(ms) { if (ms == null) return '—'; const p = parts(ms); return `${pad(p.h)}:${pad(p.mi)}`; }
   const fmtPx = (v) => (v == null ? '—' : String(Number(Number(v).toPrecision(6))));
   const fmtR = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(2)}R`);
@@ -73,7 +77,7 @@
     const base = (dd ? sy(0) : H - B).toFixed(1), last = pts[pts.length - 1];
     svg.append(sv('path', { class: dd ? 'dd' : 'area', d: `${path} L${sx(last.ts).toFixed(1)},${base} L${sx(pts[0].ts).toFixed(1)},${base} Z` }));
     if (!dd) svg.append(sv('path', { class: 'line', d: path }), sv('circle', { class: 'dot', cx: sx(last.ts), cy: sy(last.y), r: 3.5 }));
-    svg.append(t(L, H - 7, fmtTime(x0).slice(0, 10)), t(W - R, H - 7, fmtTime(x1).slice(0, 10), 'end'));
+    svg.append(t(L, H - 7, fmtDay(x0)), t(W - R, H - 7, fmtDay(x1), 'end'));
     host.append(svg);
   }
   function spark(host, ys) {
@@ -272,7 +276,7 @@
   // every second: the clock and every "x ago" / "in x" stays current without refetching
   function tick() {
     const now = Date.now(), p = parts(now);
-    $('#clock').textContent = `${p.y}-${pad(p.mo)}-${pad(p.d)} ${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}${tz === 'utc' ? ' UTC' : ''}`;
+    $('#clock').textContent = `${fmtDay(now)} ${clock12(p, true)}${tz === 'utc' ? ' UTC' : ''}`;
     for (const n of $$('[data-ago]')) n.textContent = `${fmtDur((now - Number(n.dataset.ago)) / 1000)} ago`;
     for (const n of $$('[data-until]')) { const t = Number(n.dataset.until); n.textContent = t > now ? `in ${fmtDur((t - now) / 1000)}` : 'due now'; }
   }

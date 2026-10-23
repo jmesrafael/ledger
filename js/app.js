@@ -68,6 +68,10 @@
   const money = (u) => (inPeso() ? (u < 0 ? '−' : '') + php(u * rate()) : usdt(u));              // main figure
   const alt = (u) => (rate() ? (inPeso() ? usdt(u) : '≈ ' + php(u * rate())) : '');                // the same amount in the other currency
   const smoney = (u) => (u > 0 ? '+' : u < 0 ? '−' : '') + (inPeso() ? php(u * rate()) : usdt(Math.abs(u)));
+  // dates read "Jan 20, 2026", times "9:00pm" (12-hour, no seconds, no space), always in the viewer's own time
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const clock12 = (d) => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}${d.getHours() < 12 ? 'am' : 'pm'}`;
+  const dayTime = (ts) => { const d = new Date(ts); return `${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} ${clock12(d)}`; };
   const day = (s) => (s ? new Date(String(s).length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
   const pc = (rate) => String(Number((Number(rate) * 100).toFixed(4)));
   const cls = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'muted');
@@ -209,7 +213,7 @@
     if (!S.fx) S.fx = cached;   // stale beats nothing
   }
   const rate = () => (S.fx && S.fx.rate) || (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
-  const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${new Date(S.fx.t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
+  const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${clock12(new Date(S.fx.t))})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
   const settingsMenu = (account = false) => {
     const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
     return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
@@ -644,7 +648,7 @@
     try { S.audit = await call('admin_audit_log', { p_limit: 200 }); S.auditMore = S.audit.length >= 200; } catch (e) { if (e.message === 'Signed out') throw e; S.audit = null; }
     try { S.backup = await call('admin_backup_status'); } catch (e) { if (e.message === 'Signed out') throw e; S.backup = null; }
   }
-  const auditTime = (ts) => new Date(ts).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const auditTime = (ts) => dayTime(ts);
   function auditText(r) {
     const d = r.detail || {}, self = !!r.subject_id && r.subject_id === r.actor_id, who = `<b>${esc(r.subject_name || '')}</b>`, own = self ? 'their' : `${who}'s`, u = (v) => `${usdt(Math.abs(Number(v)))}${rate() ? ' ' + peso(Math.abs(Number(v)), rate()) : ''}`;
     switch (r.action) {
