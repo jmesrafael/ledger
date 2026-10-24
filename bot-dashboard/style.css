@@ -346,3 +346,28 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .spin { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent-text); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+/* ---- sections (tabs): a bar under the header; panels outside the open tab are hidden by app.js ---- */
+.maintabs { display: flex; gap: 6px; margin: 0 0 14px; padding: 4px; border-radius: 14px; background: var(--variant); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.maintabs::-webkit-scrollbar { display: none; }
+.maintabs button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 16px; border-radius: 10px; font: 700 13px/1 var(--sans); letter-spacing: .2px;
+  background: transparent; box-shadow: none; color: var(--muted); white-space: nowrap; cursor: pointer; border: 0; }
+.maintabs button:hover { color: var(--ink); }
+.maintabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.22); }
+.maintabs button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.tb-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.tb-dot.ok { background: var(--up); box-shadow: 0 0 0 3px var(--up-bg); } .tb-dot.bad { background: var(--down); box-shadow: 0 0 0 3px var(--down-bg); }
+.tb-n { font: 600 11px/1 var(--mono); color: var(--muted); } .tb-n:empty { display: none; }
+[data-tabs][hidden], .col[hidden] { display: none !important; }
+/* per-tab widths (the panels keep their normal c5 / c7 / c12 sizes elsewhere) */
+#app[data-tab="overview"] .col, #app[data-tab="trades"] .col { grid-column: span 12; }
+#app[data-tab="log"] #pActivity { grid-column: span 8; } #app[data-tab="log"] #pSkipped { grid-column: span 4; }
+@media (max-width: 1100px) { #app[data-tab="log"] #pActivity, #app[data-tab="log"] #pSkipped { grid-column: span 12; } }
+/* "bot / right now" */
+.nowtext { margin: 2px 0 14px; font-size: 15.5px; line-height: 1.55; color: var(--ink); }
+.nowtext b { font-weight: 800; } .nowtext .good { color: var(--up); } .nowtext .bad { color: var(--down); } .nowtext .warn { color: var(--warn); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--divider); border-radius: 12px; padding: 11px 13px; background: var(--variant); min-width: 0; }
+.tile .k { font: 600 11px/1.2 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.tile .v { font: 800 18px/1.25 var(--sans); margin-top: 5px; color: var(--ink); overflow-wrap: anywhere; } .tile .v.good { color: var(--up); } .tile .v.bad { color: var(--down); } .tile .v.warn { color: var(--warn); }
+.tile .s { margin-top: 3px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }

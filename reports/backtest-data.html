@@ -47,18 +47,17 @@ tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: no
 
 @media screen {
   html { background: #e2e8f0; }
-  body { padding: 64px 0 32px; }
+  body { padding: 32px 0; }
   .page { height: auto; min-height: 0; max-width: 210mm; width: auto; margin: 0 auto 24px; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(15,23,42,.12); padding-bottom: 54px; }
   .foot { bottom: 14px; }
   .cover-band { border-radius: 10px 10px 0 0; }
-  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 10; background: #0f172a; color: #fff; display: flex; align-items: center; gap: 16px; padding: 10px 16px; font-size: 13px; overflow-x: auto; white-space: nowrap; }
-  .topbar b { margin-right: 8px; } .topbar a { color: #cbd5e1; text-decoration: none; } .topbar a:hover { color: #fff; }
-  .topbar a.dl { margin-left: auto; background: #1d4ed8; color: #fff; padding: 5px 12px; border-radius: 6px; }
-  .page { scroll-margin-top: 60px; }
 }
-@media print { .topbar { display: none; } }
+  .dlbtn { position: fixed; top: 16px; right: 16px; z-index: 10; background: #1d4ed8; color: #fff; text-decoration: none; font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 8px; box-shadow: 0 4px 14px rgba(15,23,42,.25); }
+  .dlbtn:hover { background: #1e40af; }
+}
+@media print { .dlbtn { display: none; } }
 @media screen and (max-width: 760px) {
-  body { padding-top: 56px; }
+  .dlbtn { top: 10px; right: 10px; padding: 7px 12px; font-size: 12px; }
   .page { padding: 16px 16px 54px; border-radius: 0; }
   .cover-band { margin: -16px -16px 16px; padding: 32px 16px 20px; border-radius: 0; }
   .kpis, .two, .steps, .page > div[style*="repeat(4"], .page > div[style*="repeat(3"] { grid-template-columns: 1fr 1fr !important; }
@@ -67,11 +66,11 @@ tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: no
   .foot { left: 16px; right: 16px; flex-direction: column; gap: 2px; }
   h1 { font-size: 26px; }
 }
-</style></head><body><nav class="topbar"><a href="../">← Lucid'io Ledger</a><b style="margin-left:4px">SOL + ZEC Backtest</b><a href="#p1">Overview</a><a href="#p2">Growth</a><a href="#p3">Compounding</a><a href="#p4">Calendar</a><a href="#p5">Year by year</a><a href="#p9">Drawdowns</a><a href="#p10">Patterns</a><a href="#p12">Notes</a><a href="./">Reports library</a><a class="dl" href="sol-zec-backtest.pdf">Download PDF</a></nav><div class="page" id="p1">
+</style></head><body><a class="dlbtn" href="backtest-data.pdf" download>Download PDF</a><div class="page" id="p1">
 <div class="cover-band">
   <div class="tag">Strategy overview · Backtest report</div>
   <h1>What $100 could have become</h1>
-  <p class="sub" style="font-size:14px;margin:0">An automated crypto trading system tested on real market data from February 2020 to 19 October 2026, close to 7 years.</p>
+  <p class="sub" style="font-size:14px;margin:0">An automated trading system tested on real market data from February 2020 to 19 October 2026, close to 7 years.</p>
 </div>
 <div class="kpis">
   <div class="kpi"><div class="v ">$100</div><div class="k">Starting balance</div></div>
@@ -86,7 +85,7 @@ tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: no
   <div class="kpi"><div class="v ">641</div><div class="k">Trades taken</div></div>
 </div>
 <h2>How it works, in plain words</h2>
-<p class="sub">The system is a set of fixed rules run by a computer. It watches two large, liquid crypto markets around the clock and only acts when its conditions are met. No guessing and no emotions.</p>
+<p class="sub">The system is a set of fixed rules run by a computer. It watches two large, liquid markets around the clock and only acts when its conditions are met. No guessing and no emotions.</p>
 <div class="steps">
   <div class="step"><div class="n">1</div><b>Wait for a strong move</b><p>It waits until price breaks out strongly. It only trades in the direction of the bigger trend, so it can profit when markets go up <i>or</i> down.</p></div>
   <div class="step"><div class="n">2</div><b>Limit the loss before entering</b><p>Every trade has an exit point for a loss, set before the trade is opened. Each trade can lose at most about <b>5% of the account</b>.</p></div>
@@ -291,7 +290,7 @@ tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: no
 <tr><th>Average over both markets</th><th>Red months</th><th>Green months</th></tr>
 <tr><td>Price movement in the month</td><td class="neg">18%</td><td class="pos">37%</td></tr><tr><td>Trend score (how straight the move was)</td><td class="neg">6.7</td><td class="pos">10.8</td></tr><tr><td>Trades that hit the full profit target</td><td class="neg">6%</td><td class="pos">22%</td></tr><tr><td>Trades that won</td><td class="neg">23%</td><td class="pos">47%</td></tr>
 </table>
-<div class="note" style="margin-top:10px"><b>In short:</b> red months are <b>quiet, choppy months</b>. Prices moved about half as much and went sideways more, so trades kept failing and few trades reached their profit target. <b>Jul–Sep</b> (summer) is usually the calmest stretch in crypto, which is why 10 of its 21 months were red. August was red 4 of 7 times. May never ended red. Calm months mostly cost a little, while big trending months make the year.</div>
+<div class="note" style="margin-top:10px"><b>In short:</b> red months are <b>quiet, choppy months</b>. Prices moved about half as much and went sideways more, so trades kept failing and few trades reached their profit target. <b>Jul–Sep</b> (summer) is usually the calmest stretch for these markets, which is why 10 of its 21 months were red. August was red 4 of 7 times. May never ended red. Calm months mostly cost a little, while big trending months make the year.</div>
 <div class="note warn"><b>Treat this as a tendency, not a rule.</b> Each calendar month appears only 6–7 times, so a single year can change the picture. Every quarter is still profitable on average, and the weak quarter moves around: Q3 and Q4 2022 were red, Q1 2023 was red, and early Q4 2026 is red. We do <b>not</b> switch the system off in any season, because some of the best months (e.g. July 2020 and August 2021) fell inside the "weak" quarter.</div>
 <div class="foot"><span>Backtest results — simulated, not live trading. Past performance does not guarantee future results.</span><span>Page 11 of 12</span></div></div><div class="page" id="p12">
 <h2>Important notes</h2>
@@ -309,7 +308,7 @@ tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: no
   <li>Real trading can differ from the simulation: exchange outages, sudden price gaps, minimum order sizes and delays can make real results worse.</li>
   <li>The rules were developed while looking at historical data, so some of the past performance may be better than what can be repeated.</li>
   <li><b>5% risk per trade is aggressive.</b> It produces the large growth shown here, but also the deep drops on page 8. Lower risk means smaller swings and smaller returns.</li>
-  <li>Crypto is very volatile. <b>Only use money you can afford to lose.</b></li>
+  <li>These markets are very volatile. <b>Only use money you can afford to lose.</b></li>
 </ul>
 <h3>The numbers in one line per year</h3>
 <table>

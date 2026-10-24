@@ -76,8 +76,17 @@
   <div id="app" hidden>
     <div id="alert" class="alert" role="alert" hidden></div>
 
+    <!-- the sections: one tab each; every panel below says which tab it belongs to (data-tabs) -->
+    <nav class="maintabs" id="mainTabs" role="tablist" aria-label="Dashboard sections">
+      <button type="button" role="tab" data-tab="overview">Overview</button>
+      <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
+      <button type="button" role="tab" data-tab="trades">Trades <span class="tb-n" id="tbTrades"></span></button>
+      <button type="button" role="tab" data-tab="log">Log <span class="tb-n" id="tbLog"></span></button>
+      <button type="button" role="tab" data-tab="verify">Verify</button>
+    </nav>
+
     <!-- headline numbers -->
-    <section class="kpis" aria-label="Headline numbers">
+    <section class="kpis" id="pKpis" data-tabs="overview" aria-label="Headline numbers">
       <div class="kpi hero-kpi">
         <div class="k">Total capital <span class="modeTag"></span></div>
         <div class="big" id="kCapital">—</div>
@@ -90,7 +99,16 @@
     </section>
 
     <div class="grid">
-      <section class="panel c5">
+      <section class="panel c12" id="pNow" data-tabs="status">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bot / right now</h2><span class="modeTag"></span></div>
+        <div class="pb">
+          <p id="nowText" class="nowtext"></p>
+          <div id="nowTiles" class="tiles"></div>
+          <p id="nowNote" class="muted note"></p>
+        </div>
+      </section>
+
+      <section class="panel c5" id="pSystem" data-tabs="status">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>system / health</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span></div>
         <div class="pb">
           <dl id="sys" class="kvlist"></dl>
@@ -102,8 +120,13 @@
         </div>
       </section>
 
+      <section class="panel c7" id="pServer" data-tabs="status">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>server / specs</h2></div>
+        <div class="pb"><div id="vpsInline"><div class="empty">Loading…</div></div></div>
+      </section>
+
       <div class="col c7">
-        <section class="panel">
+        <section class="panel" id="pChart" data-tabs="overview">
           <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
             <div class="tabs" id="chartTabs" role="tablist">
               <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Performance</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
@@ -112,23 +135,23 @@
           <div class="pb"><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
         </section>
 
-        <section class="panel grow">
+        <section class="panel grow" id="pOpen" data-tabs="overview trades">
           <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>positions / open</h2><span class="modeTag"></span></div>
           <div class="pb"><div id="open" class="scroll"></div></div>
         </section>
       </div>
 
-      <section class="panel c7">
+      <section class="panel c7" id="pActivity" data-tabs="log">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>activity / log</h2><span class="count" id="actCount"></span></div>
         <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
       </section>
 
-      <section class="panel c5">
+      <section class="panel c5" id="pCompare" data-tabs="verify">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>verify / live vs backtest</h2><span class="modeTag"></span></div>
         <div class="pb"><div id="compare"></div></div>
       </section>
 
-      <section class="panel c12">
+      <section class="panel c12" id="pTrades" data-tabs="trades">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag"></span></div>
         <div class="pb">
           <div class="filters">
@@ -143,12 +166,12 @@
         </div>
       </section>
 
-      <section class="panel c12">
+      <section class="panel c12" id="pCoin" data-tabs="trades">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>stats / per coin</h2><span class="modeTag"></span></div>
         <div class="pb"><div id="perCoin" class="scroll"></div></div>
       </section>
 
-      <section class="panel c12">
+      <section class="panel c12" id="pSkipped" data-tabs="log">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
         <div class="pb"><div id="skipped" class="scroll capped"></div></div>
       </section>
