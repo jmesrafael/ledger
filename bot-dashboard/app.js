@@ -16,7 +16,7 @@
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
   let tz = store.get('bot.tz') === 'local' ? 'local' : 'utc', data = null, modeSel = store.get('bot.mode') || '';
-  let chartKind = ['capital', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
+  let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
 
   // ---------------- formatting ----------------
@@ -54,7 +54,7 @@
   }
 
   // ---------------- charts (inline SVG) ----------------
-  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), empty = 'No closed trades yet.' } = {}) {
+  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), empty = 'No closed trades yet.', marks = [] } = {}) {
     clear(host);
     if (!pts.length) { host.append(el('div', { class: 'empty' }, empty)); return; }
     const W = 680, H = 250, L = 62, R = 14, T = 12, B = 26;
@@ -77,6 +77,12 @@
     const base = (dd ? sy(0) : H - B).toFixed(1), last = pts[pts.length - 1];
     svg.append(sv('path', { class: dd ? 'dd' : 'area', d: `${path} L${sx(last.ts).toFixed(1)},${base} L${sx(pts[0].ts).toFixed(1)},${base} Z` }));
     if (!dd) svg.append(sv('path', { class: 'line', d: path }), sv('circle', { class: 'dot', cx: sx(last.ts), cy: sy(last.y), r: 3.5 }));
+    // capital added or removed: a labeled step, never part of the line's gain
+    marks.filter((m) => m.ts >= x0 && m.ts <= x1).forEach((m, i) => {
+      const x = sx(m.ts), up = m.usd >= 0, lbl = t(Math.min(x + 3, W - R - 2), T + 10 + (i % 3) * 11, `${up ? '+' : '−'}$${Math.abs(m.usd).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${m.usd >= 0 ? 'capital' : 'payout'}`, x > W - 120 ? 'end' : 'start');
+      lbl.setAttribute('class', `flow-t ${up ? 'in' : 'out'}`);
+      svg.append(sv('line', { class: `flow-l ${up ? 'in' : 'out'}`, x1: x, y1: T, x2: x, y2: H - B }), lbl);
+    });
     svg.append(t(L, H - 7, fmtDay(x0)), t(W - R, H - 7, fmtDay(x1), 'end'));
     host.append(svg);
   }
@@ -154,6 +160,7 @@
         { h: 'Near thr.', f: (r) => (r.nearest_threshold_pct == null ? '—' : `${Number(r.nearest_threshold_pct).toFixed(3)}%`) }, { h: 'Why', left: true, f: (r) => r.why, c: () => 'wrap' },
       ], k.mismatches, '')));
     }
+    const upd = $('#updated'); upd.hidden = d.last_update_ms == null; upd.dataset.ts = d.last_update_ms ?? '';
     $('#footer').textContent = `data generated ${fmtTime(d.generated_at)} · auto-refresh every 60s · times in ${tz === 'utc' ? 'UTC' : 'your local time'} · ${mode} mode`;
     tick();
   }
@@ -164,7 +171,7 @@
     const cap = d.capital, o = d.overall, s = d.status;
     if (cap) {
       $('#kCapital').textContent = fmtUsd(cap.usd);
-      const sub = $('#kCapitalSub'); clear(sub).append(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`);
+      const sub = $('#kCapitalSub'); clear(sub).append(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`, cap.net_flows_usd ? ` · excl. ${fmtUsd(cap.net_flows_usd, true)} capital` : '');
       spark($('#kSpark'), cap.points.map((p) => p.usd));
     } else {
       $('#kCapital').textContent = '—';
@@ -235,6 +242,7 @@
       else if (a.kind === 'exit') out.push(logLine(a.ts, 'exit', coin, sideEl(a.side), ` ${a.reason} @ ${fmtPx(a.exit)} → `, el('span', { class: cls(a.r) }, `${fmtR(a.r)}${a.usd != null ? ` (${fmtUsd(a.usd, true)})` : ''}`)));
       else if (a.kind === 'skip') out.push(logLine(a.ts, 'skip', coin, sideEl(a.side), ` skipped: ${a.reason}${a.detail ? ` · ${a.detail}` : ''}`));
       else if (a.kind === 'check') out.push(logLine(a.ts, 'check', `4h candle ${a.candle_ms ? fmtShort(a.candle_ms) : ''} processed · total ${fmtR(a.total_r)}${a.balance != null ? ` · bal ${fmtUsd(a.balance)}` : ''}`));
+      else if (a.kind === 'capital') out.push(logLine(a.ts, 'capital', a.flow === 'payout' ? 'payout sent ' : 'capital added ', el('span', {}, fmtUsd(a.usd, true)), ' · not profit or loss'));
       else if (a.kind === 'compare') out.push(logLine(a.ts, 'compare', 'live vs backtest ', el('span', { class: a.match ? 'good' : 'bad' }, a.match ? 'MATCH' : 'MISMATCH'), ` · ${a.matched ?? 0} matched${a.mismatches ? ` · ${a.mismatches} differ` : ''}`));
     }
     $('#actCount').textContent = `${(d.activity || []).length} events`;
@@ -248,8 +256,12 @@
     const d = data, note = $('#chartNote');
     if (chartKind === 'capital') {
       const pts = d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : [];
+      lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
+      note.textContent = d.capital ? `Balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
+    } else if (chartKind === 'perf') {
+      const pts = d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : [];
       lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
-      note.textContent = d.capital ? `Balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}` : '';
+      note.textContent = d.capital ? `Balance with deposits and payouts taken out: only trading moves this line · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since start${d.capital.twr_pct != null ? ` · time-weighted return ${fmtPct(d.capital.twr_pct, true)}` : ''}` : '';
     } else if (chartKind === 'r') {
       lineChart($('#chart'), d.equity.map((p) => ({ ts: p.ts, y: p.r_cum })), { fmtY: (v) => `${v.toFixed(1)}R` });
       note.textContent = d.equity.length ? `Cumulative R over ${d.overall.trades} closed trades: ${fmtR(d.overall.total_r)}` : '';
@@ -277,6 +289,7 @@
   function tick() {
     const now = Date.now(), p = parts(now);
     $('#clock').textContent = `${fmtDay(now)} ${clock12(p, true)}${tz === 'utc' ? ' UTC' : ''}`;
+    const upd = $('#updated'); if (upd.dataset.ts) upd.textContent = `Updated ${fmtShort(Number(upd.dataset.ts))}${tzTag()} · ${fmtDur((now - Number(upd.dataset.ts)) / 1000)} ago`;
     for (const n of $$('[data-ago]')) n.textContent = `${fmtDur((now - Number(n.dataset.ago)) / 1000)} ago`;
     for (const n of $$('[data-until]')) { const t = Number(n.dataset.until); n.textContent = t > now ? `in ${fmtDur((t - now) / 1000)}` : 'due now'; }
   }

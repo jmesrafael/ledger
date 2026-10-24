@@ -22,7 +22,8 @@ export const RESTORE_ORDER = [
   ['snapshot_attestations', 'snapshot_attestations'], ['settlement_attestations', 'settlement_attestations'], ['balance_verifications', 'balance_verifications'],
   ['verification_adjustments', 'verification_adjustments'], ['capital_events', 'capital_events'], ['payout_records', 'payout_records'],
   ['position_snapshots', 'position_snapshots'], ['settlement_exceptions', 'settlement_exceptions'], ['settlements', 'settlements'],
-  ['settlement_lines', 'settlement_lines'], ['terms_acceptances', 'terms_acceptances'], ['payout_details', 'payout_details'],
+  ['settlement_lines', 'settlement_lines'], ['pool_updates', 'pool_updates'], ['applied_trades', 'applied_trades'], ['applied_trades_log', 'applied_trades_log'],
+  ['pool_recon_log', 'pool_recon_log'], ['terms_acceptances', 'terms_acceptances'], ['payout_details', 'payout_details'],
   ['idempotency_keys', 'idempotency_keys'], ['audit_log', 'audit_log'], ['investor_perf_draft_archive', 'investor_perf_draft_archive'],
   ['perf_log_draft_archive', 'perf_log_draft_archive'],
 ];

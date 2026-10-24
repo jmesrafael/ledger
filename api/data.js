@@ -18,7 +18,8 @@ module.exports = async (req, res) => {
     const mode = new URL(req.url, 'http://x').searchParams.get('mode');
     const now = Date.now();
     // heartbeat history only feeds the uptime panel: if it fails, the rest of the page still loads
-    const [events, heartbeat, beats] = await Promise.all([store.recent({ limit: 5000 }), store.latestHeartbeat(), store.heartbeats({ sinceMs: now - 7 * 86400000 }).catch(() => null)]);
-    send(res, 200, aggregate({ events, heartbeat, beats, now, mode: mode === 'paper' || mode === 'live' ? mode : null }));
+    // capital movements come from the ledger's capital_flows view; before that migration exists they are simply absent
+    const [events, heartbeat, beats, flows] = await Promise.all([store.recent({ limit: 5000 }), store.latestHeartbeat(), store.heartbeats({ sinceMs: now - 7 * 86400000 }).catch(() => null), (store.flows ? store.flows() : Promise.resolve([])).catch(() => [])]);
+    send(res, 200, aggregate({ events, heartbeat, beats, flows, now, mode: mode === 'paper' || mode === 'live' ? mode : null }));
   } catch { send(res, 502, { error: 'store unavailable' }); }
 };

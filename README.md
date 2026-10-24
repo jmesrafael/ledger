@@ -68,6 +68,8 @@ The manager's first tab is a **Dashboard** (fund value, investor money, withdraw
 3. **Someone takes money out**: they request it in the app (Log → Prepare payout), or record it directly: Record → 3 Withdrawal, with the pool equity just before payout. The fee on their gains comes out in units first; the rest is paid.
 4. **Every quarter**: Quarter tab → enter equity → check the preview → Charge fees.
 
+**With the bot's live trades (Pool Update, see [docs/pool-update.md](docs/pool-update.md)):** closed live trades only show as *Pending P/L* (banner: "3 trades, +41.20 USDT pending since <date>"). They change nobody's money until you click **Update Pool** under Record → Balance, which values the pool at the confirmed MEXC balance. Nobody can join or be paid out while trades are pending. Queued money waits in MEXC **Spot**; accepting a joiner includes moving it **Spot → Futures** in MEXC.
+
 Every equity you type is simply **the MEXC total** (open trades included, waiting deposits included); the app subtracts waiting money itself, so cash sitting in the account never moves the price. For a withdrawal, enter the total *before* you pay out.
 
 Tip: take readings when few or no trades are open. A deposit that joins mid-trade shares in the rest of that trade's result, even though the position was sized before the money arrived; for a small pool this is a minor effect, and it cuts both ways.

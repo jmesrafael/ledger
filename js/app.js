@@ -176,6 +176,7 @@
     catch (e) { if (e.message === 'Signed out') throw e; S.contact = null; S.contacts = []; S.contactOn = false; }   // hidden until the contact-details migration is run
     try { S.pos = admin ? null : await call('my_position'); S.queue = admin ? await call('admin_capital_queue') : null; S.checks = admin ? await call('admin_balance_checks') : null; }
     catch (e) { if (e.message === 'Signed out') throw e; S.pos = null; S.queue = null; S.checks = null; }   // empty until the capital-workflow migration is run
+    try { S.pu = admin ? await call('admin_pool_status') : null; } catch (e) { if (e.message === 'Signed out') throw e; S.pu = null; }   // null until the pool-update migration is run
     try { S.exit = await call('exit_fee_info'); } catch (e) { if (e.message === 'Signed out') throw e; S.exit = null; }   // null until the withdrawal-fee migration is run
   }
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
@@ -265,7 +266,8 @@
     const invValue = sum(inv, 'value_usdt'), invIn = sum(inv, 'net_in_usdt'), due = sum(inv, 'accrued_fee_usdt');
     const pend = S.reqs.filter((q) => q.status === 'pending'), pendUsdt = pend.reduce((t, q) => t + Number(q.units) * Number(p.unit_price), 0);
     const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Fund manager capital', p.admin_capital_units, 'var(--seg1)'], ["Fees earned", p.admin_fee_units, 'var(--seg3)']];
-    return `<div class="card hero"><h2>Total Fund</h2>
+    const pb = PU.banner(S.pu);
+    return `${pb ? `<div class="card" data-pool="banner"><p class="warn"><b>Pending P/L: ${esc(pb)}</b></p><p class="note">Nobody can join or be paid out until you click Update Pool (Record → Balance).</p><div class="btns"><button data-tab="record" data-rec="eq">Go to Update Pool</button></div></div>` : ''}<div class="card hero"><h2>Total Fund</h2>
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
         <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}</p>${lastClose()}</div>
@@ -799,6 +801,7 @@
     + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In MEXC": they are NOT taken out. If their money is already in MEXC, mark them first.</span>` : '');
   // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through Record → Balance (the database refuses the old direct
   // routes). The old forms are replaced by instructions, so nobody meets an error message.
+  const PU = PoolUpdate;   // js/poolupdate.js: the wording and the request for Update Pool
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   function pendingCard() {
     if (!S.pend.length) return '';
@@ -891,10 +894,10 @@
       <div class="row"><span class="l"><b>Unexplained difference</b></span><span class="r ${Math.abs(cur.residual) > cur.tolerance ? 'down' : 'up'}"><b>${smoney(cur.residual)}</b></span></div>
       <div class="row"><span class="l">Open positions</span><span class="r">${cur.open_positions} of 2${cur.snapshot ? ' (bot: ' + cur.snapshot.open_positions + ')' : ''}</span></div>
       <div class="btns">${cur.status === 'entered' ? `<button data-action="wfconfirm" data-id="${cur.id}">Confirm this balance</button><button class="ghost" data-action="wfreject" data-id="${cur.id}">Reject</button>` : ''}
-        ${cur.status !== 'rejected' && cur.status !== 'superseded' && !cur.first_used_at ? `<button class="ghost" data-action="wfadjust" data-id="${cur.id}">Explain part</button><button class="ghost" data-action="wfclassify" data-id="${cur.id}">Classify the rest</button>` : ''}</div>
+        ${cur.status !== 'rejected' && cur.status !== 'superseded' && !cur.first_used_at ? `<button class="ghost" data-action="wfadjust" data-id="${cur.id}">Explain part</button>${PU.count(S.pu) > 0 ? `<button class="ghost" data-action="wfclassifypool" data-id="${cur.id}">Classify beyond the pending trades</button>` : ""}<button class="ghost" data-action="wfclassify" data-id="${cur.id}">Classify the rest</button>` : ''}</div>
       <p class="note">Confirming only records that this is the balance on MEXC. It does not change anyone's value or issue units. The difference stays unexplained until you explain or classify it.</p>` : '<p class="note">No balance entered yet.</p>';
     const depRows = q.deposits.map((d) => `<div class="row"><span class="l"><b>${esc(d.name)}</b> · ${usdt(d.usdt)}<br><span class="note">${chip(d.state.replace('_', ' '))} ${esc(d.reason || '')}${d.escalate ? ' <b class="warn">Escalate</b>' : ''}</span></span>
-      <span class="r">${d.state === 'awaiting_arrival' ? `<button class="ghost sm" data-action="wfarrive" data-id="${d.id}">Seen in MEXC</button>` : d.state === 'ready' ? `<button class="sm" data-action="wfadmit" data-id="${d.id}">Admit</button>` : ''}
+      <span class="r">${d.state === 'awaiting_arrival' ? `<button class="ghost sm" data-action="wfarrive" data-id="${d.id}">Seen in MEXC</button>` : PU.admitMode(S.pu) === 'update_first' ? `<label class="note"><input type="checkbox" class="pu-pick" value="${d.id}"> accept with Update Pool</label>` : d.state === 'ready' ? `<button class="sm" data-action="wfadmit" data-id="${d.id}">Admit</button>` : ''}
         ${d.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="deposit" data-id="${d.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No deposits waiting.</p>';
     const wdRows = q.withdrawals.map((w) => `<div class="row"><span class="l"><b>${esc(w.name)}</b> · ${f(w.units, 4)} units · pay by ${day(w.pay_by)}<br><span class="note">${chip(w.state.replace('_', ' '))} ${w.delayed ? '<b class="warn">Delayed</b> ' : ''}${w.in_lockup ? 'inside lock-up ' : ''}${w.lock_exception ? '(exception recorded) ' : ''}${esc(w.reason || '')}${w.payout && w.payout.failure_reason ? ' ' + esc(w.payout.failure_reason) : ''}</span></span>
       <span class="r">${w.state === 'awaiting_approval' ? `<button class="sm" data-action="wfapprove" data-id="${w.id}" data-lock="${w.in_lockup}">Approve</button><button class="ghost sm" data-action="wfrejectwd" data-id="${w.id}">Reject</button>`
@@ -903,12 +906,12 @@
         : w.state === 'payout_sent' ? `<button class="sm" data-action="wfcomplete" data-id="${w.id}">Completed</button><button class="ghost sm" data-action="wffail" data-id="${w.id}">Failed</button>`
         : w.state === 'payout_failed' ? `<button class="sm" data-action="wfretry" data-id="${w.id}">Retry</button>` : ''}
         ${w.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="withdrawal" data-id="${w.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No withdrawal requests open.</p>';
-    return `<div class="card"><h2>Balance check</h2>
+    return `${PU.pendingCard(S.pu, rd)}${PU.reconCard(S.pu)}<div class="card"><h2>Balance check</h2>
         <p class="note">${rd.ok ? '<b class="up">Ready:</b> a confirmed, flat, explained balance is available for deposits, payouts and settlement.' : '<b class="warn">Money is waiting.</b> ' + rd.reasons.map((r) => esc(r.text)).join(' ')}${q.gate === 'on' ? '' : ' (The workflow gate is off: the old direct forms still work.)'}</p>
         <form id="wfBal"><label>MEXC total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>
           <div class="grid form2"><div><label>Open positions (0, 1 or 2)</label><input name="pos" type="number" min="0" max="2" value="0" required></div><div><label>Open orders</label><input name="ord" type="number" min="0" value="0"></div></div>
           <button class="full">Enter balance (not confirmed yet)</button></form>${bal}</div>
-      <div class="card"><h2>Deposits (${q.deposits.length})</h2>${depRows}</div>
+      <div class="card"><h2>Deposits (${q.deposits.length})</h2>${depRows}${PU.admitMode(S.pu) === 'update_first' && PU.ready(rd).ok && q.deposits.some((d) => d.state !== 'awaiting_arrival') ? '<div class="btns"><button data-action="poolupdateadmit">Update Pool and accept ticked</button></div><p class="note">One step: the pool is updated to the confirmed balance first, then the ticked joiners buy in at that price. If anything fails, nothing is saved.</p>' : ''}</div>
       <div class="card"><h2>Withdrawals and payouts (${q.withdrawals.length})</h2>${wdRows}
         <p class="note">Requests wait until both positions are closed and the balance is confirmed and explained. Past ${q.escalate_after_hours} hours, or past the pay-by date, they are flagged for escalation.</p></div>
       ${rd.ok ? `<div class="card"><h2>Valuation and settlement</h2><div class="btns"><button class="ghost" data-action="wfapply">Apply verified balance</button><button data-action="wfsettle">Settle two-month period</button></div></div>` : ''}`;
@@ -919,7 +922,24 @@
     catch (e) { if (!/^CONFIRM: /.test(e.message) || !confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nContinue anyway?')) throw e; return call(fn, { ...args, p_idem: crypto.randomUUID(), p_confirm: true }); }
   };
   const ask = (m, d) => prompt(m, d) || '';
+  // Update Pool: the request carries exactly what this screen displayed; one request id per displayed state, so a double-click is a replay, not a second update
+  let puSig = null, puKey = null;
+  const poolUpdate = async (depositIds) => {
+    const st = S.pu, vid = usable(), last = (st.updates || [])[0];
+    const sig = [vid, (st.pending.ids || []).join(','), st.pending.usd, last ? last.id + last.status : '-', depositIds.join(',')].join('|');
+    if (sig !== puSig) { puSig = sig; puKey = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
+    const fn = depositIds.length ? 'admin_update_pool_and_admit' : 'admin_update_pool';
+    const mk = (extra) => (depositIds.length ? PU.requestAndAdmit(st, vid, puKey, depositIds, extra) : PU.request(st, vid, puKey, extra));
+    let r;
+    try { r = await call(fn, mk({})); }
+    catch (e) { if (!/^CONFIRM: /.test(e.message) || !confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nContinue anyway?')) throw e; r = await call(fn, mk({ confirm: true })); }
+    if (r && r.blocked) throw new Error(r.text || 'Blocked by the reconciliation.');
+    return r;
+  };
   const WF = {
+    poolupdate: () => poolUpdate([]),
+    poolupdateadmit: () => { const ids = [...document.querySelectorAll('input.pu-pick:checked')].map((i) => Number(i.value)); if (!ids.length) throw new Error('Tick the joiners to accept with this update.'); return poolUpdate(ids); },
+    wfclassifypool: (id) => call('admin_classify_pool_difference', { p_vid: id, p_kind: ask('Treat what the pending trades do not explain as: fees, funding, transfer, timing or other', 'fees'), p_note: ask('Why? (written to the record)') }),
     wfconfirm: (id) => call('admin_confirm_balance', { p_vid: id }),
     wfreject: (id) => call('admin_reject_balance', { p_vid: id, p_reason: ask('Why is this entry wrong?') }),
     wfadjust: (id) => call('admin_add_adjustment', { p_vid: id, p_kind: ask('What is it? trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_amount: Number(ask('Amount in USDT (negative for a loss or cost)')), p_note: ask('Source (for example the MEXC statement line)') }),

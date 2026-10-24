@@ -29,6 +29,7 @@
     </div>
     <div class="top-right">
       <span id="statusPill" class="pill" hidden></span>
+      <span id="updated" class="clock" title="Newest heartbeat or event received from the bot" hidden></span>
       <span id="clock" class="clock" title="Current time"></span>
       <div class="menu-wrap">
         <button type="button" class="icon-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="Settings">
@@ -105,7 +106,7 @@
         <section class="panel">
           <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
             <div class="tabs" id="chartTabs" role="tablist">
-              <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
+              <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Performance</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
             </div>
           </div>
           <div class="pb"><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
