@@ -735,7 +735,10 @@
       ${S.all.map(card).join('')}`;
   }
   // everything about one person, in a sheet over the Users list; "View as" is the last thing in it
+  // the "? How this works" sheet of a Record tab: it lives in S.modal as 'help:<tab>', so Back, Esc and the backdrop close it like every other sheet
+  const helpModal = (topic) => RH.sheet(topic, { gate: gateOn(), maxAgeHours: S.checks && S.checks.max_age_hours }, ICON.close);
   function userModal() {
+    if (RH.isHelp(S.modal)) return helpModal(S.modal.slice(5));
     const h = S.modal && S.all.find((x) => x.id === S.modal); if (!h) return '';
     const inv = h.role === 'investor', net = inv && h.net_profit_usdt != null, nm = esc(h.name || h.username);
     const line = (l, v) => `<div class="row"><span class="l">${l}</span><span class="r">${v}</span></div>`;
@@ -801,6 +804,7 @@
     + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In MEXC": they are NOT taken out. If their money is already in MEXC, mark them first.</span>` : '');
   // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through Record → Balance (the database refuses the old direct
   // routes). The old forms are replaced by instructions, so nobody meets an error message.
+  const RH = RecordHelp;   // js/recordhelp.js: the "? How this works" instructions on the Record tabs
   const PU = PoolUpdate;   // js/poolupdate.js: the wording and the request for Update Pool
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   function pendingCard() {
@@ -819,7 +823,7 @@
     const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
     return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
-      ${pick('dep', `<div class="card"><h2>Money in</h2>
+      ${pick('dep', `${RH.button('dep')}<div class="card"><h2>Money in</h2>
         <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached MEXC and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
@@ -829,7 +833,7 @@
           : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in MEXC</span></label>'}
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
-      ${pick('wd', Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
+      ${pick('wd', RH.button('wd') + (Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
         <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <label>MEXC balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
@@ -842,12 +846,12 @@
           <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay from my own money (nothing leaves MEXC)</span></label>
           <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Inside lock-up: allow</label>
           <label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
-        <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`)}
-      ${pick('eq', empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
+        <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`))}
+      ${pick('eq', RH.button('eq') + (empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
         <p class="note">The quick old way. The checked route above is safer.</p>
         <form id="eqForm"><label>MEXC total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
         <input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
-        <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`)}
+        <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`))}
       ${pick('hist', `<div class="card"><h2>History</h2>
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
   }
@@ -1392,6 +1396,7 @@
       const st = history.state;
       if (st && st.vw && st.ve) history.go(-(st.vd + 1)); else backToManager();   // the pop handler returns to the manager
     }
+    else if (a === 'help') { S.modal = 'help:' + b.dataset.help; render(); const x = document.querySelector('.sheet [data-action="closemodal"]'); if (x) x.focus(); }
     else if (a === 'userview') { S.modal = id; render(); const x = document.querySelector('.sheet [data-action="closemodal"]'); if (x) x.focus(); }
     else if (a === 'closemodal') { if (ev.target === b || b.classList.contains('iconbtn') || ev.target.closest('.iconbtn')) closeModal(); }
     else if (a === 'undolast') {

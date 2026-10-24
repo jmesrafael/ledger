@@ -26,6 +26,8 @@ Update Pool: pool value 900 (1,400 minus Dino's waiting 500), price 0.90. Dino t
 
 ## The manager's routine
 
+> The same steps are in the app: the **? How this works** button at the top of **Money in**, **Money out** and **Balance** opens them as a step-by-step sheet (source: `js/recordhelp.js`; a test checks that every button it names exists on a real screen).
+
 1. A joiner's money is received and must wait in **MEXC Spot, not Futures.** Mark it **Seen in MEXC** (with a note). Queued money is not traded, because the bot
    sizes on Futures equity. This is what keeps a joiner from taking part in trades before they are in the pool.
 2. **Record → Balance:** enter the MEXC total (Spot + Futures) with no open position and confirm it. A banner shows `N trades, ±X USDT pending since <date>`.

@@ -99,6 +99,45 @@ try {
   check('two pool updates now, the trade is applied, the deposit is admitted', (await sql(`select count(*)::int n from public.pool_updates where status = 'applied'`))[0].n === 2 && (await sql(`select count(*)::int n from public.pending_deposits where status = 'converted' and profile_id = $1`, [dino]))[0].n === 1);
   check('pool NAV = MEXC total 1125', Math.abs((await sql(`select equity_usdt::float e from public.pool_equity order by id desc limit 1`))[0].e - 1125) < 1e-6);
   await shot('p5-update-and-accept');
+  // ---- phase 3: the "? How this works" sheets on Money in, Money out and Balance (gate off first, then the workflow gate switched on)
+  const helpText = () => ev(`document.querySelector('.helpsheet') ? document.querySelector('.helpsheet').innerText : ''`);
+  const openHelp = async (topic) => {
+    await click(`[data-rec="${topic}"]`);
+    await waitFor(`!!document.querySelector('.helpbtn[data-help="${topic}"]')`, `the ? button on ${topic}`);
+    await click(`.helpbtn[data-help="${topic}"]`);
+    await waitFor(`!!document.querySelector('.sheet.helpsheet[data-help="${topic}"]')`, `the help sheet of ${topic}`);
+  };
+  const closed = () => waitFor(`!document.querySelector('.helpsheet')`, 'the help sheet to close');
+  await click('[data-tab="record"]');
+  for (const [topic, steps, words, how] of [
+    ['dep', 7, ['Waiting to join', 'In MEXC', 'Update Pool', 'Update equity', 'Spot to Futures'], 'x'],
+    ['wd', 7, ['Request withdrawal', 'Approve', 'Quote', 'Redeem', 'Sent from MEXC', 'Completed'], 'gotit'],
+    ['eq', 5, ['Enter balance (not confirmed yet)', 'Confirm this balance', 'Unexplained difference', 'Pending P/L', 'Reconciliation'], 'esc'],
+  ]) {
+    await openHelp(topic);
+    const n = await ev(`document.querySelectorAll('.helpsheet .hstep').length`), txt = (await helpText()).toLowerCase();
+    check(`${topic}: the ? opens a sheet with ${steps} numbered steps`, n === steps, 'steps=' + n);
+    check(`${topic}: it names the real buttons (${words.length})`, words.every((w) => txt.includes(w.toLowerCase())), words.filter((w) => !txt.includes(w.toLowerCase())).join(', '));
+    check(`${topic}: the sheet fits a phone screen and the page behind it is locked`, await ev(`(() => { const r = document.querySelector('.sheet.helpsheet').getBoundingClientRect(); return r.right <= innerWidth + 1 && r.left >= -1 && document.body.style.overflow === 'hidden'; })()`));
+    await shot('p6-help-' + topic);
+    if (how === 'x') await click('.helpsheet .iconbtn[data-action="closemodal"]');
+    else if (how === 'gotit') await click('.helpsheet .btns [data-action="closemodal"]');
+    else await ev(`(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return true; })()`);
+    await closed(); check(`${topic}: closes with ${how === 'x' ? 'the × button' : how === 'gotit' ? 'Got it' : 'the Escape key'}`, true);
+  }
+  await sql(`update public.ledger_settings set value = 'on' where key = 'workflow_gate'`);
+  await send('Page.navigate', { url: app });
+  await waitFor(`!!document.querySelector('[data-tab="record"]') || !!document.querySelector('#loginForm')`, 'reload after switching the gate on');
+  if (await ev(`!!document.querySelector('#loginForm')`)) { await setVal('#loginForm', 'username', 'raf'); await setVal('#loginForm', 'password', 'admin-password-1'); await submit('#loginForm'); }
+  await waitFor(`document.body.innerText.toLowerCase().includes('fund manager')`, 'manager home with the gate on');
+  await ev(`(() => { const s = [...document.querySelectorAll('button,a,[role=tab]')].find((b) => b.innerText.trim().toLowerCase() === 'fund'); if (s) s.click(); return true; })()`);
+  await waitFor(`!!document.querySelector('[data-tab="record"]')`, 'the Record tab');
+  await click('[data-tab="record"]'); await openHelp('dep');
+  const g = (await helpText()).toLowerCase(), gn = await ev(`document.querySelectorAll('.helpsheet .hstep').length`);
+  check('gate on: Money in shows the 8-step route with Seen in MEXC and Admit', gn === 8 && g.includes('seen in mexc') && g.includes('admit them') && !g.includes('update equity'), 'steps=' + gn);
+  await click('.helpsheet .iconbtn[data-action="closemodal"]'); await closed();
+  await click('[data-rec="wd"]'); await waitFor(`!!document.querySelector('.helpbtn[data-help="wd"]')`, 'the ? button on Money out when the gate replaces its form');
+  check('gate on: Money out still has its ? button although the gate replaced the form', true);
   check('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) { check('flow completed: ' + e.message, false); try { console.log((await text()).slice(0, 1800)); await shot('failure'); } catch {} }
 finally { ws.close(); proc.kill(); const bad = results.filter((r) => !r.ok); console.log(`\n${results.length - bad.length} passed, ${bad.length} failed`); process.exit(bad.length ? 1 : 0); }

@@ -77,3 +77,26 @@ button.busy::after, .btn.busy::after { content: ""; position: absolute; left: 50
 button.busy:disabled { opacity: .8; }
 .login-brand.login { padding: calc(4vh + env(safe-area-inset-top)) 0 4px; }
 .login-brand .tagline { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .5px; color: var(--accent-text); }
+
+/* "? How this works" on the Record tabs: the button and the instruction sheet (js/recordhelp.js) */
+.helprow { display: flex; justify-content: flex-end; margin: 10px 0 2px; }
+.helpbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px 6px 8px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--ink-2);
+  background: var(--soft-bg); border: 1px solid var(--soft-border); cursor: pointer; }
+.helpbtn .q { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 15px; }
+.helpbtn:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.helpsheet .hintro { margin: 6px 0 12px; line-height: 1.5; }
+.helpsheet .hglance { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; margin: 0 0 6px; padding: 10px; border-radius: 14px; background: var(--soft-bg); border: 1px solid var(--soft-border); }
+.helpsheet .hchip { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--accent-soft); color: var(--ink); white-space: nowrap; }
+.helpsheet .harrow { color: var(--muted); font-weight: 800; padding: 0 1px; }
+.helpsheet .hh { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+.helpsheet .hsteps { list-style: none; margin: 0; padding: 0; counter-reset: none; }
+.helpsheet .hstep { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--divider); }
+.helpsheet .hstep:last-child { border-bottom: 0; }
+.helpsheet .hnum { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 14px; }
+.helpsheet .htitle { font-weight: 800; }
+.helpsheet .hwhere { font-size: 12px; font-weight: 700; color: var(--accent-text); margin: 1px 0 4px; }
+.helpsheet .hbody { margin: 0; line-height: 1.5; color: var(--ink-2); }
+.helpsheet .hlist { margin: 0; padding-left: 20px; line-height: 1.5; color: var(--ink-2); }
+.helpsheet .hlist li { margin: 0 0 6px; }
+.helpsheet .hrefused .row { align-items: flex-start; gap: 12px; }
+.helpsheet .hrefused .r { text-align: right; max-width: 55%; }
