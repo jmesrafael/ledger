@@ -1,7 +1,7 @@
 {
   "name": "Lucid'io Ledger",
   "short_name": "Lucid'io",
-  "start_url": "./",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#0A0A0A",
   "theme_color": "#0A0A0A",

@@ -1,9 +1,9 @@
 [
   {
     "slug": "how-lucid-io-works-v2",
-    "title": "How Your Money Works — Investor Guide (new)",
-    "summary": "Redesigned guide with today's rules: units, the 10% fee on new profit above your best level (settled every two months), how deposits join, withdrawals, risks and the backtest. Interactive examples.",
-    "updated": "23 Oct 2026",
+    "title": "How Your Money Works — Investor Guide (home page)",
+    "summary": "The home page at lucidio.vercel.app. Units, the 10% fee on new profit above your best level (settled every two months), deposits, withdrawals, the real risks of 5% per trade, what ₱1,000 does in each year, and the backtest. Interactive examples.",
+    "updated": "Oct 24, 2026",
     "kind": "Guide",
     "file": "reports/how-lucid-io-works-v2.html"
   },

@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const Gate = createRequire(import.meta.url)('../js/gate.js');
 const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../login.html', import.meta.url), 'utf8');
 
 const OFF = [null, undefined, {}, { gate: 'off' }, { gate: '' }];
 
@@ -54,7 +54,7 @@ test('G5 wiring: the app routes the withdrawal, balance and settlement forms thr
   assert.match(app, /Gate\.oldForm\('settlement', S\.queue\)/);
   assert.match(app, /Gate\.on\(S\.queue\)/);
   const p = html.indexOf('js/gate.js'), a = html.indexOf('js/app.js');
-  assert.ok(p > 0 && a > p, 'index.html loads js/gate.js before js/app.js');
+  assert.ok(p > 0 && a > p, 'login.html loads js/gate.js before js/app.js');
   // with the gate on, the in-MEXC checkbox and the "In MEXC" button give way to the Capital tab (arrival is confirmed there, with a note)
   assert.match(app, /\$\{d\.arrived_at \|\| g \? '' :/);
   assert.match(app, /\$\{gateOn\(\) \? '<p class="note"><b>The workflow gate is on\.<\/b> ' \+ Gate\.TEXT\.deposit/);

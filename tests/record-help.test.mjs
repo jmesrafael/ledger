@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const RH = createRequire(import.meta.url)('../js/recordhelp.js');
 const read = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-const app = read('js/app.js'), html = read('index.html'), css = read('css/features.css'), pu = read('js/poolupdate.js');
+const app = read('js/app.js'), html = read('login.html'), css = read('css/features.css'), pu = read('js/poolupdate.js');
 const wf = read('supabase/migrations/applied/20261106000000_capital_workflow.sql');
 const SCREENS = app + '\n' + pu;
 const titles = (topic, ctx) => RH.topics(ctx)[topic].steps.map((s) => s.t);

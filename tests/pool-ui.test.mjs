@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const PU = createRequire(import.meta.url)('../js/poolupdate.js');
 const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../login.html', import.meta.url), 'utf8');
 const T0 = Date.UTC(2026, 9, 22, 12, 0, 0);   // Oct 22, 2026
 
 const st = (o = {}) => ({ pending: { count: 3, usd: 41.2, r: 0.4, missing_usd: 0, oldest_ms: T0, newest_ms: T0 + 1e6, ids: ['b', 'a', 'c'], exits: [], ...o } });

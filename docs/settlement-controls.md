@@ -130,7 +130,7 @@ starts with the default grants; the revoke list named the renamed one). The publ
 Nothing below has been done on production. `node scripts/rehearse-migration.mjs <backup> --expect-snapshot <file>` runs all of it on a copy first.
 
 **Order.** (1) Take a backup and the PART A snapshot. (2) Apply the migration. (3) Run the verification. (4) Deploy `js/app.js`, `js/gate.js`,
-`js/position.js` and `index.html`. The migration must go first, because the new app sends the exception calls. The old app keeps working until
+`js/position.js` and `login.html` (was `index.html`). The migration must go first, because the new app sends the exception calls. The old app keeps working until
 then, but a settlement from it would be refused with an error instead of an approval prompt, so deploy both before the next window opens on 1 November.
 
 **Before.** (a) Back up: the app's Backup, or `select public._export_all()::text` saved as `ledger.json`. (b) Run PART A of

@@ -3,9 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lucid'io Investor Guide</title>
-<meta name="description" content="How your money works in the Lucid'io pool: units, the high-water mark, deposits, withdrawals and risks, in plain language.">
+<title>Lucid'io: How Your Money Works</title>
+<meta name="description" content="How your money works in the Lucid'io pool: units, the fee on new profit, deposits, withdrawals and the real risks, in plain language.">
+<meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#060708">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -53,8 +55,27 @@ section { margin-top: 28px; }
 .top a { flex: none; text-decoration: none; color: var(--ink-2); font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 99px; }
 .top a:hover, .top a.on { background: var(--glass-2); color: var(--ink); }
 
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 14px; font: 800 15px/1 Manrope, system-ui, sans-serif; text-decoration: none; color: #0b0d06; background: linear-gradient(180deg, #DDFF7A, var(--accent) 60%, #B4EA2C); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 10px 26px -12px rgba(200,255,61,0.55); }
+.btn:hover { filter: brightness(1.05); }
+.btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
+.top a.login { margin-left: auto; position: sticky; right: 0; color: #0b0d06; background: var(--accent); box-shadow: -14px 0 12px -4px rgba(6,7,8,0.9); }
+.top a.login:hover { background: #DDFF7A; color: #0b0d06; }
 /* hero */
-.hero { padding: 56px 0 8px; }
+.hero { padding: 48px 0 8px; }
+.hero h1 { max-width: 22ch; }
+.hero h1 .grad { background: linear-gradient(90deg, var(--accent), var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.glance { margin-top: 22px; padding: 18px 18px 14px; }
+.glance h3 { font-size: 14px; }
+.gbars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; height: 150px; margin-top: 14px; }
+.gbars div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 11.5px; color: var(--muted); }
+.gbars i { display: block; width: 100%; max-width: 44px; border-radius: 8px 8px 3px 3px; background: linear-gradient(180deg, var(--accent), rgba(200,255,61,0.35)); margin: 4px 0; transform-origin: bottom; animation: grow .9s ease both; }
+.gbars b { font-size: 11.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+@keyframes grow { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .gbars i { animation: none; } }
+.taxrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.taxrow span { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; background: rgba(255,112,112,0.10); color: var(--red); border: 1px solid rgba(255,112,112,0.25); }
 .hero p.lead { font-size: 17px; max-width: 54ch; color: var(--ink-2); }
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
 @media (max-width: 640px) { .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -148,25 +169,33 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <body>
 <nav class="top"><div class="in">
   <a href="#pool">The pool</a><a href="#journey">Your money's journey</a><a href="#units">Units</a><a href="#fee">The fee</a>
-  <a href="#friends">2026 examples</a><a href="#app">In the app</a><a href="#out">Taking money out</a><a href="#risks">Risks</a><a href="#past">Past results</a>
+  <a href="#friends">2026 examples</a><a href="#app">In the app</a><a href="#out">Taking money out</a><a href="#risks">Risks</a><a href="#past">Past results</a><a class="login" href="/login">Log in →</a>
 </div></nav>
 <div class="wrap">
 
 <header class="hero reveal">
-  <div class="kicker">Lucid'io · Investor guide</div>
-  <h1>How your money works in the pool</h1>
-  <p class="lead">One trading account, and everyone owns a slice. This page explains, in plain language, how your slice is counted, when a fee is charged, and how you take money out.</p>
+  <div class="kicker">Lucid'io · Pooled trading ledger</div>
+  <h1>Your slice of one account. <span class="grad">Counted fairly, explained simply.</span></h1>
+  <p class="lead">Friends and family put money into one shared MEXC account that a rules-based system trades. You own <b>units</b> of the pool, the ledger records every peso in and out, and a fee is charged only when you are at a new high. This page shows exactly how it works, including how bad it can get.</p>
+  <div class="cta"><a class="btn" href="/login">Log in to your ledger →</a><a class="btn ghost" href="#past">What ₱1,000 did each year</a></div>
   <div class="facts">
     <div class="fact glass"><b>Units</b><span>your slice of the pool</span></div>
     <div class="fact glass"><b>10%</b><span>fee, only on new profit</span></div>
     <div class="fact glass"><b>2 months</b><span>between fee settlements</span></div>
-    <div class="fact glass"><b>7 days</b><span>business days to pay out</span></div>
+    <div class="fact glass"><b>5%</b><span>of the balance risked per trade</span></div>
+  </div>
+  <div class="glass glance">
+    <h3>Backtest: ₱1,000 on each Jan 1, left in until Dec 31</h3>
+    <div class="gbars" id="gbars" role="img" aria-label="Growth of 1,000 pesos in each calendar year"></div>
+    <div class="taxrow" id="gdd"></div>
+    <p class="small muted" style="margin:10px 0 0">Every year starts again at ₱1,000, nothing carries over. 5% risk per trade, before the 10% fee. Details in <a href="#past">section 9</a>. A simulation on old prices, not a promise.</p>
   </div>
   <div class="note-box" style="margin-top:18px;border-style:solid;border-color:rgba(255,181,71,0.35);background:rgba(255,181,71,0.07)">
-    <b style="color:var(--amber)">About the numbers on this page.</b> The 2026 results and the since-2020 results are a <b>backtest</b>: the Lucid'io trading rules replayed on <b>actual historical market prices</b> of the coins traded, including trading fees, slippage and funding costs, at 1% risk per trade. It is a simulation of real market data, not real accounts and not real people. Real results will differ, and can be worse.</div>
+    <b style="color:var(--amber)">About the numbers on this page.</b> The 2026 results and the since-2020 results are a <b>backtest</b>: the Lucid'io trading rules replayed on <b>actual historical market prices</b> of the coins traded, including trading fees, slippage and funding costs, at <b>5% risk per trade</b>. It is a simulation of real market data, not real accounts and not real people. Real results will differ, and can be worse.</div>
   <div class="warnbox">
     <h3>Only put in money you can afford to lose</h3>
     <p>The market is erratic. Nobody, including us, can guarantee it will work every time. The strategy is based on <b>statistics and probability</b>: it aims to win more than it loses over many trades, but any single week, month or even year can go wrong, and the market may behave differently from the past.</p>
+    <p><b>5% risk per trade is the aggressive end.</b> In the backtest the balance fell as much as <b>65%</b> from a high before recovering. At 1% the worst fall was 14%. See <a href="#risks" style="color:var(--red)">Risks</a>.</p>
   </div>
 </header>
 
@@ -239,7 +268,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <section id="friends" class="glass card reveal">
   <div class="kicker">5 · 2026, five friends (backtest)</div>
   <h2>Different amounts, different months: what each one made</h2>
-  <p>Five example friends join the same pool in 2026, each with a different amount and in a different month. Every one of them gets the <b>same trading result per unit</b> from the day they join; what differs is <b>when</b> they joined and how much. The fee is 10% of new profit above each person's best level, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b>, shown in pesos at ₱58 per USDT.</p>
+  <p>Five example friends join the same pool in 2026, each with a different amount and in a different month. Every one of them gets the <b>same trading result per unit</b> from the day they join; what differs is <b>when</b> they joined and how much. The fee is 10% of new profit above each person's best level, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b>, at <b>5% risk per trade</b>, shown in pesos at ₱58 per USDT.</p>
   <div style="overflow-x:auto;margin-top:14px">
     <table class="ft" id="ftable"></table>
   </div>
@@ -251,7 +280,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
       <li><b>Long term is where the strategy works.</b> It is built to grow slowly over many months, with small wins adding up and losses kept small. It needs time to play out.</li>
       <li><b>The friends who joined earliest are the ones ahead.</b> Ana (January) and Ben (March) had time to ride out the dips, and are up after fees.</li>
     </ul>
-    <p class="small" style="margin-top:8px">So please think of this as <b>long-term money</b>: plan to leave it for at least a year, and do not judge it by the first few weeks. In the backtest, every full year since 2020 ended higher than it started (see section 9):</p>
+    <p class="small" style="margin-top:8px">So please think of this as <b>long-term money</b>: plan to leave it for at least a year, and do not judge it by the first few weeks. In the backtest at 5% risk, every full year since 2020 ended higher than it started, but with big dips on the way (see section 9):</p>
     <div class="yrs" id="yrs"></div>
     <p class="small" style="margin-top:8px;color:var(--red)"><b>Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
     <p class="small muted" style="margin-top:8px">Past years being positive is not a promise that every future year will be. There were still drops along the way, and real results can be worse.</p>
@@ -326,6 +355,17 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
       <li><b>Be ready for red periods.</b> There will be weeks and months where your balance is down. That is part of it; please do not put in money that would make you panic when that happens.</li>
     </ul>
   </div>
+  <div class="glass card" style="margin:0 0 12px;border-color:rgba(255,181,71,0.35)">
+    <h3 style="color:var(--amber)">What 5% risk per trade really means</h3>
+    <p class="small">Before every trade the system risks <b>5% of the current balance</b> (about ₱500 at stake when the pool is worth ₱10,000). Wins make the next trade bigger, losses make it smaller. That is why results swing so much.</p>
+    <div class="grid2" style="margin-top:10px">
+      <div><h3>The deepest fall</h3><p class="small">In the backtest the balance dropped <b>65%</b> from a high (May 2023). At 1% risk the worst fall was 14%. After a 65% fall you need about <b>+185%</b> just to get back to even.</p></div>
+      <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>28% and 57%</b> from its high along the way (table in section 9).</p></div>
+      <div><h3>Starting at a bad moment</h3><p class="small">Starting on any month and holding 12 months (58 start dates), the typical result was about <b>+260%</b>, but <b>6 of 58</b> starts lost money, the worst by <b>31%</b>. Starting at a peak, ₱1,000 was worth about <b>₱520</b> three months later (Oct 2022) and about <b>₱670</b> (Sep 26, 2026).</p></div>
+      <div><h3>Recent years are weaker</h3><p class="small">In the last 12 months 5% risk earned about <b>+23%</b> (1% earned about +13%). The extra risk bought much less than in 2021–2025, and the old totals are flattered by coins chosen with hindsight.</p></div>
+    </div>
+    <p class="small muted" style="margin-bottom:0">Source: the Lucid'io Risk &amp; Compounding report (SOL + ZEC backtest to Oct 21, 2026). A lower risk setting is calmer; 5% is what the pool uses, so expect red months and the occasional deep red stretch.</p>
+  </div>
   <div class="grid2">
     <div class="glass risk"><h3><span class="ic">!</span>You can lose money</h3><p class="small">Crypto moves fast. The pool can fall sharply and you can lose a large part or all of what you put in. Only use money you can afford to lose.</p></div>
     <div class="glass risk"><h3><span class="ic">!</span>Past results are not a promise</h3><p class="small">The numbers below come from a backtest: the strategy replayed on old prices. The coins were picked with hindsight. Real results will differ.</p></div>
@@ -336,20 +376,33 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 
 <section id="past" class="glass card reveal">
   <div class="kicker">9 · Past results (backtest)</div>
-  <h2>₱1,000 left to compound since 2020</h2>
-  <p>Year by year, at 1% risk per trade, from a backtest on actual market data. Hypothetical, before fees, and not a promise.</p>
-  <svg id="years" class="chart" viewBox="0 0 640 240" role="img" aria-label="Backtested balance at the end of each year"></svg>
+  <h2>What ₱1,000 does in one year</h2>
+  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. Backtest at <b>5% risk per trade</b>, on actual market prices, with trading fees, slippage and funding included.</p>
+  <div style="overflow-x:auto;margin-top:12px"><table class="ft" id="ytab" style="min-width:640px"></table></div>
+  <p class="small muted" id="ytab-note"></p>
+  <div class="longterm">
+    <h3>How to read this</h3>
+    <ul>
+      <li><b>Growth</b> is what the ₱1,000 earned in that one year. <b>Deepest dip</b> is the biggest fall from a high inside that year: the money can look much worse than the final number on the way.</li>
+      <li><b>After 10% fee</b> is about what you would keep once the fee on new profit is taken (settled every two months; the exact figure depends on the path).</li>
+      <li><b>2021 was exceptional</b> and will probably not repeat. 2022 and 2026 are closer to a normal, harder year.</li>
+    </ul>
+  </div>
+
+  <h2 style="margin-top:28px">₱1,000 left to compound since 2020</h2>
+  <p>Now the same thing without restarting: the profits stay in and are used for the next trades (compounding), at 5% risk per trade. Hypothetical, before the 10% fee, and not a promise. The scale is logarithmic: each line up is ten times more.</p>
+  <svg id="years" class="chart" viewBox="0 0 640 260" role="img" aria-label="Backtested balance at the end of each year, log scale"></svg>
   <p class="small muted" id="years-note"></p>
-  <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this backtest ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week.</div>
+  <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this backtest ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week. <b style="color:var(--red)">The totals here are inflated</b>: the coins were picked with hindsight, 2021 was extraordinary, and the edge has been getting smaller. Treat the yearly table above, and the dips, as the more honest picture.</div>
 </section>
 
 <footer>
-  <p>Lucid'io Ledger · investor guide. Example figures are illustrations; backtest figures are hypothetical. This page is not financial advice. Check with a lawyer before putting other people's money into a pool.</p>
+  <p><a href="/login">Log in</a> · Lucid'io Ledger · investor guide. Example figures are illustrations; backtest figures are hypothetical. This page is not financial advice. Check with a lawyer before putting other people's money into a pool.</p>
 </footer>
 </div>
 
 <script>
-const YEARS = {"r":{"0.01":{"dd":0.1441,"years":{"2020":{"start":1000,"end":1233},"2021":{"start":1233,"end":2275},"2022":{"start":2275,"end":2624},"2023":{"start":2624,"end":3604},"2024":{"start":3604,"end":4968},"2025":{"start":4968,"end":6815},"2026":{"start":6815,"end":8099}}}}};
+const YEARS = {"r":{"0.05":{"bal":2731289,"dd":0.6459,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":2301,"dd":0.2796},"2021":{"start":2301,"end":27752,"dd":0.3649},"2022":{"start":27752,"end":39381,"dd":0.5731},"2023":{"start":39381,"end":132947,"dd":0.4534},"2024":{"start":132947,"end":470467,"dd":0.3392},"2025":{"start":470467,"end":1622609,"dd":0.4429},"2026":{"start":1622609,"end":2731289,"dd":0.4466}}},"0.01":{"bal":8099,"dd":0.1441,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":1233,"dd":0.0613},"2021":{"start":1233,"end":2275,"dd":0.0829},"2022":{"start":2275,"end":2624,"dd":0.1366},"2023":{"start":2624,"end":3604,"dd":0.1041},"2024":{"start":3604,"end":4968,"dd":0.0771},"2025":{"start":4968,"end":6815,"dd":0.107},"2026":{"start":6815,"end":8099,"dd":0.1048}}}}};
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
 const peso = (n) => (n < 0 ? '−' : '') + '₱' + Math.round(Math.abs(n)).toLocaleString('en-PH');
@@ -439,7 +492,7 @@ hwmDraw('steady');
 
 
 // ---------- 5. 2026 friends: weekly unit prices from the backtest, run through today's rules
-const W26 = [{"d":"2026-01-04","p":1.0049},{"d":"2026-01-11","p":1.0191},{"d":"2026-01-18","p":1.0129},{"d":"2026-01-25","p":1.0174},{"d":"2026-01-31","p":1.0479},{"d":"2026-02-01","p":1.0691},{"d":"2026-02-08","p":1.1091},{"d":"2026-02-15","p":1.0934},{"d":"2026-02-22","p":1.0806},{"d":"2026-02-28","p":1.0887},{"d":"2026-03-01","p":1.0665},{"d":"2026-03-08","p":1.0422},{"d":"2026-03-15","p":1.0535},{"d":"2026-03-22","p":1.0629},{"d":"2026-03-29","p":1.0346},{"d":"2026-03-31","p":1.0596},{"d":"2026-04-05","p":1.0499},{"d":"2026-04-12","p":1.0996},{"d":"2026-04-19","p":1.0884},{"d":"2026-04-26","p":1.0798},{"d":"2026-04-30","p":1.0489},{"d":"2026-05-03","p":1.0592},{"d":"2026-05-10","p":1.1589},{"d":"2026-05-17","p":1.145},{"d":"2026-05-24","p":1.1738},{"d":"2026-05-31","p":1.1507},{"d":"2026-06-07","p":1.1966},{"d":"2026-06-14","p":1.1945},{"d":"2026-06-21","p":1.1726},{"d":"2026-06-28","p":1.1577},{"d":"2026-06-30","p":1.1599},{"d":"2026-07-05","p":1.1794},{"d":"2026-07-12","p":1.191},{"d":"2026-07-19","p":1.1765},{"d":"2026-07-26","p":1.1518},{"d":"2026-07-31","p":1.1526},{"d":"2026-08-02","p":1.1404},{"d":"2026-08-09","p":1.1376},{"d":"2026-08-16","p":1.1007},{"d":"2026-08-23","p":1.1886},{"d":"2026-08-30","p":1.2039},{"d":"2026-08-31","p":1.203},{"d":"2026-09-06","p":1.2013},{"d":"2026-09-13","p":1.2001},{"d":"2026-09-20","p":1.223},{"d":"2026-09-27","p":1.2611},{"d":"2026-09-30","p":1.2474},{"d":"2026-10-04","p":1.2341},{"d":"2026-10-11","p":1.2202},{"d":"2026-10-18","p":1.191},{"d":"2026-10-21","p":1.1666}];
+const W26 = [{"d":"2026-01-04","p":1.0245},{"d":"2026-01-11","p":1.0957},{"d":"2026-01-18","p":1.0646},{"d":"2026-01-25","p":1.0895},{"d":"2026-01-31","p":1.2394},{"d":"2026-02-01","p":1.361},{"d":"2026-02-08","p":1.6028},{"d":"2026-02-15","p":1.4923},{"d":"2026-02-22","p":1.402},{"d":"2026-02-28","p":1.455},{"d":"2026-03-01","p":1.3138},{"d":"2026-03-08","p":1.1622},{"d":"2026-03-15","p":1.2251},{"d":"2026-03-22","p":1.2594},{"d":"2026-03-29","p":1.094},{"d":"2026-03-31","p":1.2231},{"d":"2026-04-05","p":1.1732},{"d":"2026-04-12","p":1.445},{"d":"2026-04-19","p":1.3713},{"d":"2026-04-26","p":1.3126},{"d":"2026-04-30","p":1.1327},{"d":"2026-05-03","p":1.1862},{"d":"2026-05-10","p":1.7598},{"d":"2026-05-17","p":1.6705},{"d":"2026-05-24","p":1.8576},{"d":"2026-05-31","p":1.7075},{"d":"2026-05-31","p":1.7075},{"d":"2026-06-07","p":1.9997},{"d":"2026-06-14","p":1.9862},{"d":"2026-06-21","p":1.8496},{"d":"2026-06-28","p":1.755},{"d":"2026-06-30","p":1.7695},{"d":"2026-07-05","p":1.8966},{"d":"2026-07-12","p":1.9709},{"d":"2026-07-19","p":1.8803},{"d":"2026-07-26","p":1.7239},{"d":"2026-07-31","p":1.7286},{"d":"2026-08-02","p":1.65},{"d":"2026-08-09","p":1.6322},{"d":"2026-08-16","p":1.3897},{"d":"2026-08-23","p":1.9013},{"d":"2026-08-30","p":1.9992},{"d":"2026-08-31","p":1.994},{"d":"2026-09-06","p":1.9837},{"d":"2026-09-13","p":1.9765},{"d":"2026-09-20","p":2.1207},{"d":"2026-09-27","p":2.3626},{"d":"2026-09-30","p":2.2815},{"d":"2026-10-04","p":2.2022},{"d":"2026-10-11","p":2.1185},{"d":"2026-10-18","p":1.9381},{"d":"2026-10-21","p":1.7858}];
 const RATE = 58, FEE = 0.10, SETTLE = ['02', '04', '06', '08'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dl = (d) => MONTHS[+d.slice(5, 7) - 1] + ' ' + +d.slice(8, 10);
@@ -528,28 +581,43 @@ friendsUI();
   ['y-amt', 'y-mon'].forEach((id) => $(id).addEventListener('input', run)); run();
 })();
 
-// ---------- 8. backtest bars
+// ---------- 9. backtest: one year at a time, and compounded since 2020
+const R5 = YEARS.r['0.05'], R1 = YEARS.r['0.01'], YS = Object.keys(R5.years).sort();
+const yg = (r, y) => r.years[y].end / r.years[y].start;           // growth multiple of that year alone
+const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '₱' + Math.round(v / 1e3) + 'k' : '₱' + Math.round(v).toLocaleString('en-PH');
+(function hero() {
+  const box = document.getElementById('gbars'); if (!box) return;
+  const mx = Math.log10(Math.max(...YS.map((y) => yg(R5, y)))) + 0.15;
+  box.innerHTML = YS.map((y) => { const g = yg(R5, y), h = Math.max(6, (Math.log10(g) + 0.15) / mx * 100);
+    return `<div><b>+${Math.round((g - 1) * 100).toLocaleString('en-PH')}%</b><i style="height:${h}%"></i>${y === '2026' ? "'26*" : y}</div>`; }).join('');
+  const dds = YS.map((y) => R5.years[y].dd * 100);
+  document.getElementById('gdd').innerHTML = `<span>Dips inside a year: ${Math.round(Math.min(...dds))}% to ${Math.round(Math.max(...dds))}%</span><span>Worst fall ever: ${Math.round(R5.dd * 100)}%</span><span style="background:none;border-color:var(--glass-border);color:var(--muted)">*2026 to Oct 21</span>`;
+})();
+(function yearTable() {
+  const t = document.getElementById('ytab'); if (!t) return;
+  const row = (y) => { const g = yg(R5, y), end = 1000 * g, earned = end - 1000, net = end > 1000 ? 1000 + 0.9 * earned : end, g1 = yg(R1, y);
+    return `<tr><td>${y}${y === '2026' ? ' <span class="muted">(to Oct 21)</span>' : ''}</td><td>₱1,000</td><td>${peso(end)}</td><td class="${earned >= 0 ? 'up' : 'down'}">${sp(earned)}</td>
+      <td class="${earned >= 0 ? 'up' : 'down'}">${(g >= 1 ? '+' : '−') + Math.abs((g - 1) * 100).toLocaleString('en-PH', { maximumFractionDigits: 0 })}%</td><td class="down">−${Math.round(R5.years[y].dd * 100)}%</td><td>${peso(net)}</td><td class="muted">+${Math.round((g1 - 1) * 100)}%</td></tr>`; };
+  t.innerHTML = '<tr><th>Year</th><th>Jan 1</th><th>Dec 31</th><th>Earned</th><th>Growth</th><th>Deepest dip</th><th>After 10% fee</th><th>Same year at 1% risk</th></tr>' + YS.map(row).join('');
+  document.getElementById('ytab-note').textContent = 'Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade). Backtest, before real-world surprises.';
+})();
 (function years() {
-  const r = YEARS && YEARS.r && YEARS.r['0.01']; if (!r) return;
-  const ys = Object.keys(r.years).sort(), svg = document.getElementById('years');
-  const W = 640, H = 240, pl = 54, pr = 10, pt = 20, pb = 28, hi = Math.max(...ys.map((y) => r.years[y].end)) * 1.12;
-  const bw = (W - pl - pr) / ys.length;
-  const Y = (v) => pt + (1 - v / hi) * (H - pt - pb);
-  for (let t = 0; t <= 4; t++) { const v = hi * t / 4, y = Y(v); el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
-    el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = '₱' + Math.round(v).toLocaleString('en-PH'); }
-  ys.forEach((y, k) => {
-    const d = r.years[y], x = pl + k * bw + bw * 0.18, w = bw * 0.64, up = d.end >= d.start;
-    el('rect', { x, y: Y(d.end), width: w, height: Y(0) - Y(d.end), rx: 6, fill: up ? C.accent : C.red, 'fill-opacity': up ? 0.85 : 0.75 }, svg);
-    el('text', { x: x + w / 2, y: Y(d.end) - 6, 'text-anchor': 'middle', fill: C.ink, 'font-size': 11, 'font-weight': 700 }, svg).textContent = '₱' + Math.round(d.end).toLocaleString('en-PH');
+  const svg = document.getElementById('years'); if (!svg) return;
+  const W = 640, H = 260, pl = 84, pr = 10, pt = 22, pb = 28, lo = 3, hi = 6.7, bw = (W - pl - pr) / YS.length;
+  const Y = (v) => pt + (1 - (Math.log10(v) - lo) / (hi - lo)) * (H - pt - pb);
+  [3, 4, 5, 6].forEach((p) => { const y = Y(Math.pow(10, p)); el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
+    el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = '₱' + Math.pow(10, p).toLocaleString('en-PH'); });
+  YS.forEach((y, k) => {
+    const d = R5.years[y], x = pl + k * bw + bw * 0.18, w = bw * 0.64, top = Y(d.end), base = Y(1000);
+    el('rect', { x, y: Math.min(top, base), width: w, height: Math.abs(base - top), rx: 6, fill: C.accent, 'fill-opacity': 0.85 }, svg);
+    el('text', { x: x + w / 2, y: top - 6, 'text-anchor': 'middle', fill: C.ink, 'font-size': 11, 'font-weight': 700 }, svg).textContent = short(d.end);
     el('text', { x: x + w / 2, y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = y;
   });
-  const worst = (r.dd * 100).toFixed(0);
-  document.getElementById('years-note').textContent = `The deepest drop along the way was about ${worst}% from a high. In real money that would have felt like a long, painful stretch, even though the line ends higher.`;
+  document.getElementById('years-note').textContent = `The deepest drop along the way was about ${(R5.dd * 100).toFixed(0)}% from a high (${dl(R5.ddAt)}, ${R5.ddAt.slice(0, 4)}). At 1% risk the same stretch fell only ${(R1.dd * 100).toFixed(0)}%. In real money a ${(R5.dd * 100).toFixed(0)}% fall is a long, painful stretch, even though the line ends higher.`;
 })();
-
 (function yrsChips() {
-  const r = YEARS && YEARS.r && YEARS.r['0.01'], box = document.getElementById('yrs'); if (!r || !box) return;
-  box.innerHTML = Object.keys(r.years).sort().map((y) => { const d = r.years[y], g = (d.end / d.start - 1) * 100;
+  const box = document.getElementById('yrs'); if (!box) return;
+  box.innerHTML = YS.map((y) => { const g = (yg(R5, y) - 1) * 100;
     return `<span${g < 0 ? ' style="background:rgba(255,112,112,0.12);color:var(--red);border-color:rgba(255,112,112,0.25)"' : ''}>${y}${y === '2026' ? ' (to Oct)' : ''} ${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(0)}%</span>`; }).join('');
 })();
 // ---------- reveal on scroll, and highlight the nav

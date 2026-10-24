@@ -47,11 +47,11 @@ http.createServer(async (req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ data: out ?? null }));
       } catch (e) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: e.message })); }
     }
-    let p = url.pathname === '/' ? '/index.html' : url.pathname;
+    let p = url.pathname === '/' ? '/login.html' : url.pathname;
     const file = join(repo, decodeURIComponent(p));
     if (!file.startsWith(repo) || !existsSync(file)) { res.writeHead(404); return res.end('not found'); }
     let data = readFileSync(file);
-    if (p === '/index.html') data = Buffer.from(data.toString('utf8').replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^>]*><\/script>/, '<script src="/stub-supabase.js"></script>'));
+    if (p === '/login.html') data = Buffer.from(data.toString('utf8').replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase[^>]*><\/script>/, '<script src="/stub-supabase.js"></script>'));
     res.writeHead(200, { 'content-type': TYPES[extname(file)] || 'application/octet-stream' }); res.end(data);
   } catch (e) { res.writeHead(500); res.end(String(e)); }
 }).listen(port, '127.0.0.1', () => console.log('listening', port));

@@ -2,6 +2,16 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": ".",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/reports/how-lucid-io-works-v2.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/login.html"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
