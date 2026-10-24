@@ -202,7 +202,7 @@
     const dd = s.drawdown_r, halt = s.halt_r != null ? Math.abs(s.halt_r) : null, ddPct = dd != null && halt ? (dd / halt) * 100 : 0;
     const candles = Object.entries(s.last_candle_ms || {}), coinsOpen = d.open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ');
     const text = clear($('#nowText'));
-    if (waiting) add(text, 'The dashboard has not heard from the bot yet. When the bot sends its first heartbeat (about every 5 minutes) this page fills in.');
+    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports at every 4-hour candle close; press Ask bot now to get a report right away.');
     else if (!s.alive) add(text, span('bad', 'The bot is not reporting. '), `Its last heartbeat was ${fmtDur(s.age_ms / 1000)} ago (the limit is ${fmtDur(s.stale_after_ms / 1000)}). Check the VPS.`);
     else add(text, 'The bot is ', el('b', { class: 'good' }, 'online'), ` in ${mode} mode. It last reported `, ago(s.last_heartbeat_ms),
       s.next_wake_ms ? [' and will look at the market again at ', el('b', {}, fmtShort(s.next_wake_ms) + tzTag()), ' (', until(s.next_wake_ms), ').'] : '.',
@@ -220,7 +220,7 @@
       tile('Drawdown vs halt', dd == null ? '—' : `${Number(dd).toFixed(1)}R / ${halt ?? '—'}R`, dd == null ? 'no heartbeat yet' : `${ddPct.toFixed(0)}% of the halt`, ddPct >= 60 ? 'warn' : ''),
       tile('Kill switch', s.kill_switch ? 'ON' : 'off', s.kill_switch ? 'no new entries' : 'trading normally', s.kill_switch ? 'warn' : ''),
       tile('Last skipped signal', skip ? `${sym(skip.symbol)} ${skip.side || ''}` : 'none', skip ? [`${skip.reason} `, ago(skip.signal_candle_open_ms)] : 'no signal has been skipped'));
-    $('#nowNote').textContent = 'The bot reports about every 5 minutes and this page re-reads every 60 seconds, so these numbers can be a few minutes behind the bot. Press R to read now.';
+    $('#nowNote').textContent = 'The bot reports at every 4-hour candle close, so these numbers can be hours old. Press Ask bot now for a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
   }
 
   const kv = (k, v, sub) => el('div', {}, el('dt', {}, k), el('span', { class: 'fill', 'aria-hidden': 'true' }), el('dd', {}, v, sub || null));
@@ -265,7 +265,7 @@
         kv('Build', `${s.commit || '?'} · v${s.version || '?'}`));
     }
 
-    // uptime timeline (red = no heartbeat for over 15 min)
+    // uptime timeline (red = no heartbeat for over 4h20m: a missed candle-close report)
     const bar = clear($('#upBar')), axis = clear($('#upAxis')), now = d.generated_at;
     bar.classList.toggle('none', !u);
     if (u) {
@@ -473,6 +473,28 @@
   });
   $('#logoutBtn').addEventListener('click', async () => { setMenu(false); try { await fetch('/api/login', { method: 'DELETE', credentials: 'same-origin' }); } catch {} showLogin(''); });
   $('#refreshBtn').addEventListener('click', () => { setMenu(false); load(); });
+
+  // "Ask bot now": leaves a request; the bot (which asks outbound about once a minute) answers with a heartbeat; we re-read every 5 s until it arrives (or give up after 3 minutes)
+  let askWatch = null;
+  async function askBot() {
+    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; msg.textContent = 'Asking…';
+    try {
+      const res = await fetch('/api/ask', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: data && data.mode }) });
+      if (res.status === 401) return showLogin('');
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(res.status === 429 ? 'too many clicks, wait a minute' : j.error || `HTTP ${res.status}`);
+      const since = j.requested_ms, stop = Date.now() + 180000;
+      msg.textContent = j.already_pending ? 'A request is already waiting for the bot…' : 'Asked. Waiting for the bot to answer (about a minute at most)…';
+      clearInterval(askWatch);
+      askWatch = setInterval(async () => {
+        await load();
+        const hb = data && data.status && data.status.last_heartbeat_ms;
+        if (hb != null && hb >= since) { clearInterval(askWatch); btn.disabled = false; msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
+        else if (Date.now() > stop) { clearInterval(askWatch); btn.disabled = false; msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
+      }, 5000);
+    } catch (e) { btn.disabled = false; msg.textContent = `Could not ask: ${e.message}`; }
+  }
+  $('#askBtn').addEventListener('click', askBot);
   for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderTrades(); });
 
   tick();
