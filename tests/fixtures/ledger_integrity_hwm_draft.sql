@@ -1,7 +1,7 @@
 -- FIXTURE ONLY. This is the EARLIER DRAFT of 20261101000000_ledger_integrity.sql (investor-level high-water mark). It was applied to at least one
 -- real database before it was replaced, so the upgrade path in the current migration is tested against it. NEVER apply this file again.
 -- LEDGER INTEGRITY: one correction per entry, one writer at a time, retry-safe writes, investor-level performance fee,
--- MEXC snapshot / transfer reconciliation, and a read-only integrity report.
+-- Exchange snapshot / transfer reconciliation, and a read-only integrity report.
 -- Run after 20261031000001_bot_equity_sync.sql. NOT yet run on any database. Read docs/accounting-model.md first.
 --
 -- WHAT IT FIXES (each has a regression test in tests/integrity.test.mjs)
@@ -10,8 +10,8 @@
 --  M1  Nothing serialised money writes. Now every money write takes one transaction-level advisory lock first.
 --      Retried writes carry an idempotency key (optional p_idem) and replay the stored result instead of repeating.
 --  M2  Typed valuations were never sanity-checked. Now a move of more than `valuation_max_move` (25%) since the last
---      entry, or any unmatched MEXC transfer, needs an explicit p_confirm = true (recorded in the entry's note).
---  H1  MEXC transfers are now recorded (bot_post_snapshot), matched to deposits/withdrawals or classified by the manager
+--      entry, or any unmatched Exchange transfer, needs an explicit p_confirm = true (recorded in the entry's note).
+--  H1  Exchange transfers are now recorded (bot_post_snapshot), matched to deposits/withdrawals or classified by the manager
 --      with a written reason. Unmatched transfers block automatic readings. With settlement_gate = 'on' a fee
 --      settlement also needs a fresh snapshot, no open positions or orders, and a clean (or attested) reconciliation.
 --  L1  A withdrawal request for "everything" is now paid as everything that is left.
@@ -217,7 +217,7 @@ begin
   end if;
 end $$;
 
--- big moves and unmatched MEXC transfers need an explicit yes
+-- big moves and unmatched Exchange transfers need an explicit yes
 create or replace function public._check_move(p_net numeric, p_confirm boolean) returns text language plpgsql security definer set search_path = public as $$
 declare v_last numeric; v_mv numeric := coalesce(_setting('valuation_max_move'), '0.25')::numeric; v_unm int; v_note text := '';
 begin
@@ -232,9 +232,9 @@ begin
   end if;
   if v_unm > 0 then
     if not coalesce(p_confirm, false) then
-      raise exception 'CONFIRM: % MEXC transfer(s) are not matched to a deposit or withdrawal yet, so this number may include money that is not trading profit. Match or classify them first, or confirm to continue.', v_unm;
+      raise exception 'CONFIRM: % Exchange transfer(s) are not matched to a deposit or withdrawal yet, so this number may include money that is not trading profit. Match or classify them first, or confirm to continue.', v_unm;
     end if;
-    v_note := v_note || ' [confirmed with ' || v_unm || ' unmatched MEXC transfer(s)]';
+    v_note := v_note || ' [confirmed with ' || v_unm || ' unmatched Exchange transfer(s)]';
   end if;
   return v_note;
 end $$;
@@ -246,17 +246,17 @@ declare s exchange_snapshots%rowtype; v_hrs numeric := coalesce(_setting('snapsh
 begin
   if coalesce(_setting('settlement_gate'), 'off') <> 'on' then return; end if;
   select * into s from exchange_snapshots order by id desc limit 1;
-  if not found then raise exception 'no MEXC snapshot yet: the bot must send one before a fee settlement'; end if;
-  if s.ts < now() - make_interval(secs => v_hrs * 3600) then raise exception 'the last MEXC snapshot is stale (taken %)', s.ts; end if;
-  if s.open_positions > 0 or s.open_orders > 0 then raise exception 'trades or orders are still open on MEXC: a fee settlement waits until the pool is flat'; end if;
+  if not found then raise exception 'no Exchange snapshot yet: the bot must send one before a fee settlement'; end if;
+  if s.ts < now() - make_interval(secs => v_hrs * 3600) then raise exception 'the last Exchange snapshot is stale (taken %)', s.ts; end if;
+  if s.open_positions > 0 or s.open_orders > 0 then raise exception 'trades or orders are still open on the exchange: a fee settlement waits until the pool is flat'; end if;
   if exists (select 1 from exchange_transfers t where not exists (select 1 from transfer_matches m where m.transfer_id = t.id)) then
-    raise exception 'there are MEXC transfers that are not matched to a deposit or withdrawal';
+    raise exception 'there are Exchange transfers that are not matched to a deposit or withdrawal';
   end if;
   if s.recon_status <> 'ok' and not exists (select 1 from snapshot_attestations a where a.snapshot_id = s.id) then
-    raise exception 'the last MEXC reconciliation is not clean (%): fix it, or attest it with a written reason', coalesce(s.recon_detail, s.recon_status);
+    raise exception 'the last Exchange reconciliation is not clean (%): fix it, or attest it with a written reason', coalesce(s.recon_detail, s.recon_status);
   end if;
   if abs(s.equity_usdt - p_equity) > v_tol then
-    raise exception 'the typed equity (%) differs from the MEXC snapshot (%) by more than the tolerance', p_equity, s.equity_usdt;
+    raise exception 'the typed equity (%) differs from the exchange snapshot (%) by more than the tolerance', p_equity, s.equity_usdt;
   end if;
 end $$;
 
@@ -352,7 +352,7 @@ create or replace function public._unlocked_units(p uuid) returns numeric langua
           from ledger where profile_id = p) t
 $$;
 
--- money received counts toward the pool only once it has arrived in MEXC (when settlement_gate is on; off = as before)
+-- money received counts toward the pool only once it has arrived in the exchange (when settlement_gate is on; off = as before)
 create or replace function public._pending_total() returns numeric language sql stable security definer set search_path = public as $$
   select coalesce(sum(usdt), 0) from pending_deposits
    where status = 'pending' and (arrived_at is not null or coalesce(_setting('settlement_gate'), 'off') <> 'on')
@@ -428,7 +428,7 @@ begin
   if not found then raise exception 'that deposit is not waiting any more'; end if;
 end $$;
 
--- manager: this waiting deposit's money has reached MEXC (optionally with the MEXC transfer id)
+-- manager: this waiting deposit's money has reached the exchange (optionally with the exchange transfer id)
 create or replace function public.admin_mark_arrived(p_token text, p_pending bigint, p_transfer_id text default null) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -739,10 +739,10 @@ begin
     return jsonb_build_object('ok', false, 'skipped', 'a deposit is waiting to join: post the next reading by hand (Update equity)');
   end if;
   if exists (select 1 from withdrawal_requests where status = 'pending') then
-    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left MEXC');
+    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left Exchange');
   end if;
   if exists (select 1 from exchange_transfers t where not exists (select 1 from transfer_matches m where m.transfer_id = t.id)) then
-    return jsonb_build_object('ok', false, 'skipped', 'a MEXC transfer is not matched to a deposit or withdrawal yet: classify it first');
+    return jsonb_build_object('ok', false, 'skipped', 'a Exchange transfer is not matched to a deposit or withdrawal yet: classify it first');
   end if;
   select * into v_last from pool_equity order by ts desc, id desc limit 1;
   if v_last.id is not null then
@@ -757,12 +757,12 @@ begin
   v_at := _at(null);
   v_price := _price_from(p_equity);
   insert into pool_equity(ts, kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'MEXC balance (bot)'), null);
+  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'Exchange balance (bot)'), null);
   perform _check_books();
   return jsonb_build_object('ok', true, 'unit_price', v_price, 'equity_usdt', p_equity, 'total_units', u);
 end $$;
 
--- The bot reports what MEXC says: balance, open positions and orders, realised PnL since its last snapshot, and the transfer
+-- The bot reports what Exchange says: balance, open positions and orders, realised PnL since its last snapshot, and the transfer
 -- history. Inbound transfers are matched to a waiting deposit (same amount), outbound ones to a recorded withdrawal. Anything
 -- unmatched, or a balance that does not follow from the previous snapshot, is reported as 'blocked'. Nothing here changes the books.
 create or replace function public.bot_post_snapshot(p_key text, p_equity numeric, p_open_positions int, p_open_orders int,
@@ -812,7 +812,7 @@ begin
     end if;
     if not p_transfers_complete then v_status := 'blocked'; v_detail := 'transfer history was not verified by the bot';
     elsif p_realized_since is null then v_status := 'blocked'; v_detail := 'realised PnL was not reported';
-    elsif v_unm > 0 then v_status := 'blocked'; v_detail := v_unm || ' unmatched MEXC transfer(s)';
+    elsif v_unm > 0 then v_status := 'blocked'; v_detail := v_unm || ' unmatched Exchange transfer(s)';
     elsif abs(v_diff) > v_tol then v_status := 'blocked'; v_detail := format('balance differs from the expected %s by %s', round(v_exp, 4), round(v_diff, 4));
     else v_status := 'ok'; v_detail := null; end if;
   end if;
@@ -832,14 +832,14 @@ begin
   insert into snapshot_attestations(snapshot_id, note, created_by) values (p_snapshot, p_note, v_actor);
 end $$;
 
--- manager: say what an unmatched MEXC transfer was (a reason of at least 10 characters is required and kept forever)
+-- manager: say what an unmatched Exchange transfer was (a reason of at least 10 characters is required and kept forever)
 create or replace function public.admin_classify_transfer(p_token text, p_ext_id text, p_classification text, p_note text) returns void
 language plpgsql security definer set search_path = public as $$
 declare v_actor uuid := _admin(p_token); v_id bigint;
 begin
   perform _ledger_lock();
   select id into v_id from exchange_transfers where ext_id = p_ext_id;
-  if v_id is null then raise exception 'unknown MEXC transfer'; end if;
+  if v_id is null then raise exception 'unknown Exchange transfer'; end if;
   if p_note is null or length(trim(p_note)) < 10 then raise exception 'write the reason (at least 10 characters)'; end if;
   insert into transfer_matches(transfer_id, kind, classification, note, created_by) values (v_id, 'classified', p_classification, p_note, v_actor);
 end $$;

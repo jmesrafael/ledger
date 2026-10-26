@@ -1,4 +1,4 @@
--- HIGH-WATER MARK FEE, DEPOSITS JOIN ONLY ONCE IN MEXC, LOCK-UP AS GUIDANCE ONLY.
+-- HIGH-WATER MARK FEE, DEPOSITS JOIN ONLY ONCE IN Exchange, LOCK-UP AS GUIDANCE ONLY.
 -- Run after 20261104000000_payout_details_no_exit_fee.sql. Read docs/accounting-model.md section 3 first. Safe to run twice.
 --
 -- 1) THE PERFORMANCE FEE USES A HIGH-WATER MARK PER INVESTOR (fee_engine = 'investor_hwm_v2'; replaces flat_period_v1).
@@ -14,9 +14,9 @@
 --    move it, and the fee is never charged twice on the same gain, nor before an earlier loss is made back.
 --    Cutover: H starts where the last quarter close left each investor (value now minus profit made since that close).
 --
--- 2) A DEPOSIT JOINS ONLY ONCE ITS MONEY IS IN MEXC. Before, every waiting deposit was taken out of the typed MEXC total even when its
---    money had not reached MEXC yet, which lowered the price: the newcomer bought units too cheaply and everyone else lost the
---    difference. Now only deposits marked "in MEXC" (admin_mark_arrived, or p_in_mexc at Money received) are taken out and join.
+-- 2) A DEPOSIT JOINS ONLY ONCE ITS MONEY IS IN Exchange. Before, every waiting deposit was taken out of the typed Exchange total even when its
+--    money had not reached the exchange yet, which lowered the price: the newcomer bought units too cheaply and everyone else lost the
+--    difference. Now only deposits marked "in the exchange" (admin_mark_arrived, or p_in_mexc at Money received) are taken out and join.
 --    Any other waiting deposit needs an explicit yes on a reading, and stops the bot from posting readings.
 --
 -- 3) THE LOCK-UP IS GUIDANCE, NOT A RULE IN THE DATABASE. Withdrawals are no longer refused inside a lock-up (setting lock_enforced = '1'
@@ -156,7 +156,7 @@ create or replace function public._lock_for(p uuid, p_at timestamptz) returns da
               else (p_at::date + make_interval(months => (_setting('lock_months'))::int))::date end
 $$;
 
--- ---------------------------------------------------------------- 4. waiting money: only money that is in MEXC counts and joins
+-- ---------------------------------------------------------------- 4. waiting money: only money that is in the exchange counts and joins
 create or replace function public._pending_total() returns numeric language sql stable security definer set search_path = public as $$
   select coalesce(sum(usdt), 0) from pending_deposits where status = 'pending' and arrived_at is not null
 $$;
@@ -195,7 +195,7 @@ begin
   return jsonb_build_object('converted', v_n, 'units', v_units);
 end $$;
 
--- big moves, unmatched MEXC transfers and deposits not yet in MEXC need an explicit yes
+-- big moves, unmatched Exchange transfers and deposits not yet in the exchange need an explicit yes
 create or replace function public._check_move(p_net numeric, p_confirm boolean) returns text language plpgsql security definer set search_path = public as $$
 declare v_last numeric; v_mv numeric := coalesce(_setting('valuation_max_move'), '0.25')::numeric; v_unm int; v_note text := ''; v_out int; v_out_usdt numeric;
 begin
@@ -211,15 +211,15 @@ begin
   end if;
   if v_unm > 0 then
     if not coalesce(p_confirm, false) then
-      raise exception 'CONFIRM: % MEXC transfer(s) are not matched to a deposit or withdrawal yet, so this number may include money that is not trading profit. Match or classify them first, or confirm to continue.', v_unm;
+      raise exception 'CONFIRM: % Exchange transfer(s) are not matched to a deposit or withdrawal yet, so this number may include money that is not trading profit. Match or classify them first, or confirm to continue.', v_unm;
     end if;
-    v_note := v_note || ' [confirmed with ' || v_unm || ' unmatched MEXC transfer(s)]';
+    v_note := v_note || ' [confirmed with ' || v_unm || ' unmatched Exchange transfer(s)]';
   end if;
   if v_out > 0 then
     if not coalesce(p_confirm, false) then
-      raise exception 'CONFIRM: % waiting deposit(s) (% USDT) are not marked as in MEXC, so they stay waiting and are NOT taken out of this total. If that money is already in MEXC, cancel and mark it "In MEXC" first; otherwise it would count as trading profit.', v_out, round(v_out_usdt, 2);
+      raise exception 'CONFIRM: % waiting deposit(s) (% USDT) are not marked as in the exchange, so they stay waiting and are NOT taken out of this total. If that money is already in the exchange, cancel and mark it "In the exchange" first; otherwise it would count as trading profit.', v_out, round(v_out_usdt, 2);
     end if;
-    v_note := v_note || ' [confirmed: ' || v_out || ' deposit(s) not in MEXC yet]';
+    v_note := v_note || ' [confirmed: ' || v_out || ' deposit(s) not in the exchange yet]';
   end if;
   return v_note;
 end $$;
@@ -263,7 +263,7 @@ begin
   v_res := _idem_get(p_idem, 'admin_post_equity'); if v_res is not null then return v_res; end if;
   u := _total_units(); v_at := _at(p_at); v_pend := _pending_total(); v_rate := coalesce(p_php_rate, _last_php_rate());
   if u = 0 and v_pend = 0 then
-    if exists (select 1 from pending_deposits where status = 'pending') then raise exception 'mark the first deposit as "In MEXC" first: it joins once its money is in MEXC'; end if;
+    if exists (select 1 from pending_deposits where status = 'pending') then raise exception 'mark the first deposit as "In the exchange" first: it joins once its money is in the exchange'; end if;
     raise exception 'no units yet: record the first deposit first';
   end if;
   if u > 0 then
@@ -544,10 +544,10 @@ begin
     return jsonb_build_object('ok', false, 'skipped', 'a deposit is waiting to join: post the next reading by hand (Update equity)');
   end if;
   if exists (select 1 from withdrawal_requests where status = 'pending') then
-    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left MEXC');
+    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left Exchange');
   end if;
   if exists (select 1 from exchange_transfers t where not exists (select 1 from transfer_matches m where m.transfer_id = t.id)) then
-    return jsonb_build_object('ok', false, 'skipped', 'a MEXC transfer is not matched to a deposit or withdrawal yet: classify it first');
+    return jsonb_build_object('ok', false, 'skipped', 'a Exchange transfer is not matched to a deposit or withdrawal yet: classify it first');
   end if;
   select * into v_last from pool_equity order by ts desc, id desc limit 1;
   if v_last.id is not null then
@@ -562,7 +562,7 @@ begin
   v_at := _at(null);
   v_price := _price_from(p_equity);
   insert into pool_equity(ts, kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'MEXC balance (bot)'), null);
+  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'Exchange balance (bot)'), null);
   perform _check_books();
   return jsonb_build_object('ok', true, 'unit_price', v_price, 'equity_usdt', p_equity, 'total_units', u);
 end $$;

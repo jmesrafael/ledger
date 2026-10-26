@@ -1,8 +1,8 @@
--- CAPITAL-MOVEMENT WORKFLOW: manual MEXC balance check, deposit admission, withdrawal and payout lifecycle, queueing while trades are open.
+-- CAPITAL-MOVEMENT WORKFLOW: manual Exchange balance check, deposit admission, withdrawal and payout lifecycle, queueing while trades are open.
 -- Run after 20261105000000_hwm_arrival_lockup.sql (it relies on arrived-only waiting money). NOT applied to any database yet. Safe to run twice.
 --
 -- What this adds (all additive; no accounting formula is changed or re-implemented here):
---   1. balance_verifications: the manager TYPES the MEXC total (entered), then separately CONFIRMS it (confirmed). Nothing is overwritten:
+--   1. balance_verifications: the manager TYPES the exchange total (entered), then separately CONFIRMS it (confirmed). Nothing is overwritten:
 --      a wrong entry is superseded or rejected and stays in the table. Confirming records a fact; it never moves the unit price, never issues
 --      units and never labels the difference as trading profit. Anything the app cannot explain is a "residual" the manager must explain
 --      (adjustments) or explicitly classify before money moves.
@@ -44,7 +44,7 @@ create table if not exists public.balance_verifications (
   id                bigserial primary key,
   entered_at        timestamptz not null default now(),
   entered_by        uuid not null references public.profiles(id),
-  mexc_total        numeric not null check (mexc_total > 0),               -- what the manager read on MEXC
+  mexc_total        numeric not null check (mexc_total > 0),               -- what the manager read on the exchange
   open_positions    int not null check (open_positions between 0 and 2),   -- the bot can hold two coins at once
   open_orders       int not null default 0 check (open_orders >= 0),
   flat              boolean not null,                                      -- no open position or order, by the manager AND any fresh bot snapshot
@@ -53,14 +53,14 @@ create table if not exists public.balance_verifications (
   prev_id           bigint references public.balance_verifications(id),
   prev_total        numeric,
   prev_source       text check (prev_source in ('verification', 'ledger')),
-  cum_in            numeric not null,           -- all money marked as arrived in MEXC so far
-  cum_out           numeric not null,           -- all payouts marked as sent from MEXC so far
+  cum_in            numeric not null,           -- all money marked as arrived in the exchange so far
+  cum_out           numeric not null,           -- all payouts marked as sent from the exchange so far
   prev_cum_in       numeric,
   prev_cum_out      numeric,
   known_in          numeric not null default 0, -- arrived since the previous check
   known_out         numeric not null default 0, -- sent since the previous check
-  waiting_arrived   numeric,                    -- deposits in MEXC, not yet units
-  waiting_not_arrived numeric,                  -- deposits reported but not in MEXC (not in this balance)
+  waiting_arrived   numeric,                    -- deposits in the exchange, not yet units
+  waiting_not_arrived numeric,                  -- deposits reported but not in the exchange (not in this balance)
   open_requests_units numeric,
   snapshot_id       bigint references public.exchange_snapshots(id),
   expected_total    numeric,
@@ -71,7 +71,7 @@ create table if not exists public.balance_verifications (
   status_note       text,
   status_changed_at timestamptz,
   first_used_at     timestamptz,                -- once a deposit, payout or settlement used it, it can no longer be adjusted
-  spent_at          timestamptz                 -- a payout used it: the MEXC balance changed, so a new check is needed
+  spent_at          timestamptz                 -- a payout used it: the exchange balance changed, so a new check is needed
 );
 create table if not exists public.verification_adjustments (
   id              bigserial primary key,
@@ -104,7 +104,7 @@ create table if not exists public.payout_records (
   equity_id      bigint,
   amount_usdt    numeric not null,
   php_rate       numeric,
-  leaves_mexc    boolean not null,              -- false = the manager pays from their own pocket (withdraw_to_manager): nothing leaves MEXC
+  leaves_mexc    boolean not null,              -- false = the manager pays from their own pocket (withdraw_to_manager): nothing leaves the exchange
   status         text not null default 'awaiting' check (status in ('awaiting', 'sent', 'completed', 'failed', 'voided')),
   reference      text,
   failure_reason text,
@@ -238,15 +238,15 @@ end $$;
 
 create or replace function public._wf_msg(p_code text, p_investor boolean) returns text language sql immutable as $$
   select case p_code
-    when 'no_verification'      then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'No confirmed balance check yet. Enter the MEXC total and confirm it.' end
+    when 'no_verification'      then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'No confirmed balance check yet. Enter the exchange total and confirm it.' end
     when 'not_confirmed'        then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'The balance you entered has not been confirmed yet.' end
     when 'superseded'           then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'A newer balance check exists; use the newest confirmed one.' end
-    when 'stale'                then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'The confirmed balance is too old. Enter and confirm the MEXC total again.' end
-    when 'already_used'         then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'A payout already used this balance check, so the MEXC balance has changed. Enter and confirm it again.' end
+    when 'stale'                then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'The confirmed balance is too old. Enter and confirm the exchange total again.' end
+    when 'already_used'         then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'A payout already used this balance check, so the exchange balance has changed. Enter and confirm it again.' end
     when 'open_positions'       then case when p_investor then 'Waiting for the open trades to close, so your money can be valued fairly.' else 'A trade is still open. Capital movements wait until both positions are closed and the balance is confirmed.' end
     when 'unresolved_difference' then case when p_investor then 'Waiting for the fund manager to check the account balance.' else 'The balance has a difference that is not explained yet. Explain it (adjustments) or classify it.' end
-    when 'arrived_deposits'     then 'Admit or hand back the deposits that are already in MEXC first (they must not join silently).'
-    when 'deposit_not_arrived'  then case when p_investor then 'The money has not been seen arriving in the trading account yet.' else 'The money is not confirmed as received in MEXC yet. Confirm its arrival when you see it.' end
+    when 'arrived_deposits'     then 'Admit or hand back the deposits that are already in the exchange first (they must not join silently).'
+    when 'deposit_not_arrived'  then case when p_investor then 'The money has not been seen arriving in the trading account yet.' else 'The money is not confirmed as received in the exchange yet. Confirm its arrival when you see it.' end
     when 'awaiting_approval'    then case when p_investor then 'Waiting for the fund manager to review your request.' else 'Approve or reject this request.' end
     else p_code end
 $$;
@@ -260,7 +260,7 @@ begin
   v_at := _at(null);
   if _total_units() = 0 then
     if abs(p_balance - _pending_total()) > _wf_tol(p_balance) then
-      raise exception 'the first deposit starts the pool, so the MEXC balance (%) must equal the money waiting (%)', round(p_balance, 4), round(_pending_total(), 4);
+      raise exception 'the first deposit starts the pool, so the exchange balance (%) must equal the money waiting (%)', round(p_balance, 4), round(_pending_total(), 4);
     end if;
     v_price := 1;
   else
@@ -357,15 +357,15 @@ declare
 begin
   perform _ledger_lock();
   v_res := _idem_get(p_idem, 'admin_enter_balance'); if v_res is not null then return v_res; end if;
-  if p_total is null or p_total <= 0 then raise exception 'enter the MEXC total (USDT, more than 0)'; end if;
-  if p_positions is null or p_positions < 0 or p_positions > 2 then raise exception 'say how many positions are open on MEXC (0, 1 or 2)'; end if;
+  if p_total is null or p_total <= 0 then raise exception 'enter the exchange total (USDT, more than 0)'; end if;
+  if p_positions is null or p_positions < 0 or p_positions > 2 then raise exception 'say how many positions are open on the exchange (0, 1 or 2)'; end if;
   if p_orders is null or p_orders < 0 then raise exception 'open orders cannot be negative'; end if;
   select * into prev from balance_verifications where status = 'confirmed' order by id desc limit 1;
   v_cum_in := _wf_cum_in(); v_cum_out := _wf_cum_out();
   if prev.id is not null then
     v_prev_total := prev.mexc_total; v_src := 'verification'; v_pci := prev.cum_in; v_pco := prev.cum_out;
   else
-    -- no confirmed check yet: start from what the books say is in the pool plus money already in MEXC, waiting to join
+    -- no confirmed check yet: start from what the books say is in the pool plus money already in the exchange, waiting to join
     v_prev_total := coalesce((select equity_usdt from pool_equity order by id desc limit 1), 0) + _pending_total(); v_src := 'ledger'; v_pci := v_cum_in; v_pco := v_cum_out;
   end if;
   v_exp := v_prev_total + (v_cum_in - v_pci) - (v_cum_out - v_pco);
@@ -398,7 +398,7 @@ begin
   if not found then raise exception 'unknown balance check'; end if;
   if v.status not in ('entered', 'confirmed') then raise exception 'this balance check is % and cannot be explained any more', v.status; end if;
   if v.first_used_at is not null then raise exception 'this balance check was already used by a deposit, payout or settlement: enter a new one'; end if;
-  if p_note is null or length(trim(p_note)) < 10 then raise exception 'write what this is (at least 10 characters), for example the MEXC statement line'; end if;
+  if p_note is null or length(trim(p_note)) < 10 then raise exception 'write what this is (at least 10 characters), for example the exchange statement line'; end if;
   insert into verification_adjustments(verification_id, created_by, kind, amount, note) values (p_vid, v_actor, p_kind, p_amount, trim(p_note));
   perform _wf_event(v_actor, 'verification', p_vid, 'balance_adjusted', jsonb_build_object('kind', p_kind, 'amount', p_amount, 'note', p_note), null, p_vid);
   return _wf_view(p_vid);
@@ -474,8 +474,8 @@ begin
   select * into pd from pending_deposits where id = p_pending for update;
   if not found then raise exception 'unknown deposit'; end if;
   if pd.status <> 'pending' then raise exception 'this deposit is already %', pd.status; end if;
-  if pd.arrived_at is not null then raise exception 'this deposit is already confirmed as received in MEXC (%)', pd.arrived_at; end if;
-  if p_note is null or length(trim(p_note)) < 5 then raise exception 'write how you saw it arrive (for example the MEXC deposit record)'; end if;
+  if pd.arrived_at is not null then raise exception 'this deposit is already confirmed as received in the exchange (%)', pd.arrived_at; end if;
+  if p_note is null or length(trim(p_note)) < 5 then raise exception 'write how you saw it arrive (for example the exchange deposit record)'; end if;
   update pending_deposits set arrived_at = now(), arrival_confirmed_by = v_actor, arrival_note = trim(p_note), mexc_transfer_id = coalesce(mexc_transfer_id, nullif(trim(p_transfer_id), ''))
    where id = p_pending;
   perform _wf_event(v_actor, 'deposit', p_pending, 'deposit_arrival_confirmed', jsonb_build_object('usdt', pd.usdt, 'note', p_note, 'transfer', p_transfer_id), null, null, pd.profile_id);
@@ -492,7 +492,7 @@ begin
   if not found then raise exception 'unknown deposit'; end if;
   if pd.status = 'converted' then raise exception 'duplicate refused: this deposit was already admitted (%)', pd.admitted_at; end if;
   if pd.status = 'cancelled' then raise exception 'this deposit was handed back and cannot be admitted'; end if;
-  if pd.arrived_at is null then raise exception 'queued: this money is not confirmed as received in MEXC yet, so it stays outside the pool'; end if;
+  if pd.arrived_at is null then raise exception 'queued: this money is not confirmed as received in the exchange yet, so it stays outside the pool'; end if;
   v_bal := _wf_require_ready(p_vid);
   perform set_config('ledger.wf_ctx', 'deposit:' || p_vid, true);
   a := _acct_admit_deposit(p_pending, v_bal, p_confirm, v_actor);
@@ -668,8 +668,8 @@ begin
   perform _ledger_lock();
   po := _wf_payout_for_update(p_request);
   if po.status <> 'awaiting' then raise exception 'this payout is %, not awaiting', po.status; end if;
-  if not po.leaves_mexc then raise exception 'this one is paid from your own money; nothing leaves MEXC. Mark it completed instead'; end if;
-  if p_reference is null or length(trim(p_reference)) < 3 then raise exception 'enter the MEXC withdrawal reference'; end if;
+  if not po.leaves_mexc then raise exception 'this one is paid from your own money; nothing leaves the exchange. Mark it completed instead'; end if;
+  if p_reference is null or length(trim(p_reference)) < 3 then raise exception 'enter the exchange withdrawal reference'; end if;
   update payout_records set status = 'sent', sent_at = now(), reference = trim(p_reference), status_note = p_note where id = po.id;
   perform _wf_event(v_actor, 'payout', po.id, 'payout_sent', jsonb_build_object('reference', p_reference, 'amount_usdt', po.amount_usdt, 'note', p_note), po.equity_id, null, po.profile_id);
   return jsonb_build_object('payout_id', po.id, 'status', 'sent');
@@ -682,7 +682,7 @@ begin
   perform _ledger_lock();
   po := _wf_payout_for_update(p_request);
   if po.status = 'completed' then raise exception 'duplicate refused: this payout is already completed (%)', po.completed_at; end if;
-  if po.leaves_mexc and po.status <> 'sent' then raise exception 'mark it as sent from MEXC first (it is %)', po.status; end if;
+  if po.leaves_mexc and po.status <> 'sent' then raise exception 'mark it as sent from the exchange first (it is %)', po.status; end if;
   if not po.leaves_mexc and po.status <> 'awaiting' then raise exception 'this payout is %', po.status; end if;
   if p_reference is null or length(trim(p_reference)) < 3 then raise exception 'enter the proof of payment (GCash or bank reference)'; end if;
   update payout_records set status = 'completed', completed_at = now(), reference = trim(p_reference), status_note = p_note where id = po.id;

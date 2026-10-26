@@ -5,7 +5,7 @@
 -- WHAT IT FIXES
 --  1  (The high-water mark itself is 1105's stored investor_hwm; this file only calls _hwm_value / _hwm_close.)
 --  2  Settlements follow two-month calendar periods (settlement_anchor, settlement_period_months, settlement_tz), one per period.
---  3  A settlement reconciles the period (ledger identity vs an independent price-move recomputation, unmatched MEXC transfers,
+--  3  A settlement reconciles the period (ledger identity vs an independent price-move recomputation, unmatched Exchange transfers,
 --     snapshot evidence) and refuses to finalize an unexplained difference.
 --  4  Fund M's own capital and its fee entitlement are split by replay; pool_summary uses the split.
 --  5  Every settlement is recorded (settlements, settlement_lines; append-only).
@@ -227,7 +227,7 @@ begin
   v_diff := v_lpnl - v_ppnl;
   v_pend := case when p_mexc_total is not null then p_mexc_total - v_close end;
   v_tol := greatest(coalesce(_setting('recon_tolerance_abs'), '0.5')::numeric, coalesce(p_mexc_total, 0) * coalesce(_setting('recon_tolerance_pct'), '0.0005')::numeric);
-  -- MEXC-side evidence
+  -- Exchange-side evidence
   select count(*) into v_unm from exchange_transfers t where not exists (select 1 from transfer_matches m where m.transfer_id = t.id);
   select * into s from exchange_snapshots order by id desc limit 1;
   select count(*), count(*) filter (where x.recon_status = 'blocked' and not exists (select 1 from snapshot_attestations a where a.snapshot_id = x.id))
@@ -237,17 +237,17 @@ begin
     v_reasons := v_reasons || to_jsonb(format('ledger trading P&L %s differs from the price-move recomputation %s by %s USDT', round(v_lpnl, 6), round(v_ppnl, 6), round(v_diff, 6)));
   elsif v_unm > 0 then
     v_status := 'unmatched_transfers';
-    v_reasons := v_reasons || to_jsonb(v_unm || ' MEXC transfer(s) are not matched to a deposit or withdrawal');
+    v_reasons := v_reasons || to_jsonb(v_unm || ' Exchange transfer(s) are not matched to a deposit or withdrawal');
   else
-    if s.id is null then v_reasons := v_reasons || to_jsonb('no MEXC snapshot from the bot'::text);
+    if s.id is null then v_reasons := v_reasons || to_jsonb('no Exchange snapshot from the bot'::text);
     else
-      if s.ts < v_at - make_interval(secs => v_hrs * 3600) then v_reasons := v_reasons || to_jsonb(format('the last MEXC snapshot is older than %s hours', v_hrs)); end if;
+      if s.ts < v_at - make_interval(secs => v_hrs * 3600) then v_reasons := v_reasons || to_jsonb(format('the last Exchange snapshot is older than %s hours', v_hrs)); end if;
       if s.recon_status = 'blocked' and not exists (select 1 from snapshot_attestations a where a.snapshot_id = s.id) then
-        v_reasons := v_reasons || to_jsonb('the last MEXC snapshot did not reconcile: ' || coalesce(s.recon_detail, 'blocked'));
-      elsif v_bad > 0 then v_reasons := v_reasons || to_jsonb(v_bad || ' MEXC snapshot(s) in this period did not reconcile and are not attested');
+        v_reasons := v_reasons || to_jsonb('the last Exchange snapshot did not reconcile: ' || coalesce(s.recon_detail, 'blocked'));
+      elsif v_bad > 0 then v_reasons := v_reasons || to_jsonb(v_bad || ' Exchange snapshot(s) in this period did not reconcile and are not attested');
       end if;
       if p_mexc_total is not null and abs(s.equity_usdt - p_mexc_total) > v_tol then
-        v_reasons := v_reasons || to_jsonb(format('the typed MEXC total %s differs from the last snapshot %s', round(p_mexc_total, 2), round(s.equity_usdt, 2)));
+        v_reasons := v_reasons || to_jsonb(format('the typed Exchange total %s differs from the last snapshot %s', round(p_mexc_total, 2), round(s.equity_usdt, 2)));
       end if;
     end if;
     v_status := case when jsonb_array_length(v_reasons) = 0 then 'verified' else 'unverified' end;
@@ -260,7 +260,7 @@ begin
     'snapshots_in_period', v_n, 'last_snapshot', case when s.id is not null then jsonb_build_object('id', s.id, 'ts', s.ts, 'equity_usdt', s.equity_usdt,
       'recon_status', s.recon_status, 'open_positions', s.open_positions, 'open_orders', s.open_orders) end,
     'unmatched_transfers', v_unm,
-    'not_separated', 'realized vs unrealized P&L, trading fees and funding are inside the MEXC total; the bot does not report them separately yet');
+    'not_separated', 'realized vs unrealized P&L, trading fees and funding are inside the exchange total; the bot does not report them separately yet');
 end $$;
 
 -- ---------------------------------------------------------------- 5. settlement
@@ -269,7 +269,7 @@ language plpgsql security definer set search_path = public as $$
 declare v_actor uuid := _admin(p_token); v_per record; v_id bigint; v_rec jsonb;
 begin
   perform _ledger_lock();
-  if p_equity is null or p_equity <= 0 then raise exception 'enter the MEXC total this explanation is for'; end if;
+  if p_equity is null or p_equity <= 0 then raise exception 'enter the exchange total this explanation is for'; end if;
   if p_note is null or length(trim(p_note)) < 20 then raise exception 'write what explains the difference (at least 20 characters)'; end if;
   select * into v_per from _settlement_period(coalesce(p_at, now()));
   v_rec := _settlement_recon((select max(id) from pool_equity), p_equity, _price_from(p_equity), coalesce(p_at, now()));
@@ -326,7 +326,7 @@ begin
       v_tol := greatest(coalesce(_setting('recon_tolerance_abs'), '0.5')::numeric, p_equity * coalesce(_setting('recon_tolerance_pct'), '0.0005')::numeric);
       select id into v_att from settlement_attestations where period_end = v_per.o_end and abs(mexc_total - p_equity) <= v_tol order by id desc limit 1;
       if v_att is null and v_mode = 'require' then
-        raise exception 'RECONCILE: this period is not reconciled with MEXC (%). Explain it with admin_attest_settlement for this MEXC total, then settle.',
+        raise exception 'RECONCILE: this period is not reconciled with the exchange (%). Explain it with admin_attest_settlement for this exchange total, then settle.',
           (select string_agg(x, '; ') from jsonb_array_elements_text(v_rec->'reasons') x);
       end if;
     end if;
@@ -359,7 +359,7 @@ begin
     'recon_status', v_rec->>'status', 'attestation_id', v_att), v_actor);
 end $$;
 
--- read-only: everything the settlement would do at this MEXC total, and whether it is allowed now
+-- read-only: everything the settlement would do at this exchange total, and whether it is allowed now
 create or replace function public.admin_settlement_preview(p_token text, p_equity numeric, p_at timestamptz default null) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare

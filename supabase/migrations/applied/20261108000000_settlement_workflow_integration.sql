@@ -1,12 +1,12 @@
 -- SETTLEMENT x CAPITAL WORKFLOW INTEGRATION. Run after 20261107000000_hwm_bimonthly_settlement.sql. NOT applied to any database yet.
 -- Safe to run twice. No row is changed: it adds two nullable columns and replaces function bodies.
 --
--- 1. A CONFIRMED MANUAL BALANCE CHECK IS THE SETTLEMENT'S VERIFICATION. Every two months the manager types the MEXC total
+-- 1. A CONFIRMED MANUAL BALANCE CHECK IS THE SETTLEMENT'S VERIFICATION. Every two months the manager types the exchange total
 --    (admin_enter_balance) and confirms it as a separate step (admin_confirm_balance). If that check is the newest confirmed one, still
 --    ready (fresh, flat, every difference explained or classified, not used by a payout) and its total equals the total being settled, the
 --    period counts as reconciled ('verified_manual') and the check's id is saved on the settlement. Before, 1107 accepted only a bot snapshot
 --    or a separate written note, so the manual two-month flow (admin_settle_quarter) was refused every time.
---    An internal mismatch or an unmatched MEXC transfer is still refused whatever was confirmed.
+--    An internal mismatch or an unmatched Exchange transfer is still refused whatever was confirmed.
 -- 2. EACH SETTLEMENT SAVES THE PERIOD'S RESULTS:
 --      settlement_lines.period_profit_usdt   each investor's trading profit this period (units held x price moves), before the fee
 --      settlements.fund_m->'period'          Fund M's own-investment profit this period, kept apart from the 10% fee it earned
@@ -25,7 +25,7 @@ end $$;
 alter table public.settlements add column if not exists balance_verification_id bigint references public.balance_verifications(id);
 alter table public.settlement_lines add column if not exists period_profit_usdt numeric;
 
--- the confirmed manual balance check that verifies a settlement at this MEXC total, or null
+-- the confirmed manual balance check that verifies a settlement at this exchange total, or null
 create or replace function public._verified_balance_check(p_total numeric) returns bigint language plpgsql stable security definer set search_path = public as $$
 declare v balance_verifications%rowtype;
 begin
@@ -90,14 +90,14 @@ begin
     end if;
     v_bv := _verified_balance_check(p_equity);
     if v_rec->>'status' = 'unverified' and v_bv is not null then
-      -- the manager typed this MEXC total and then confirmed it as a separate step (balance check), flat and with every difference explained
+      -- the manager typed this exchange total and then confirmed it as a separate step (balance check), flat and with every difference explained
       v_rec := v_rec || jsonb_build_object('status', 'verified_manual', 'balance_verification_id', v_bv, 'reasons_before', v_rec->'reasons', 'reasons', '[]'::jsonb);
     end if;
     if v_rec->>'status' = 'unverified' then
       v_tol := greatest(coalesce(_setting('recon_tolerance_abs'), '0.5')::numeric, p_equity * coalesce(_setting('recon_tolerance_pct'), '0.0005')::numeric);
       select id into v_att from settlement_attestations where period_end = v_per.o_end and abs(mexc_total - p_equity) <= v_tol order by id desc limit 1;
       if v_att is null and v_mode = 'require' then
-        raise exception 'RECONCILE: this period is not reconciled with MEXC (%). Enter and confirm this MEXC balance (balance check), or explain it with admin_attest_settlement for this MEXC total, then settle.',
+        raise exception 'RECONCILE: this period is not reconciled with the exchange (%). Enter and confirm this exchange balance (balance check), or explain it with admin_attest_settlement for this exchange total, then settle.',
           (select string_agg(x, '; ') from jsonb_array_elements_text(v_rec->'reasons') x);
       end if;
     end if;

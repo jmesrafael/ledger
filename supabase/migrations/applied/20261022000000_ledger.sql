@@ -444,7 +444,7 @@ begin
   delete from sessions where profile_id = p_profile and token_hash <> encode(digest(p_token, 'sha256'), 'hex');
 end $$;
 
--- Record the pool's current MEXC equity (USDT). Moves the unit price; changes no one's units.
+-- Record the pool's current Exchange equity (USDT). Moves the unit price; changes no one's units.
 -- p_at (optional, every admin entry): when it happened, if you are recording it late. Must be after the last entry.
 create function public.admin_post_equity(p_token text, p_equity numeric, p_php_rate numeric default null, p_note text default null,
     p_at timestamptz default null)
@@ -458,7 +458,7 @@ begin
   return jsonb_build_object('unit_price', v_price, 'total_units', u, 'equity_usdt', p_equity);
 end $$;
 
--- p_equity_before = pool equity in USDT read from MEXC just BEFORE this deposit lands.
+-- p_equity_before = pool equity in USDT read from the exchange just BEFORE this deposit lands.
 create function public.admin_deposit(p_token text, p_profile uuid, p_usdt numeric, p_equity_before numeric default null,
     p_php_rate numeric default null, p_php_amount numeric default null, p_note text default null, p_at timestamptz default null)
 returns jsonb language plpgsql security definer set search_path = public as $$

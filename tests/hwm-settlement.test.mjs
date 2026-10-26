@@ -203,9 +203,10 @@ test('a clean Exchange snapshot that agrees with the total settles without an ex
 });
 
 test('Fund M: own capital and fee entitlement are kept apart; fee basis "all_pool" never changes what investors pay', async () => {
+  // pinned at 10%: this test is about keeping Fund M's capital and fee entitlement apart, not about the rate (20261114000000_fee_20.sql moves the default to 20%)
   const out = {};
   for (const basis of ['external_investors', 'all_pool']) {
-    const w = await world({ settings: { fee_basis: basis } });
+    const w = await world({ settings: { fee_basis: basis, fund_m_own_fee_rate: '0.1' } });
     await w.join('raf', 1000, '01-04');
     await w.join('john', 1000, '01-05');
     const s = await w.settle(1.2, '03-02');

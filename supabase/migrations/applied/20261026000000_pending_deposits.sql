@@ -5,12 +5,12 @@
 -- existing holders' profit.
 --
 -- Now: Record -> Deposit only RECEIVES the money. It waits in pending_deposits and owns no units, so it gets no gains and
--- no losses. At the next equity reading (Update equity, or a quarter close) the manager types the MEXC total as usual,
+-- no losses. At the next equity reading (Update equity, or a quarter close) the manager types the exchange total as usual,
 -- the waiting money is taken out of it first, the unit price is set from what the existing holders own, and only then
 -- does the waiting money buy units at that price. Its lock-up starts then and its high-water mark is that price, so the
 -- profit share is only ever charged on gains made after it joined.
 --
--- Every equity the manager types is now "the MEXC total, including money that is still waiting"; withdrawals and quarter
+-- Every equity the manager types is now "the exchange total, including money that is still waiting"; withdrawals and quarter
 -- closes subtract the waiting money too, so cash sitting in the account never inflates the price.
 -- admin_deposit (instant buy) is kept for the seed/simulation scripts and old flows; it also subtracts waiting money.
 -- Run after 20261025000000_profit_share_10.sql. Safe on live data.
@@ -36,13 +36,13 @@ create or replace function public._pending_total() returns numeric language sql 
   select coalesce(sum(usdt), 0) from pending_deposits where status = 'pending'
 $$;
 
--- the pool's value that belongs to unit holders: the MEXC total minus money still waiting to buy units
+-- the pool's value that belongs to unit holders: the exchange total minus money still waiting to buy units
 create or replace function public._net_equity(p_equity numeric) returns numeric language plpgsql stable security definer set search_path = public as $$
 declare v numeric;
 begin
   if p_equity is null or p_equity <= 0 then raise exception 'enter the current pool equity in USDT (must be > 0)'; end if;
   v := p_equity - _pending_total();
-  if v <= 0 then raise exception 'equity (%) must be more than the deposits still waiting (%): enter the full MEXC total', p_equity, _pending_total(); end if;
+  if v <= 0 then raise exception 'equity (%) must be more than the deposits still waiting (%): enter the full Exchange total', p_equity, _pending_total(); end if;
   return v;
 end $$;
 
@@ -134,7 +134,7 @@ begin
                      from pending_deposits where profile_id = v and status = 'pending'), '[]'::jsonb);
 end $$;
 
--- ---------------------------------------------------------------- the valuation points (all take the MEXC total incl. waiting money)
+-- ---------------------------------------------------------------- the valuation points (all take the exchange total incl. waiting money)
 create or replace function public.admin_post_equity(p_token text, p_equity numeric, p_php_rate numeric default null, p_note text default null,
     p_at timestamptz default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -190,7 +190,7 @@ begin
   return jsonb_build_object('unit_price', v_price, 'investors_charged', v_n, 'fee_units', v_total, 'converted', v_conv->'converted');
 end $$;
 
--- p_equity_before = the MEXC total just before the payout (waiting deposits included; they are subtracted here)
+-- p_equity_before = the exchange total just before the payout (waiting deposits included; they are subtracted here)
 create or replace function public.admin_withdraw(p_token text, p_profile uuid, p_units numeric, p_equity_before numeric,
     p_php_rate numeric default null, p_note text default null, p_force boolean default false, p_request_id bigint default null,
     p_at timestamptz default null)
@@ -234,7 +234,7 @@ begin
   return jsonb_build_object('unit_price', v_price, 'fee_units', v_fee, 'net_units', v_net, 'pay_usdt', v_pay);
 end $$;
 
--- instant deposit (kept for scripts): p_equity_before = MEXC total just before this money landed, waiting deposits included
+-- instant deposit (kept for scripts): p_equity_before = Exchange total just before this money landed, waiting deposits included
 create or replace function public.admin_deposit(p_token text, p_profile uuid, p_usdt numeric, p_equity_before numeric default null,
     p_php_rate numeric default null, p_php_amount numeric default null, p_note text default null, p_at timestamptz default null)
 returns jsonb language plpgsql security definer set search_path = public as $$

@@ -1,4 +1,4 @@
--- Withdrawal paid by the fund manager out of their own pocket: nothing leaves MEXC.
+-- Withdrawal paid by the fund manager out of their own pocket: nothing leaves the exchange.
 -- The investor's units are redeemed at the current price (fee settled exactly as in admin_withdraw), and the same net units land on the
 -- fund manager's account in the same entry. Pool equity and total units do not change; only who owns them.
 -- Undo works unchanged: admin_undo_last reverses every ledger row that shares the entry's equity_id.

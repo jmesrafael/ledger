@@ -1,4 +1,4 @@
--- BOT EQUITY SYNC: lets the trading bot post the real MEXC futures balance as an equity reading, so the ledger's unit price
+-- BOT EQUITY SYNC: lets the trading bot post the real Exchange futures balance as an equity reading, so the ledger's unit price
 -- follows the account without anyone typing the number.
 --
 -- What the bot can do: ONE thing, record an equity reading ('update', exactly what the manager's "Update equity" button does).
@@ -9,8 +9,8 @@
 --   * paused         the manager turned sync off (ledger_settings bot_sync_paused = '1')
 --   * no units yet   nobody has deposited
 --   * deposit waiting  money recorded as received but not yet turned into units: the manager's own "Update equity" does that,
---                    after checking the money is really in MEXC (a bot reading would subtract money that may not have arrived)
---   * withdrawal pending  a withdrawal request is open: the payout leaves MEXC before it is recorded, which would look like a loss
+--                    after checking the money is really in the exchange (a bot reading would subtract money that may not have arrived)
+--   * withdrawal pending  a withdrawal request is open: the payout leaves the exchange before it is recorded, which would look like a loss
 --   * too soon       the last reading is less than bot_min_minutes (10) old
 --   * jump           the balance moved more than bot_max_jump (15%) since the last reading: far more than 1%-risk trading can do
 --                    in 4 hours, so it is probably a transfer in or out, which the manager must record first
@@ -41,7 +41,7 @@ begin
     return jsonb_build_object('ok', false, 'skipped', 'a deposit is waiting to join: post the next reading by hand (Update equity)');
   end if;
   if exists (select 1 from withdrawal_requests where status = 'pending') then
-    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left MEXC');
+    return jsonb_build_object('ok', false, 'skipped', 'a withdrawal request is open: the payout may already have left Exchange');
   end if;
   select * into v_last from pool_equity order by ts desc, id desc limit 1;
   if v_last.id is not null then
@@ -56,7 +56,7 @@ begin
   v_at := _at(null);
   v_price := _price_from(p_equity);
   insert into pool_equity(ts, kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
-  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'MEXC balance (bot)'), null);
+  values (v_at, 'update', p_equity, u, v_price, _last_php_rate(), coalesce(p_note, 'Exchange balance (bot)'), null);
   return jsonb_build_object('ok', true, 'unit_price', v_price, 'equity_usdt', p_equity, 'total_units', u);
 end $$;
 
