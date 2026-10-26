@@ -728,7 +728,7 @@
       ${S.addUser ? `<div class="card"><h2>New user</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
       <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\-]{3,30}" required></div>
-        <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="10" required></div></div>
+        <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="20" required></div></div>
         <label>Full name</label><input name="name" required>
         <label>Starting password (at least 8 characters)</label><input name="password" type="text" minlength="8" autocomplete="off" required>
         <button class="full">Create account</button></form></div>` : ''}

@@ -99,20 +99,20 @@ full exit (s = 1)  settles all of the profit so far; a loss so far is forgiven
 
 ### Worked example (tests B1, B4, B7, B11)
 
-_Illustrated at a 10% rate, as the tests use. The default for new accounts is now 20% (`20261114000000_fee_20.sql`); the arithmetic is the same, with every fee doubled._
+_Illustrated at the default 20% rate. (The automated tests use a smaller rate to keep the numbers easy to check; the arithmetic is the same.)_
 
-- John 1,000 units at 1.00, price 1.10: profit 100, fee 10 USDT = 9.09090909 units.
-- Period 2 falls to 0.80 and the next goes to 0.90: period 2 pays 0; period 3 earns 1,000 x 0.10 = 100 and **pays 10 USDT although John is still
+- John 1,000 units at 1.00, price 1.10: profit 100, fee 20 USDT = 18.18181818 units.
+- Period 2 falls to 0.80 and the next goes to 0.90: period 2 pays 0; period 3 earns 100 USDT of profit and **pays 20 USDT although John is still
   below what he put in**. That is the rule.
-- Dino joins at 1.20 (416.67 units); price goes to 1.32. John earned 1,000 x 0.32 = 320 (fee 32); Dino earned 416.67 x 0.12 = 50 (fee 5).
+- Dino joins at 1.20 (416.67 units); price goes to 1.32. John earned 1,000 x 0.32 = 320 (fee 64); Dino earned 416.67 x 0.12 = 50 (fee 10).
   Dino pays nothing on the 1.00 -> 1.20 move.
-- John sells 40% at 1.20 with +200 so far: fee 10% x 200 x 0.4 = 8 USDT. At 1.50 the 600 units that stayed have 120 + 180 = 300: fee 30.
-  Total 38 = 10% x (1,000 x 0.20 + 600 x 0.30).
+- John sells 40% at 1.20 with +200 so far: fee 20% x 200 x 0.4 = 16 USDT. At 1.50 the 600 units that stayed have 120 + 180 = 300: fee 60.
+  Total 76 = 20% x (1,000 x 0.20 + 600 x 0.30).
 
 ### Fee-rate changes
 
 Unchanged: a higher rate is stored in `fee_rate_next` and starts after the next close; a lower rate applies at once. The rate used is each
-person's own `fee_rate`; the migration prints a notice if any investor is not on 10%.
+person's own `fee_rate`; the migration prints a notice if any investor is not on the default rate.
 
 ### Limits of this definition
 
@@ -259,7 +259,7 @@ select (select value from public.ledger_settings where key = 'fee_engine')      
 - **No loss recovery** is a business decision (rule 6 of the brief), disclosed in the investor terms (version `2026-10-23`: every investor is
   asked to agree again). The guide `reports/how-lucid-io-works.html` still describes the old best-ever-level rule and its figures were
   generated from it: it must be regenerated before it is shared.
-- **Default fee rate.** New accounts default to 20% (`ledger_settings.default_fee_rate`, set by `20261114000000_fee_20.sql`). Existing investors on 10% move to 20%
+- **Default fee rate.** New accounts default to 20% (`ledger_settings.default_fee_rate`, set by `20261114000000_fee_20.sql`). Existing investors on the old default rate move to 20%
   at their next settlement (`fee_rate_next`), so profit already made is never charged at the new rate. Raising the rate is a change of terms:
   tell investors first (the app asks everyone to agree again). Any rate from 0% to 100% is supported per person.
 - **"Withdraw all"** pays everything that is left after any fee. A request for more units than remain is capped, not refused.

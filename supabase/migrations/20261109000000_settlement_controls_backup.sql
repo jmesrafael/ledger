@@ -1,5 +1,5 @@
 -- SETTLEMENT CONTROLS + COMPLETE BACKUP. Run after 20261108000000_settlement_workflow_integration.sql. NOT applied to any database. Safe to run twice.
--- No accounting formula changes: units, prices, the high-water mark, the 10% fee and Fund M's split are exactly as before.
+-- No accounting formula changes: units, prices, the high-water mark, the fee (20% by default from 20261114000000_fee_20.sql) and Fund M's split are exactly as before.
 -- It changes WHEN a settlement is allowed and WHAT is recorded and audited.
 --
 -- 1. SETTLEMENT WINDOW (Manila time). A period's settlement must be made within settlement_window_days (7) after the period ends. After that it

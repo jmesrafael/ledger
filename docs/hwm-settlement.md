@@ -13,7 +13,7 @@ flagged **(confirm)** are defaults chosen so the code runs, not decisions.
 
 | # | Finding | Effect |
 |---|---|---|
-| 1 | No high-water mark, no loss carry-forward (doc section 3, tests B3/B4 assert it) | A period that only recovers an earlier loss is charged 10% in full. An investor at −20% since joining pays fees on the rebound. |
+| 1 | No high-water mark, no loss carry-forward (doc section 3, tests B3/B4 assert it) | A period that only recovers an earlier loss is charged the fee in full. An investor at −20% since joining pays fees on the rebound. |
 | 2 | Settlement every quarter, at least 80 days apart | The agreed schedule is every two months; 80 days also makes a two-month schedule impossible. |
 | 3 | A settlement needs no reconciliation (`settlement_gate` defaults to `off`) | Fees can be finalized on a NAV that nobody has reconciled against Exchange. |
 | 4 | Fund M capital vs fee units are split by ledger `kind` | A manager withdrawal is always taken from "capital", which can go negative while fee units stay untouched. |
@@ -57,8 +57,8 @@ shortfall as `below_hwm_usdt`, and `E − H` as `period_profit_usdt`. Fund M has
 - *No inheritance.* H is per investor. A newcomer's H is their own deposit, so they cannot inherit another investor's gain or loss. Pending
   deposits hold no units and earn nothing until a valuation admits them.
 - *Different entry dates* need no special handling: each investor's mark starts at their own admission value.
-- *Total fee over a life* is `r × (final value + withdrawals − deposits − fees already paid back into H)`: 10% of the net profit above the
-  best previous post-fee level, never more. (Written at 10% when this was designed; the default is now 20%.)
+- *Total fee over a life* is `r × (final value + withdrawals − deposits − fees already paid back into H)`: the fee rate of the net profit above the
+  best previous post-fee level, never more.
 
 **Rejected alternatives.**
 - Per-deposit lots (the 2026-10-27 engine): an old lot's loss does not shelter a new lot's gain, so an investor who is down overall can still pay a fee.
