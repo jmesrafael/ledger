@@ -307,23 +307,16 @@
   const DISC = `<p class="disc">This is a record of your share of a pooled trading account, shown in pesos at today's exchange rate. The balance grows or shrinks with the trading results. It is not a bank balance and is not insured. You can still lose money.</p>`;
 
   // ---------------------------------------------------------------- where each person wants to be paid (the QR image lives in Supabase Storage)
-  // How someone can be paid. `num` is what the number field is called; `named` (when present) means we also ask for the name of the bank or wallet.
-  const PAY = {
-    bank: { label: 'Bank transfer', num: 'Bank account number', named: 'Bank name' },
-    gcash: { label: 'GCash', num: 'GCash mobile number' },
-    maya: { label: 'Maya', num: 'Maya mobile number' },
-    gotyme: { label: 'GoTyme', num: 'GoTyme account number' },
-    other: { label: 'Other bank or e-wallet', num: 'Account or mobile number', named: 'Name of the bank or e-wallet' },
-  };
-  const payOpt = (m) => PAY[m] || PAY.other;
+  // How someone is paid is free text they type (for example GCash, Bank transfer, GoTyme, Maya). Older saved rows hold 'gcash' or 'bank'.
+  const payLabel = (m) => ({ gcash: 'GCash', bank: 'Bank transfer' }[m] || m || '');
   const payUrl = (path) => sb.storage.from('payout-qr').getPublicUrl(path).data.publicUrl;
   const payOf = (id) => (S.payouts || []).find((d) => d.profile_id === id) || null;
   // read-only view of someone's receiving details (fund manager side)
   function payoutBlock(d) {
     if (!d) return '<p class="note warn">No payout details on file for this person yet.</p>';
-    return `<div class="payblock"><div class="row"><span class="l">Send via</span><span class="r">${payOpt(d.method).label}${d.bank_name ? ' · ' + esc(d.bank_name) : ''}</span></div>
+    return `<div class="payblock"><div class="row"><span class="l">Send via</span><span class="r">${esc(payLabel(d.method))}${d.bank_name ? ' · ' + esc(d.bank_name) : ''}</span></div>
       <div class="row"><span class="l">Account name</span><span class="r">${esc(d.account_name)}</span></div>
-      <div class="row"><span class="l">${payOpt(d.method).num}</span><span class="r">${esc(d.account_number)}</span></div>
+      <div class="row"><span class="l">Mobile or account number</span><span class="r">${esc(d.account_number)}</span></div>
       ${d.qr_path ? `<a href="${payUrl(d.qr_path)}" target="_blank" rel="noopener"><img class="payqr" src="${payUrl(d.qr_path)}" alt="Receiving QR code" loading="lazy"></a>` : '<p class="note">No QR image uploaded.</p>'}</div>`;
   }
   const contactOf = (id) => (S.contacts || []).find((c) => c.profile_id === id) || null;
@@ -350,15 +343,15 @@
         <button class="full">${d ? 'Update contact details' : 'Save contact details'}</button></form></div>`;
   }
   function payoutCard(m) {
-    const d = S.payout, method = (d && d.method) || 'gcash', P = payOpt(method);
+    const d = S.payout;
     const head = `<div class="card"><h2>Where to send my money</h2>`;
     if (m.impersonated) return `${head}${d ? payoutBlock(d) : '<p class="note">Not added yet.</p>'}</div>`;
     return `${head}<p class="note" style="margin-top:0">${d ? 'Your withdrawals are sent here.' : 'Add this before you request a withdrawal.'} We will contact you to confirm these details before any money is sent.</p>
-      <form id="payoutForm"><label>How do you want to receive it?</label>
-        <select name="method">${Object.entries(PAY).map(([k, o]) => `<option value="${k}" ${method === k ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
-        <div data-for="named" ${P.named ? '' : 'hidden'}><label data-namelabel>${P.named || 'Bank name'}</label><input name="bank" value="${esc((d && d.bank_name) || '')}" autocomplete="off" ${P.named ? 'required' : ''}></div>
+      <form id="payoutForm"><label>Label</label>
+        <input name="method" value="${esc(payLabel(d && d.method))}" maxlength="40" autocomplete="off" placeholder="e.g. GCash" required>
+        <p class="note" style="margin:4px 0 0">Examples: GCash, Bank transfer, GoTyme, Maya. If it is a bank, add its name, like "BDO bank transfer".</p>
         <label>Account name</label><input name="pname" value="${esc((d && d.account_name) || '')}" autocomplete="off" placeholder="The name on the account" required>
-        <label data-numlabel>${P.num}</label><input name="pnum" value="${esc((d && d.account_number) || '')}" inputmode="numeric" autocomplete="off" required>
+        <label>Mobile number or bank account number</label><input name="pnum" value="${esc((d && d.account_number) || '')}" inputmode="numeric" autocomplete="off" placeholder="e.g. 0917 123 4567" required>
         <p class="note" style="margin:4px 0 0">This is where we send your money, so please double-check the number.</p>
         <label>QR code (optional, but it makes sending faster)</label>
         <p class="note" style="margin:0 0 6px">Attach a screenshot of your GCash, Maya, GoTyme, InstaPay or QR Ph code. We can scan it to send your money straight to you.</p>
@@ -642,13 +635,6 @@
     document.title = `Lucid'io statement ${m ? m.key : ''} ${S.me.name || S.me.username}`.trim();   // the suggested file name when saving as PDF
     window.print(); setTimeout(() => { document.title = t; }, 500);
   }
-  document.addEventListener('change', (ev) => {   // payout method: ask for a bank / wallet name only when needed, and call the number what it is
-    const sel = ev.target.matches && ev.target.matches('#payoutForm select[name="method"]') ? ev.target : null; if (!sel) return;
-    const fm = sel.form, P = payOpt(sel.value);
-    fm.querySelector('[data-for="named"]').hidden = !P.named; fm.elements.bank.required = !!P.named;
-    if (P.named) fm.querySelector('[data-namelabel]').textContent = P.named;
-    fm.querySelector('[data-numlabel]').textContent = P.num;
-  });
   document.addEventListener('change', (ev) => { const s = ev.target.closest && ev.target.closest('select[data-stmt]'); if (s) { S.stmt = s.value; render(); } });
 
   // ---------------------------------------------------------------- manager: activity log and backups
@@ -1486,7 +1472,7 @@
           if (up.error) throw new Error('Could not upload the QR: ' + up.error.message);
           qr = path;
         }
-        await call('set_my_payout', { p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: payOpt(fv(fm, 'method')).named ? fv(fm, 'bank') || null : null, p_qr: qr });
+        await call('set_my_payout', { p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: null, p_qr: qr });
         await refresh('Payout details saved');
       } else if (id === 'reqForm') {
         const want = num(fv(fm, 'amount')) / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // amount -> units

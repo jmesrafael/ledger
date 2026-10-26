@@ -28,39 +28,36 @@ async function world(extraSql = '') {
   return { db, call, A, J };
 }
 
-test('every way of being paid can be saved, read back, and changed; bank and "other" need a name, the others do not', async () => {
+test('the label is free text: any way of being paid can be saved, read back and changed', async () => {
   const w = await world();
-  await w.call('set_my_payout', w.J, 'gcash', ' John Reyes ', ' 0917 123 4567 ');
+  await w.call('set_my_payout', w.J, ' GCash ', ' John Reyes ', ' 0917 123 4567 ');
   let d = await w.call('my_payout', w.J);
-  assert.equal(d.method, 'gcash'); assert.equal(d.account_name, 'John Reyes'); assert.equal(d.account_number, '0917 123 4567'); assert.equal(d.bank_name, null);
-  await w.call('set_my_payout', w.J, 'maya', 'John Reyes', '09181234567', 'ignored name');
-  d = await w.call('my_payout', w.J); assert.equal(d.method, 'maya'); assert.equal(d.bank_name, null, 'a wallet keeps no bank name');
-  await w.call('set_my_payout', w.J, 'gotyme', 'John Reyes', '012345678901');
-  assert.equal((await w.call('my_payout', w.J)).method, 'gotyme');
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'bank', 'John Reyes', '0012345678'), /name of the bank or e-wallet/);
-  await w.call('set_my_payout', w.J, 'bank', 'John Reyes', '0012345678', ' BDO ');
-  d = await w.call('my_payout', w.J); assert.equal(d.method, 'bank'); assert.equal(d.bank_name, 'BDO');
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'other', 'John Reyes', '0012345678'), /name of the bank or e-wallet/);
-  await w.call('set_my_payout', w.J, 'other', 'John Reyes', '0012345678', 'UnionBank');
-  d = await w.call('my_payout', w.J); assert.equal(d.method, 'other'); assert.equal(d.bank_name, 'UnionBank');
+  assert.equal(d.method, 'GCash'); assert.equal(d.account_name, 'John Reyes'); assert.equal(d.account_number, '0917 123 4567'); assert.equal(d.bank_name, null);
+  for (const label of ['Maya', 'GoTyme', 'Bank transfer', 'BDO bank transfer', 'UnionBank savings']) {
+    await w.call('set_my_payout', w.J, label, 'John Reyes', '0012345678');
+    assert.equal((await w.call('my_payout', w.J)).method, label);
+  }
+  await w.call('set_my_payout', w.J, 'gcash', 'John Reyes', '09171234567');                         // the older lower-case values still work
+  assert.equal((await w.call('my_payout', w.J)).method, 'gcash');
 });
 
-test('a QR image is optional and kept with any method; bad methods, short numbers and bad image names are refused', async () => {
+test('a QR image is optional and kept with any label; empty or over-long labels, short numbers and bad image names are refused', async () => {
   const w = await world();
-  await w.call('set_my_payout', w.J, 'gcash', 'John Reyes', '09171234567', null, QR);
+  await w.call('set_my_payout', w.J, 'Maya', 'John Reyes', '09171234567', null, QR);
   assert.equal((await w.call('my_payout', w.J)).qr_path, QR);
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'paypal', 'John Reyes', '09171234567'), /choose how you want to be paid/);
-  await assert.rejects(() => w.call('set_my_payout', w.J, null, 'John Reyes', '09171234567'), /choose how you want to be paid/);
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'gcash', 'John Reyes', '12'), /mobile number/);
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'gotyme', 'John Reyes', '12'), /account number/);
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'gcash', 'J', '09171234567'), /account name/);
-  await assert.rejects(() => w.call('set_my_payout', w.J, 'gcash', 'John Reyes', '09171234567', null, '../../etc/passwd.png'), /invalid QR image/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, '', 'John Reyes', '09171234567'), /how you want to be paid/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, ' x ', 'John Reyes', '09171234567'), /how you want to be paid/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, null, 'John Reyes', '09171234567'), /how you want to be paid/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, 'x'.repeat(41), 'John Reyes', '09171234567'), /too long/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, 'GCash', 'John Reyes', '12'), /mobile number or account number/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, 'GCash', 'J', '09171234567'), /account name/);
+  await assert.rejects(() => w.call('set_my_payout', w.J, 'GCash', 'John Reyes', '09171234567', null, '../../etc/passwd.png'), /invalid QR image/);
 });
 
-test('running the migration twice is harmless, and the manager sees every method', async () => {
+test('running the migration twice is harmless, and the manager sees the label', async () => {
   const sql = readFileSync(new URL('../supabase/migrations/20261115000000_payout_methods.sql', import.meta.url), 'utf8');
   const w = await world(sql);                                      // the migration ran once in the chain and once more here
-  await w.call('set_my_payout', w.J, 'maya', 'John Reyes', '09181234567', null, QR);
+  await w.call('set_my_payout', w.J, 'Maya', 'John Reyes', '09181234567', null, QR);
   const all = await w.call('admin_payouts', w.A);
-  assert.equal(all.length, 1); assert.equal(all[0].method, 'maya'); assert.equal(all[0].qr_path, QR);
+  assert.equal(all.length, 1); assert.equal(all[0].method, 'Maya'); assert.equal(all[0].qr_path, QR);
 });
