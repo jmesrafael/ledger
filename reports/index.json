@@ -10,10 +10,19 @@
   {
     "slug": "backtest-data",
     "title": "What ₱1,000 Could Have Become: Past-Price Data",
-    "summary": "Growth of ₱1,000 after the 20% fee, year-by-year and month-by-month results, drops, and which months tend to be weak. A test on past prices, not a promise.",
+    "summary": "Growth of ₱1,000 after the 20% fee, year-by-year and month-by-month results, drops, and which months tend to be weak. Compounded vs. a fresh ₱1,000 each year. A test on past prices, not a promise.",
     "updated": "Oct 26, 2026",
     "kind": "Data report",
     "file": "backtest-data.html",
     "pdf": "backtest-data.pdf"
+  },
+  {
+    "slug": "backtest-data-usd",
+    "title": "What $100 Could Have Become: Past-Price Data (USD)",
+    "summary": "The original dollar version of the same past-price test, before the 20% fee: growth of $100, year-by-year and month-by-month results, drawdowns, and which months tend to be weak. Kept for reference.",
+    "updated": "Oct 22, 2026",
+    "kind": "Data report",
+    "file": "backtest-data-usd.html",
+    "pdf": "backtest-data-usd.pdf"
   }
 ]

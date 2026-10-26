@@ -14,6 +14,10 @@
     {
       "source": "/backtest-data",
       "destination": "/reports/backtest-data.html"
+    },
+    {
+      "source": "/backtest-data-usd",
+      "destination": "/reports/backtest-data-usd.html"
     }
   ],
   "headers": [

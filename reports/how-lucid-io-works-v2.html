@@ -156,6 +156,14 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .longterm h3 { color: var(--accent); display: flex; gap: 8px; align-items: center; }
 .longterm ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
 .longterm li { margin: 4px 0; }
+.ft.cmp { min-width: 0; }
+.ft.cmp td, .ft.cmp th { white-space: normal; }
+.ft.cmp tr { cursor: default; }
+.ft.cmp td:first-child { font-weight: 700; }
+.ft.cmp th:nth-child(2), .ft.cmp td:nth-child(2) { text-align: center; }
+.ft.cmp tr.lucrow td { background: rgba(200,255,61,0.06); }
+.ft.cmp tr.lucrow td:first-child { color: var(--accent); }
+.note-box.warn { border-color: rgba(255,112,112,0.4); background: rgba(255,112,112,0.06); }
 .warnbox { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: rgba(255,112,112,0.08); border: 1px solid rgba(255,112,112,0.35); }
 .warnbox h3 { color: var(--red); display: flex; align-items: center; gap: 8px; }
 .warnbox-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-grid; place-items: center; background: rgba(255,112,112,0.18); color: var(--red); flex: none; }
@@ -177,7 +185,13 @@ svg text { font-family: Manrope, sans-serif; }
 @media (max-width: 700px) { .pizza-wrap { grid-template-columns: 1fr; justify-items: center; } .pizza-side { width: 100%; } }
 #pizza { width: 100%; max-width: 300px; height: auto; display: block; overflow: visible; }
 #pizza .pie { transform-origin: 150px 150px; transition: transform .7s cubic-bezier(.3,1.4,.5,1); }
-#pizza .wedge.me { filter: drop-shadow(0 0 8px rgba(200,255,61,0.7)); }
+#pizza .mine { transition: transform .9s cubic-bezier(.3,1.5,.5,1), filter .9s ease; }
+#pizza.lifted .mine { transform: translate(var(--lx), var(--ly)); filter: drop-shadow(0 16px 12px rgba(0,0,0,0.6)); }
+#pizza.lifted .mine .bob { animation: bob 3s ease-in-out 1.2s infinite; }
+@keyframes bob { 50% { transform: translate(var(--bx), var(--by)); } }
+#pizza .strings, #pizza .youtag { opacity: 0; transition: opacity .5s ease; }
+#pizza.lifted .strings { opacity: .95; transition-delay: .3s; }
+#pizza.lifted .youtag { opacity: 1; transition-delay: .7s; }
 #pizza .newbit { animation: popin .6s cubic-bezier(.3,1.5,.5,1) both; transform-origin: 150px 150px; }
 @keyframes popin { from { opacity: 0; transform: scale(.4) rotate(-25deg); } }
 .pz-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -212,7 +226,7 @@ svg text { font-family: Manrope, sans-serif; }
 footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
 .reveal.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit, #pizza .mine, #pizza .mine .bob { transition: none; animation: none; } }
 @media print { .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
 </style>
 </head>
@@ -261,29 +275,29 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <!-- 2. EXAMPLES -->
 <section id="friends" class="glass card reveal hl26">
   <div class="kicker">2 · Examples</div>
-  <h2><span class="yr">2026</span> Five friends, five different starts</h2>
-  <p>Meet five example friends. Each put in a different amount in a different month of 2026. They are made-up people, but the prices are <b>real past prices</b>. Everyone gets the <b>same result per slice</b> from the day they join, so what changes the outcome is <b>when</b> they joined and <b>how much</b> they put in.</p>
+  <h2><span class="yr">2026</span> Five investors, five different starts</h2>
+  <p>Meet five example investors. Each put in a different amount in a different month of 2026. They are made-up people, but the prices are <b>real past prices</b>. Everyone gets the <b>same result per slice</b> from the day they join, so what changes the outcome is <b>when</b> they joined and <b>how much</b> they put in.</p>
   <p class="small muted">The fee is 20% of new profit, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b> and the pool puts <b>5%</b> at risk per trade. Shown in pesos at ₱58 per USDT (a digital dollar).</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ftable"></table></div>
   </div>
   <div class="longterm">
-    <h3>Why some friends are below zero, and why that is normal</h3>
+    <h3>Why some investors are below zero, and why that is normal</h3>
     <p class="small" style="margin-top:6px" id="neg-lead"></p>
     <ul>
       <li><b>In a few weeks, anything can happen.</b> Prices can go down as easily as up. Someone who joins just before a dip starts in the red.</li>
       <li><b>Time is what makes it work.</b> The plan is built to grow slowly over many months: small wins add up and losses are kept small.</li>
-      <li><b>The friends who joined first are ahead.</b> <span id="neg-ahead"></span></li>
+      <li><b>The investors who joined first are ahead.</b> <span id="neg-ahead"></span></li>
     </ul>
     <p class="small" style="margin-top:8px">So please see this as <b>long-term money</b>: plan to leave it in for at least a year and don't judge it by the first few weeks.</p>
     <p class="small" style="margin-top:8px;color:var(--red)"><b>Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
   </div>
   <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
-    <h3 id="fname">Pick a friend</h3>
+    <h3 id="fname">Pick an investor</h3>
     <div class="seg" id="fseg"></div>
   </div>
-  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The friend's balance over 2026"></svg>
+  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The investor's balance over 2026"></svg>
   <div class="feechips" id="fchips"></div>
   <p class="small muted">Coloured line: their balance after fees. Dashed line: what they put in. Green dots: a fee was settled. All based on past prices.</p>
   <div class="note-box" id="fstory"></div>
@@ -325,6 +339,13 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <svg id="years" class="chart" viewBox="0 0 640 260" role="img" aria-label="Test balance at the end of each year, log scale"></svg>
   <p class="small muted" id="years-note"></p>
   <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this test ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week. <b style="color:var(--red)">The big totals here are inflated</b>: the markets were chosen after seeing how they did, 2021 was extraordinary, and the edge has been getting smaller. Treat the yearly table above, and the dips, as the more honest picture.</div>
+  <h2 style="margin-top:28px" id="compare">How does it compare with saving elsewhere?</h2>
+  <p>What <b>₱100,000</b> becomes after one year. The bank and government rows are what you keep after the 20% tax on interest (Pag-IBIG MP2 is tax-free). The Lucid'io rows come from our test on past prices, <b>after the 20% fee</b>, and each year starts again at ₱100,000.</p>
+  <div class="tscroll">
+    <div class="tscroll-in"><table class="ft cmp" id="cmp"></table></div>
+  </div>
+  <p class="small muted">Rates as of October 2026 and they change often, so check the bank's app. *Maya Savings can reach 15% a year, but only on the first ₱100,000 and only if you complete its monthly tasks. Lucid'io's last-12-months figure is approximate.</p>
+  <div class="note-box warn"><b style="color:var(--red)">Markets change, and the best years are behind us.</b> The biggest results came early: 2021 was extraordinary, and the most recent year earned far less. There is no promise the next year looks like any year above. It could earn less than a bank, and it could lose money: even in the test, the balance fell by more than half at one point. Banks and Pag-IBIG do not behave that way, and most of them are insured. Lucid'io is not.</div>
   <div class="datacta">
     <div><h3>Want every detail?</h3><p>Year by year, month by month: the best and worst months, the longest red streaks and the biggest drops.</p></div>
     <a class="btn" href="/backtest-data">See the full data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
@@ -339,7 +360,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <section id="pool" class="glass card reveal">
   <div class="kicker">4 · Your slice</div>
   <h2>The pool is one big pizza</h2>
-  <p>All the money sits together in one trading account at an exchange. Instead of tracking everyone's pesos, the ledger cuts the pool into equal <b>slices</b>. We call a slice a <b>unit</b>. You own some slices, your friends own some, and so does the fund manager.</p>
+  <p>All the money sits together in one trading account at an exchange. Instead of tracking everyone's pesos, the ledger cuts the pool into equal <b>slices</b>. We call a slice a <b>unit</b>. You own some slices, other investors own some, and so does the fund manager.</p>
   <div class="pizza-wrap">
     <svg id="pizza" viewBox="0 0 300 300" role="img" aria-label="A pizza cut into slices. Each person owns some slices."></svg>
     <div class="pizza-side">
@@ -348,7 +369,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
       <div class="pz-btns" id="pz-btns">
         <button class="good" data-a="up">Trading earned 20%</button>
         <button class="bad" data-a="down">Trading lost 20%</button>
-        <button data-a="join">A friend joins with ₱3,000</button>
+        <button data-a="join">A new investor joins with ₱3,000</button>
         <button data-a="reset">Start over</button>
       </div>
     </div>
@@ -500,39 +521,85 @@ function swipeable(box) {
 // ---------- 4. the pool as a pizza
 (function pizza() {
   const svg = document.getElementById('pizza'); if (!svg) return;
-  const START = () => ({ owners: [{ n: 'You', s: 2, c: '#C8FF3D', me: true }, { n: 'Friend A', s: 3, c: '#7DB8FF' }, { n: 'Friend B', s: 2, c: '#FFB547' }, { n: 'Fund manager', s: 3, c: '#B79CFF' }], price: 1000, fresh: false, say: null });
-  let S = START(), lastScale = 1;
+  const START = () => ({ owners: [{ n: 'You', s: 2, c: '#C8FF3D', me: true }, { n: 'Investor A', s: 3, c: '#7DB8FF' }, { n: 'Investor B', s: 2, c: '#FFB547' }, { n: 'Fund manager', s: 3, c: '#B79CFF' }], price: 1000, fresh: false, say: null });
+  let S = START(), lastScale = 1, seen = false;
+  // your slices lift out of the pizza the first time the picture comes into view
+  const watch = new IntersectionObserver((es) => { if (es[0].isIntersecting) { watch.disconnect(); seen = true; setTimeout(() => svg.classList.add('lifted'), 500); } }, { threshold: 0.5 });
+  watch.observe(svg);
   const total = () => S.owners.reduce((t, o) => t + o.s, 0);
   const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString('en-PH', { maximumFractionDigits: 2 });
-  const SAY0 = 'This pizza has <b>10 slices</b> and is worth <b>₱10,000</b>, so <b>one slice is worth ₱1,000</b>. You own <b>2 slices</b> (the green ones). Tap a button to see what happens.';
+  const SAY0 = 'This pizza has <b>10 slices</b> and is worth <b>₱10,000</b>, so <b>one slice is worth ₱1,000</b>. You own <b>2 slices</b> (the ones marked YOU, lifted out). Tap a button to see what happens.';
   function pt(cx, cy, r, a) { const t = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
+  const rnd = (i) => { const x = Math.sin(i * 99.13 + 7.7) * 43758.5453; return x - Math.floor(x); };   // same toppings every redraw
+  const f1 = (n) => n.toFixed(1);
+  // one slice: crust band, sauce edge, cheese, a light tint of the owner's colour, toppings
+  function slice(g, s0, s1, R, tint, seed) {
+    const big = s1 - s0 > 180 ? 1 : 0, CR = R + 11;
+    const [a, b] = [pt(150, 150, R, s0), pt(150, 150, R, s1)], [ca, cb] = [pt(150, 150, CR, s0), pt(150, 150, CR, s1)];
+    el('path', { d: `M${f1(ca[0])},${f1(ca[1])} A${CR},${CR} 0 ${big} 1 ${f1(cb[0])},${f1(cb[1])} L150,150 Z`, fill: 'url(#pzCrust)' }, g);
+    const wedge = `M150,150 L${f1(a[0])},${f1(a[1])} A${R},${R} 0 ${big} 1 ${f1(b[0])},${f1(b[1])} Z`;
+    el('path', { d: wedge, fill: '#B8321F' }, g);                                                     // sauce peeking at the edge
+    const [ia, ib] = [pt(150, 150, R - 3, s0), pt(150, 150, R - 3, s1)];
+    el('path', { d: `M150,150 L${f1(ia[0])},${f1(ia[1])} A${R - 3},${R - 3} 0 ${big} 1 ${f1(ib[0])},${f1(ib[1])} Z`, fill: 'url(#pzCheese)' }, g);
+    el('path', { d: wedge, fill: tint, 'fill-opacity': 0.2 }, g);
+    const span = s1 - s0, mid = (s0 + s1) / 2;
+    // melted cheese blobs
+    for (let k = 0; k < 2; k++) { const [x, y] = pt(150, 150, R * (0.35 + rnd(seed + k) * 0.45), s0 + span * (0.2 + rnd(seed + k + 9) * 0.6)); el('ellipse', { cx: f1(x), cy: f1(y), rx: 7, ry: 4.5, fill: '#FFF0B3', 'fill-opacity': 0.45, transform: `rotate(${f1(mid)} ${f1(x)} ${f1(y)})` }, g); }
+    if (span < 12) return;
+    // pepperoni with a shine
+    [[0.42, -0.18], [0.72, 0.16]].forEach(([rr, off], k) => {
+      const [x, y] = pt(150, 150, R * rr, mid + span * off * (rnd(seed + k * 3) > 0.5 ? 1 : -1));
+      el('circle', { cx: f1(x), cy: f1(y), r: 8.6, fill: 'url(#pzPep)' }, g);
+      el('circle', { cx: f1(x), cy: f1(y), r: 8.6, fill: 'none', stroke: '#7A1A0E', 'stroke-width': 0.8, 'stroke-opacity': 0.6 }, g);
+      el('ellipse', { cx: f1(x - 2.6), cy: f1(y - 2.8), rx: 2.6, ry: 1.5, fill: '#fff', 'fill-opacity': 0.35 }, g);
+    });
+    // basil or an olive
+    const [x, y] = pt(150, 150, R * (0.58 + rnd(seed + 5) * 0.12), mid + span * (rnd(seed + 6) - 0.5) * 0.5);
+    if (rnd(seed + 7) > 0.45) el('path', { d: `M${f1(x - 6)},${f1(y)} Q${f1(x)},${f1(y - 5)} ${f1(x + 6)},${f1(y)} Q${f1(x)},${f1(y + 5)} ${f1(x - 6)},${f1(y)} Z`, fill: '#3F8F3A', transform: `rotate(${f1(rnd(seed + 8) * 180)} ${f1(x)} ${f1(y)})` }, g);
+    else el('circle', { cx: f1(x), cy: f1(y), r: 3.2, fill: 'none', stroke: '#2A2A2A', 'stroke-width': 2 }, g);
+  }
   function draw() {
     svg.innerHTML = '';
     const tot = total(), value = tot * S.price, scale = Math.max(0.62, Math.min(1.12, Math.sqrt(value / 10000)));
+    const defs = el('defs', {}, svg);
+    const grad = (id, stops) => { const gr = el('radialGradient', { id, cx: 150, cy: 150, r: 136, gradientUnits: 'userSpaceOnUse' }, defs); stops.forEach(([o, c]) => el('stop', { offset: o, 'stop-color': c }, gr)); };
+    grad('pzCrust', [['0.88', '#C98140'], ['0.93', '#E8B064'], ['0.97', '#D08C45'], ['1', '#9C5F27']]);
+    grad('pzCheese', [['0', '#FFE38A'], ['0.7', '#FFD15C'], ['0.92', '#F4B740'], ['1', '#E39A2E']]);
+    const pep = el('radialGradient', { id: 'pzPep', cx: '40%', cy: '38%', r: '65%' }, defs);
+    [['0', '#E2553A'], ['0.7', '#B5301C'], ['1', '#8E1F12']].forEach(([o, c]) => el('stop', { offset: o, 'stop-color': c }, pep));
     // start at the old size and grow or shrink to the new one, so a gain or a loss is something you can watch
     const pie = el('g', { class: 'pie', style: `transform: scale(${lastScale})` }, svg);
-    const R = 124;
-    el('circle', { cx: 150, cy: 150, r: R + 9, fill: '#C98B45' }, pie);                       // crust
-    el('circle', { cx: 150, cy: 150, r: R + 9, fill: 'none', stroke: '#E9B56E', 'stroke-width': 3, 'stroke-dasharray': '2 9', 'stroke-linecap': 'round' }, pie);
-    let a0 = 0;
-    S.owners.forEach((o, oi) => {
-      const a1 = a0 + o.s / tot * 360, big = a1 - a0 > 180 ? 1 : 0;
-      const [x0, y0] = pt(150, 150, R, a0), [x1, y1] = pt(150, 150, R, a1);
-      const g = el('g', { class: 'wedge' + (o.me ? ' me' : '') + (o.fresh ? ' newbit' : '') }, pie);
-      el('path', { d: `M150,150 L${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${big} 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`, fill: o.c, 'fill-opacity': 0.9 }, g);
-      // pepperoni: two dots per slice
+    const R = 120, GAP = 1.1;
+    el('circle', { cx: 150, cy: 150, r: R + 26, fill: '#17181B', stroke: 'rgba(255,255,255,0.08)', 'stroke-width': 1.5 }, pie);   // the tray
+    el('circle', { cx: 150, cy: 150, r: R + 12, fill: '#0E0F11' }, pie);                                                         // shadow under the pizza
+    let a0 = 0, n = 0, lift = null;
+    S.owners.forEach((o) => {
+      const a1 = a0 + o.s / tot * 360;
+      // the owner's colour as a band on the tray, so you can tell whose slices are whose
+      const [ra, rb] = [pt(150, 150, R + 19, a0 + 2), pt(150, 150, R + 19, a1 - 2)];
+      el('path', { d: `M${f1(ra[0])},${f1(ra[1])} A${R + 19},${R + 19} 0 ${a1 - a0 - 4 > 180 ? 1 : 0} 1 ${f1(rb[0])},${f1(rb[1])}`, fill: 'none', stroke: o.c, 'stroke-width': 5, 'stroke-linecap': 'round' }, pie);
+      const g = el('g', { class: 'owner' + (o.me ? ' mine' : '') + (o.fresh ? ' newbit' : '') }, pie);
+      if (o.me) { const m = (a0 + a1) / 2, [dx, dy] = pt(0, 0, 22, m), [bx, by] = pt(0, 0, 4, m); g.setAttribute('style', `--lx:${f1(dx)}px;--ly:${f1(dy)}px;--bx:${f1(bx)}px;--by:${f1(by)}px`); lift = { a0, a1, m, dx, dy, g }; }
+      const inner = el('g', { class: 'bob' }, g);
       const steps = Math.max(1, Math.round(o.s));
-      for (let k = 0; k < steps; k++) {
-        const mid = a0 + (k + 0.5) / steps * (a1 - a0);
-        [[0.5, 0], [0.8, 7]].forEach(([rr, off], j) => { const [px, py] = pt(150, 150, R * rr, mid + (j ? off : -off / 2) * (oi % 2 ? 1 : -1)); el('circle', { cx: px.toFixed(1), cy: py.toFixed(1), r: 7.5, fill: '#B3261E', 'fill-opacity': 0.82 }, g); });
-      }
+      for (let k = 0; k < steps; k++) slice(inner, a0 + (k / steps) * (a1 - a0) + GAP / 2, a0 + ((k + 1) / steps) * (a1 - a0) - GAP / 2, R, o.c, ++n * 13);
       a0 = a1;
     });
-    // cut lines: one per whole slice
-    for (let k = 0, a = 0; a < 360 - 0.5; k++, a = k / tot * 360) { const [x, y] = pt(150, 150, R, a); el('line', { x1: 150, y1: 150, x2: x.toFixed(2), y2: y.toFixed(2), stroke: '#1a1208', 'stroke-width': 2, 'stroke-opacity': 0.55 }, pie); }
-    el('circle', { cx: 150, cy: 150, r: R, fill: 'none', stroke: '#1a1208', 'stroke-opacity': 0.35, 'stroke-width': 1.5 }, pie);
+    if (lift) {
+      // stretchy cheese between your slices and the rest of the pizza
+      const sg = el('g', { class: 'strings' }, pie);
+      [lift.a0, lift.a1].forEach((edge) => [26, 50, 74].forEach((r) => {
+        const [x, y] = pt(150, 150, r, edge), qx = x + lift.dx, qy = y + lift.dy;
+        el('path', { d: `M${f1(x)},${f1(y)} Q${f1((x + qx) / 2)},${f1((y + qy) / 2 + 5)} ${f1(qx)},${f1(qy)}`, fill: 'none', stroke: '#FFD966', 'stroke-width': 2.2, 'stroke-linecap': 'round' }, sg);
+      }));
+      pie.appendChild(lift.g);                                                       // your slices sit on top of everything
+      const [tx, ty] = pt(150, 150, R * 0.62, lift.m), tag = el('g', { class: 'youtag' }, lift.g.querySelector('.bob'));
+      el('rect', { x: f1(tx - 21), y: f1(ty - 11), width: 42, height: 22, rx: 11, fill: '#0b0d06', stroke: '#C8FF3D', 'stroke-width': 1.5 }, tag);
+      el('text', { x: f1(tx), y: f1(ty + 4.5), 'text-anchor': 'middle', fill: '#C8FF3D', 'font-size': 12, 'font-weight': 800 }, tag).textContent = 'YOU';
+    }
     S.owners.forEach((o) => { o.fresh = false; });
-    requestAnimationFrame(() => requestAnimationFrame(() => { pie.style.transform = `scale(${scale})`; lastScale = scale; }));
+    svg.classList.remove('lifted');
+    requestAnimationFrame(() => requestAnimationFrame(() => { pie.style.transform = `scale(${scale})`; lastScale = scale; if (seen) setTimeout(() => svg.classList.add('lifted'), 350); }));
     document.getElementById('pz-facts').innerHTML = `<div><b>${peso(value)}</b><span>the whole pizza is worth</span></div><div><b>${peso(S.price)}</b><span>one slice is worth</span></div>`;
     document.getElementById('pz-legend').innerHTML = S.owners.map((o) => `<div class="${o.me ? 'you' : ''}"><i style="background:${o.c}"></i>${o.n}<span>${fmt(o.s)} slice${o.s === 1 ? '' : 's'} · ${peso(o.s * S.price)}</span></div>`).join('');
     document.getElementById('pz-say').innerHTML = S.say || SAY0;
@@ -546,8 +613,8 @@ function swipeable(box) {
         ? `The trading earned 20%, so <b>the whole pizza got bigger</b>. Every slice grew by 20% too, from ${peso(was)} to <b>${peso(S.price)}</b>. You still own ${fmt(you.s)} slices, now worth <b>${peso(you.s * S.price)}</b>. Everyone's slices grew by the same percent.`
         : `The trading lost 20%, so <b>the whole pizza got smaller</b>. Every slice shrank by 20% too, from ${peso(was)} to <b>${peso(S.price)}</b>. You still own ${fmt(you.s)} slices, now worth <b>${peso(you.s * S.price)}</b>. Everyone's slices shrank by the same percent, not just yours.`;
     } else if (a === 'join') {
-      const n = S.owners.filter((o) => o.join).length, who = ['Friend C', 'Friend D', 'Friend E', 'Friend F'], cols = ['#FF8FB1', '#7DE0C0', '#F5E27A', '#C0C4FF'];
-      if (n >= who.length) { S.say = 'That is plenty of friends for this example! Tap <b>Start over</b> to try again.'; draw(); return; }
+      const n = S.owners.filter((o) => o.join).length, who = ['Investor C', 'Investor D', 'Investor E', 'Investor F'], cols = ['#FF8FB1', '#7DE0C0', '#F5E27A', '#C0C4FF'];
+      if (n >= who.length) { S.say = 'That is plenty of investors for this example! Tap <b>Start over</b> to try again.'; draw(); return; }
       const slices = Math.round(3000 / S.price * 100) / 100;
       S.owners.push({ n: who[n], s: slices, c: cols[n], join: true, fresh: true });
       const share = you.s / total() * 100;
@@ -676,7 +743,7 @@ const nameList = (xs) => xs.map((x) => x.name).join(', ').replace(/, ([^,]*)$/, 
 })();
 let pick = 0;
 function friendsTable() {
-  document.getElementById('ftable').innerHTML = `<tr><th>Friend</th><th>Put in</th><th>Joined</th><th>Fees paid</th><th>Worth now*</th><th>Profit</th><th>%</th></tr>` +
+  document.getElementById('ftable').innerHTML = `<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Fees paid</th><th>Worth now*</th><th>Profit</th><th>%</th></tr>` +
     R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join.d)}</td>
       <td>${peso(x.r.fees)}</td><td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${(x.r.pct >= 0 ? '+' : '−') + Math.abs(x.r.pct).toFixed(1)}%</td></tr>`).join('') +
     `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Worth now = after the fees already paid and the fee that would be due if settled on Oct 21. Based on past prices, not real accounts.</td></tr>`;
@@ -742,6 +809,18 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
       <td class="${earned >= 0 ? 'up' : 'down'}">${(g >= 1 ? '+' : '−') + Math.abs((g - 1) * 100).toLocaleString('en-PH', { maximumFractionDigits: 0 })}%</td><td class="down">−${Math.round(R5.years[y].dd * 100)}%</td><td>${peso(net)}</td><td class="muted">+${Math.round((g1 - 1) * 100)}%</td></tr>`; };
   t.innerHTML = `<tr><th>Year</th><th>Jan 1</th><th>Dec 31</th><th>Earned</th><th>Growth</th><th>Deepest dip</th><th>After ${FEE_PCT}% fee</th><th>Same year at 1% risk</th></tr>` + YS.map(row).join('');
   document.getElementById('ytab-note').textContent = 'Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade). A test on the past, before real-world surprises.';
+})();
+// ---------- how it compares with saving elsewhere: what ₱100,000 becomes in a year (rates as of Oct 2026: update when they change)
+(function compare() {
+  const t = document.getElementById('cmp'); if (!t) return;
+  const SAFE = [['GCash GSave (CIMB)', 'insured by PDIC', 2.30, 101840], ['GoTyme savings', 'insured by PDIC', 3.00, 102400], ['Maya Savings*', 'insured by PDIC', 3.00, 102400],
+    ['MariBank', 'insured by PDIC', 3.25, 102600], ['Government retail bond', 'backed by the government', 6.875, 105500], ['Pag-IBIG MP2', 'government fund, tax-free', 7.12, 107120]];
+  const net = (growth) => { const end = 1000 * growth, earned = end - 1000; return end > 1000 ? 1000 + (1 - FEE) * earned : end; };
+  const luc = YS.map((y) => [y + (y === '2026' ? ' (to Oct)' : ''), net(yg(R5, y))]).concat([['Last 12 months', 1000 + (1 - FEE) * 230]]);
+  const row = (name, sub, pct, amt, cls) => `<tr class="${cls || ''}"><td>${name}<br><span class="muted" style="font-size:11.5px;font-weight:500">${sub}</span></td><td class="${cls ? 'up' : ''}">${pct}</td><td><b>${amt}</b></td></tr>`;
+  t.innerHTML = '<tr><th>Where the money goes</th><th>Return per year</th><th>₱100,000 becomes</th></tr>'
+    + SAFE.map(([n, s, p, a]) => row(n, s, (p === 6.875 ? '6.875' : p.toFixed(2)) + '%', peso(a))).join('')
+    + luc.map(([n, v]) => row(`Lucid'io, ${n}`, 'not insured · can fall', (v >= 1000 ? '+' : '−') + Math.abs(Math.round((v / 1000 - 1) * 100)).toLocaleString('en-PH') + '%', peso(Math.round(v) * 100), 'lucrow')).join('');
 })();
 (function years() {
   const svg = document.getElementById('years'); if (!svg) return;
