@@ -19,13 +19,13 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const RISK = Number(opt('risk', 0.05)), NOTE = opt('note', 'Backtest simulation'), FEE_SIM = 0.10;   // FEE_SIM = the app's default rate
+const RISK = Number(opt('risk', 0.05)), NOTE = opt('note', 'Backtest simulation'), FEE_SIM = 0.20;   // FEE_SIM = the app's default rate
 const OUT = opt('out', 'supabase/reset-and-seed-backtest.sql');
 const BT = JSON.parse(readFileSync(args[0], 'utf8')), FX = JSON.parse(readFileSync(args[1], 'utf8')).rates;
 const Returns = createRequire(import.meta.url)('../js/returns.js');
 const COINS = Object.keys(BT.closes);   // e.g. MEXC_SOL, MEXC_ZEC
 const MARKET = COINS.every((c) => c.startsWith('MEXC_'))
-  ? `${COINS.map((c) => c.slice(5)).join(' + ')} on MEXC USDT-M perpetuals (MEXC prices; MEXC funding from Apr 2025, Binance funding before that)`
+  ? `${COINS.map((c) => c.slice(5)).join(' + ')} on the exchange USDT-M perpetuals (Exchange prices; Exchange funding from Apr 2025, Binance funding before that)`
   : `${COINS.join(' + ')} (Binance USDT-M prices)`;
 
 // ---------------------------------------------------------------- the story (Philippine time, UTC+8)
@@ -111,7 +111,7 @@ const sql = `-- ACCOUNTS + RESET + LOAD: makes sure the 4 accounts below exist, 
 -- ${RISK * 100}% of the balance risked per trade, compounding):
 ${DEPOSITS.map(([at, who, php]) => { const p = PEOPLE.find((x) => x.slot === who); return `--   ${at.slice(0, 10)}  ${p.user.padEnd(10)} ₱${php.toLocaleString('en-PH')} at ₱${phpRate(PH(at))}/USDT`; }).join('\n')}
 --   weekly equity readings every Sunday 23:59 (open trades valued at that moment), quarter closes on each quarter end,
---   last reading ${iso(END).slice(0, 16).replace('T', ' ')} UTC. ${marks.length} entries in all. Profit share uses each person's own rate (new accounts: the default 10%).
+--   last reading ${iso(END).slice(0, 16).replace('T', ' ')} UTC. ${marks.length} entries in all. Profit share uses each person's own rate (new accounts: the default 20%).
 -- A backtest is hypothetical: the coins were picked after seeing results, and real trading will very likely do worse.
 -- Every entry carries the note ${S(NOTE)} so it is clear on every screen that it is simulated.
 --

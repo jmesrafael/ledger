@@ -1,4 +1,4 @@
-// Makes the secret key the trading bot uses to post its MEXC balance to the ledger (migration 20261031000001_bot_equity_sync.sql).
+// Makes the secret key the trading bot uses to post its Exchange balance to the ledger (migration 20261031000001_bot_equity_sync.sql).
 //   node scripts/new-bot-key.mjs
 // Prints (1) the key: put it in the bot's mexc-keys.json as "ledgerBotKey", and (2) one SQL line: paste it in the Supabase SQL Editor.
 // The database stores only the hash. Run it again for a new key (the old one stops working when the new SQL line is run).

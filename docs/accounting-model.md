@@ -6,8 +6,8 @@
 > deposit D → H += D · close with E > H → fee = rate × (E − H), H := value after fee · withdrawal of share s → fee = rate × max(0, E − H) × s,
 > H := H − s × min(E, H) (a shortfall is never reduced by taking money out; a full exit keeps it, and money that comes back adds to it).
 > So the uncharged gain (or shortfall) E − H moves only with the unit price and with fees. Cutover: H = value after the last close.
-> Also: a waiting deposit is taken out of the MEXC total and joins **only once marked in MEXC** (`arrived_at`), whatever `settlement_gate` is;
-> any deposit not in MEXC needs an explicit yes on a reading and stops `bot_post_equity`. The lock-up is guidance: only an investor's
+> Also: a waiting deposit is taken out of the exchange total and joins **only once marked in the exchange** (`arrived_at`), whatever `settlement_gate` is;
+> any deposit not in the exchange needs an explicit yes on a reading and stops `bot_post_equity`. The lock-up is guidance: only an investor's
 > first deposit gets `lock_until`, and withdrawals are not refused unless `lock_enforced = '1'`. Sections 3 and 7 below describe the previous rule.
 
 Status: **implemented and tested, not applied to any database.** The change is one migration,
@@ -18,18 +18,18 @@ Status: **implemented and tested, not applied to any database.** The change is o
 
 | Value | Source of truth | Written by |
 |---|---|---|
-| Pool equity (NAV) | `pool_equity.equity_usdt` of the newest row: the MEXC total typed by the manager or sent by the bot, **minus money still waiting to join** | `admin_post_equity`, `admin_close_quarter`, `admin_withdraw`, `_convert_pending`, `bot_post_equity`, `admin_undo_last` |
+| Pool equity (NAV) | `pool_equity.equity_usdt` of the newest row: the exchange total typed by the manager or sent by the bot, **minus money still waiting to join** | `admin_post_equity`, `admin_close_quarter`, `admin_withdraw`, `_convert_pending`, `bot_post_equity`, `admin_undo_last` |
 | Outstanding units | `sum(ledger.units)` (every person, the manager included) | ledger inserts only |
 | One person's units | `sum(ledger.units) where profile_id = …` | same |
 | Manager units | the same, for the one `role = 'admin'` profile: own deposits + every `fee_in` | same |
 | Unit price | `pool_equity.unit_price` of the newest row = NAV ÷ outstanding units | same as NAV |
 | Period profit of an investor | computed, not stored: `_period_profit` over `pool_equity` and `ledger`; `investor_period.credit` = what a withdrawal already settled this period | `_period_take`, `_period_close`, `_period_revert` |
-| Pending deposits | `pending_deposits` (`pending` → `converted` / `cancelled`; `arrived_at` once the money is in MEXC) | `admin_receive_deposit`, `admin_mark_arrived`, `bot_post_snapshot`, `_convert_pending`, `admin_cancel_pending` |
+| Pending deposits | `pending_deposits` (`pending` → `converted` / `cancelled`; `arrived_at` once the money is in the exchange) | `admin_receive_deposit`, `admin_mark_arrived`, `bot_post_snapshot`, `_convert_pending`, `admin_cancel_pending` |
 | Pending withdrawals | `withdrawal_requests` (`pending` → `paid` / `cancelled`) | `request_withdrawal`, `admin_withdraw`, `cancel_withdrawal_request` |
 | Accrued fee | not stored: `rate × max(0, units × price − hwm_value)`, computed in `_holder_summary` | — |
 | Settled fees | `ledger` pairs `fee_out` (investor, −units) / `fee_in` (manager, +units) with the same `equity_id` | `admin_close_quarter`, `admin_withdraw` |
-| MEXC snapshots and transfers | `exchange_snapshots`, `exchange_transfers` (unique `ext_id`), `transfer_matches`, `snapshot_attestations` | `bot_post_snapshot`, `admin_classify_transfer`, `admin_attest_snapshot` |
-| Realized / unrealized PnL, trading fees, funding | **not separated in the ledger.** They are inside the MEXC total. The bot keeps per-trade R, fees and funding in its own `state/`. The snapshot has fields for unrealized and realized PnL; the bot sends unrealized, but not yet realized PnL or the transfer history (section 7). | — |
+| Exchange snapshots and transfers | `exchange_snapshots`, `exchange_transfers` (unique `ext_id`), `transfer_matches`, `snapshot_attestations` | `bot_post_snapshot`, `admin_classify_transfer`, `admin_attest_snapshot` |
+| Realized / unrealized PnL, trading fees, funding | **not separated in the ledger.** They are inside the exchange total. The bot keeps per-trade R, fees and funding in its own `state/`. The snapshot has fields for unrealized and realized PnL; the bot sends unrealized, but not yet realized PnL or the transfer history (section 7). | — |
 | Corrections | `pool_equity.reversed_of` / `ledger.reversed_of` (each unique) and `corrections` (one row per reversed entry) | `admin_undo_last` |
 
 Every function above is `security definer`, callable only with a manager session token (or the bot key for `bot_*`), and every table is closed to the website (RLS, all privileges revoked).
@@ -44,7 +44,7 @@ trading             changes NAV, so P; never anyone's units
 fee                 fee units move from the investor to the manager; U, NAV and P unchanged
 ```
 
-**Why the manager's units are in the denominator.** They are a real claim on the MEXC balance, so they must be. If U left them out, P would
+**Why the manager's units are in the denominator.** They are a real claim on the exchange balance, so they must be. If U left them out, P would
 be NAV ÷ investor units: every investor would be overstated by the manager's share, and each fee would *raise* the price, so investors
 would be handed back part of the fee they had just paid. With them included, a fee is a pure transfer of ownership.
 
@@ -61,7 +61,7 @@ favour: under 5×10⁻¹³ units.
 
 ## 3. The performance fee: a flat rate on each period's net trading profit
 
-Policy (fee_engine `flat_period_v1`): at each quarter close an investor pays **their fee rate (10% by default) of the net trading profit their
+Policy (fee_engine `flat_period_v1`): at each quarter close an investor pays **their fee rate (20% by default) of the net trading profit their
 units made in that period, if it is positive**. A loss or zero profit costs nothing. **Nothing is carried between periods**: there is no
 high-water mark, no recovery of earlier losses, no per-deposit line. (This replaced two earlier drafts: per-deposit lots, and an
 investor-level high-water mark. The investor-level draft was never applied to any database.)
@@ -99,6 +99,8 @@ full exit (s = 1)  settles all of the profit so far; a loss so far is forgiven
 
 ### Worked example (tests B1, B4, B7, B11)
 
+_Illustrated at a 10% rate, as the tests use. The default for new accounts is now 20% (`20261114000000_fee_20.sql`); the arithmetic is the same, with every fee doubled._
+
 - John 1,000 units at 1.00, price 1.10: profit 100, fee 10 USDT = 9.09090909 units.
 - Period 2 falls to 0.80 and the next goes to 0.90: period 2 pays 0; period 3 earns 1,000 x 0.10 = 100 and **pays 10 USDT although John is still
   below what he put in**. That is the rule.
@@ -114,7 +116,7 @@ person's own `fee_rate`; the migration prints a notice if any investor is not on
 
 ### Limits of this definition
 
-- "Net trading profit" is the unit-price change. It is as reliable as the valuations behind it. A MEXC transfer that was not recorded
+- "Net trading profit" is the unit-price change. It is as reliable as the valuations behind it. A Exchange transfer that was not recorded
   looks like trading profit or loss (section 7 is the control for that). With `settlement_gate = 'on'` a settlement is only allowed when the
   pool is flat, so the profit is realized.
 - With the gate off, a settlement can charge a fee on unrealized gain, and fees already charged are never refunded after a later loss.
@@ -128,8 +130,8 @@ Everything below runs inside **one** database transaction, after `_ledger_lock()
 every read of the books is one consistent statement snapshot (Postgres MVCC).
 
 1. Lock, then replay check: an `p_idem` that was already used returns the stored result.
-2. Validity checks: settlement spacing (80 days), the settlement gate, sanity checks (`_check_move`: a move of more than 25%, or unmatched MEXC transfers, needs `p_confirm`).
-3. NAV = typed MEXC total − waiting money that is in MEXC (`_pending_total`; only *arrived* money when `settlement_gate = 'on'`).
+2. Validity checks: settlement spacing (80 days), the settlement gate, sanity checks (`_check_move`: a move of more than 25%, or unmatched Exchange transfers, needs `p_confirm`).
+3. NAV = typed Exchange total − waiting money that is in the exchange (`_pending_total`; only *arrived* money when `settlement_gate = 'on'`).
 4. Price P = NAV ÷ U (before any new units).
 5. The pool entry (`update`, `close` or `withdrawal`) is written at P.
 6. Settlement only: fee per investor on the period profit at P (`fee_out` / `fee_in` pairs), `credit` reset to 0. Then raised fee rates take effect.
@@ -155,14 +157,14 @@ every read of the books is one consistent statement snapshot (Postgres MVCC).
   returns the stored result (`replayed: true`) instead of repeating the write. Keys are unique in `idempotency_keys`, and a key reused for
   a different operation is refused.
 - Database constraints back this up: one ledger entry per paid request; one conversion per waiting deposit; one reversal per entry; one
-  record per MEXC transfer id.
+  record per Exchange transfer id.
 - Deadlocks: all money writes take the same single lock first, so they cannot deadlock against each other. A statement timeout surfaces
   as an error with nothing saved; the app's resend carries the same request id.
 - Verified on real PostgreSQL 16 with overlapping connections (`npm run test:race`, needs Docker): two simultaneous settlements, one
   request paid twice at once, racing valuations and deposits, a correction raced by a settlement, and five retries of one settlement.
   The old schema double-charged, double-paid and left the newest entry disagreeing with the ledger. The new one does none of these.
 
-## 7. MEXC reconciliation and the settlement gate
+## 7. Exchange reconciliation and the settlement gate
 
 - The bot sends `bot_post_snapshot` each run: balance, unrealized PnL, open positions, open orders and (when available) transfers.
   Transfers are stored once per `ext_id`. An inbound transfer is matched to a waiting deposit of the same amount (±0.01 USDT), which
@@ -181,9 +183,9 @@ every read of the books is one consistent statement snapshot (Postgres MVCC).
   The gate also makes only *arrived* deposits count. **This is the "settle only when flat" policy.** With the gate on, fee settlement is
   effectively realized-only, because nothing is open.
 - With the gate `off` (the default after migration), settlement works as before: full NAV, including any open trades, at the manager's discretion.
-- **Not implemented yet:** the bot's MEXC client has no endpoint for transfer history or realized PnL, so the bot always sends
+- **Not implemented yet:** the bot's Exchange client has no endpoint for transfer history or realized PnL, so the bot always sends
   `transfers_complete = false` and `realized_since = null`. Until that exists, every settlement with the gate on needs a written attestation.
-- An exchange error is never a zero balance. The bot sends nothing when the MEXC read failed, and the database refuses a missing or
+- An exchange error is never a zero balance. The bot sends nothing when the exchange read failed, and the database refuses a missing or
   non-positive equity.
 
 ## 8. Read-only diagnostics
@@ -257,16 +259,17 @@ select (select value from public.ledger_settings where key = 'fee_engine')      
 - **No loss recovery** is a business decision (rule 6 of the brief), disclosed in the investor terms (version `2026-10-23`: every investor is
   asked to agree again). The guide `reports/how-lucid-io-works.html` still describes the old best-ever-level rule and its figures were
   generated from it: it must be regenerated before it is shared.
-- **Default fee rate.** New accounts still default to 10% (`ledger_settings.default_fee_rate`). The 15% default you proposed is a business
-  and terms change. It is not applied here: change the setting and the investor terms together. 10%, 15% and 20% are all supported per person.
+- **Default fee rate.** New accounts default to 20% (`ledger_settings.default_fee_rate`, set by `20261114000000_fee_20.sql`). Existing investors on 10% move to 20%
+  at their next settlement (`fee_rate_next`), so profit already made is never charged at the new rate. Raising the rate is a change of terms:
+  tell investors first (the app asks everyone to agree again). Any rate from 0% to 100% is supported per person.
 - **"Withdraw all"** pays everything that is left after any fee. A request for more units than remain is capped, not refused.
 - **Realized-only fee crystallisation** is available as the settlement gate, but it is not the default, because the bot cannot yet prove
   the transfer history (section 7).
 
 ## 12. What is still needed before real money
 
-- The bot's transfer history and realized PnL from MEXC (endpoints, mocked tests, then a live read-only check).
+- The bot's transfer history and realized PnL from the exchange (endpoints, mocked tests, then a live read-only check).
 - A legal review of the investor terms against the new fee rule (no loss recovery). The Philippine SEC position on pooled
   investment from friends and family has not been resolved.
 - A human review of this migration by someone other than its author, and a staging run on a copy of the real data.
-- Operational controls: who may type valuations; a monthly reconciliation against MEXC statements; the backup restore actually tested.
+- Operational controls: who may type valuations; a monthly reconciliation against Exchange statements; the backup restore actually tested.

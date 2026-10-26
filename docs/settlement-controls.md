@@ -4,7 +4,7 @@ Status: **implemented and tested, not applied to production.** Migration:
 [`20261109000000_settlement_controls_backup.sql`](../supabase/migrations/20261109000000_settlement_controls_backup.sql). Tests:
 [`tests/risk-fixes.test.mjs`](../tests/risk-fixes.test.mjs) (R1–R12), [`tests/gate-ui.test.mjs`](../tests/gate-ui.test.mjs) (G1–G7). Restore tool: [`scripts/restore-ledger.mjs`](../scripts/restore-ledger.mjs).
 
-No accounting formula changed: units, prices, the high-water mark, the 10% fee on external investors and Fund M's split are as in
+No accounting formula changed: units, prices, the high-water mark, the fee (20% by default) on external investors and Fund M's split are as in
 `docs/hwm-settlement.md`. This migration changes **when** a settlement is allowed and **what is recorded**.
 
 ## What a settlement needs now
@@ -14,11 +14,11 @@ No accounting formula changed: units, prices, the high-water mark, the 10% fee o
 | Period | One settlement per two-month period (Jan–Feb, Mar–Apr, …), Manila time | refused: "already settled" / "no period has ended yet" |
 | Window | Made within `settlement_window_days` (7) after the period ends, judged on the **later** of the valuation date and the real recording time | refused: `LATE`. Wait for the next window (it covers everything since the last settlement) or approve a `late` exception |
 | No backdating | The valuation date is the moment of recording (a difference of up to `settlement_backdate_minutes`, 60, is clock skew) | refused: `BACKDATED`. Leave the date empty to record it now, or approve a `backdated` exception |
-| Reconciliation | A verified bot snapshot, or the newest confirmed balance check for the same MEXC total | refused: `RECONCILE`. Approve an `unreconciled` exception |
+| Reconciliation | A verified bot snapshot, or the newest confirmed balance check for the same Exchange total | refused: `RECONCILE`. Approve an `unreconciled` exception |
 | Open trades | No open position or order | refused: `OPEN TRADES`. Close them, or approve an `open_positions` exception |
-| Mismatch / unmatched transfers | The ledger must agree with itself and every MEXC transfer must be matched | refused, and **no exception can override it** |
+| Mismatch / unmatched transfers | The ledger must agree with itself and every Exchange transfer must be matched | refused, and **no exception can override it** |
 
-An exception (`admin_approve_settlement_exception`; kinds `unreconciled`, `late`, `backdated`, `open_positions`) needs a written reason of at least 20 characters, the MEXC total it is for, and (for
+An exception (`admin_approve_settlement_exception`; kinds `unreconciled`, `late`, `backdated`, `open_positions`) needs a written reason of at least 20 characters, the exchange total it is for, and (for
 `unreconciled` and `open_positions`) the number of open positions and orders. It is written to the activity log, saved in
 `settlement_exceptions` (append-only), used by one settlement only, and listed on that settlement (`settlements.exception_ids`).
 The older `admin_attest_settlement` still exists but now needs the open-positions argument too.
@@ -45,7 +45,7 @@ Passwords and the bot key are never in a backup.
 
 ## Not covered by code
 
-- The typed MEXC total is the manager's input. An unrecorded transfer or fee inside it is still read as trading result until the bot sends
+- The typed Exchange total is the manager's input. An unrecorded transfer or fee inside it is still read as trading result until the bot sends
   transfer history and realized PnL.
 - Anyone who can change the database clock or the settings can bypass the window; both are owner-only.
 - Anyone with database-owner access can bypass any control. Only access control can prevent that.
@@ -80,7 +80,7 @@ backup (108 pool entries, 28 ledger rows, 3 investors): **13 of 13 checks passed
 | Direct insert of a deposit or withdrawal | possible for the database owner only | refused |
 
 The window, the exceptions and the one-per-period rule live **inside** `admin_close_quarter`, so no older function or screen can skip them.
-With the gate on, the screens show instructions instead of the old forms (`js/gate.js`, tests G1–G7): Money out and Settle explain the Capital tab steps and link to it, Balance steps aside only while deposits already in MEXC are waiting, and Money in loses its "already seen in MEXC" box because arrival is confirmed on the Capital tab with a note. Nobody meets an error message. The gate is **off** and was not enabled.
+With the gate on, the screens show instructions instead of the old forms (`js/gate.js`, tests G1–G7): Money out and Settle explain the Capital tab steps and link to it, Balance steps aside only while deposits already in the exchange are waiting, and Money in loses its "already seen in the exchange" box because arrival is confirmed on the Capital tab with a note. Nobody meets an error message. The gate is **off** and was not enabled.
 
 ### Should `workflow_gate` be on?
 
@@ -103,7 +103,7 @@ Recommended **yes, as a second step** (not together with this migration):
 - **A missed window.** Nothing is skipped or charged twice; the next window covers everything since the last settlement. But the fee is on the
   gain above the mark **on the day of the settlement**, so if the price falls back before the next window the fee is smaller, or zero. Missing
   a window shifts that risk to the manager (test R10). A withdrawal in between settles its own share at the withdrawal.
-- **A `late` exception.** It allows one late settlement for one period and one MEXC total, with a written reason and an activity-log entry.
+- **A `late` exception.** It allows one late settlement for one period and one Exchange total, with a written reason and an activity-log entry.
 - **Backdating (fixed).** The window is judged on the later of the valuation date and the recording time, and a settlement dated more than
   60 minutes before it is recorded needs its own `backdated` exception. Before, a valuation could be dated back as far as the last pool entry, so a
   settlement made after the window closed could be dated inside it. Tests: R11 (normal, 30-minute skew, backdated inside the window, recorded after the

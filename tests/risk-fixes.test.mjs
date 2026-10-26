@@ -16,7 +16,7 @@ const FILES = [...APPLIED, ...PENDING];
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 const BOOT = `create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`;
 const CLOCK_SQL = `create or replace function public._clock() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, '2000-01-01T00:00:00Z'::timestamptz) $$;`;   // tests set the recording time with: set test.clock = '...' (default: the year 2000, before every date used here)
-const NOTE = 'checked the MEXC total against the MEXC app by hand';
+const NOTE = 'checked the exchange total against the exchange app by hand';
 const err = async (f) => { try { await f(); return null; } catch (e) { return e.message; } };
 
 async function fresh(pending = true) {
@@ -44,7 +44,7 @@ async function world({ users = ['john', 'dino'], pending = true } = {}) {
   w.nav = async () => Number((await q(`select equity_usdt e from public.pool_equity order by id desc limit 1`))[0]?.e ?? 0);
   w.price = async () => Number((await q(`select unit_price p from public.pool_equity order by id desc limit 1`))[0].p);
   w.units = async (who) => Number((await q(`select coalesce(sum(units),0) u from public.ledger where profile_id=$1`, [ids[who]]))[0].u);
-  w.total = async (p) => (await w.nav()) / (await w.price()) * p;                  // MEXC total that puts the unit price at p
+  w.total = async (p) => (await w.nav()) / (await w.price()) * p;                  // Exchange total that puts the unit price at p
   w.join = async (who, usdt, d) => {
     await call('admin_receive_deposit', A, ids[who], usdt, 58, usdt * 58, null, at(d), null, true);
     const first = (await q(`select count(*)::int n from public.pool_equity`))[0].n === 0;
@@ -52,7 +52,7 @@ async function world({ users = ['john', 'dino'], pending = true } = {}) {
   };
   w.reading = async (p, d) => call('admin_post_equity', A, await w.total(p), 58, null, at(d));
   w.withdraw = async (who, units, p, d) => call('admin_withdraw', A, ids[who], units, await w.total(p), 58, null, true, null, at(d));
-  // an audited exception for a period that cannot be reconciled with MEXC (no bot snapshot yet)
+  // an audited exception for a period that cannot be reconciled with the exchange (no bot snapshot yet)
   w.except = async (p, d, kind = 'unreconciled', open = 0) => call('admin_approve_settlement_exception', A, kind, await w.total(p), NOTE, at(d), open);
   w.settle = async (p, d, { idem = null, unrec = true } = {}) => {
     const t = await w.total(p);
@@ -215,7 +215,7 @@ test('R4 no verification and no exception: refused; the exception names the open
     assert.ok(await err(() => w.db.exec(sql)), sql);
 });
 
-test('R5 an unmatched MEXC transfer or an internal mismatch can never be excepted', async () => {
+test('R5 an unmatched Exchange transfer or an internal mismatch can never be excepted', async () => {
   const w = await world({ users: ['john'] });
   await w.join('john', 1000, '01-05'); await w.reading(1.1, '02-20');
   const t = await w.total(1.1);
@@ -436,7 +436,7 @@ test('R11 backdating: a normal settlement, a late one and a backdated one, and w
   assert.equal(closed.backdated, true); assert.equal(closed.late, true); assert.equal(new Date(closed.recorded_at).toISOString(), '2026-03-12T04:00:00.000Z');
   for (const sql of [`update public.settlements set backdated = false`, `update public.settlement_exceptions set kind = 'late'`, `delete from public.settlement_exceptions`]) assert.ok(await err(() => d.db.exec(sql)), sql);
 
-  // F. an exception only counts for its own period and MEXC total
+  // F. an exception only counts for its own period and Exchange total
   const g = await build();
   await g.clock('2026-03-05T04:00:00Z');
   await ex(g, 'unreconciled', '03-03', 0);

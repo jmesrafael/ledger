@@ -1,5 +1,5 @@
 // The manager's two-month routine on the FULL migration chain as it runs in production (applied/*) plus the pending migrations:
-// type the MEXC balance, explain the difference, confirm it, settle. In-memory Postgres (PGlite); calls go in as the public "anon" role.
+// type the exchange balance, explain the difference, confirm it, settle. In-memory Postgres (PGlite); calls go in as the public "anon" role.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -37,7 +37,7 @@ async function world() {
   const w = { db, call, q, A, ids, at };
   w.navNow = async () => Number((await q(`select equity_usdt e from public.pool_equity order by id desc limit 1`))[0]?.e ?? 0);
   w.price = async () => Number((await q(`select unit_price p from public.pool_equity order by id desc limit 1`))[0].p);
-  w.total = async (p) => (await w.navNow()) / (await w.price()) * p;                  // MEXC total that puts the unit price at p
+  w.total = async (p) => (await w.navNow()) / (await w.price()) * p;                  // Exchange total that puts the unit price at p
   // history before today, entered the old way (workflow_gate is off in production)
   w.join = async (who, usdt, d) => {
     await call('admin_receive_deposit', A, ids[who], usdt, 58, usdt * 58, null, at(d), null, true);
@@ -47,7 +47,7 @@ async function world() {
   w.reading = async (p, d) => call('admin_post_equity', A, await w.total(p), 58, null, at(d));
   // today: the manager's balance check (type, explain, confirm)
   w.check = async (t) => {
-    const v = await call('admin_enter_balance', A, t, 0, 0, 'read on MEXC app', null);
+    const v = await call('admin_enter_balance', A, t, 0, 0, 'read on the exchange app', null);
     if (Math.abs(Number(v.residual)) > 0) await call('admin_classify_difference', A, v.id, 'trading_pnl', 'two months of closed trades per the bot log');
     await call('admin_confirm_balance', A, v.id, null);
     return v.id;
@@ -104,7 +104,7 @@ test('no double processing: a retry replays, a second settlement in the same per
 test('without a confirmed balance check (or a written explanation) nothing is settled', async () => {
   const w = await world();
   const t = await twoMonths(w);
-  await assert.rejects(() => w.call('admin_close_quarter', w.A, t, 58, null, null, null, false), /RECONCILE: .*Enter and confirm this MEXC balance/);
+  await assert.rejects(() => w.call('admin_close_quarter', w.A, t, 58, null, null, null, false), /RECONCILE: .*Enter and confirm this exchange balance/);
   const v = await w.call('admin_enter_balance', w.A, t, 0, 0, null, null);    // typed but not confirmed
   await assert.rejects(() => w.call('admin_close_quarter', w.A, t, 58, null, null, null, false), /RECONCILE/);
   await w.check(t + 40);                                                      // confirmed, but for another number

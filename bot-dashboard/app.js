@@ -202,7 +202,7 @@
     const dd = s.drawdown_r, halt = s.halt_r != null ? Math.abs(s.halt_r) : null, ddPct = dd != null && halt ? (dd / halt) * 100 : 0;
     const candles = Object.entries(s.last_candle_ms || {}), coinsOpen = d.open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ');
     const text = clear($('#nowText'));
-    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports at every 4-hour candle close; press Ask bot now to get a report right away.');
+    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports on a regular schedule; press Ask bot now to get a report right away.');
     else if (!s.alive) add(text, span('bad', 'The bot is not reporting. '), `Its last heartbeat was ${fmtDur(s.age_ms / 1000)} ago (the limit is ${fmtDur(s.stale_after_ms / 1000)}). Check the VPS.`);
     else add(text, 'The bot is ', el('b', { class: 'good' }, 'online'), ` in ${mode} mode. It last reported `, ago(s.last_heartbeat_ms),
       s.next_wake_ms ? [' and will look at the market again at ', el('b', {}, fmtShort(s.next_wake_ms) + tzTag()), ' (', until(s.next_wake_ms), ').'] : '.',
@@ -220,7 +220,7 @@
       tile('Drawdown vs halt', dd == null ? '—' : `${Number(dd).toFixed(1)}R / ${halt ?? '—'}R`, dd == null ? 'no heartbeat yet' : `${ddPct.toFixed(0)}% of the halt`, ddPct >= 60 ? 'warn' : ''),
       tile('Kill switch', s.kill_switch ? 'ON' : 'off', s.kill_switch ? 'no new entries' : 'trading normally', s.kill_switch ? 'warn' : ''),
       tile('Last skipped signal', skip ? `${sym(skip.symbol)} ${skip.side || ''}` : 'none', skip ? [`${skip.reason} `, ago(skip.signal_candle_open_ms)] : 'no signal has been skipped'));
-    $('#nowNote').textContent = 'The bot reports at every 4-hour candle close, so these numbers can be hours old. Press Ask bot now for a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
+    $('#nowNote').textContent = 'The bot reports on a regular schedule, so these numbers can be hours old. Press Ask bot now for a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
   }
 
   const kv = (k, v, sub) => el('div', {}, el('dt', {}, k), el('span', { class: 'fill', 'aria-hidden': 'true' }), el('dd', {}, v, sub || null));
@@ -233,7 +233,7 @@
       spark($('#kSpark'), cap.points.map((p) => p.usd));
     } else {
       $('#kCapital').textContent = '—';
-      $('#kCapitalSub').textContent = d.mode === 'live' ? 'Live balance is not shared with the dashboard.' : 'No balance received yet (arrives with each 4h candle).';
+      $('#kCapitalSub').textContent = d.mode === 'live' ? 'Live balance is not shared with the dashboard.' : 'No balance received yet (arrives with each report).';
       spark($('#kSpark'), d.equity.map((p) => p.r_cum));
     }
     const net = $('#kNet'); net.textContent = fmtR(o.total_r); net.className = `mid ${cls(o.total_r)}`;
@@ -299,7 +299,7 @@
       if (a.kind === 'entry') out.push(logLine(a.ts, 'entry', coin, sideEl(a.side), ` filled @ ${fmtPx(a.entry)} · SL ${fmtPx(a.sl)} · TP ${fmtPx(a.tp)}${a.risk_usd != null ? ` · risk ${fmtUsd(a.risk_usd)}` : ''}`));
       else if (a.kind === 'exit') out.push(logLine(a.ts, 'exit', coin, sideEl(a.side), ` ${a.reason} @ ${fmtPx(a.exit)} → `, el('span', { class: cls(a.r) }, `${fmtR(a.r)}${a.usd != null ? ` (${fmtUsd(a.usd, true)})` : ''}`)));
       else if (a.kind === 'skip') out.push(logLine(a.ts, 'skip', coin, sideEl(a.side), ` skipped: ${a.reason}${a.detail ? ` · ${a.detail}` : ''}`));
-      else if (a.kind === 'check') out.push(logLine(a.ts, 'check', `4h candle ${a.candle_ms ? fmtShort(a.candle_ms) : ''} processed · total ${fmtR(a.total_r)}${a.balance != null ? ` · bal ${fmtUsd(a.balance)}` : ''}`));
+      else if (a.kind === 'check') out.push(logLine(a.ts, 'check', `check ${a.candle_ms ? fmtShort(a.candle_ms) : ''} processed · total ${fmtR(a.total_r)}${a.balance != null ? ` · bal ${fmtUsd(a.balance)}` : ''}`));
       else if (a.kind === 'capital') out.push(logLine(a.ts, 'capital', a.flow === 'payout' ? 'payout sent ' : 'capital added ', el('span', {}, fmtUsd(a.usd, true)), ' · not profit or loss'));
       else if (a.kind === 'compare') out.push(logLine(a.ts, 'compare', 'live vs backtest ', el('span', { class: a.match ? 'good' : 'bad' }, a.match ? 'MATCH' : 'MISMATCH'), ` · ${a.matched ?? 0} matched${a.mismatches ? ` · ${a.mismatches} differ` : ''}`));
     }

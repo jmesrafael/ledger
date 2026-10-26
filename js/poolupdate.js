@@ -53,7 +53,7 @@
     const [cls, label] = STATUS[r.status] || ['', r.status];
     const parts = r.parts || {};
     const rows = r.expected == null ? '' : `
-      <div class="row"><span class="l">MEXC futures equity (bot reading)</span><span class="r">${f2(r.observed)} USDT</span></div>
+      <div class="row"><span class="l">Exchange futures equity (bot reading)</span><span class="r">${f2(r.observed)} USDT</span></div>
       <div class="row"><span class="l">Pool value</span><span class="r">${f2(parts.pool_nav)} USDT</span></div>
       <div class="row"><span class="l">+ pending trades</span><span class="r">${signed(parts.pending_pnl)}</span></div>
       <div class="row"><span class="l">+ open trades (unrealized)</span><span class="r">${signed(parts.unrealized)}</span></div>
@@ -73,10 +73,10 @@
     if (!n) return `<div class="card" data-pool="pending"><h2>Pending P/L</h2><p class="note"><b class="up">None.</b> Every closed live trade is already applied to the pool. Joins and payouts are open.</p></div>`;
     return `<div class="card" data-pool="pending"><h2>Pending P/L</h2>
       <p class="warn"><b>${esc(b)}</b></p>
-      <p class="note">These closed live trades have <b>not</b> changed anyone's value. Update Pool sets the pool to the confirmed MEXC balance, and these trades must explain the change. Until then nobody can join or be paid out.</p>
+      <p class="note">These closed live trades have <b>not</b> changed anyone's value. Update Pool sets the pool to the confirmed Exchange balance, and these trades must explain the change. Until then nobody can join or be paid out.</p>
       ${list}
       <div class="btns">${rr.ok ? '<button data-action="poolupdate">Update Pool</button>' : `<button disabled>Update Pool</button>`}</div>
-      ${rr.ok ? '' : `<p class="note">${rr.reasons.length ? esc(rr.reasons.join(' ')) : 'Enter and confirm a fresh MEXC balance with no open trade first.'}</p>`}</div>`;
+      ${rr.ok ? '' : `<p class="note">${rr.reasons.length ? esc(rr.reasons.join(' ')) : 'Enter and confirm a fresh Exchange balance with no open trade first.'}</p>`}</div>`;
   }
   return { banner, ready, request, requestAndAdmit, admitMode, pendingCard, reconCard, count, signed, day, STATUS };
 });

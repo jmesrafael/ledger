@@ -21,7 +21,7 @@ test('1a. deposit queued + a LOSS in the same period: the loss is the old holder
   let p = await w.pending();
   check('1a pending trades', 1, p.count); check('1a pending $ (sign)', -100, Number(p.usd));
   // before Update Pool the joiner cannot join
-  const v = await w.check(1400);              // MEXC account: 1000 - 100 loss + 500 deposit
+  const v = await w.check(1400);              // Exchange account: 1000 - 100 loss + 500 deposit
   await assert.rejects(() => w.call('admin_admit_deposit', w.A, dino, v, null, false), /pending P\/L/);
   check('1a units untouched while pending', 1000, await w.tu());
   const u = await w.update(v);
@@ -33,7 +33,7 @@ test('1a. deposit queued + a LOSS in the same period: the loss is the old holder
   check('1a unit price after join stays', 0.9, await w.price());
   check('1a john value (lost 100)', 900, (await w.units('john')) * (await w.price()), 1e-3);
   check('1a dino value (lost nothing)', 500, (await w.units('dino')) * (await w.price()), 1e-3);
-  check('1a pool NAV = MEXC account', 1400, await w.nav(), 1e-3);
+  check('1a pool NAV = Exchange account', 1400, await w.nav(), 1e-3);
 });
 
 test('1b. withdrawal after PROFIT: profit applied first, payout at the new price, fee on the gain', async () => {
@@ -52,12 +52,12 @@ test('1b. withdrawal after PROFIT: profit applied first, payout at the new price
   check('1b payout USDT', 590, Number(out.pay_usdt), 1e-2);
   check('1b john units left', 500, await w.units('john'));
   const asked = await w.q(`select leaves_mexc, amount_usdt from public.payout_records where request_id = $1`, [rid]);
-  check('1b payout leaves MEXC', 'true', asked[0].leaves_mexc);
+  check('1b payout leaves the exchange', 'true', asked[0].leaves_mexc);
 });
 
 test('1c. deposit waiting in SPOT is not profit and not traded: reconciliation ignores it (futures) and counts it when told it is in futures', async () => {
   const w = await world(); await w.seed(1000);
-  await w.arrive('dino', 500);                                // arrived in MEXC Spot, not admitted
+  await w.arrive('dino', 500);                                // arrived in the exchange Spot, not admitted
   await w.snap(1000);                                         // bot sees FUTURES equity only
   let r = (await w.call('admin_pool_status', w.A)).recon;
   check('1c recon status, queued money in spot', 'ok', r.status); check('1c expected = pool NAV only', 1000, r.expected);
@@ -81,11 +81,11 @@ test('1d. two joiners in a row on one Update Pool: both buy at the same price, n
   check('1d eve units = 220 / 1.15', 220 / 1.15, await w.units('eve'), 1e-3);
   check('1d john units unchanged', 1000, await w.units('john'));
   check('1d price unchanged by joins', 1.15, await w.price());
-  check('1d pool NAV = MEXC', 1700, await w.nav(), 1e-2);
+  check('1d pool NAV = Exchange', 1700, await w.nav(), 1e-2);
   check('1d pending cleared', 0, (await w.pending()).count);
 });
 
-test('1e. payout redeemed but NOT yet sent: money is still in MEXC, reconciliation expects it; once sent the flow is negative', async () => {
+test('1e. payout redeemed but NOT yet sent: money is still in the exchange, reconciliation expects it; once sent the flow is negative', async () => {
   const w = await world(); await w.seed(1000);
   await w.db.exec(`alter table public.ledger disable trigger ledger_append_only; update public.ledger set lock_until = current_date - 1 where lock_until is not null; alter table public.ledger enable trigger ledger_append_only;`);
   await w.call('request_withdrawal', w.J, 400); const rid = (await w.call('my_requests', w.J))[0].id;
@@ -94,10 +94,10 @@ test('1e. payout redeemed but NOT yet sent: money is still in MEXC, reconciliati
   const out = await w.call('admin_execute_withdrawal', w.A, rid, v, false, null, null, null, false);
   const pay = Number(out.pay_usdt); check('1e payout (no profit, no fee)', 400, pay, 1e-3);
   check('1e NAV after redemption', 600, await w.nav(), 1e-3);
-  await w.snap(1000);                                         // payout not sent: MEXC still holds all 1000
+  await w.snap(1000);                                         // payout not sent: Exchange still holds all 1000
   let r = (await w.call('admin_pool_status', w.A)).recon;
   check('1e expected = NAV 600 + unsent 400', 1000, r.expected, 1e-3); check('1e recon ok while unsent', 'ok', r.status);
-  await w.call('admin_payout_sent', w.A, rid, 'MEXC-WD-1', null);
+  await w.call('admin_payout_sent', w.A, rid, 'Exchange-WD-1', null);
   assert.equal((await w.q(`select count(*)::int n from public.capital_flows where kind = 'payout'`))[0].n, 1);
   check('1e flow is negative', -400, Number((await w.q(`select usdt from public.capital_flows where kind = 'payout'`))[0].usdt), 1e-3);
   await w.snap(600);
@@ -139,12 +139,12 @@ test('1g. stale screen: a trade closed after the screen was drawn is refused, an
 test('1h. fees/funding difference: inside the tolerance it applies, outside it is blocked, logged, then applies once classified', async () => {
   const w = await world(); await w.seed(1000);
   await w.exit('e1', 100);
-  // inside: bot says +100.00, MEXC shows +99.80 (fees/funding 0.20, tolerance max(0.5, 0.05% of 1099.8) = 0.55)
+  // inside: bot says +100.00, Exchange shows +99.80 (fees/funding 0.20, tolerance max(0.5, 0.05% of 1099.8) = 0.55)
   let v = await w.check(1099.8);
   let u = await w.update(v);
   check('1h inside tolerance applies', 'true', u.ok); check('1h unexplained is the 0.20', -0.2, u.difference, 1e-6);
-  check('1h pool uses the MEXC number, not the bot number', 1099.8, await w.nav(), 1e-6);
-  // outside: bot says +50, MEXC shows +45 (5 USDT of fees/funding)
+  check('1h pool uses the exchange number, not the bot number', 1099.8, await w.nav(), 1e-6);
+  // outside: bot says +50, Exchange shows +45 (5 USDT of fees/funding)
   await w.exit('e2', 50, { ts: Date.now() - 60000 });
   v = await w.check(1099.8 + 45);
   u = await w.update(v);
@@ -153,7 +153,7 @@ test('1h. fees/funding difference: inside the tolerance it applies, outside it i
   check('1h nothing applied by the blocked call', 1, Number((await w.q(`select count(*) n from public.applied_trades`))[0].n));
   check('1h pool unchanged by the blocked call', 1099.8, await w.nav(), 1e-6);
   await assert.rejects(() => w.call('admin_classify_pool_difference', w.A, v, 'fees', 'short'), /at least 10 characters/);
-  const c = await w.call('admin_classify_pool_difference', w.A, v, 'fees', 'MEXC fee statement shows 5 USDT of trading fees');
+  const c = await w.call('admin_classify_pool_difference', w.A, v, 'fees', 'Exchange fee statement shows 5 USDT of trading fees');
   check('1h classified amount', -5, c.classified, 1e-6);
   u = await w.update(v);
   check('1h applies after classification', 'true', u.ok); check('1h NAV', 1144.8, await w.nav(), 1e-6);
@@ -226,7 +226,7 @@ test('4. paper trades can never be pending, and the bot cannot move the unit pri
   const p = await w.pending();
   check('4 paper exits pending', 0, p.count); check('4 paper $ pending', 0, Number(p.usd));
   const before = { rows: await w.poolRows(), price: await w.price() };
-  const r = await w.call('bot_post_equity', BOT_KEY, 1300, 'MEXC balance (bot)');
+  const r = await w.call('bot_post_equity', BOT_KEY, 1300, 'Exchange balance (bot)');
   check('4 bot_post_equity refused', 'disabled', r.skipped); check('4 ok false', 'false', r.ok);
   check('4 no pool entry', before.rows, await w.poolRows()); check('4 unit price unchanged', before.price, await w.price());
   await assert.rejects(() => w.call('bot_post_equity', 'wrong-key', 1300, null), /not allowed/);

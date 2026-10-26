@@ -4,13 +4,13 @@
 --
 --   1. Closed LIVE trades (bot_events type 'exit', mode 'live') are PENDING until the manager clicks "Update Pool" (admin_update_pool).
 --      Paper trades can never be pending. Pending money changes nobody's units, the unit price or any balance.
---   2. admin_update_pool applies the CONFIRMED MEXC balance (a fresh, flat balance check) as an ordinary 'update' pool entry. The pending
+--   2. admin_update_pool applies the CONFIRMED Exchange balance (a fresh, flat balance check) as an ordinary 'update' pool entry. The pending
 --      trades only EXPLAIN the change: the check must reconcile (actual change - pending P/L within the tolerance) or nothing happens and the block is logged.
 --      Each exit can be applied once (applied_trades primary key). The screen sends the exact exit ids and total it showed; a change in between is refused.
 --   3. Joining and leaving are refused while any live exit is unapplied (functions AND a ledger trigger, so no direct path bypasses it).
 --   4. bot_post_equity can no longer move the unit price unless the setting bot_equity_sync = 'on' (default 'off'). bot_post_snapshot keeps working.
 --   5. admin_undo_last on an Update Pool returns its exits to pending.
---   6. capital_flows (deposits and payouts) for the bot dashboard, and a reconciliation of MEXC equity against the pool plus pending P/L.
+--   6. capital_flows (deposits and payouts) for the bot dashboard, and a reconciliation of the exchange equity against the pool plus pending P/L.
 --
 -- Existing functions are NOT copied or edited: they are renamed to _<name>_core and wrapped. The cores are closed to the public roles.
 -- Rollback: supabase/rollback/20261112000000_rollback_pool_update.sql
@@ -111,7 +111,7 @@ create or replace view public.pending_pnl as
 
 -- the money that moved in or out of the trading account, for the bot dashboard (no names). usdt is signed: + in, - out.
 --   deposit : when it joined the pool (= when it is moved into futures); reversals (an undone admission) are negative rows
---   payout  : when it was marked SENT from MEXC (before that the money is still in the account)
+--   payout  : when it was marked SENT from the exchange (before that the money is still in the account)
 create or replace view public.capital_flows as
   select 'd:' || l.id as flow_id, 'deposit'::text as kind, l.ts, (extract(epoch from l.ts) * 1000)::bigint as ts_ms, l.usdt as usdt,
          case when l.reversed_of is null then 'admitted' else 'admission undone' end as note
@@ -128,8 +128,8 @@ create or replace function public._pool_tol(p_total numeric) returns numeric lan
 $$;
 
 
--- What the books say the MEXC account total should be right now, and how far a typed balance is from that (after what the manager already classified).
---   expected = pool NAV + money waiting in MEXC to join + money redeemed but not yet sent out + pending live P/L
+-- What the books say the exchange account total should be right now, and how far a typed balance is from that (after what the manager already classified).
+--   expected = pool NAV + money waiting in the exchange to join + money redeemed but not yet sent out + pending live P/L
 -- This reads the books, not the chain of earlier balance checks, so it stays right after an undo.
 create or replace function public._pool_expected_total() returns numeric language plpgsql stable security definer set search_path = public as $$
 begin
@@ -161,8 +161,8 @@ begin
   insert into pool_recon_log(source, status, detail) values (p_source, p_status, coalesce(p_detail, '{}'::jsonb));
 end $$;
 
--- MEXC futures equity (newest bot snapshot) against what the books say it should be.
---   expected = pool NAV + pending live P/L + unrealized + money redeemed but not yet sent out of MEXC (+ queued money, only when it waits in futures)
+-- Exchange futures equity (newest bot snapshot) against what the books say it should be.
+--   expected = pool NAV + pending live P/L + unrealized + money redeemed but not yet sent out of the exchange (+ queued money, only when it waits in futures)
 -- Status: ok | mismatch | waiting_snapshot (something changed after the snapshot) | no_snapshot | stale_snapshot | incomplete (an exit has no dollar figure)
 create or replace function public._pool_recon() returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
@@ -221,7 +221,7 @@ begin
   end if;
   r := _pool_recon();
   if (r->>'blocking')::boolean then
-    raise exception 'reconciliation mismatch: MEXC equity % vs books % (difference %, tolerance %). Explain it before money moves.',
+    raise exception 'reconciliation mismatch: Exchange equity % vs books % (difference %, tolerance %). Explain it before money moves.',
       r->>'observed', r->>'expected', r->>'mismatch', r->>'tolerance';
   end if;
 end $$;
@@ -397,18 +397,18 @@ begin
   end if;
   if _total_units() = 0 then raise exception 'no units yet: the first deposit starts the pool (accept it first)'; end if;
 
-  -- reconciliation 1: the typed MEXC total against the books (pool NAV + waiting money + unsent payouts + pending trades), after what was classified
+  -- reconciliation 1: the typed Exchange total against the books (pool NAV + waiting money + unsent payouts + pending trades), after what was classified
   v_left := round(_pool_unexplained(p_vid), 6); v_tol := _pool_tol(v.mexc_total); v_res_amt := _wf_residual(p_vid);
   if abs(v_left) > v_tol then
     perform _pool_log('update_pool', 'blocked', jsonb_build_object('verification', p_vid, 'pending_usd', v_pend, 'mismatch', v_left, 'tolerance', v_tol, 'missing_usd', v_miss));
     return jsonb_build_object('ok', false, 'blocked', true, 'reason', 'difference', 'pending_usd', v_pend, 'unexplained', v_left, 'tolerance', v_tol,
       'missing_usd', v_miss, 'text', 'The balance change does not match the pending trades by ' || round(v_left, 2) || ' USDT (tolerance ' || round(v_tol, 2) || '). Classify the difference (fees, funding, transfer) or fix the balance check.');
   end if;
-  -- reconciliation 2: the bot's own MEXC reading, when it is newer than everything else
+  -- reconciliation 2: the bot's own Exchange reading, when it is newer than everything else
   rc := _pool_recon();
   if (rc->>'blocking')::boolean then
     perform _pool_log('update_pool', rc->>'status', rc);
-    return jsonb_build_object('ok', false, 'blocked', true, 'reason', 'reconciliation', 'recon', rc, 'text', 'The bot''s MEXC reading does not match the books. Explain it first.');
+    return jsonb_build_object('ok', false, 'blocked', true, 'reason', 'reconciliation', 'recon', rc, 'text', 'The bot''s Exchange reading does not match the books. Explain it first.');
   end if;
 
   -- explain the check's own variance with the pending trades (an adjustment on the balance check), then value the pool at the confirmed balance

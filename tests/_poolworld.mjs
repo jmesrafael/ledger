@@ -51,7 +51,7 @@ export async function world() {
   w.check = async (t, pos = 0) => { const v = await w.enter(t, pos); await w.confirm(v.id); return v.id; };
   w.arrive = async (who, usdt) => {
     const pd = (await call('admin_receive_deposit', A, ids[who], usdt, 58, null, null)).id;
-    await call('admin_confirm_arrival', A, pd, 'seen in MEXC deposit history', null);
+    await call('admin_confirm_arrival', A, pd, 'seen in the exchange deposit history', null);
     return pd;
   };
   w.seed = async (usdt = 1000) => {

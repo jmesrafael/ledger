@@ -15,7 +15,7 @@ async function setup() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
-  // these tests are not about MEXC arrival: every deposit is treated as already in MEXC when it is received
+  // these tests are not about Exchange arrival: every deposit is treated as already in the exchange when it is received
   await db.exec(`create function public._test_in_mexc() returns trigger language plpgsql as $t$ begin new.arrived_at := coalesce(new.arrived_at, now()); return new; end $t$;
                  create trigger test_in_mexc before insert on public.pending_deposits for each row execute function public._test_in_mexc();`);
   await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months');

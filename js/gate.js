@@ -12,10 +12,10 @@
 
   const TEXT = {
     withdrawal: 'Withdrawals are handled under <b>Record → Balance</b>: <b>Approve</b> the request, <b>Quote</b> it, <b>Redeem</b> it against a confirmed balance, then record the payout. This direct form is switched off, because it would pay out without a confirmed balance.',
-    settlement: 'A settlement is made under <b>Record → Balance</b>, under <b>Valuation and settlement</b>, after you enter and confirm the MEXC balance. Settle in the first 7 days after a two-month period ends (Manila time). If it is late, dated earlier than it is recorded, or trades are open, you will be asked to approve an exception with your reason.',
-    balance: (n, totalText) => `${n} deposit${n === 1 ? ' is' : 's are'} already in MEXC and waiting (${totalText}). A balance reading would try to admit ${n === 1 ? 'it' : 'them'}, and that must be done under <b>Record → Balance</b> against a confirmed balance. Admit ${n === 1 ? 'it' : 'them'} there first, then come back.`,
-    deposit: 'After you save, confirm under <b>Record → Balance</b> that you saw the money arrive in MEXC (<b>Seen in MEXC</b>, with a note), then admit it.',
-    waiting: 'Received but not in the pool yet: no gains, no losses. With the workflow gate on, each deposit joins in three steps under <b>Record → Balance</b>: <b>Seen in MEXC</b> (with a note), then a confirmed balance, then <b>Admit</b>.',
+    settlement: 'A settlement is made under <b>Record → Balance</b>, under <b>Valuation and settlement</b>, after you enter and confirm the exchange balance. Settle in the first 7 days after a two-month period ends (Manila time). If it is late, dated earlier than it is recorded, or trades are open, you will be asked to approve an exception with your reason.',
+    balance: (n, totalText) => `${n} deposit${n === 1 ? ' is' : 's are'} already in the exchange and waiting (${totalText}). A balance reading would try to admit ${n === 1 ? 'it' : 'them'}, and that must be done under <b>Record → Balance</b> against a confirmed balance. Admit ${n === 1 ? 'it' : 'them'} there first, then come back.`,
+    deposit: 'After you save, confirm under <b>Record → Balance</b> that you saw the money arrive in the exchange (<b>Seen in the exchange</b>, with a note), then admit it.',
+    waiting: 'Received but not in the pool yet: no gains, no losses. With the workflow gate on, each deposit joins in three steps under <b>Record → Balance</b>: <b>Seen in the exchange</b> (with a note), then a confirmed balance, then <b>Admit</b>.',
   };
 
   // What an old form should show. null = the normal form (gate off, or nothing in the way).

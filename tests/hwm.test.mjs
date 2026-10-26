@@ -1,4 +1,4 @@
-// High-water mark fee, deposits that join only once in MEXC, lock-up as guidance (20261105000000_hwm_arrival_lockup.sql).
+// High-water mark fee, deposits that join only once in the exchange, lock-up as guidance (20261105000000_hwm_arrival_lockup.sql).
 // Real migrations on an in-memory Postgres; every call goes in as the public "anon" role, like the website.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,13 +6,13 @@ import { build, near, BOT_KEY } from './_world.mjs';
 
 const err = async (f) => { try { await f(); return null; } catch (e) { return e.message; } };
 const hwmWorld = (opts = {}) => build({ later: true, users: ['john', 'dino', 'eve'], ...opts });
-// money received; inMexc = the money is already in the MEXC account
+// money received; inMexc = the money is already in the exchange account
 const recv = (w, who, usdt, inMexc = true) => w.call('admin_receive_deposit', w.A, w.ids[who], usdt, 58, usdt * 58, null, null, null, inMexc);
 const post = (w, eq, confirm = true) => w.call('admin_post_equity', w.A, eq, null, null, null, null, confirm);
 const close = (w, eq) => w.call('admin_close_quarter', w.A, eq, null, null, null, null, true);
 const wd = (w, who, units, eqBefore, extra = {}) => w.call('admin_withdraw', w.A, w.ids[who], units, eqBefore, null, null, extra.force ?? false, null, null, null, true);
 const pendIn = async (w) => Number((await w.q(`select coalesce(sum(usdt),0) s from public.pending_deposits where status='pending' and arrived_at is not null`))[0].s);
-// the MEXC total for a unit price: the pool's units at that price plus money that is in MEXC but still waiting
+// the exchange total for a unit price: the pool's units at that price plus money that is in the exchange but still waiting
 const at = async (w, price) => (await w.tu()) * price + (await pendIn(w));
 const setPrice = async (w, price) => post(w, await at(w, price));
 const closeAt = async (w, price) => close(w, await at(w, price));
@@ -134,8 +134,8 @@ test('HW8 the fund manager pays no fee and has no mark; moving an investor to th
   assert.ok(near(await w.tu(), tu, 1e-9), 'total units unchanged');
 });
 
-// ============================================================ deposits join only once their money is in MEXC
-test('HW9 a deposit not yet in MEXC is not taken out of the total and does not join; once marked it joins at a fair price', async () => {
+// ============================================================ deposits join only once their money is in the exchange
+test('HW9 a deposit not yet in the exchange is not taken out of the total and does not join; once marked it joins at a fair price', async () => {
   const w = await hwmWorld();
   await join(w, 'john', 1000, 1);
   await recv(w, 'eve', 300, false);                         // still in GCash

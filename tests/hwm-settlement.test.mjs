@@ -11,7 +11,7 @@ const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map
   ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];   // applied/* then the pending migrations
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 const CLOCK_SQL = `create or replace function public._clock() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, '2000-01-01T00:00:00Z'::timestamptz) $$;`;   // tests set the recording time with: set test.clock = '...' (default: the year 2000, before every date used here)
-const NOTE = 'bot has no realized PnL yet; checked against the MEXC app by hand';
+const NOTE = 'bot has no realized PnL yet; checked against the exchange app by hand';
 
 async function world({ settings = {} } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
@@ -36,7 +36,7 @@ async function world({ settings = {} } = {}) {
   const at = (d) => `2026-${d}T04:00:00Z`;                                        // 12:00 Manila
   const ctx = { db, call, q, A, ids, units, price, at, pend };
   ctx.receive = (w, usdt, d) => call('admin_receive_deposit', A, ids[w], usdt, 58, usdt * 58, null, at(d), null, true);
-  ctx.total = async (p) => (await nav()) / (await price()) * p + (await pend());  // MEXC total that makes the unit price p
+  ctx.total = async (p) => (await nav()) / (await price()) * p + (await pend());  // Exchange total that makes the unit price p
   ctx.reading = async (p, d) => call('admin_post_equity', A, await ctx.total(p), 58, null, at(d));
   ctx.join = async (w, usdt, d, p = null) => { await ctx.receive(w, usdt, d); return (await q(`select 1 from public.pool_equity limit 1`)).length ? ctx.reading(p ?? await price(), d) : call('admin_post_equity', A, usdt, 58, null, at(d)); };
   ctx.settle = async (p, d, { attest = true, idem = null } = {}) => {
@@ -191,7 +191,7 @@ test('reconciliation: unverified needs a written explanation for that total; unm
   await assert.rejects(() => v.settle(1.1, '03-02'), /cannot be explained away|differs from the price-move/);
 });
 
-test('a clean MEXC snapshot that agrees with the total settles without an explanation', async () => {
+test('a clean Exchange snapshot that agrees with the total settles without an explanation', async () => {
   const w = await world();
   await w.db.query(`insert into public.ledger_settings(key,value) values ('bot_key_hash', encode(extensions.digest('k','sha256'),'hex')) on conflict (key) do update set value=excluded.value`);
   await w.join('john', 1000, '01-05');

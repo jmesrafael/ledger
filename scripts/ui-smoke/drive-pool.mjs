@@ -48,7 +48,7 @@ try {
   check('Balance desk shows the Pending P/L card with both trades', (await ev(`document.querySelectorAll('[data-pool="pending"] .row').length`)) === 2);
   check('Update Pool is disabled until a balance is confirmed', await ev(`[...document.querySelectorAll('[data-pool="pending"] button')].some((b) => b.innerText === 'Update Pool' && b.disabled)`));
   await shot('p2-pending-card');
-  // the real routine: enter the MEXC total (1000 + 20), confirm it
+  // the real routine: enter the exchange total (1000 + 20), confirm it
   await setVal('#wfBal', 'total', '1020'); await submit('#wfBal');
   await waitFor(`!!document.querySelector('[data-action="wfconfirm"]')`, 'the confirm button');
   await click('[data-action="wfconfirm"]');
@@ -71,7 +71,7 @@ try {
   const tok = (await sql(`select public.login('raf', 'admin-password-1')->>'token' as t`))[0].t;
   const dino = (await sql(`select id from public.profiles where username = 'dino'`))[0].id;
   const pdId = (await sql(`select (public.admin_receive_deposit($1, $2, 100, 58, null, null))->>'id' as id`, [tok, dino]))[0].id;
-  await sql(`select public.admin_confirm_arrival($1, $2::bigint, 'seen in MEXC deposit history', null)`, [tok, pdId]);
+  await sql(`select public.admin_confirm_arrival($1, $2::bigint, 'seen in the exchange deposit history', null)`, [tok, pdId]);
   await sql(`insert into public.bot_events(event_id, type, ts_ms, mode, symbol, side, data) values ('ui-e3', 'exit', $1, 'live', 'ZEC_USDT', 'SHORT', $2::jsonb)`, [Date.now() - 60000, JSON.stringify({ trade_id: 't-ui-e3', usd: 5, r: 0.05, reason: 'tp' })]);
   await click('[data-action="refresh"], #refreshBtn'); await send('Page.navigate', { url: app });
   await waitFor(`!!document.querySelector('#loginForm') || !!document.querySelector('[data-tab="record"]')`, 'page reloaded');
@@ -97,7 +97,7 @@ try {
   const dn = (await sql(`select coalesce(sum(units), 0)::float u from public.ledger where profile_id = $1`, [dino]))[0].u;
   check('Dino bought in at the updated price: 100 / 1.025 = 97.561 units', Math.abs(dn - 100 / 1.025) < 1e-3, 'units=' + dn);
   check('two pool updates now, the trade is applied, the deposit is admitted', (await sql(`select count(*)::int n from public.pool_updates where status = 'applied'`))[0].n === 2 && (await sql(`select count(*)::int n from public.pending_deposits where status = 'converted' and profile_id = $1`, [dino]))[0].n === 1);
-  check('pool NAV = MEXC total 1125', Math.abs((await sql(`select equity_usdt::float e from public.pool_equity order by id desc limit 1`))[0].e - 1125) < 1e-6);
+  check('pool NAV = Exchange total 1125', Math.abs((await sql(`select equity_usdt::float e from public.pool_equity order by id desc limit 1`))[0].e - 1125) < 1e-6);
   await shot('p5-update-and-accept');
   // ---- phase 3: the "? How this works" sheets on Money in, Money out and Balance (gate off first, then the workflow gate switched on)
   const helpText = () => ev(`document.querySelector('.helpsheet') ? document.querySelector('.helpsheet').innerText : ''`);
@@ -110,8 +110,8 @@ try {
   const closed = () => waitFor(`!document.querySelector('.helpsheet')`, 'the help sheet to close');
   await click('[data-tab="record"]');
   for (const [topic, steps, words, how] of [
-    ['dep', 7, ['Waiting to join', 'In MEXC', 'Update Pool', 'Update equity', 'Spot to Futures'], 'x'],
-    ['wd', 7, ['Request withdrawal', 'Approve', 'Quote', 'Redeem', 'Sent from MEXC', 'Completed'], 'gotit'],
+    ['dep', 7, ['Waiting to join', 'In the exchange', 'Update Pool', 'Update equity', 'Spot to Futures'], 'x'],
+    ['wd', 7, ['Request withdrawal', 'Approve', 'Quote', 'Redeem', 'Sent from the exchange', 'Completed'], 'gotit'],
     ['eq', 5, ['Enter balance (not confirmed yet)', 'Confirm this balance', 'Unexplained difference', 'Pending P/L', 'Reconciliation'], 'esc'],
   ]) {
     await openHelp(topic);
@@ -134,7 +134,7 @@ try {
   await waitFor(`!!document.querySelector('[data-tab="record"]')`, 'the Record tab');
   await click('[data-tab="record"]'); await openHelp('dep');
   const g = (await helpText()).toLowerCase(), gn = await ev(`document.querySelectorAll('.helpsheet .hstep').length`);
-  check('gate on: Money in shows the 8-step route with Seen in MEXC and Admit', gn === 8 && g.includes('seen in mexc') && g.includes('admit them') && !g.includes('update equity'), 'steps=' + gn);
+  check('gate on: Money in shows the 8-step route with Seen in the exchange and Admit', gn === 8 && g.includes('seen in the exchange') && g.includes('admit them') && !g.includes('update equity'), 'steps=' + gn);
   await click('.helpsheet .iconbtn[data-action="closemodal"]'); await closed();
   await click('[data-rec="wd"]'); await waitFor(`!!document.querySelector('.helpbtn[data-help="wd"]')`, 'the ? button on Money out when the gate replaces its form');
   check('gate on: Money out still has its ? button although the gate replaced the form', true);

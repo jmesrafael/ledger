@@ -345,7 +345,7 @@ test('newcomer: money waits, then buys units at the next reading; profit made be
   near(r.pending_usdt, 30); near((await holder(db, A, ids.dino)).units, 0);
   const dT = await token(db, 'dino', 'dino-password');
   near((await call(db, 'my_pending', dT))[0].usdt, 30);
-  // next reading: MEXC shows 150 = 120 for the old holders + Dino's 30 still waiting
+  // next reading: Exchange shows 150 = 120 for the old holders + Dino's 30 still waiting
   const up = await call(db, 'admin_post_equity', A, 150);
   near(up.converted, 1);
   let dino = await holder(db, A, ids.dino), john = await holder(db, A, ids.john);
@@ -366,7 +366,7 @@ test('waiting money never moves the price: withdrawals and closes subtract it; u
   await own(db, 'admin_deposit', A, ids.raf, 50, null);
   await own(db, 'admin_deposit', A, ids.john, 50, 50);
   await call(db, 'admin_receive_deposit', A, ids.dino, 40);
-  const w = await call(db, 'admin_withdraw', A, ids.raf, 10, 140);   // MEXC 140 = 100 + 40 waiting: price stays 1.00
+  const w = await call(db, 'admin_withdraw', A, ids.raf, 10, 140);   // Exchange 140 = 100 + 40 waiting: price stays 1.00
   near(w.unit_price, 1); near(w.pay_usdt, 10);
   await assert.rejects(() => call(db, 'admin_post_equity', A, 30), /more than the deposits still waiting/);
   const c = await call(db, 'admin_close_quarter', A, 130);   // 90 + 40 waiting: no profit, no fee; Dino joins after the close
@@ -471,7 +471,7 @@ test('stress: 150 random actions (money in, readings, withdrawals, closes, undos
   for (let i = 0; i < 150; i++) {
     const pool = await call(db, 'pool_summary', A), price = Number(pool.unit_price), units = Number(pool.total_units);
     const waiting = (await call(db, 'admin_pending', A)).reduce((t, d) => t + Number(d.usdt), 0);
-    const total = (p) => units * p + waiting;   // what MEXC would show at unit price p
+    const total = (p) => units * p + waiting;   // what Exchange would show at unit price p
     const who = people[Math.floor(rnd() * 3)], x = rnd();
     try {
       if (x < 0.25) await call(db, 'admin_receive_deposit', A, who, 5 + Math.round(rnd() * 200));

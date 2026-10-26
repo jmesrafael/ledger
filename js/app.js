@@ -2,7 +2,7 @@
 // every call carries the session token from login (username + password checked and hashed in the database).
 (() => {
   const C = window.CONFIG;
-  const TERMS_VERSION = '2026-10-25';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
+  const TERMS_VERSION = '2026-10-26';   // bump when the terms wording below changes: every investor is asked to agree again at their next sign-in
   const SPLASH_MS = 9000;               // how long the quote screen stays (tap Skip to leave sooner)
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
@@ -106,7 +106,7 @@
     catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
   }
   // money writes: one request id per form until it succeeds, so resending after a lost reply is recognised by the database instead of
-  // being done twice; and a CONFIRM refusal (a big move, an unmatched MEXC transfer) is asked once and resent with the explicit yes.
+  // being done twice; and a CONFIRM refusal (a big move, an unmatched Exchange transfer) is asked once and resent with the explicit yes.
   async function moneyCall(fm, fn, args) {
     if (!fm.dataset.idem) fm.dataset.idem = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
     const send = (extra) => call(fn, { ...args, p_idem: fm.dataset.idem, ...extra });
@@ -120,9 +120,9 @@
     delete fm.dataset.idem;
     return r;
   }
-  // A settlement that is late, backdated, not reconciled with MEXC, or made while trades are open is refused by the database. Here the manager can
+  // A settlement that is late, backdated, not reconciled with the exchange, or made while trades are open is refused by the database. Here the manager can
   // approve an exception: a written reason (at least 20 characters), and the open trades declared. It is written to the activity log and saved on the
-  // settlement. `run` makes the settlement call; equity and at are what the exception is bound to (the MEXC total and the valuation date).
+  // settlement. `run` makes the settlement call; equity and at are what the exception is bound to (the exchange total and the valuation date).
   async function withSettlementExceptions(run, equity, at) {
     for (let i = 0; i < 5; i++) {
       try { return await run(); }
@@ -133,7 +133,7 @@
         const note = prompt('Why is this exception acceptable? (at least 20 characters)') || '';
         let open = null;
         if (kind !== 'late' && kind !== 'backdated') {
-          open = Number(prompt('How many positions and orders are open on MEXC right now? (0 if none)', kind === 'open_positions' ? '1' : '0'));
+          open = Number(prompt('How many positions and orders are open on the exchange right now? (0 if none)', kind === 'open_positions' ? '1' : '0'));
           if (!Number.isFinite(open) || open < 0) throw new Error('Enter 0, or the number of open positions and orders.');
         }
         await call('admin_approve_settlement_exception', { p_kind: kind, p_equity: equity, p_note: note, p_at: at, p_open: open });
@@ -452,7 +452,7 @@
     reset();
   }
   const viewAbout = () => {
-    const rate = S.me && S.me.role === 'investor' ? pc(S.me.fee_rate) : '10';
+    const rate = S.me && S.me.role === 'investor' ? pc(S.me.fee_rate) : '20';
     return `<div class="card"><h2>Growing this together</h2>
       <p class="about">This is a small fund we are growing together. Your money goes into one trading account that the fund manager trades, and the fund manager's own money is in the same pool. Whatever the trading makes or loses is shared by how much each person has in, so everyone is on the same side.</p>
       <p class="about"><b>It is your money and you can take it out.</b> After the ${C.LOCK_MONTHS}-month lock-up on your first deposit (top-ups have none), ask for a withdrawal on the Home page. You can take part of it or all of it, and it is paid within ${C.WITHDRAW_BUSINESS_DAYS} business days at the value on the day of payout.</p>
@@ -800,8 +800,8 @@
   // deposits received but not yet turned into units: they own nothing until the next equity reading (forward pricing)
   const pendTotal = () => S.pend.reduce((t, d) => t + Number(d.usdt), 0);
   const inMexc = () => S.pend.filter((d) => d.arrived_at), inMexcTotal = () => inMexc().reduce((t, d) => t + Number(d.usdt), 0);
-  const pendNote = () => (inMexc().length ? ` Includes <b>${usdt(inMexcTotal())}</b> of deposits already in MEXC and still waiting; they are taken out first.` : '')
-    + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In MEXC": they are NOT taken out. If their money is already in MEXC, mark them first.</span>` : '');
+  const pendNote = () => (inMexc().length ? ` Includes <b>${usdt(inMexcTotal())}</b> of deposits already in the exchange and still waiting; they are taken out first.` : '')
+    + (S.pend.length > inMexc().length ? ` <span class="warn">${S.pend.length - inMexc().length} deposit(s) not marked "In the exchange": they are NOT taken out. If their money is already in the exchange, mark them first.</span>` : '');
   // workflow_gate = 'on': deposits, withdrawals and settlements are only possible through Record → Balance (the database refuses the old direct
   // routes). The old forms are replaced by instructions, so nobody meets an error message.
   const RH = RecordHelp;   // js/recordhelp.js: the "? How this works" instructions on the Record tabs
@@ -812,44 +812,44 @@
     const g = gateOn();
     return `<div class="card"><h2>Waiting to join (${S.pend.length}) · ${money(pendTotal())}</h2>
       <p class="note">${g ? Gate.TEXT.waiting
-        : 'Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In MEXC</b>, at the next <b>Update equity</b> (or settlement), at that day\'s price. Mark it as soon as the money reaches MEXC.'}</p>
-      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in MEXC: admit it under Record → Balance' : 'in MEXC, joins at the next reading') : '<span class="warn">not in MEXC yet</span>'}</span></span>
-        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In MEXC</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
+        : 'Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In the exchange</b>, at the next <b>Update equity</b> (or settlement), at that day\'s price. Mark it as soon as the money reaches Exchange.'}</p>
+      ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in the exchange: admit it under Record → Balance' : 'in the exchange, joins at the next reading') : '<span class="warn">not in the exchange yet</span>'}</span></span>
+        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In the exchange</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
   }
   function viewRecord() {
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
     const pick = (k, html) => (S.rec === k ? html : '');
-    const noBal = '<div class="card"><h2>Balance</h2><p class="note">Nothing to balance yet. Record the first deposit under <b>Money in</b>, then confirm it reached MEXC and it will show up here.</p><div class="btns"><button data-rec="dep">Go to Money in</button></div></div>';
+    const noBal = '<div class="card"><h2>Balance</h2><p class="note">Nothing to balance yet. Record the first deposit under <b>Money in</b>, then confirm it reached the exchange and it will show up here.</p><div class="btns"><button data-rec="dep">Go to Money in</button></div></div>';
     const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
     return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
       ${pick('dep', `${RH.button('dep')}<div class="card"><h2>Money in</h2>
-        <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached MEXC and admit it under <b>Balance</b>.</p>
+        <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached the exchange and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <input type="hidden" name="rate" value="${rate() ? Number(rate()).toFixed(2) : ''}">
         ${gateOn() ? '<p class="note"><b>The workflow gate is on.</b> ' + Gate.TEXT.deposit + '</p><input type="hidden" name="inmexc">'
-          : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in MEXC</span></label>'}
+          : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in the exchange</span></label>'}
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
       ${pick('wd', RH.button('wd') + (Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
         <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
-        <label>MEXC balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
+        <label>Exchange balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="1000"></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <input type="hidden" name="units"><input type="hidden" name="reqid"><input type="hidden" name="rate" value="${rate() || ''}">
         <div id="wdPay"></div>
         <div class="btns"><button type="button" class="ghost" data-action="allunits">Everything they hold</button></div>
         <details><summary>More options</summary>
-          <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay from my own money (nothing leaves MEXC)</span></label>
+          <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay from my own money (nothing leaves the exchange)</span></label>
           <label style="display:flex;gap:8px;align-items:center"><input name="force" type="checkbox" style="width:auto;min-height:0"> Inside lock-up: allow</label>
           <label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="wdPrev">—</div><button class="full">Save</button></form></div>`))}
       ${pick('eq', RH.button('eq') + (empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
         <p class="note">The quick old way. The checked route above is safer.</p>
-        <form id="eqForm"><label>MEXC total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
+        <form id="eqForm"><label>Exchange total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
         <input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
         <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`))}
       ${pick('hist', `<div class="card"><h2>History</h2>
@@ -859,11 +859,11 @@
     const gSet = Gate.oldForm('settlement', S.queue);
     if (gSet) return gSet + `<div class="card">${lastClose()}</div>`;
     return `<div class="card"><h2>Two-month settlement</h2>
-      <p class="note">Takes each investor's fee (their own %, 10% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. Example: they gain $100 above it and the 10% fee = $10; the mark then moves up, so that $100 is never charged again. After a loss nothing is charged until they are back above the mark.</p>
-      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the MEXC balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the MEXC balance under <b>Record → Balance</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
+      <p class="note">Takes each investor's fee (their own %, 20% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. Example: they gain $100 above it and the 20% fee = $20; the mark then moves up, so that $100 is never charged again. After a loss nothing is charged until they are back above the mark.</p>
+      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the exchange balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the exchange balance under <b>Record → Balance</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
       ${lastClose()}
-      ${S.pend.length ? `<p class="note">${pendNote()} Deposits in MEXC buy units at the close price after the fee, so they pay nothing for this period.</p>` : ''}
-      <form id="qForm"><label>Pool equity now (USDT, the MEXC total)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
+      ${S.pend.length ? `<p class="note">${pendNote()} Deposits in the exchange buy units at the close price after the fee, so they pay nothing for this period.</p>` : ''}
+      <form id="qForm"><label>Pool equity now (USDT, the exchange total)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
       ${phpField()}<label>Note (optional)</label><input name="note" value="Two-month settlement"><div class="preview" id="qPrev">Enter the equity to preview the fee.</div>
       <button class="full">Charge fees and settle the period</button></form></div>`;
   }
@@ -892,27 +892,27 @@
     const bal = cur ? `<div class="row"><span class="l">Previous verified<br><span class="note">${cur.prev_source === 'verification' ? 'balance check #' + cur.prev_id : 'from the books'}</span></span><span class="r">${usdt(cur.prev_total)}</span></div>
       <div class="row"><span class="l">Entered</span><span class="r"><b>${usdt(cur.mexc_total)}</b> ${chip(cur.status)}</span></div>
       <div class="row"><span class="l">Known money in / out</span><span class="r">+${usdt(cur.known_in)} / −${usdt(cur.known_out)}</span></div>
-      <div class="row"><span class="l">Deposits waiting (in MEXC / not yet)</span><span class="r">${usdt(cur.waiting_arrived)} / ${usdt(cur.waiting_not_arrived)}</span></div>
+      <div class="row"><span class="l">Deposits waiting (in the exchange / not yet)</span><span class="r">${usdt(cur.waiting_arrived)} / ${usdt(cur.waiting_not_arrived)}</span></div>
       <div class="row"><span class="l">Recorded trading result, fees, other</span><span class="r">${usdt(cur.adjusted_total)}${(cur.adjustments || []).map((a) => `<br><span class="note">${esc(a.kind)} ${smoney(a.amount)} · ${esc(a.note)}</span>`).join('')}</span></div>
       <div class="row"><span class="l">Expected from the above</span><span class="r">${usdt(cur.expected_total)}</span></div>
       <div class="row"><span class="l"><b>Unexplained difference</b></span><span class="r ${Math.abs(cur.residual) > cur.tolerance ? 'down' : 'up'}"><b>${smoney(cur.residual)}</b></span></div>
       <div class="row"><span class="l">Open positions</span><span class="r">${cur.open_positions} of 2${cur.snapshot ? ' (bot: ' + cur.snapshot.open_positions + ')' : ''}</span></div>
       <div class="btns">${cur.status === 'entered' ? `<button data-action="wfconfirm" data-id="${cur.id}">Confirm this balance</button><button class="ghost" data-action="wfreject" data-id="${cur.id}">Reject</button>` : ''}
         ${cur.status !== 'rejected' && cur.status !== 'superseded' && !cur.first_used_at ? `<button class="ghost" data-action="wfadjust" data-id="${cur.id}">Explain part</button>${PU.count(S.pu) > 0 ? `<button class="ghost" data-action="wfclassifypool" data-id="${cur.id}">Classify beyond the pending trades</button>` : ""}<button class="ghost" data-action="wfclassify" data-id="${cur.id}">Classify the rest</button>` : ''}</div>
-      <p class="note">Confirming only records that this is the balance on MEXC. It does not change anyone's value or issue units. The difference stays unexplained until you explain or classify it.</p>` : '<p class="note">No balance entered yet.</p>';
+      <p class="note">Confirming only records that this is the balance on the exchange. It does not change anyone's value or issue units. The difference stays unexplained until you explain or classify it.</p>` : '<p class="note">No balance entered yet.</p>';
     const depRows = q.deposits.map((d) => `<div class="row"><span class="l"><b>${esc(d.name)}</b> · ${usdt(d.usdt)}<br><span class="note">${chip(d.state.replace('_', ' '))} ${esc(d.reason || '')}${d.escalate ? ' <b class="warn">Escalate</b>' : ''}</span></span>
-      <span class="r">${d.state === 'awaiting_arrival' ? `<button class="ghost sm" data-action="wfarrive" data-id="${d.id}">Seen in MEXC</button>` : PU.admitMode(S.pu) === 'update_first' ? `<label class="note"><input type="checkbox" class="pu-pick" value="${d.id}"> accept with Update Pool</label>` : d.state === 'ready' ? `<button class="sm" data-action="wfadmit" data-id="${d.id}">Admit</button>` : ''}
+      <span class="r">${d.state === 'awaiting_arrival' ? `<button class="ghost sm" data-action="wfarrive" data-id="${d.id}">Seen in the exchange</button>` : PU.admitMode(S.pu) === 'update_first' ? `<label class="note"><input type="checkbox" class="pu-pick" value="${d.id}"> accept with Update Pool</label>` : d.state === 'ready' ? `<button class="sm" data-action="wfadmit" data-id="${d.id}">Admit</button>` : ''}
         ${d.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="deposit" data-id="${d.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No deposits waiting.</p>';
     const wdRows = q.withdrawals.map((w) => `<div class="row"><span class="l"><b>${esc(w.name)}</b> · ${f(w.units, 4)} units · pay by ${day(w.pay_by)}<br><span class="note">${chip(w.state.replace('_', ' '))} ${w.delayed ? '<b class="warn">Delayed</b> ' : ''}${w.in_lockup ? 'inside lock-up ' : ''}${w.lock_exception ? '(exception recorded) ' : ''}${esc(w.reason || '')}${w.payout && w.payout.failure_reason ? ' ' + esc(w.payout.failure_reason) : ''}</span></span>
       <span class="r">${w.state === 'awaiting_approval' ? `<button class="sm" data-action="wfapprove" data-id="${w.id}" data-lock="${w.in_lockup}">Approve</button><button class="ghost sm" data-action="wfrejectwd" data-id="${w.id}">Reject</button>`
         : w.state === 'ready' ? `<button class="ghost sm" data-action="wfquote" data-id="${w.id}">Quote</button><button class="sm" data-action="wfexec" data-id="${w.id}">Redeem</button>`
-        : w.state === 'payout_awaiting' ? `<button class="sm" data-action="wfsent" data-id="${w.id}" data-leaves="${w.payout.leaves_mexc}">${w.payout.leaves_mexc ? 'Sent from MEXC' : 'Paid'}</button><button class="ghost sm" data-action="wffail" data-id="${w.id}">Failed</button>`
+        : w.state === 'payout_awaiting' ? `<button class="sm" data-action="wfsent" data-id="${w.id}" data-leaves="${w.payout.leaves_mexc}">${w.payout.leaves_mexc ? 'Sent from the exchange' : 'Paid'}</button><button class="ghost sm" data-action="wffail" data-id="${w.id}">Failed</button>`
         : w.state === 'payout_sent' ? `<button class="sm" data-action="wfcomplete" data-id="${w.id}">Completed</button><button class="ghost sm" data-action="wffail" data-id="${w.id}">Failed</button>`
         : w.state === 'payout_failed' ? `<button class="sm" data-action="wfretry" data-id="${w.id}">Retry</button>` : ''}
         ${w.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="withdrawal" data-id="${w.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No withdrawal requests open.</p>';
     return `${PU.pendingCard(S.pu, rd)}${PU.reconCard(S.pu)}<div class="card"><h2>Balance check</h2>
         <p class="note">${rd.ok ? '<b class="up">Ready:</b> a confirmed, flat, explained balance is available for deposits, payouts and settlement.' : '<b class="warn">Money is waiting.</b> ' + rd.reasons.map((r) => esc(r.text)).join(' ')}${q.gate === 'on' ? '' : ' (The workflow gate is off: the old direct forms still work.)'}</p>
-        <form id="wfBal"><label>MEXC total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>
+        <form id="wfBal"><label>Exchange total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>
           <div class="grid form2"><div><label>Open positions (0, 1 or 2)</label><input name="pos" type="number" min="0" max="2" value="0" required></div><div><label>Open orders</label><input name="ord" type="number" min="0" value="0"></div></div>
           <button class="full">Enter balance (not confirmed yet)</button></form>${bal}</div>
       <div class="card"><h2>Deposits (${q.deposits.length})</h2>${depRows}${PU.admitMode(S.pu) === 'update_first' && PU.ready(rd).ok && q.deposits.some((d) => d.state !== 'awaiting_arrival') ? '<div class="btns"><button data-action="poolupdateadmit">Update Pool and accept ticked</button></div><p class="note">One step: the pool is updated to the confirmed balance first, then the ticked joiners buy in at that price. If anything fails, nothing is saved.</p>' : ''}</div>
@@ -946,15 +946,15 @@
     wfclassifypool: (id) => call('admin_classify_pool_difference', { p_vid: id, p_kind: ask('Treat what the pending trades do not explain as: fees, funding, transfer, timing or other', 'fees'), p_note: ask('Why? (written to the record)') }),
     wfconfirm: (id) => call('admin_confirm_balance', { p_vid: id }),
     wfreject: (id) => call('admin_reject_balance', { p_vid: id, p_reason: ask('Why is this entry wrong?') }),
-    wfadjust: (id) => call('admin_add_adjustment', { p_vid: id, p_kind: ask('What is it? trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_amount: Number(ask('Amount in USDT (negative for a loss or cost)')), p_note: ask('Source (for example the MEXC statement line)') }),
+    wfadjust: (id) => call('admin_add_adjustment', { p_vid: id, p_kind: ask('What is it? trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_amount: Number(ask('Amount in USDT (negative for a loss or cost)')), p_note: ask('Source (for example the exchange statement line)') }),
     wfclassify: (id) => call('admin_classify_difference', { p_vid: id, p_kind: ask('Treat the unexplained rest as: trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_note: ask('Why? (written to the record)') }),
-    wfarrive: (id) => call('admin_confirm_arrival', { p_pending: id, p_note: ask('How did you see it arrive in MEXC?') }),
+    wfarrive: (id) => call('admin_confirm_arrival', { p_pending: id, p_note: ask('How did you see it arrive in the exchange?') }),
     wfadmit: (id) => moneyWF('admin_admit_deposit', { p_pending: id, p_vid: usable() }),
     wfapprove: (id, b) => call('admin_approve_withdrawal', { p_request: id, p_note: null, p_lock_reason: b.dataset.lock === 'true' ? ask('This person is inside the lock-up shown to investors. Why do you approve it (exception)?') : null }),
     wfrejectwd: (id) => call('admin_reject_withdrawal', { p_request: id, p_reason: ask('Reason (the investor is told)') }),
     wfquote: async (id) => { const r = await call('admin_quote_withdrawal', { p_request: id, p_vid: usable() }); alert(`Quote from the accounting engine (nothing saved):\nUnit price ${f(r.unit_price, 6)}\nFee units ${f(r.fee_units, 6)}\nPayout ${usdt(r.pay_usdt)}`); },
-    wfexec: (id) => moneyWF('admin_execute_withdrawal', { p_request: id, p_vid: usable(), p_to_manager: confirm('Pay from your own money (nothing leaves MEXC)? OK = yes, Cancel = paid from MEXC') }),
-    wfsent: (id, b) => (b.dataset.leaves === 'true' ? call('admin_payout_sent', { p_request: id, p_reference: ask('MEXC withdrawal reference') }) : call('admin_payout_complete', { p_request: id, p_reference: ask('Proof of payment') })),
+    wfexec: (id) => moneyWF('admin_execute_withdrawal', { p_request: id, p_vid: usable(), p_to_manager: confirm('Pay from your own money (nothing leaves the exchange)? OK = yes, Cancel = paid from the exchange') }),
+    wfsent: (id, b) => (b.dataset.leaves === 'true' ? call('admin_payout_sent', { p_request: id, p_reference: ask('Exchange withdrawal reference') }) : call('admin_payout_complete', { p_request: id, p_reference: ask('Proof of payment') })),
     wfcomplete: (id) => call('admin_payout_complete', { p_request: id, p_reference: ask('GCash / bank reference') }),
     wffail: (id) => call('admin_payout_fail', { p_request: id, p_reason: ask('What went wrong?') }),
     wfretry: (id) => call('admin_payout_retry', { p_request: id }),
@@ -1108,7 +1108,7 @@
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
       [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
         <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
-        <p class="about"><b>Settle:</b> every two months. Confirm the MEXC balance under Record → Balance, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
+        <p class="about"><b>Settle:</b> every two months. Confirm the exchange balance under Record → Balance, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
       [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they must agree to the terms before they see anything, and you can see who has.</p>
         <p class="about"><b>View as</b> opens the app exactly as that person sees it (read-only).</p>
         <p class="about"><b>Log</b> keeps every entry. Nothing is erased: a mistake is fixed with a correction entry.</p>`],
@@ -1239,7 +1239,7 @@
     const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units), wait = pendTotal();
     if (eq == null || (!u && !wait)) return setPrev('eqPrev', '—');
     if (!u) return setPrev('eqPrev', `Waiting deposits buy <b>${f(wait, 4)} units</b> at 1.00.${Math.abs(eq - wait) > 1e-6 ? ` Then the price moves to <b>${f(eq / wait, 4)}</b>.` : ''}`);
-    if (eq - wait <= 0) return setPrev('eqPrev', `<span class="down">Must be more than the ${usdt(wait)} still waiting: enter the full MEXC total.</span>`);
+    if (eq - wait <= 0) return setPrev('eqPrev', `<span class="down">Must be more than the ${usdt(wait)} still waiting: enter the full Exchange total.</span>`);
     const price = (eq - wait) / u, ch = price / Number(S.pool.unit_price) - 1;
     setPrev('eqPrev', `Unit price becomes <b>${f(price, 4)}</b> (<span class="${cls(ch)}">${pct(ch)}</span> vs last reading). Since start ${pct(price - 1)}.<br>Pool is ${money(eq)} ${alt(eq)}.${wait ? `<br>${usdt(wait)} waiting is taken out first, then buys <b>${f(wait / price, 4)} units</b> at ${f(price, 4)}.` : ''}`);
   }
@@ -1254,7 +1254,7 @@
     const d = depUsdt(fm);
     if (!d) return setPrev('depPrev', '—');
     if (d.usdt == null) return setPrev('depPrev', 'Enter the peso rate to convert.');
-    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until it is in MEXC and your next equity reading, then buys units at that price.${termsWarn(fv(fm, 'who'))}`);
+    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until it is in the exchange and your next equity reading, then buys units at that price.${termsWarn(fv(fm, 'who'))}`);
   }
   // after an "Edit" undoes the last entry, refill the matching form with its old values so the fund manager just fixes the typo and re-saves
   function prefillEdit(e, rows) {
@@ -1296,7 +1296,7 @@
     const warn = small + (units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
       : h.role === 'investor' && h.next_unlock ? `<br><span class="note">Inside their first-deposit lock-up (until ${day(h.next_unlock)}): your call.</span>` : '');
     const mgr = fm.elements.tomgr.checked, mgrWarn = mgr && h.role !== 'investor' ? '<br><span class="down">Only an investor\'s money can be moved to you.</span>' : '';
-    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>${xr ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} (${f(net, 4)} units) to your fund manager account. Nothing leaves MEXC: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.`}${mgrWarn}${warn}`);
+    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>${xr ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} (${f(net, 4)} units) to your fund manager account. Nothing leaves the exchange: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.`}${mgrWarn}${warn}`);
   }
   function qPrev(fm) {
     const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units);
@@ -1376,8 +1376,8 @@
     else if (a === 'adduser') { S.addUser = !S.addUser; render(); }
     else if (a === 'maxunits') { const v = Number(S.me.units) * Number(S.me.unit_price) * (inPeso() ? rate() : 1); $f('rq-u').value = Math.floor(v * 100) / 100; }
     else if (a === 'arrived') {
-      if (!confirm('Is this money in the MEXC account now? It joins the pool at your next Update equity, and that total must include it.')) return;
-      await act(() => call('admin_mark_arrived', { p_pending: Number(id), p_transfer_id: null }), 'Marked as in MEXC');
+      if (!confirm('Is this money in the exchange account now? It joins the pool at your next Update equity, and that total must include it.')) return;
+      await act(() => call('admin_mark_arrived', { p_pending: Number(id), p_transfer_id: null }), 'Marked as in the exchange');
     }
     else if (a === 'cancelpend') {
       if (!confirm('Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.')) return;
@@ -1498,7 +1498,7 @@
         const mgr = fm.elements.tomgr.checked;
         const r = await moneyCall(fm, mgr ? 'admin_withdraw_to_manager' : 'admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
           p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
-        await refresh(mgr ? `Moved ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())} to your fund manager account. Nothing left MEXC.`
+        await refresh(mgr ? `Moved ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())} to your fund manager account. Nothing left Exchange.`
           : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
       } else if (id === 'qForm') {
         if (!confirm('Charge fees and settle this two-month period? This cannot be undone.')) { if (btn) btn.disabled = false; return; }

@@ -19,19 +19,19 @@ test('H1 every button and card name the instructions mention exists on a real sc
     for (const label of RH.labels(topic, { gate })) assert.ok(SCREENS.includes(label), `"${label}" (${topic}, gate ${gate}) is not on any screen`);
   }
   const all = new Set(RH.TOPIC_IDS.flatMap((t) => [true, false].flatMap((g) => RH.labels(t, { gate: g }))));
-  for (const l of ['Save', 'Seen in MEXC', 'In MEXC', 'Admit', 'Approve', 'Quote', 'Redeem', 'Sent from MEXC', 'Completed', 'Update Pool', 'Update Pool and accept ticked', 'Enter balance (not confirmed yet)', 'Confirm this balance'])
+  for (const l of ['Save', 'Seen in the exchange', 'In the exchange', 'Admit', 'Approve', 'Quote', 'Redeem', 'Sent from the exchange', 'Completed', 'Update Pool', 'Update Pool and accept ticked', 'Enter balance (not confirmed yet)', 'Confirm this balance'])
     assert.ok(all.has(l), `the instructions never mention "${l}"`);
 });
 
-test('H2 Money in (gate on): account, Spot, record, seen in MEXC, check balance, Update Pool, Admit, Spot to Futures', () => {
+test('H2 Money in (gate on): account, Spot, record, seen in the exchange, check balance, Update Pool, Admit, Spot to Futures', () => {
   const t = titles('dep', { gate: true });
-  inOrder(t, [/account/i, /Spot/, /Record it/, /seen in MEXC/i, /Check and confirm/, /Update Pool/, /Admit/, /Futures/]);
+  inOrder(t, [/account/i, /Spot/, /Record it/, /seen in the exchange/i, /Check and confirm/, /Update Pool/, /Admit/, /Futures/]);
   assert.equal(RH.topics({ gate: true }).dep.glance.length, t.length, 'the at-a-glance strip has one chip per step');
 });
 
-test('H3 Money in with the workflow gate off: In MEXC, then Update equity (the older route); the pending-trades step still comes before it', () => {
+test('H3 Money in with the workflow gate off: In the exchange, then Update equity (the older route); the pending-trades step still comes before it', () => {
   const t = titles('dep', { gate: false });
-  inOrder(t, [/Record it/, /Mark it as in MEXC/, /Update Pool/, /Update equity/, /Futures/]);
+  inOrder(t, [/Record it/, /Mark it as in the exchange/, /Update Pool/, /Update equity/, /Futures/]);
   assert.equal(RH.topics({ gate: false }).dep.glance.length, t.length);
   assert.ok(!t.some((x) => /Admit them/.test(x)), 'no Admit step without the gate');
 });
@@ -39,8 +39,8 @@ test('H3 Money in with the workflow gate off: In MEXC, then Update equity (the o
 test('H4 Money out: ask, approve, confirm the balance, Update Pool, quote then redeem, send, mark sent; and the facts the database enforces are stated', () => {
   inOrder(titles('wd', { gate: true }), [/They ask/, /Approve/, /Check and confirm/, /Update Pool/, /Quote, then Redeem/, /Send the money/, /Mark it sent/]);
   const good = strip(RH.topics({ gate: true }).wd.good.join(' '));
-  assert.match(good, /uses up the confirmed balance/); assert.match(good, /Sent from MEXC/);
-  assert.ok(/_wf_use\(p_vid, not p_to_manager\)/.test(wf), 'a payout from MEXC spends the balance check (the help says so)');
+  assert.match(good, /uses up the confirmed balance/); assert.match(good, /Sent from the exchange/);
+  assert.ok(/_wf_use\(p_vid, not p_to_manager\)/.test(wf), 'a payout from the exchange spends the balance check (the help says so)');
   assert.ok(/raise exception 'quote rolled back' using errcode = 'WQ001'/.test(wf), 'a quote is rolled back (the help says it saves nothing)');
 });
 
@@ -52,7 +52,7 @@ test('H5 Balance: the hours come from the page, junk never reaches the text, the
   assert.ok(wf.includes("('verify_max_age_hours', '12')"), 'the 12-hour default is the database default');
   const refused = RH.topics({}).eq.refused.flat().join(' ');
   for (const w of ['too old', 'trade is still open', 'Unexplained difference', 'Update Pool', 'MISMATCH']) assert.ok(refused.includes(w), `"${w}" is covered in "If something is refused"`);
-  inOrder(RH.topics({}).eq.steps.map((s) => s.t), [/Look at MEXC/, /Enter the balance/, /Confirm it/, /Read the difference/, /Work down the cards/]);
+  inOrder(RH.topics({}).eq.steps.map((s) => s.t), [/Look at the exchange/, /Enter the balance/, /Confirm it/, /Read the difference/, /Work down the cards/]);
 });
 
 test('H6 the sheet: a labelled dialog with numbered steps, a close button and Got it; the button opens it', () => {

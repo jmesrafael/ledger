@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lucid'io: How Your Money Works</title>
-<meta name="description" content="How your money works in the Lucid'io pool: units, the fee on new profit, deposits, withdrawals and the real risks, in plain language.">
+<title>Lucid'io: Grow Your Money Together</title>
+<meta name="description" content="Lucid'io is a small shared pool that aims to grow your money. See how it works in plain language: your slice of the pool, the fee, taking money out and the real risks.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#060708">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  
 :root {
   --bg: #070708; --bg-2: #111113; --ink: #F5F5F0; --ink-2: #D8D8D4; --muted: #8E8E93; --line: rgba(255,255,255,0.10);
   --accent: #C8FF3D; --accent-dim: rgba(200,255,61,0.14); --blue: #7DB8FF; --amber: #FFB547; --red: #FF7070;
@@ -29,8 +30,8 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+html { scroll-behavior: smooth; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.6 Manrope, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-/* very faint, mostly neutral glow: dark enough that the text stays easy to read */
 /* ambient glows behind the glass, as in the ledger */
 .backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .backdrop::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 25%, rgba(255,255,255,0.035), transparent 70%); }
@@ -60,7 +61,7 @@ p { margin: 8px 0; color: var(--ink-2); }
     rgba(255,255,255,0.16) 312deg, rgba(255,255,255,0.75) 326deg, rgba(255,255,255,0.18) 338deg, rgba(255,255,255,0.05) 352deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
-section { margin-top: 28px; }
+section { margin-top: 28px; scroll-margin-top: 16px; }
 .card { padding: 22px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -70,7 +71,7 @@ section { margin-top: 28px; }
 .pill.wait { color: var(--amber); background: rgba(255,181,71,0.12); border-color: rgba(255,181,71,0.25); }
 
 /* buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 14px; font: 800 15px/1 Manrope, system-ui, sans-serif; text-decoration: none; color: #0b0d06; background: linear-gradient(180deg, #DDFF7A, var(--accent) 60%, #B4EA2C); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 10px 26px -12px rgba(200,255,61,0.55); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px; border-radius: 14px; font: 800 15px/1 Manrope, system-ui, sans-serif; text-decoration: none; color: #0b0d06; background: linear-gradient(180deg, #DDFF7A, var(--accent) 60%, #B4EA2C); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 10px 26px -12px rgba(200,255,61,0.55); border: 0; cursor: pointer; }
 .btn:hover { filter: brightness(1.05); }
 .btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
 .btn.glassbtn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 24px -12px rgba(0,0,0,0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
@@ -106,15 +107,7 @@ section { margin-top: 28px; }
 .hero-warn i { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: #fff; background: #E5484D; box-shadow: 0 0 14px rgba(255,80,80,0.55); }
 .hero-warn b { color: #FF7070; }
 .hero-warn a { color: #FF9A9A; font-weight: 700; }
-@media (prefers-reduced-motion: reduce) { .metal { animation: none; } }
-
-/* pool picture */
-.pool { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: center; }
-@media (max-width: 640px) { .pool { grid-template-columns: 1fr; justify-items: center; } }
-.legend div { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.legend div:last-child { border: 0; }
-.legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.legend span { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .metal { animation: none; } html { scroll-behavior: auto; } }
 
 /* journey */
 .steps { position: relative; margin-top: 14px; }
@@ -137,6 +130,20 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .out b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
 .out span { font-size: 12px; color: var(--muted); }
 
+/* tables that scroll sideways: edge fades, a "swipe" hint and a one-time nudge (see swipeable() below) */
+.tscroll { position: relative; margin-top: 14px; }
+.tscroll-in { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 4px; }
+.tscroll::before, .tscroll::after { content: ""; position: absolute; top: 0; bottom: 4px; width: 38px; pointer-events: none; opacity: 0; transition: opacity .25s ease; z-index: 1; }
+.tscroll::after { right: 0; background: linear-gradient(90deg, transparent, rgba(14,14,16,0.92)); }
+.tscroll::before { left: 0; background: linear-gradient(270deg, transparent, rgba(14,14,16,0.92)); }
+.tscroll.can-right::after, .tscroll.can-left::before { opacity: 1; }
+.swipehint { display: none; align-items: center; gap: 8px; margin: 0 0 8px auto; width: fit-content; padding: 5px 12px 5px 14px; border-radius: 99px; font-size: 12px; font-weight: 800; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(200,255,61,0.28); }
+.swipehint svg { animation: nudgeX 1.3s ease-in-out infinite; }
+.tscroll.overflowing:not(.touched) .swipehint { display: flex; }
+@keyframes nudgeX { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(5px); } }
+@media (min-width: 900px) { .swipehint { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .swipehint svg { animation: none; } }
+
 .ft { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
 .ft th { text-align: right; font-size: 11.5px; font-weight: 700; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .ft td { text-align: right; padding: 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -149,8 +156,6 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .longterm h3 { color: var(--accent); display: flex; gap: 8px; align-items: center; }
 .longterm ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
 .longterm li { margin: 4px 0; }
-.yrs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.yrs span { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; background: rgba(200,255,61,0.12); color: var(--accent); border: 1px solid rgba(200,255,61,0.22); }
 .warnbox { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: rgba(255,112,112,0.08); border: 1px solid rgba(255,112,112,0.35); }
 .warnbox h3 { color: var(--red); display: flex; align-items: center; gap: 8px; }
 .warnbox-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-grid; place-items: center; background: rgba(255,112,112,0.18); color: var(--red); flex: none; }
@@ -163,13 +168,34 @@ svg text { font-family: Manrope, sans-serif; }
   background: linear-gradient(135deg, rgba(200,255,61,0.09), rgba(125,184,255,0.05)); border: 1px solid rgba(200,255,61,0.22); }
 .quote p { font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; font-style: italic; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.6; }
 .quote span { display: block; margin-top: 12px; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 400; font-style: italic; color: var(--muted); }
+.datacta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-top: 18px; padding: 18px 20px; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(200,255,61,0.12), rgba(125,184,255,0.07)); border: 1px solid rgba(200,255,61,0.3); }
+.datacta h3 { color: var(--ink); } .datacta p { margin: 4px 0 0; font-size: 13.5px; max-width: 46ch; }
 
-/* app mock */
-.phone { padding: 16px; border-radius: 26px; }
-.mrow { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.mrow:last-child { border: 0; }
-.mrow span:last-child { font-variant-numeric: tabular-nums; font-weight: 700; }
-.big { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 2px; }
+/* the pizza pool */
+.pizza-wrap { display: grid; grid-template-columns: minmax(0, 300px) 1fr; gap: 22px; align-items: center; margin-top: 16px; }
+@media (max-width: 700px) { .pizza-wrap { grid-template-columns: 1fr; justify-items: center; } .pizza-side { width: 100%; } }
+#pizza { width: 100%; max-width: 300px; height: auto; display: block; overflow: visible; }
+#pizza .pie { transform-origin: 150px 150px; transition: transform .7s cubic-bezier(.3,1.4,.5,1); }
+#pizza .wedge.me { filter: drop-shadow(0 0 8px rgba(200,255,61,0.7)); }
+#pizza .newbit { animation: popin .6s cubic-bezier(.3,1.5,.5,1) both; transform-origin: 150px 150px; }
+@keyframes popin { from { opacity: 0; transform: scale(.4) rotate(-25deg); } }
+.pz-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pz-btns button { font: 700 13px/1 Manrope, system-ui, sans-serif; color: var(--ink); background: var(--glass-2); border: 1px solid var(--glass-border); border-radius: 99px; padding: 10px 14px; min-height: 40px; cursor: pointer; }
+.pz-btns button:hover { background: rgba(255,255,255,0.12); }
+.pz-btns button.good { color: var(--accent); border-color: rgba(200,255,61,0.35); background: var(--accent-dim); }
+.pz-btns button.bad { color: var(--red); border-color: rgba(255,112,112,0.35); background: rgba(255,112,112,0.1); }
+.pz-say { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px dashed var(--glass-border); font-size: 14px; color: var(--ink); min-height: 4.6em; }
+.pz-say b { color: var(--accent); }
+.pz-legend div { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.pz-legend div:last-child { border: 0; }
+.pz-legend i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.pz-legend span { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.pz-legend .you { font-weight: 800; color: var(--accent); }
+.pz-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; }
+.pz-facts div { padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+.pz-facts b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; }
+.pz-facts span { font-size: 12px; color: var(--muted); }
 
 /* withdrawal timeline */
 .tl { display: flex; gap: 6px; margin-top: 14px; }
@@ -178,22 +204,16 @@ svg text { font-family: Manrope, sans-serif; }
 .tl .done i { background: var(--accent); }
 .tl .now i { background: linear-gradient(90deg, var(--accent), var(--glass-2)); }
 
-/* risks + faq */
+/* risks */
 .glass.risk { padding: 18px; background-color: rgba(255,70,70,0.07); background-image: linear-gradient(160deg, rgba(255,90,90,0.14) 0%, rgba(255,90,90,0.05) 45%, rgba(255,90,90,0.02) 100%);
   border-color: rgba(255,90,90,0.32); box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 14px 34px -18px rgba(255,70,70,0.55); }
 .risk h3 { display: flex; gap: 10px; align-items: center; color: #FFD3D3; }
 .risk .ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,90,90,0.16); border: 1px solid rgba(255,90,90,0.38); color: #FF7070; box-shadow: 0 0 14px -4px rgba(255,80,80,0.5); }
-details { padding: 14px 18px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-border); margin-top: 8px; }
-summary { cursor: pointer; font-weight: 700; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
-summary::-webkit-details-marker { display: none; }
-summary::after { content: "+"; color: var(--accent); font-weight: 800; }
-details[open] summary::after { content: "−"; }
-details p { margin-top: 10px; }
 footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
 .reveal.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
-@media print { .top { display: none; } .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit { transition: none; animation: none; } }
+@media print { .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
 </style>
 </head>
 <body>
@@ -201,119 +221,76 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <div class="wrap">
 
 <div class="topbar"><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+
+<!-- HERO: the point is growing your money -->
 <header class="hero reveal">
   <div class="hero-grid" aria-hidden="true"></div>
   <h1>Your slice of one <span class="metal">trading pool.</span></h1>
-  <p class="lead"><b>A small private pool.</b> Deposit, get units, and watch your slice rise or fall with the pool, by the same percent as everyone else's.</p>
-  <div class="cta"><a class="btn" href="#past">Here's what happens to your ₱1,000 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+  <p class="lead"><b>A small private pool that aims to grow your money.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
+  <div class="cta"><a class="btn" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
   <div class="facts">
-    <div class="fact glass"><b>10%</b><span>fee, on new profit only. Never on a loss.</span></div>
+    <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
     <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
-    <div class="fact glass"><b>5%</b><span>of the balance risked on each trade</span></div>
+    <div class="fact glass"><b>5%</b><span>of the pool is put at risk on each trade</span></div>
     <div class="fact glass"><b>1 pool</b><span>everyone's slice moves by the same percent</span></div>
   </div>
-  <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market is volatile and no result is guaranteed: you can lose a large part, or all, of what you put in. Backtests are simulations, not promises. <a href="#risks">Read the risks</a></div></div>
+  <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The results on this page are tests on past prices, not promises. <a href="#risks">Read the risks</a></div></div>
 </header>
 
-<section id="pool"<section id="pool" class="glass card reveal">
-  <div class="kicker">1 · The pool</div>
-  <h2>One account, everyone owns a slice</h2>
-  <p>All the money sits together in one MEXC trading account. Instead of tracking pesos per person, the ledger gives each person <b>units</b>. If you own 20% of the units, you own 20% of whatever the account is worth, today and every day.</p>
-  <div class="pool">
-    <svg id="donut" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Example: how a pool of 1,000 units is shared"></svg>
-    <div>
-      <div class="legend" id="legend"></div>
-      <p class="small muted">An example pool, not real people. When the trading makes or loses money, every slice grows or shrinks by the <b>same percentage</b>. Nobody's slice changes size because someone else adds or takes out money.</p>
-    </div>
-  </div>
-</section>
-
-<section id="journey" class="glass card reveal">
-  <div class="kicker">2 · Your money's journey</div>
-  <h2>What happens to your ₱1,000</h2>
-  <p>The labels in green are what you will see next to your money in the app.</p>
+<!-- 1. HOW IT WORKS -->
+<section id="how" class="glass card reveal">
+  <div class="kicker">1 · How it works</div>
+  <h2>From your pocket to a bigger pool, in 6 steps</h2>
+  <p>Think of a group savings pot that is traded by one person for everyone. The coloured labels are what you will see next to your money in the app.</p>
   <div class="steps">
-    <div class="step"><div class="dot">1</div><div><h3>You send the money <span class="pill wait">Waiting</span></h3>
-      <p>You hand the money to the fund manager. It is written down straight away, but it is not in the pool yet: it gains nothing and loses nothing.</p></div></div>
-    <div class="step"><div class="dot">2</div><div><h3>It is seen arriving in MEXC <span class="pill wait">Waiting to join</span></h3>
-      <p>Money only counts once it has actually reached the trading account. Until then it stays outside the pool, so it can never be counted as profit by mistake.</p></div></div>
-    <div class="step"><div class="dot">3</div><div><h3>It joins at a checked price <span class="pill ok">In the pool</span></h3>
-      <p>The fund manager checks the account balance, confirms it, and only then lets your money join. It buys units at that day's price, so you never share in profit made before you joined, and never pay for losses from before either.</p></div></div>
-    <div class="step"><div class="dot">4</div><div><h3>Your units ride the trading <span class="pill">Estimate</span></h3>
-      <p>Your units stay the same; their price moves with the trading. Your balance in the app is an estimate until a fee settlement or a withdrawal fixes the final numbers.</p></div></div>
-    <div class="step"><div class="dot">5</div><div><h3>Every two months, the fee is settled <span class="pill ok">Final</span></h3>
-      <p>If your value is above your best level so far, 10% of the new profit is charged. If not, nothing is charged. More on this in section 4.</p></div></div>
-    <div class="step"><div class="dot">6</div><div><h3>You take money out when you need it <span class="pill">Paid</span></h3>
-      <p>Ask in the app. It is paid within 7 business days, at the value on the day it is paid out.</p></div></div>
+    <div class="step"><div class="dot">1</div><div><h3>You send your money <span class="pill wait">Waiting</span></h3>
+      <p>You hand the money to the fund manager. It is written down straight away, but it is not working yet: it can't gain and it can't lose.</p></div></div>
+    <div class="step"><div class="dot">2</div><div><h3>We check that it arrived <span class="pill wait">Waiting to join</span></h3>
+      <p>Your money only counts once it has really reached the trading account at the exchange. Until then it stays outside the pool, so it can never be counted as profit by mistake.</p></div></div>
+    <div class="step"><div class="dot">3</div><div><h3>You get your slices <span class="pill ok">In the pool</span></h3>
+      <p>Your money joins at that day's price and you receive <b>units</b> (think: slices of a pizza, see section 4). You never share in gains made before you joined, and you never pay for losses from before either.</p></div></div>
+    <div class="step"><div class="dot">4</div><div><h3>The pool is traded <span class="pill">Estimate</span></h3>
+      <p>The fund manager trades the pool for everyone. You keep the same number of slices; what each slice is worth goes up and down. The balance you see in the app is an estimate until a settlement or a withdrawal makes it final.</p></div></div>
+    <div class="step"><div class="dot">5</div><div><h3>Every two months, we settle <span class="pill ok">Final</span></h3>
+      <p>If your money is worth more than ever before, <b>20% of the new profit</b> is the fee. If not, there is no fee. <a href="#fee">How the fee works</a>.</p></div></div>
+    <div class="step"><div class="dot">6</div><div><h3>You take your money out when you need it <span class="pill">Paid</span></h3>
+      <p>Ask in the app. You are paid within 7 business days, at the value on the day you are paid.</p></div></div>
   </div>
 </section>
 
-<section id="units" class="glass card reveal">
-  <div class="kicker">3 · Units</div>
-  <h2>Try it: money in, units out</h2>
-  <p>Move the sliders. This is an example to show the idea, not a forecast.</p>
-  <label class="rng">You put in <output id="o-put"></output><input id="r-put" type="range" min="500" max="50000" step="500" value="5000"></label>
-  <label class="rng">Unit price on the day you join <output id="o-price"></output><input id="r-price" type="range" min="0.5" max="3" step="0.01" value="1.20"></label>
-  <label class="rng">The trading result after you join <output id="o-move"></output><input id="r-move" type="range" min="-40" max="60" step="1" value="15"></label>
-  <div class="out">
-    <div><b id="u-units"></b><span>units you receive</span></div>
-    <div><b id="u-value"></b><span>value before the fee</span></div>
-    <div><b id="u-after"></b><span>value after the 10% fee</span></div>
-  </div>
-  <div class="note-box" id="u-note"></div>
-</section>
-
-<section id="fee" class="glass card reveal">
-  <div class="kicker">4 · The fee</div>
-  <h2>10% of new profit, never twice</h2>
-  <p>Each investor has a <b>best level</b> (the "high-water mark"). It starts at what you put in, and rises with every deposit. Every two months:</p>
-  <div class="grid3" style="margin-top:12px">
-    <div class="glass card" style="padding:16px"><h3 style="color:var(--accent)">Above your best level</h3><p class="small">10% of the part above it is charged. Your best level moves up to your new value.</p></div>
-    <div class="glass card" style="padding:16px"><h3 style="color:var(--amber)">Below your best level</h3><p class="small">No fee. A loss has to be made back first, before any fee is due again.</p></div>
-    <div class="glass card" style="padding:16px"><h3 style="color:var(--blue)">Money in or out</h3><p class="small">Deposits are never profit and withdrawals are never losses. They do not move the fee.</p></div>
-  </div>
-  <div style="margin-top:18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between">
-    <h3>Watch a year of ₱10,000</h3>
-    <div class="seg" id="seg"><button data-s="steady" class="on">Steady growth</button><button data-s="dip">A dip, then recovery</button><button data-s="down">A losing year</button></div>
-  </div>
-  <svg id="hwm" class="chart" viewBox="0 0 640 260" role="img" aria-label="Value over a year with the best level and fees charged"></svg>
-  <div class="feechips" id="hchips"></div>
-  <div class="out" id="hwm-out"></div>
-  <p class="small muted">Green line: your value. Dashed line: your best level. Lime marks: a fee was charged at that settlement. An illustration with made-up results.</p>
-</section>
-
+<!-- 2. EXAMPLES -->
 <section id="friends" class="glass card reveal hl26">
-  <div class="kicker">5 · The 2026 backtest</div>
-  <h2><span class="yr">2026</span> Five investors, different amounts, different months</h2>
-  <p>Five example investors join the same pool in 2026, each with a different amount and in a different month. Every one of them gets the <b>same trading result per unit</b> from the day they join; what differs is <b>when</b> they joined and how much. The fee is 10% of new profit above each person's best level, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b>, at <b>5% risk per trade</b>, shown in pesos at ₱58 per USDT.</p>
-  <div style="overflow-x:auto;margin-top:14px">
-    <table class="ft" id="ftable"></table>
+  <div class="kicker">2 · Examples</div>
+  <h2><span class="yr">2026</span> Five friends, five different starts</h2>
+  <p>Meet five example friends. Each put in a different amount in a different month of 2026. They are made-up people, but the prices are <b>real past prices</b>. Everyone gets the <b>same result per slice</b> from the day they join, so what changes the outcome is <b>when</b> they joined and <b>how much</b> they put in.</p>
+  <p class="small muted">The fee is 20% of new profit, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b> and the pool puts <b>5%</b> at risk per trade. Shown in pesos at ₱58 per USDT (a digital dollar).</p>
+  <div class="tscroll">
+    <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
+    <div class="tscroll-in"><table class="ft" id="ftable"></table></div>
   </div>
   <div class="longterm">
-    <h3>Note: why some investors are negative, and why that is normal</h3>
-    <p class="small" style="margin-top:6px">Look at the table again: <b>Dana</b> and <b>Eli</b> are below what they put in, and <b>Cris</b> is about even. That is not because they did anything wrong. They are simply <b>still early</b>: they joined only a few weeks or months ago, and that short stretch happened to include a dip in the market.</p>
+    <h3>Why some friends are below zero, and why that is normal</h3>
+    <p class="small" style="margin-top:6px" id="neg-lead"></p>
     <ul>
-      <li><b>Short term, anything can happen.</b> Over a few weeks the market can go down as easily as up. Someone who joins right before a dip starts in the red.</li>
-      <li><b>Long term is where the strategy works.</b> It is built to grow slowly over many months, with small wins adding up and losses kept small. It needs time to play out.</li>
-      <li><b>The investors who joined earliest are the ones ahead.</b> Ana (January) and Ben (March) had time to ride out the dips, and are up after fees.</li>
+      <li><b>In a few weeks, anything can happen.</b> Prices can go down as easily as up. Someone who joins just before a dip starts in the red.</li>
+      <li><b>Time is what makes it work.</b> The plan is built to grow slowly over many months: small wins add up and losses are kept small.</li>
+      <li><b>The friends who joined first are ahead.</b> <span id="neg-ahead"></span></li>
     </ul>
-    <p class="small" style="margin-top:8px">So please think of this as <b>long-term money</b>: plan to leave it for at least a year, and do not judge it by the first few weeks. In the backtest at 5% risk, every full year since 2020 ended higher than it started, but with big dips on the way (see section 8):</p>
-    <div class="yrs" id="yrs"></div>
+    <p class="small" style="margin-top:8px">So please see this as <b>long-term money</b>: plan to leave it in for at least a year and don't judge it by the first few weeks.</p>
     <p class="small" style="margin-top:8px;color:var(--red)"><b>Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
-    <p class="small muted" style="margin-top:8px">Past years being positive is not a promise that every future year will be. There were still drops along the way, and real results can be worse.</p>
   </div>
   <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
-    <h3 id="fname">Pick an investor</h3>
+    <h3 id="fname">Pick a friend</h3>
     <div class="seg" id="fseg"></div>
   </div>
-  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The investor's balance over 2026"></svg>
+  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The friend's balance over 2026"></svg>
   <div class="feechips" id="fchips"></div>
-  <p class="small muted">Green line: their balance after fees. Dashed line: what they put in. Lime dots: a fee was settled. All backtest.</p>
+  <p class="small muted">Coloured line: their balance after fees. Dashed line: what they put in. Green dots: a fee was settled. All based on past prices.</p>
   <div class="note-box" id="fstory"></div>
 
   <div class="glass card" style="margin-top:20px;padding:18px">
     <h3>Now picture yourself</h3>
-    <p class="small">Choose an amount and the month you would have joined in 2026. The same backtest prices and the same rules are used. Try January, then September: the earlier you start, the more time the strategy has to work.</p>
+    <p class="small">Choose an amount and the month you would have joined in 2026. The same past prices and the same rules are used. Try January, then September: the earlier you start, the more time you have.</p>
     <div class="grid2">
       <label class="rng">Amount <output id="y-amt-o"></output><input id="y-amt" type="range" min="500" max="100000" step="500" value="10000"></label>
       <label class="rng">Joined in <output id="y-mon-o"></output><input id="y-mon" type="range" min="0" max="9" step="1" value="2"></label>
@@ -323,20 +300,111 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
 </section>
 
+<!-- 3. BACKTESTING DATA -->
+<section id="past" class="glass card reveal">
+  <div class="kicker">3 · The data</div>
+  <h2>What ₱1,000 did in each past year</h2>
+  <p><b>"Backtest"</b> is a simple idea: we replay the trading plan on old prices to see what would have happened. It is a test on the past, not a promise about the future.</p>
+  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses <b>5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
+  <div class="tscroll">
+    <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
+    <div class="tscroll-in"><table class="ft" id="ytab" style="min-width:640px"></table></div>
+  </div>
+  <p class="small muted" id="ytab-note"></p>
+  <div class="longterm">
+    <h3>How to read this table</h3>
+    <ul>
+      <li><b>Growth</b> is what the ₱1,000 earned in that one year. <b>Deepest dip</b> is the biggest fall from a high point inside that year: your money can look much worse than the final number on the way.</li>
+      <li><b>After 20% fee</b> is about what you would keep once the fee on new profit is taken (settled every two months; the exact figure depends on the path).</li>
+      <li><b>2021 was exceptional</b> and will probably not repeat. 2022 and 2026 are closer to a normal, harder year.</li>
+    </ul>
+  </div>
+
+  <h2 style="margin-top:28px">₱1,000 left to grow since 2020</h2>
+  <p>Now the same thing without restarting: profits stay in and are used for the next trades (this is called compounding). Hypothetical, before the 20% fee, and not a promise. Each line up on the scale is ten times more.</p>
+  <svg id="years" class="chart" viewBox="0 0 640 260" role="img" aria-label="Test balance at the end of each year, log scale"></svg>
+  <p class="small muted" id="years-note"></p>
+  <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this test ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week. <b style="color:var(--red)">The big totals here are inflated</b>: the markets were chosen after seeing how they did, 2021 was extraordinary, and the edge has been getting smaller. Treat the yearly table above, and the dips, as the more honest picture.</div>
+  <div class="datacta">
+    <div><h3>Want every detail?</h3><p>Year by year, month by month: the best and worst months, the longest red streaks and the biggest drops.</p></div>
+    <a class="btn" href="/backtest-data">See the full data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+  </div>
+  <div class="quote">
+    <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
+    <span>— Albert Einstein</span>
+  </div>
+</section>
+
+<!-- 4. THE POOL AS A PIZZA (units) -->
+<section id="pool" class="glass card reveal">
+  <div class="kicker">4 · Your slice</div>
+  <h2>The pool is one big pizza</h2>
+  <p>All the money sits together in one trading account at an exchange. Instead of tracking everyone's pesos, the ledger cuts the pool into equal <b>slices</b>. We call a slice a <b>unit</b>. You own some slices, your friends own some, and so does the fund manager.</p>
+  <div class="pizza-wrap">
+    <svg id="pizza" viewBox="0 0 300 300" role="img" aria-label="A pizza cut into slices. Each person owns some slices."></svg>
+    <div class="pizza-side">
+      <div class="pz-facts" id="pz-facts"></div>
+      <div class="pz-legend" id="pz-legend"></div>
+      <div class="pz-btns" id="pz-btns">
+        <button class="good" data-a="up">Trading earned 20%</button>
+        <button class="bad" data-a="down">Trading lost 20%</button>
+        <button data-a="join">A friend joins with ₱3,000</button>
+        <button data-a="reset">Start over</button>
+      </div>
+    </div>
+  </div>
+  <div class="pz-say" id="pz-say" aria-live="polite"></div>
+  <p class="small muted">An example pizza with made-up people. Tap the buttons to see what happens. The rule is always the same: <b>the pizza gets bigger or smaller, and every slice grows or shrinks by the same percent.</b> Nobody's slices change because someone else joins or leaves.</p>
+
+  <h3 style="margin-top:22px">Try it: money in, slices out</h3>
+  <p class="small">Move the sliders. This is an example to show the idea, not a forecast.</p>
+  <label class="rng">You put in <output id="o-put"></output><input id="r-put" type="range" min="500" max="50000" step="500" value="5000"></label>
+  <label class="rng">Price of one slice (unit) on the day you join <output id="o-price"></output><input id="r-price" type="range" min="0.5" max="3" step="0.01" value="1.20"></label>
+  <label class="rng">How the trading did after you joined <output id="o-move"></output><input id="r-move" type="range" min="-40" max="60" step="1" value="15"></label>
+  <div class="out">
+    <div><b id="u-units"></b><span>slices (units) you receive</span></div>
+    <div><b id="u-value"></b><span>what they are worth, before the fee</span></div>
+    <div><b id="u-after"></b><span>what you keep, after the 20% fee</span></div>
+  </div>
+  <div class="note-box" id="u-note"></div>
+</section>
+
+<!-- 5. TAKING MONEY OUT -->
 <section id="out" class="glass card reveal">
-  <div class="kicker">6 · Taking money out</div>
+  <div class="kicker">5 · Taking money out</div>
   <h2>Ask any time; paid within 7 business days</h2>
-  <p>Tap <b>Request withdrawal</b> on Home. Add where you want to be paid (GCash or bank) first. You can take part of it or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
+  <p>Tap <b>Request withdrawal</b> on Home. First add where you want to be paid (GCash or bank). You can take part of your money or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
   <div class="tl" aria-label="Example payout timeline">
     <div class="done"><i></i>Requested</div><div class="done"><i></i>Reviewed</div><div class="now"><i></i>Trades closed</div><div><i></i>Paid out</div><div><i></i>Received</div>
   </div>
   <div class="grid2" style="margin-top:16px">
-    <div><h3>Why a request can wait</h3><p class="small">Up to two trades can be open at once. A payout is valued only when both trades are closed and the balance is checked, so nobody is paid out at a half-finished trade's price. The app tells you the reason while you wait.</p></div>
+    <div><h3>Why a request can wait a little</h3><p class="small">Up to two trades can be open at once. A payout is worked out only when both trades are closed and the balance is checked, so nobody is paid at the price of a half-finished trade. The app tells you the reason while you wait.</p></div>
     <div><h3>The 3-month lock-up</h3><p class="small">Your first deposit has a 3-month lock-up as a guideline: please plan to leave it in that long. If you need money earlier, ask; the fund manager decides, and any exception is written down.</p></div>
   </div>
   <div class="note-box">Withdrawal fee: none for now. A small one may be introduced later, lower the longer your account has been open. You will be told before it starts.</div>
 </section>
 
+<!-- 6. THE FEE -->
+<section id="fee" class="glass card reveal">
+  <div class="kicker">6 · The fee</div>
+  <h2>20% of new profit, never charged twice</h2>
+  <p>There is only one fee, and you only pay it when you make <b>new</b> profit. Every investor has a <b>best level</b>: the highest your money has ever been worth. It starts at what you put in and rises with every deposit. Every two months we look at where you are:</p>
+  <div class="grid3" style="margin-top:12px">
+    <div class="glass card" style="padding:16px"><h3 style="color:var(--accent)">Above your best level</h3><p class="small">20% of the part above it is the fee. Your best level then moves up to your new value.</p></div>
+    <div class="glass card" style="padding:16px"><h3 style="color:var(--amber)">Below your best level</h3><p class="small">No fee. A loss has to be made back first, before any fee is due again.</p></div>
+    <div class="glass card" style="padding:16px"><h3 style="color:var(--blue)">Money in or out</h3><p class="small">Deposits are never counted as profit and withdrawals are never counted as losses. They don't change the fee.</p></div>
+  </div>
+  <div style="margin-top:18px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between">
+    <h3>Watch a year of ₱10,000</h3>
+    <div class="seg" id="seg"><button data-s="steady" class="on">Steady growth</button><button data-s="dip">A dip, then recovery</button><button data-s="down">A losing year</button></div>
+  </div>
+  <svg id="hwm" class="chart" viewBox="0 0 640 260" role="img" aria-label="Value over a year with the best level and fees charged"></svg>
+  <div class="feechips" id="hchips"></div>
+  <div class="out" id="hwm-out"></div>
+  <p class="small muted">Green line: your value. Dashed line: your best level. Green marks: a fee was charged at that settlement. An illustration with made-up results.</p>
+</section>
+
+<!-- 7. RISKS (last) -->
 <section id="risks" class="reveal">
   <div class="kicker" style="margin-left:4px">7 · Risks</div>
   <h2 style="margin:4px 4px 12px">Please read this part twice</h2>
@@ -345,60 +413,37 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <ul>
       <li><b>Never use money you need</b> for rent, food, school, bills, emergencies, or money you borrowed. Only money you could lose without it hurting your life.</li>
       <li><b>No guarantee.</b> We work with statistics and probability, not certainty. Good past results do not mean the next trade, month or year will be good.</li>
-      <li><b>The market can change.</b> Prices can move faster and further than ever before, or behave in ways the past data never showed. The strategy may then lose more than expected.</li>
+      <li><b>The market can change.</b> Prices can move faster and further than ever before, or behave in ways the past never showed. The plan may then lose more than expected.</li>
       <li><b>Losses can be large.</b> You can lose a big part, or in the worst case all, of what you put in.</li>
-      <li><b>Be ready for red periods.</b> There will be weeks and months where your balance is down. That is part of it; please do not put in money that would make you panic when that happens.</li>
+      <li><b>Be ready for red periods.</b> There will be weeks and months where your balance is down. That is part of it; please don't put in money that would make you panic when that happens.</li>
     </ul>
   </div>
   <div class="glass card" style="margin:0 0 12px;border-color:rgba(255,181,71,0.35)">
-    <h3 style="color:var(--amber)">What 5% risk per trade really means</h3>
-    <p class="small">Before every trade the system risks <b>5% of the current balance</b> (about ₱500 at stake when the pool is worth ₱10,000). Wins make the next trade bigger, losses make it smaller. That is why results swing so much.</p>
+    <h3 style="color:var(--amber)">What "5% risk per trade" really means</h3>
+    <p class="small">Before every trade, the plan puts <b>5% of the current balance</b> at risk (about ₱500 when the pool is worth ₱10,000). Wins make the next trade bigger, losses make it smaller. That is why results swing so much.</p>
     <div class="grid2" style="margin-top:10px">
-      <div><h3>The deepest fall</h3><p class="small">In the backtest the balance dropped <b>65%</b> from a high (May 2023). At 1% risk the worst fall was 14%. After a 65% fall you need about <b>+185%</b> just to get back to even.</p></div>
-      <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>28% and 57%</b> from its high along the way (table in section 8).</p></div>
-      <div><h3>Starting at a bad moment</h3><p class="small">Starting on any month and holding 12 months (58 start dates), the typical result was about <b>+260%</b>, but <b>6 of 58</b> starts lost money, the worst by <b>31%</b>. Starting at a peak, ₱1,000 was worth about <b>₱520</b> three months later (Oct 2022) and about <b>₱670</b> (Sep 26, 2026).</p></div>
-      <div><h3>Recent years are weaker</h3><p class="small">In the last 12 months 5% risk earned about <b>+23%</b> (1% earned about +13%). The extra risk bought much less than in 2021–2025, and the old totals are flattered by coins chosen with hindsight.</p></div>
+      <div><h3>The deepest fall</h3><p class="small">In the test, the balance dropped <b>65%</b> from a high point (May 2023). At 1% risk the worst fall was 14%. After a 65% fall you need about <b>+185%</b> just to get back to even.</p></div>
+      <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>28% and 57%</b> from its high along the way (see the table in section 3).</p></div>
+      <div><h3>Starting at a bad moment</h3><p class="small">Starting in any month and holding for 12 months (58 start dates), the typical result was about <b>+260%</b>, but <b>6 of 58</b> starts lost money, the worst by <b>31%</b>. Starting at a peak, ₱1,000 was worth about <b>₱520</b> three months later (Oct 2022) and about <b>₱670</b> (Sep 26, 2026).</p></div>
+      <div><h3>Recent years are weaker</h3><p class="small">In the last 12 months, 5% risk earned about <b>+23%</b> (1% earned about +13%). The extra risk bought much less than in 2021–2025, and the old totals are flattered because the markets were chosen after seeing how they did.</p></div>
     </div>
-    <p class="small muted" style="margin-bottom:0">Source: the Lucid'io Risk &amp; Compounding report (backtest to Oct 21, 2026). A lower risk setting is calmer; 5% is what the pool uses, so expect red months and the occasional deep red stretch.</p>
+    <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to Oct 21, 2026. A lower risk setting is calmer; 5% is what the pool uses, so expect red months and the occasional deep red stretch.</p>
   </div>
   <div class="grid2">
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>You can lose money</h3><p class="small">The market moves fast. The pool can fall sharply and you can lose a large part or all of what you put in. Only use money you can afford to lose.</p></div>
-    <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Past results are not a promise</h3><p class="small">The numbers below come from a backtest: the strategy replayed on old prices. The coins were picked with hindsight. Real results will differ.</p></div>
-    <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>The exchange and trading errors</h3><p class="small">The money sits on MEXC. An exchange problem, a hack or a trading error could cause losses that the strategy did not plan for.</p></div>
+    <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Past results are not a promise</h3><p class="small">The numbers on this page come from a test: the trading plan replayed on old prices. The markets were chosen after seeing how they did. Real results will differ.</p></div>
+    <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>The exchange and trading errors</h3><p class="small">The money sits at an exchange. An exchange problem, a hack or a trading error could cause losses that the plan did not expect.</p></div>
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Not a bank, not insured</h3><p class="small">This is a private record of a share in a pooled account among friends and family. It is not a bank deposit, not insured and not a registered investment product.</p></div>
   </div>
 </section>
 
-<section id="past" class="glass card reveal">
-  <div class="kicker">8 · Past results (backtest)</div>
-  <h2>What ₱1,000 does in one year</h2>
-  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. Backtest at <b>5% risk per trade</b>, on actual market prices, with trading fees, slippage and funding included.</p>
-  <div style="overflow-x:auto;margin-top:12px"><table class="ft" id="ytab" style="min-width:640px"></table></div>
-  <p class="small muted" id="ytab-note"></p>
-  <div class="longterm">
-    <h3>How to read this</h3>
-    <ul>
-      <li><b>Growth</b> is what the ₱1,000 earned in that one year. <b>Deepest dip</b> is the biggest fall from a high inside that year: the money can look much worse than the final number on the way.</li>
-      <li><b>After 10% fee</b> is about what you would keep once the fee on new profit is taken (settled every two months; the exact figure depends on the path).</li>
-      <li><b>2021 was exceptional</b> and will probably not repeat. 2022 and 2026 are closer to a normal, harder year.</li>
-    </ul>
-  </div>
-
-  <h2 style="margin-top:28px">₱1,000 left to compound since 2020</h2>
-  <p>Now the same thing without restarting: the profits stay in and are used for the next trades (compounding), at 5% risk per trade. Hypothetical, before the 10% fee, and not a promise. The scale is logarithmic: each line up is ten times more.</p>
-  <svg id="years" class="chart" viewBox="0 0 640 260" role="img" aria-label="Backtested balance at the end of each year, log scale"></svg>
-  <p class="small muted" id="years-note"></p>
-  <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this backtest ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week. <b style="color:var(--red)">The totals here are inflated</b>: the coins were picked with hindsight, 2021 was extraordinary, and the edge has been getting smaller. Treat the yearly table above, and the dips, as the more honest picture.</div>
-  <div class="quote">
-    <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
-    <span>— Albert Einstein</span>
-  </div>
-</section>
-
+<footer>Lucid'io · Past results, simulated or real, do not guarantee future results. Only use money you can afford to lose.</footer>
 </div>
 
 <script>
 const YEARS = {"r":{"0.05":{"bal":2731289,"dd":0.6459,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":2301,"dd":0.2796},"2021":{"start":2301,"end":27752,"dd":0.3649},"2022":{"start":27752,"end":39381,"dd":0.5731},"2023":{"start":39381,"end":132947,"dd":0.4534},"2024":{"start":132947,"end":470467,"dd":0.3392},"2025":{"start":470467,"end":1622609,"dd":0.4429},"2026":{"start":1622609,"end":2731289,"dd":0.4466}}},"0.01":{"bal":8099,"dd":0.1441,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":1233,"dd":0.0613},"2021":{"start":1233,"end":2275,"dd":0.0829},"2022":{"start":2275,"end":2624,"dd":0.1366},"2023":{"start":2624,"end":3604,"dd":0.1041},"2024":{"start":3604,"end":4968,"dd":0.0771},"2025":{"start":4968,"end":6815,"dd":0.107},"2026":{"start":6815,"end":8099,"dd":0.1048}}}}};
+const FEE = 0.20;   // the fee on new profit; keep in step with ledger_settings.default_fee_rate
+const FEE_PCT = Math.round(FEE * 100);
 // fee tags: a pill above (or below) the dot, kept inside the chart and moved apart if two would overlap
 function feeTags(svg, items, W, pl, pr, H, pb) {
   const placed = [];
@@ -419,37 +464,119 @@ const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS,
 const peso = (n) => (n < 0 ? '−' : '') + '₱' + Math.round(Math.abs(n)).toLocaleString('en-PH');
 const pc = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n).toFixed(0) + '%';
 const C = { accent: '#C8FF3D', blue: '#7DB8FF', amber: '#FFB547', red: '#FF7070', ink: '#F2F3F0', muted: '#8B8E92', line: 'rgba(255,255,255,0.09)' };
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ---------- 1. donut of an example pool
-(function donut() {
-  const S = [['Fund manager', 400, C.accent], ['Investor A', 250, C.blue], ['Investor B', 200, C.amber], ['Investor C', 150, '#B79CFF']];
-  const svg = document.getElementById('donut'), R = 74, L = 2 * Math.PI * R; let off = 0;
-  el('circle', { cx: 100, cy: 100, r: R, fill: 'none', stroke: 'rgba(255,255,255,0.06)', 'stroke-width': 22 }, svg);
-  const g = el('g', { transform: 'rotate(-90 100 100)' }, svg);
-  for (const [, u, c] of S) { const len = u / 1000 * L; el('circle', { cx: 100, cy: 100, r: R, fill: 'none', stroke: c, 'stroke-width': 22, 'stroke-dasharray': `${len - 2} ${L - len + 2}`, 'stroke-dashoffset': -off }, g); off += len; }
-  el('text', { x: 100, y: 96, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11, 'font-weight': 700 }, svg).textContent = 'ONE POOL';
-  el('text', { x: 100, y: 116, 'text-anchor': 'middle', fill: C.ink, 'font-size': 20, 'font-weight': 800 }, svg).textContent = '1,000 units';
-  document.getElementById('legend').innerHTML = S.map(([n, u, c]) => `<div><i style="background:${c}"></i>${n}<span>${u} units · ${u / 10}%</span></div>`).join('');
+// ---------- tables that scroll sideways: edge fades, hint pill, and one gentle nudge when they come into view
+function swipeable(box) {
+  const wrap = box.parentElement;
+  let nudging = false;
+  const upd = () => {
+    const max = box.scrollWidth - box.clientWidth;
+    wrap.classList.toggle('overflowing', max > 4);
+    wrap.classList.toggle('can-right', max > 4 && box.scrollLeft < max - 4);
+    wrap.classList.toggle('can-left', box.scrollLeft > 4);
+  };
+  box.addEventListener('scroll', () => { upd(); if (!nudging && box.scrollLeft > 8) wrap.classList.add('touched'); }, { passive: true });
+  addEventListener('resize', upd);
+  new MutationObserver(upd).observe(box, { childList: true, subtree: true });
+  upd();
+  if (REDUCED) return;
+  const nudge = () => {
+    const max = box.scrollWidth - box.clientWidth;
+    if (max <= 4 || box.scrollLeft > 0 || wrap.classList.contains('touched')) return;
+    const to = Math.min(max, 120), t0 = performance.now(), dur = 1500;
+    nudging = true;
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur), e = Math.sin(Math.PI * k);   // out and back
+      box.scrollLeft = k < 1 ? to * e * e * (3 - 2 * e) : 0;
+      if (k < 1) requestAnimationFrame(step); else { nudging = false; upd(); }
+    };
+    requestAnimationFrame(step);
+  };
+  const obs = new IntersectionObserver((es) => { if (es[0].isIntersecting) { obs.disconnect(); setTimeout(nudge, 450); } }, { threshold: 0.6 });
+  obs.observe(wrap);
+}
+
+// ---------- 4. the pool as a pizza
+(function pizza() {
+  const svg = document.getElementById('pizza'); if (!svg) return;
+  const START = () => ({ owners: [{ n: 'You', s: 2, c: '#C8FF3D', me: true }, { n: 'Friend A', s: 3, c: '#7DB8FF' }, { n: 'Friend B', s: 2, c: '#FFB547' }, { n: 'Fund manager', s: 3, c: '#B79CFF' }], price: 1000, fresh: false, say: null });
+  let S = START(), lastScale = 1;
+  const total = () => S.owners.reduce((t, o) => t + o.s, 0);
+  const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString('en-PH', { maximumFractionDigits: 2 });
+  const SAY0 = 'This pizza has <b>10 slices</b> and is worth <b>₱10,000</b>, so <b>one slice is worth ₱1,000</b>. You own <b>2 slices</b> (the green ones). Tap a button to see what happens.';
+  function pt(cx, cy, r, a) { const t = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
+  function draw() {
+    svg.innerHTML = '';
+    const tot = total(), value = tot * S.price, scale = Math.max(0.62, Math.min(1.12, Math.sqrt(value / 10000)));
+    // start at the old size and grow or shrink to the new one, so a gain or a loss is something you can watch
+    const pie = el('g', { class: 'pie', style: `transform: scale(${lastScale})` }, svg);
+    const R = 124;
+    el('circle', { cx: 150, cy: 150, r: R + 9, fill: '#C98B45' }, pie);                       // crust
+    el('circle', { cx: 150, cy: 150, r: R + 9, fill: 'none', stroke: '#E9B56E', 'stroke-width': 3, 'stroke-dasharray': '2 9', 'stroke-linecap': 'round' }, pie);
+    let a0 = 0;
+    S.owners.forEach((o, oi) => {
+      const a1 = a0 + o.s / tot * 360, big = a1 - a0 > 180 ? 1 : 0;
+      const [x0, y0] = pt(150, 150, R, a0), [x1, y1] = pt(150, 150, R, a1);
+      const g = el('g', { class: 'wedge' + (o.me ? ' me' : '') + (o.fresh ? ' newbit' : '') }, pie);
+      el('path', { d: `M150,150 L${x0.toFixed(2)},${y0.toFixed(2)} A${R},${R} 0 ${big} 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`, fill: o.c, 'fill-opacity': 0.9 }, g);
+      // pepperoni: two dots per slice
+      const steps = Math.max(1, Math.round(o.s));
+      for (let k = 0; k < steps; k++) {
+        const mid = a0 + (k + 0.5) / steps * (a1 - a0);
+        [[0.5, 0], [0.8, 7]].forEach(([rr, off], j) => { const [px, py] = pt(150, 150, R * rr, mid + (j ? off : -off / 2) * (oi % 2 ? 1 : -1)); el('circle', { cx: px.toFixed(1), cy: py.toFixed(1), r: 7.5, fill: '#B3261E', 'fill-opacity': 0.82 }, g); });
+      }
+      a0 = a1;
+    });
+    // cut lines: one per whole slice
+    for (let k = 0, a = 0; a < 360 - 0.5; k++, a = k / tot * 360) { const [x, y] = pt(150, 150, R, a); el('line', { x1: 150, y1: 150, x2: x.toFixed(2), y2: y.toFixed(2), stroke: '#1a1208', 'stroke-width': 2, 'stroke-opacity': 0.55 }, pie); }
+    el('circle', { cx: 150, cy: 150, r: R, fill: 'none', stroke: '#1a1208', 'stroke-opacity': 0.35, 'stroke-width': 1.5 }, pie);
+    S.owners.forEach((o) => { o.fresh = false; });
+    requestAnimationFrame(() => requestAnimationFrame(() => { pie.style.transform = `scale(${scale})`; lastScale = scale; }));
+    document.getElementById('pz-facts').innerHTML = `<div><b>${peso(value)}</b><span>the whole pizza is worth</span></div><div><b>${peso(S.price)}</b><span>one slice is worth</span></div>`;
+    document.getElementById('pz-legend').innerHTML = S.owners.map((o) => `<div class="${o.me ? 'you' : ''}"><i style="background:${o.c}"></i>${o.n}<span>${fmt(o.s)} slice${o.s === 1 ? '' : 's'} · ${peso(o.s * S.price)}</span></div>`).join('');
+    document.getElementById('pz-say').innerHTML = S.say || SAY0;
+  }
+  function act(a) {
+    if (a === 'reset') { S = START(); lastScale = 1; draw(); return; }
+    const you = S.owners[0];
+    if (a === 'up' || a === 'down') {
+      const was = S.price; S.price = S.price * (a === 'up' ? 1.2 : 0.8);
+      S.say = a === 'up'
+        ? `The trading earned 20%, so <b>the whole pizza got bigger</b>. Every slice grew by 20% too, from ${peso(was)} to <b>${peso(S.price)}</b>. You still own ${fmt(you.s)} slices, now worth <b>${peso(you.s * S.price)}</b>. Everyone's slices grew by the same percent.`
+        : `The trading lost 20%, so <b>the whole pizza got smaller</b>. Every slice shrank by 20% too, from ${peso(was)} to <b>${peso(S.price)}</b>. You still own ${fmt(you.s)} slices, now worth <b>${peso(you.s * S.price)}</b>. Everyone's slices shrank by the same percent, not just yours.`;
+    } else if (a === 'join') {
+      const n = S.owners.filter((o) => o.join).length, who = ['Friend C', 'Friend D', 'Friend E', 'Friend F'], cols = ['#FF8FB1', '#7DE0C0', '#F5E27A', '#C0C4FF'];
+      if (n >= who.length) { S.say = 'That is plenty of friends for this example! Tap <b>Start over</b> to try again.'; draw(); return; }
+      const slices = Math.round(3000 / S.price * 100) / 100;
+      S.owners.push({ n: who[n], s: slices, c: cols[n], join: true, fresh: true });
+      const share = you.s / total() * 100;
+      S.say = `${who[n]} joins with <b>₱3,000</b> and buys <b>${fmt(slices)} new slices</b> at today's price of ${peso(S.price)} each. <b>Your slices did not change</b>: you still own ${fmt(you.s)} and each is still worth ${peso(S.price)}. The pizza is bigger now, so your share looks smaller (${fmt(share)}%), but your slices are worth exactly what they were a moment ago.`;
+    }
+    draw();
+  }
+  document.getElementById('pz-btns').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) act(b.dataset.a); });
+  draw();
 })();
 
-// ---------- 3. units calculator (illustration only)
+// ---------- 4b. units calculator (illustration only)
 (function units() {
   const $ = (id) => document.getElementById(id);
   const run = () => {
     const put = +$('r-put').value, price = +$('r-price').value, move = +$('r-move').value / 100;
-    const units = put / price, value = put * (1 + move), gain = Math.max(0, value - put), fee = 0.1 * gain, after = value - fee;
-    $('o-put').textContent = peso(put); $('o-price').textContent = '₱' + price.toFixed(2) + ' per unit'; $('o-move').textContent = pc(move * 100);
+    const units = put / price, value = put * (1 + move), gain = Math.max(0, value - put), fee = FEE * gain, after = value - fee;
+    $('o-put').textContent = peso(put); $('o-price').textContent = '₱' + price.toFixed(2) + ' per slice'; $('o-move').textContent = pc(move * 100);
     $('u-units').textContent = units.toLocaleString('en-PH', { maximumFractionDigits: 2 });
     $('u-value').textContent = peso(value); $('u-after').textContent = peso(after);
     $('u-note').innerHTML = move > 0
-      ? `Your units stay at <b>${units.toLocaleString('en-PH', { maximumFractionDigits: 2 })}</b>. Their price rose ${pc(move * 100)}, so they are worth ${peso(value)}. The fee is 10% of the ${peso(gain)} of new profit = <b>${peso(fee)}</b>.`
-      : move < 0 ? `Your units stay the same; their price fell ${pc(move * 100)}. <b>No fee</b> is charged, and the next fee only starts once your value is back above ${peso(put)}.`
+      ? `Your slices stay at <b>${units.toLocaleString('en-PH', { maximumFractionDigits: 2 })}</b>. Each one is now worth ${pc(move * 100)} more, so together they are worth ${peso(value)}. The fee is ${FEE_PCT}% of the ${peso(gain)} of new profit = <b>${peso(fee)}</b>.`
+      : move < 0 ? `Your slices stay the same, but each one is worth ${pc(move * 100)} less. <b>No fee</b> is charged, and the next fee only starts once your money is back above ${peso(put)}.`
       : 'Nothing moved: no profit, no fee.';
   };
   ['r-put', 'r-price', 'r-move'].forEach((id) => $(id).addEventListener('input', run)); run();
 })();
 
-// ---------- 4. high-water mark over a year, settled every two months
+// ---------- 6. the best level over a year, settled every two months
 const SCEN = {
   steady: [3, 2, 4, -1, 3, 2, 3, -2, 4, 2, 3, 2],
   dip: [4, 3, -8, -9, -4, 5, 7, 6, 4, -2, 5, 4],
@@ -460,7 +587,7 @@ function hwmRun(key) {
   const pts = [{ i: 0, v, h, fee: 0 }];
   m.forEach((r, k) => {
     v *= 1 + r / 100; let fee = 0;
-    if ((k + 1) % 2 === 0 && v > h) { fee = 0.1 * (v - h); v -= fee; h = v; fees += fee; }
+    if ((k + 1) % 2 === 0 && v > h) { fee = FEE * (v - h); v -= fee; h = v; fees += fee; }
     pts.push({ i: k + 1, v, h, fee });
   });
   return { pts, fees, end: v };
@@ -485,15 +612,15 @@ function hwmDraw(key) {
   el('path', { d: hd, fill: 'none', stroke: C.blue, 'stroke-width': 1.6, 'stroke-dasharray': '5 5' }, svg);
   const line = el('path', { d, fill: 'none', stroke: C.accent, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
   const len = line.getTotalLength ? line.getTotalLength() : 0;
-  if (len && !matchMedia('(prefers-reduced-motion: reduce)').matches) { line.style.strokeDasharray = len; line.style.strokeDashoffset = len; line.getBoundingClientRect(); line.style.transition = 'stroke-dashoffset 1.2s ease'; line.style.strokeDashoffset = 0; }
+  if (len && !REDUCED) { line.style.strokeDasharray = len; line.style.strokeDashoffset = len; line.getBoundingClientRect(); line.style.transition = 'stroke-dashoffset 1.2s ease'; line.style.strokeDashoffset = 0; }
   const feePts = pts.filter((p) => p.fee > 0);
   feePts.forEach((p) => el('circle', { cx: X(p.i), cy: Y(p.v), r: 5, fill: C.accent, stroke: '#060708', 'stroke-width': 2 }, svg));
   feeTags(svg, feePts.map((p) => ({ x: X(p.i), y: Y(p.v), text: 'fee ' + peso(p.fee) })), W, pl, pr, H, pb);
   const MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  document.getElementById('hchips').innerHTML = feePts.length ? feePts.map((p) => `<span>End of ${MN[p.i - 1]}: fee ${peso(p.fee)}</span>`).join('') : '<span class="none">No fee charged in this scenario</span>';
+  document.getElementById('hchips').innerHTML = feePts.length ? feePts.map((p) => `<span>End of ${MN[p.i - 1]}: fee ${peso(p.fee)}</span>`).join('') : '<span class="none">No fee charged in this example</span>';
   const charged = pts.filter((p) => p.fee > 0).length;
   document.getElementById('hwm-out').innerHTML = `<div><b>${peso(end)}</b><span>value at year end, after fees</span></div>
-    <div><b>${peso(fees)}</b><span>total fees in ${charged} of 6 settlements</span></div>
+    <div><b>${peso(fees)}</b><span>total fees (charged in ${charged} of 6 settlements)</span></div>
     <div><b>${pc((end / 10000 - 1) * 100)}</b><span>your result for the year</span></div>`;
 }
 document.getElementById('seg').addEventListener('click', (e) => {
@@ -503,10 +630,11 @@ document.getElementById('seg').addEventListener('click', (e) => {
 hwmDraw('steady');
 
 
-// ---------- 5. 2026 investors: weekly unit prices from the backtest, run through today's rules
+// ---------- 2. 2026 friends: weekly unit prices from the test, run through today's rules
 const W26 = [{"d":"2026-01-04","p":1.0245},{"d":"2026-01-11","p":1.0957},{"d":"2026-01-18","p":1.0646},{"d":"2026-01-25","p":1.0895},{"d":"2026-01-31","p":1.2394},{"d":"2026-02-01","p":1.361},{"d":"2026-02-08","p":1.6028},{"d":"2026-02-15","p":1.4923},{"d":"2026-02-22","p":1.402},{"d":"2026-02-28","p":1.455},{"d":"2026-03-01","p":1.3138},{"d":"2026-03-08","p":1.1622},{"d":"2026-03-15","p":1.2251},{"d":"2026-03-22","p":1.2594},{"d":"2026-03-29","p":1.094},{"d":"2026-03-31","p":1.2231},{"d":"2026-04-05","p":1.1732},{"d":"2026-04-12","p":1.445},{"d":"2026-04-19","p":1.3713},{"d":"2026-04-26","p":1.3126},{"d":"2026-04-30","p":1.1327},{"d":"2026-05-03","p":1.1862},{"d":"2026-05-10","p":1.7598},{"d":"2026-05-17","p":1.6705},{"d":"2026-05-24","p":1.8576},{"d":"2026-05-31","p":1.7075},{"d":"2026-05-31","p":1.7075},{"d":"2026-06-07","p":1.9997},{"d":"2026-06-14","p":1.9862},{"d":"2026-06-21","p":1.8496},{"d":"2026-06-28","p":1.755},{"d":"2026-06-30","p":1.7695},{"d":"2026-07-05","p":1.8966},{"d":"2026-07-12","p":1.9709},{"d":"2026-07-19","p":1.8803},{"d":"2026-07-26","p":1.7239},{"d":"2026-07-31","p":1.7286},{"d":"2026-08-02","p":1.65},{"d":"2026-08-09","p":1.6322},{"d":"2026-08-16","p":1.3897},{"d":"2026-08-23","p":1.9013},{"d":"2026-08-30","p":1.9992},{"d":"2026-08-31","p":1.994},{"d":"2026-09-06","p":1.9837},{"d":"2026-09-13","p":1.9765},{"d":"2026-09-20","p":2.1207},{"d":"2026-09-27","p":2.3626},{"d":"2026-09-30","p":2.2815},{"d":"2026-10-04","p":2.2022},{"d":"2026-10-11","p":2.1185},{"d":"2026-10-18","p":1.9381},{"d":"2026-10-21","p":1.7858}];
-const RATE = 58, FEE = 0.10, SETTLE = ['02', '04', '06', '08'];
+const RATE = 58, SETTLE = ['02', '04', '06', '08'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const dl = (d) => MONTHS[+d.slice(5, 7) - 1] + ' ' + +d.slice(8, 10);
 // the last weekly valuation of each settlement month is the settlement point
 const settleIdx = new Set(SETTLE.map((m) => W26.map((x, i) => [x, i]).filter(([x]) => x.d.slice(5, 7) === m).pop()).filter(Boolean).map(([, i]) => i));
@@ -524,7 +652,7 @@ function simulate(php, joinDate) {
   }
   const last = pts[pts.length - 1].v, owed = Math.max(0, FEE * (last - hwm)), now = last - owed;
   return { join: W26[j], units, pts, fees: fees * RATE, owed: owed * RATE, now: now * RATE, put: php, low: low * RATE, best: best * RATE,
-    profit: now * RATE - php, pct: (now * RATE / php - 1) * 100, gross: (units * W26[W26.length - 1].p + fees / W26[W26.length - 1].p * 0) * RATE };
+    profit: now * RATE - php, pct: (now * RATE / php - 1) * 100 };
 }
 const FRIENDS = [
   { name: 'Ana', amt: 2000, date: '2026-01-15', c: '#C8FF3D', why: 'starts small in January to try it out' },
@@ -536,12 +664,22 @@ const FRIENDS = [
 const R = FRIENDS.map((f) => ({ ...f, r: simulate(f.amt, f.date) }));
 const cls = (n) => (n >= 0 ? 'up' : 'down');
 const sp = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + peso(Math.abs(n)).replace('−', '');
+const nameList = (xs) => xs.map((x) => x.name).join(', ').replace(/, ([^,]*)$/, ' and $1');
+// the "why some are below zero" note is written from the numbers, so it stays true if the fee or the data change
+(function negNote() {
+  const below = R.filter((x) => x.r.pct < -1.5), even = R.filter((x) => Math.abs(x.r.pct) <= 1.5), ahead = R.filter((x) => x.r.pct > 1.5);
+  const parts = [];
+  if (below.length) parts.push(`<b>${nameList(below)}</b> ${below.length > 1 ? 'are' : 'is'} below what ${below.length > 1 ? 'they' : 'they'} put in`);
+  if (even.length) parts.push(`<b>${nameList(even)}</b> ${even.length > 1 ? 'are' : 'is'} about even`);
+  document.getElementById('neg-lead').innerHTML = `Look at the table again: ${parts.join(', and ')}. That is not because they did anything wrong. They are simply <b>still early</b>: they joined only a few weeks or months ago, and that short stretch happened to include a dip in the market.`;
+  document.getElementById('neg-ahead').innerHTML = ahead.length ? `${ahead.map((x) => `${x.name} (${MONTHS_LONG[+x.date.slice(5, 7) - 1]})`).join(' and ')} had time to ride out the dips, and ${ahead.length > 1 ? 'are' : 'is'} up after fees.` : 'None are clearly ahead yet.';
+})();
 let pick = 0;
 function friendsTable() {
-  document.getElementById('ftable').innerHTML = `<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Fees settled</th><th>Value now*</th><th>Profit</th><th>%</th></tr>` +
+  document.getElementById('ftable').innerHTML = `<tr><th>Friend</th><th>Put in</th><th>Joined</th><th>Fees paid</th><th>Worth now*</th><th>Profit</th><th>%</th></tr>` +
     R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join.d)}</td>
       <td>${peso(x.r.fees)}</td><td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${(x.r.pct >= 0 ? '+' : '−') + Math.abs(x.r.pct).toFixed(1)}%</td></tr>`).join('') +
-    `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Value now = after the fees already settled and the fee that would be due if settled on Oct 21. Backtest, not real accounts.</td></tr>`;
+    `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Worth now = after the fees already paid and the fee that would be due if settled on Oct 21. Based on past prices, not real accounts.</td></tr>`;
 }
 function friendChart() {
   const x = R[pick], r = x.r, svg = document.getElementById('fchart'); svg.innerHTML = '';
@@ -563,14 +701,14 @@ function friendChart() {
   const fp = r.pts.filter((p) => p.fee > 0);
   fp.forEach((p) => el('circle', { cx: X(p.d), cy: Y(p.v * RATE), r: 5, fill: C.accent, stroke: '#060708', 'stroke-width': 2 }, svg));
   feeTags(svg, fp.map((p) => ({ x: X(p.d), y: Y(p.v * RATE), text: 'fee ' + peso(p.fee * RATE) })), W, pl, pr, H, pb);
-  document.getElementById('fchips').innerHTML = fp.length ? fp.map((p) => `<span>${dl(p.d)}: fee ${peso(p.fee * RATE)}</span>`).join('') : '<span class="none">No fee settled yet</span>';
+  document.getElementById('fchips').innerHTML = fp.length ? fp.map((p) => `<span>${dl(p.d)}: fee ${peso(p.fee * RATE)}</span>`).join('') : '<span class="none">No fee paid yet</span>';
   document.getElementById('fname').textContent = `${x.name} ${x.why}`;
   const unitsTxt = r.units.toLocaleString('en-PH', { maximumFractionDigits: 2 });
-  document.getElementById('fstory').innerHTML = `<b>${x.name}</b> hands over <b>${peso(x.amt)}</b> (${(x.amt / RATE).toFixed(2)} USDT). It joins at the valuation on <b>${dl(r.join.d)}</b>, when one unit costs ${r.join.p.toFixed(4)} USDT, so ${x.name} holds about <b>${unitsTxt} units</b> after fees.
+  document.getElementById('fstory').innerHTML = `<b>${x.name}</b> hands over <b>${peso(x.amt)}</b> (${(x.amt / RATE).toFixed(2)} USDT). It joins at the check on <b>${dl(r.join.d)}</b>, when one slice (unit) costs ${r.join.p.toFixed(4)} USDT, so ${x.name} holds about <b>${unitsTxt} slices</b> after fees.
     Since then the lowest point was <b>${peso(r.low)}</b> and the highest <b>${peso(r.best)}</b>.
-    ${r.fees > 0 ? `Fees settled so far: <b>${peso(r.fees)}</b>, only on profit above ${x.name}'s best level.` : 'No fee has been settled yet' + (r.pts.length > 1 ? ' (no settlement above the best level since joining).' : '.')}
+    ${r.fees > 0 ? `Fees paid so far: <b>${peso(r.fees)}</b>, only on profit above ${x.name}'s best level.` : 'No fee has been paid yet' + (r.pts.length > 1 ? ' (never above the best level at a settlement since joining).' : '.')}
     ${r.owed > 0 ? ` A further <b>${peso(r.owed)}</b> would be due if the period were settled on Oct 21.` : ''}
-    Today ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}%)</span> after all fees.${r.fees > 0 && r.profit < 0 ? ` Why a fee and still down? The fee was settled when ${x.name} was above their best level; the market fell after that. A settled fee is not refunded, but ${x.name} now pays nothing more until their value climbs back above that best level.` : ''}${r.pts.length < 10 ? ` ${x.name} joined only recently, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
+    Today ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}%)</span> after all fees.${r.fees > 0 && r.profit < 0 ? ` Why a fee and still down? The fee was taken when ${x.name} was above their best level; the market fell after that. A fee that was taken is not refunded, but ${x.name} now pays nothing more until their value climbs back above that best level.` : ''}${r.pts.length < 10 ? ` ${x.name} joined only recently, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
 }
 function friendsUI() {
   document.getElementById('fseg').innerHTML = R.map((x, k) => `<button data-k="${k}" class="${k === pick ? 'on' : ''}">${x.name}</button>`).join('');
@@ -588,22 +726,22 @@ friendsUI();
     $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth on Oct 21, after fees</span></div>
       <div><b style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'}">${sp(r.profit)}</b><span>${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}% after fees</span></div>
       <div><b>${peso(r.low)}</b><span>lowest point along the way</span></div>`;
-    $('y-note').textContent = `Joining at the first valuation on or after ${dl(date)} (${dl(r.join.d)}), with ${peso(r.fees + r.owed)} of fees settled or due. Backtest on actual market prices: an example, not a forecast.`;
+    $('y-note').textContent = `Joining at the first check on or after ${dl(date)} (${dl(r.join.d)}), with ${peso(r.fees + r.owed)} of fees paid or due. Based on actual past prices: an example, not a forecast.`;
   };
   ['y-amt', 'y-mon'].forEach((id) => $(id).addEventListener('input', run)); run();
 })();
 
-// ---------- 9. backtest: one year at a time, and compounded since 2020
+// ---------- 3. the test on past prices: one year at a time, and growing since 2020
 const R5 = YEARS.r['0.05'], R1 = YEARS.r['0.01'], YS = Object.keys(R5.years).sort();
 const yg = (r, y) => r.years[y].end / r.years[y].start;           // growth multiple of that year alone
 const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '₱' + Math.round(v / 1e3) + 'k' : '₱' + Math.round(v).toLocaleString('en-PH');
 (function yearTable() {
   const t = document.getElementById('ytab'); if (!t) return;
-  const row = (y) => { const g = yg(R5, y), end = 1000 * g, earned = end - 1000, net = end > 1000 ? 1000 + 0.9 * earned : end, g1 = yg(R1, y);
+  const row = (y) => { const g = yg(R5, y), end = 1000 * g, earned = end - 1000, net = end > 1000 ? 1000 + (1 - FEE) * earned : end, g1 = yg(R1, y);
     return `<tr><td>${y}${y === '2026' ? ' <span class="muted">(to Oct 21)</span>' : ''}</td><td>₱1,000</td><td>${peso(end)}</td><td class="${earned >= 0 ? 'up' : 'down'}">${sp(earned)}</td>
       <td class="${earned >= 0 ? 'up' : 'down'}">${(g >= 1 ? '+' : '−') + Math.abs((g - 1) * 100).toLocaleString('en-PH', { maximumFractionDigits: 0 })}%</td><td class="down">−${Math.round(R5.years[y].dd * 100)}%</td><td>${peso(net)}</td><td class="muted">+${Math.round((g1 - 1) * 100)}%</td></tr>`; };
-  t.innerHTML = '<tr><th>Year</th><th>Jan 1</th><th>Dec 31</th><th>Earned</th><th>Growth</th><th>Deepest dip</th><th>After 10% fee</th><th>Same year at 1% risk</th></tr>' + YS.map(row).join('');
-  document.getElementById('ytab-note').textContent = 'Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade). Backtest, before real-world surprises.';
+  t.innerHTML = `<tr><th>Year</th><th>Jan 1</th><th>Dec 31</th><th>Earned</th><th>Growth</th><th>Deepest dip</th><th>After ${FEE_PCT}% fee</th><th>Same year at 1% risk</th></tr>` + YS.map(row).join('');
+  document.getElementById('ytab-note').textContent = 'Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade). A test on the past, before real-world surprises.';
 })();
 (function years() {
   const svg = document.getElementById('years'); if (!svg) return;
@@ -617,14 +755,13 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
     el('text', { x: x + w / 2, y: top - 6, 'text-anchor': 'middle', fill: C.ink, 'font-size': 11, 'font-weight': 700 }, svg).textContent = short(d.end);
     el('text', { x: x + w / 2, y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = y;
   });
-  document.getElementById('years-note').textContent = `The deepest drop along the way was about ${(R5.dd * 100).toFixed(0)}% from a high (${dl(R5.ddAt)}, ${R5.ddAt.slice(0, 4)}). At 1% risk the same stretch fell only ${(R1.dd * 100).toFixed(0)}%. In real money a ${(R5.dd * 100).toFixed(0)}% fall is a long, painful stretch, even though the line ends higher.`;
+  document.getElementById('years-note').textContent = `The deepest drop along the way was about ${(R5.dd * 100).toFixed(0)}% from a high point (${dl(R5.ddAt)}, ${R5.ddAt.slice(0, 4)}). At 1% risk the same stretch fell only ${(R1.dd * 100).toFixed(0)}%. In real money a ${(R5.dd * 100).toFixed(0)}% fall is a long, painful stretch, even though the line ends higher.`;
 })();
-(function yrsChips() {
-  const box = document.getElementById('yrs'); if (!box) return;
-  box.innerHTML = YS.map((y) => { const g = (yg(R5, y) - 1) * 100;
-    return `<span${g < 0 ? ' style="background:rgba(255,112,112,0.12);color:var(--red);border-color:rgba(255,112,112,0.25)"' : ''}>${y}${y === '2026' ? ' (to Oct)' : ''} ${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(0)}%</span>`; }).join('');
-})();
-// ---------- reveal on scroll, and highlight the nav
+
+// ---------- sideways-scrolling tables get their hints (after the tables are filled in)
+document.querySelectorAll('.tscroll-in').forEach(swipeable);
+
+// ---------- reveal on scroll
 const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
 document.querySelectorAll('.reveal').forEach((x) => io.observe(x));
 </script>

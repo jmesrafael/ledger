@@ -18,7 +18,7 @@ async function world() {
   // john deposits 1000 and it is admitted through the workflow
   w.seed = async () => {
     const pd = (await c('admin_receive_deposit', A, w.ids.john, 1000, 58, 58000, null)).id;
-    await c('admin_confirm_arrival', A, pd, 'seen in MEXC deposit history', null);
+    await c('admin_confirm_arrival', A, pd, 'seen in the exchange deposit history', null);
     const v = await w.okCheck(1000);
     await c('admin_admit_deposit', A, pd, v, null, false);
     return pd;
@@ -34,7 +34,7 @@ test('entering a balance changes nothing and is not confirmed', async () => {
   assert.equal(v.status, 'entered'); assert.equal(await poolRows(w), before);
   assert.equal((await w.call('admin_capital_queue', w.A)).ready.ok, false);
   const pd = (await w.call('admin_receive_deposit', w.A, w.ids.john, 1000, 58, null, null)).id;
-  await w.call('admin_confirm_arrival', w.A, pd, 'seen in MEXC history', null);
+  await w.call('admin_confirm_arrival', w.A, pd, 'seen in the exchange history', null);
   await assert.rejects(() => w.call('admin_admit_deposit', w.A, pd, v.id, null, false), /not been confirmed|blocked/);
   assert.equal(await w.tu(), 0);
 });
@@ -48,7 +48,7 @@ test('confirming with an unexplained difference records the fact, issues no unit
   assert.equal(c.status, 'confirmed'); assert.equal(await w.tu(), units); assert.equal(await poolRows(w), pe);
   assert.ok(reasons(c).includes('unresolved_difference'));
   const pd = (await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, null, null)).id;
-  await w.call('admin_confirm_arrival', w.A, pd, 'seen in MEXC history', null);
+  await w.call('admin_confirm_arrival', w.A, pd, 'seen in the exchange history', null);
   await assert.rejects(() => w.call('admin_admit_deposit', w.A, pd, v.id, null, false), /not explained/);
   await assert.rejects(() => w.call('admin_settle_quarter', w.A, v.id, null, null, null, false), /not explained/);
   const r = await w.call('admin_classify_difference', w.A, v.id, 'trading_pnl', 'bot log shows closed trades worth 150');
@@ -61,12 +61,12 @@ test('duplicate confirmation, duplicate admission and an unarrived deposit are r
   const v = await w.enter(1000, 0); await w.confirm(v.id);
   await assert.rejects(() => w.confirm(v.id), /already confirmed/);
   await assert.rejects(() => w.call('admin_admit_deposit', w.A, pd, v.id, null, false), /duplicate refused/);
-  const pd2 = (await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, null, null)).id;   // reported, not in MEXC
+  const pd2 = (await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, null, null)).id;   // reported, not in the exchange
   await assert.rejects(() => w.call('admin_admit_deposit', w.A, pd2, v.id, null, false), /not confirmed as received/);
   assert.equal((await w.call('admin_capital_queue', w.A)).deposits.find((d) => d.id === pd2).state, 'awaiting_arrival');
   assert.equal(await w.units('dino'), 0);
   const pd3 = (await w.call('admin_receive_deposit', w.A, w.ids.eve, 500, 58, null, null)).id;
-  await w.call('admin_confirm_arrival', w.A, pd3, 'seen in MEXC history', null);
+  await w.call('admin_confirm_arrival', w.A, pd3, 'seen in the exchange history', null);
   const v2 = await w.enter(1500, 0); await w.confirm(v2.id);
   const a = await w.call('admin_admit_deposit', w.A, pd3, v2.id, 'k1', true);
   const b = await w.call('admin_admit_deposit', w.A, pd3, v2.id, 'k1', true);
@@ -76,7 +76,7 @@ test('duplicate confirmation, duplicate admission and an unarrived deposit are r
 
 test('direct deposit/close paths are blocked while the gate is on', async () => {
   const w = await world(); await w.seed();
-  const pd = (await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, null, null, null, null, true)).id;   // marked in MEXC
+  const pd = (await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, null, null, null, null, true)).id;   // marked in the exchange
   assert.ok(pd);
   await assert.rejects(() => w.call('admin_post_equity', w.A, 1500), /Capital desk/);
   await assert.rejects(() => w.call('admin_close_quarter', w.A, 1500), /Capital desk/);
@@ -105,7 +105,7 @@ test('withdrawal waits while a position is open (one closed, one open), then goe
   assert.ok(near(out.pay_usdt, quote.pay_usdt)); assert.ok(near(out.pay_usdt, 400));
   assert.ok(near(await w.units('john'), 600));
   await assert.rejects(() => w.call('admin_execute_withdrawal', w.A, rid, v2, false, null, null, 'x2', false), /duplicate refused/);
-  await assert.rejects(() => w.call('admin_apply_balance', w.A, v2, null, null, false), /already used/);   // MEXC balance changed
+  await assert.rejects(() => w.call('admin_apply_balance', w.A, v2, null, null, false), /already used/);   // Exchange balance changed
 });
 
 test('lock-up exception needs a written reason, is recorded and audited, and still goes through the engine', async () => {
@@ -131,12 +131,12 @@ test('payout lifecycle: failed, retried, sent, completed; not repeatable; sent m
   await w.call('admin_approve_withdrawal', w.A, rid, null, 'approved as an exception for testing');
   const x = await w.okCheck(1000, 0);
   await w.call('admin_execute_withdrawal', w.A, rid, x, false, null, null, null, false);
-  await assert.rejects(() => w.call('admin_payout_complete', w.A, rid, 'GC123', null), /sent from MEXC first/);
-  await w.call('admin_payout_sent', w.A, rid, 'MEXC-WD-1', null);
+  await assert.rejects(() => w.call('admin_payout_complete', w.A, rid, 'GC123', null), /sent from the exchange first/);
+  await w.call('admin_payout_sent', w.A, rid, 'Exchange-WD-1', null);
   await w.call('admin_payout_fail', w.A, rid, 'GCash rejected the number');
   let s = (await w.call('my_position', w.J)).withdrawals[0]; assert.equal(s.state, 'payout_failed');
   await w.call('admin_payout_retry', w.A, rid, 'new number');
-  await w.call('admin_payout_sent', w.A, rid, 'MEXC-WD-2', null);
+  await w.call('admin_payout_sent', w.A, rid, 'Exchange-WD-2', null);
   await w.call('admin_payout_complete', w.A, rid, 'GC-REF-9', null);
   s = (await w.call('my_position', w.J)).withdrawals[0]; assert.equal(s.state, 'completed');
   await assert.rejects(() => w.call('admin_payout_complete', w.A, rid, 'GC-REF-9', null), /duplicate refused/);

@@ -21,7 +21,7 @@ test('G1 gate off (or unknown): every old form is shown as it always was', () =>
 test('G2 gate on: the withdrawal and settlement forms become instructions with a button to the Capital tab, not forms and not errors', () => {
   const q = { gate: 'on' };
   assert.equal(Gate.on(q), true);
-  for (const [kind, words] of [['withdrawal', ['Approve', 'Quote', 'Redeem', 'confirmed balance']], ['settlement', ['Valuation and settlement', 'confirm the MEXC balance', '7 days', 'exception']]]) {
+  for (const [kind, words] of [['withdrawal', ['Approve', 'Quote', 'Redeem', 'confirmed balance']], ['settlement', ['Valuation and settlement', 'confirm the exchange balance', '7 days', 'exception']]]) {
     const h = Gate.oldForm(kind, q);
     assert.ok(h && h.includes('The workflow gate is on'), kind);
     assert.ok(h.includes('data-tab="record" data-rec="eq"'), kind + ' links to Record → Balance');
@@ -31,21 +31,21 @@ test('G2 gate on: the withdrawal and settlement forms become instructions with a
   }
 });
 
-test('G3 gate on: the balance form only steps aside while deposits already in MEXC are waiting, and says how many and how much', () => {
+test('G3 gate on: the balance form only steps aside while deposits already in the exchange are waiting, and says how many and how much', () => {
   const q = { gate: 'on' };
   assert.equal(Gate.oldForm('balance', q, { arrived: 0, totalText: '$0' }), null, 'nothing waiting: the valuation form stays (it moves no units)');
   assert.equal(Gate.oldForm('balance', q, {}), null);
   const one = Gate.oldForm('balance', q, { arrived: 1, totalText: '$100.00' });
-  assert.match(one, /1 deposit is already in MEXC and waiting \(\$100\.00\)/); assert.match(one, /Admit it there first/);
+  assert.match(one, /1 deposit is already in the exchange and waiting \(\$100\.00\)/); assert.match(one, /Admit it there first/);
   const two = Gate.oldForm('balance', q, { arrived: 2, totalText: '$250.50' });
-  assert.match(two, /2 deposits are already in MEXC and waiting \(\$250\.50\)/); assert.match(two, /Admit them there first/);
+  assert.match(two, /2 deposits are already in the exchange and waiting \(\$250\.50\)/); assert.match(two, /Admit them there first/);
   assert.ok(!/<form|<input/.test(one + two));
   assert.match(Gate.oldForm('balance', q, { arrived: 1, totalText: '<b>x</b>' }), /&lt;b&gt;x&lt;\/b&gt;/, 'page-supplied text is escaped');
 });
 
 test('G4 the deposit and waiting-money wording exists and points to the three steps', () => {
-  assert.match(Gate.TEXT.deposit, /Seen in MEXC/); assert.match(Gate.TEXT.deposit, /admit/);
-  assert.match(Gate.TEXT.waiting, /three steps/); assert.match(Gate.TEXT.waiting, /Seen in MEXC/); assert.match(Gate.TEXT.waiting, /Admit/);
+  assert.match(Gate.TEXT.deposit, /Seen in the exchange/); assert.match(Gate.TEXT.deposit, /admit/);
+  assert.match(Gate.TEXT.waiting, /three steps/); assert.match(Gate.TEXT.waiting, /Seen in the exchange/); assert.match(Gate.TEXT.waiting, /Admit/);
 });
 
 test('G5 wiring: the app routes the withdrawal, balance and settlement forms through the module, and loads it before the app', () => {
@@ -55,7 +55,7 @@ test('G5 wiring: the app routes the withdrawal, balance and settlement forms thr
   assert.match(app, /Gate\.on\(S\.queue\)/);
   const p = html.indexOf('js/gate.js'), a = html.indexOf('js/app.js');
   assert.ok(p > 0 && a > p, 'login.html loads js/gate.js before js/app.js');
-  // with the gate on, the in-MEXC checkbox and the "In MEXC" button give way to the Capital tab (arrival is confirmed there, with a note)
+  // with the gate on, the in-Exchange checkbox and the "In the exchange" button give way to the Capital tab (arrival is confirmed there, with a note)
   assert.match(app, /\$\{d\.arrived_at \|\| g \? '' :/);
   assert.match(app, /\$\{gateOn\(\) \? '<p class="note"><b>The workflow gate is on\.<\/b> ' \+ Gate\.TEXT\.deposit/);
 });

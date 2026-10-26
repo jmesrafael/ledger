@@ -1,35 +1,19 @@
 [
   {
     "slug": "how-lucid-io-works-v2",
-    "title": "How Your Money Works — Investor Guide (home page)",
-    "summary": "The home page at lucidio.vercel.app. Units, the 10% fee on new profit above your best level (settled every two months), deposits, withdrawals, the real risks of 5% per trade, what ₱1,000 does in each year, and the backtest. Interactive examples.",
-    "updated": "Oct 24, 2026",
+    "title": "How Your Money Works: Investor Guide (home page)",
+    "summary": "The home page at lucidio.vercel.app. How it works, real-price examples, what ₱1,000 did in each past year, your slice of the pool (as a pizza), the 20% fee on new profit above your best level, taking money out and the real risks. Interactive examples.",
+    "updated": "Oct 26, 2026",
     "kind": "Guide",
-    "file": "reports/how-lucid-io-works-v2.html"
-  },
-  {
-    "slug": "how-lucid-io-works",
-    "title": "How Lucid'io Works — Guide for Friends",
-    "summary": "Plain-language guide to share: joining and units, the 10% share on new profit (best-ever line), a 2026 example of four people at 1% vs 5% risk, and where it is uncertain. No strategy rules.",
-    "updated": "22 Oct 2026",
-    "kind": "Guide",
-    "file": "reports/how-lucid-io-works.html"
+    "file": "how-lucid-io-works-v2.html"
   },
   {
     "slug": "backtest-data",
-    "title": "7-Year Backtest — What $100 Could Have Become",
-    "summary": "Growth of $100, year-by-year and month-by-month returns, drawdowns, and which months tend to be weak. Compounded once a year.",
-    "updated": "22 Oct 2026",
-    "kind": "Backtest report",
-    "file": "reports/backtest-data.html",
-    "pdf": "reports/backtest-data.pdf"
-  },
-  {
-    "slug": "risk-and-compounding",
-    "title": "Risk & Compounding — 1% to 5% per Trade",
-    "summary": "Why October 2026 is red, drawdowns by year, and $100 compounded at 1–5% risk (all years, last 12 months, each year restarted, months shuffled).",
-    "updated": "22 Oct 2026",
-    "kind": "Reference data",
-    "file": "reports/risk-and-compounding.html"
+    "title": "What ₱1,000 Could Have Become: Past-Price Data",
+    "summary": "Growth of ₱1,000 after the 20% fee, year-by-year and month-by-month results, drops, and which months tend to be weak. A test on past prices, not a promise.",
+    "updated": "Oct 26, 2026",
+    "kind": "Data report",
+    "file": "backtest-data.html",
+    "pdf": "backtest-data.pdf"
   }
 ]

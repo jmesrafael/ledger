@@ -15,7 +15,7 @@ flagged **(confirm)** are defaults chosen so the code runs, not decisions.
 |---|---|---|
 | 1 | No high-water mark, no loss carry-forward (doc section 3, tests B3/B4 assert it) | A period that only recovers an earlier loss is charged 10% in full. An investor at −20% since joining pays fees on the rebound. |
 | 2 | Settlement every quarter, at least 80 days apart | The agreed schedule is every two months; 80 days also makes a two-month schedule impossible. |
-| 3 | A settlement needs no reconciliation (`settlement_gate` defaults to `off`) | Fees can be finalized on a NAV that nobody has reconciled against MEXC. |
+| 3 | A settlement needs no reconciliation (`settlement_gate` defaults to `off`) | Fees can be finalized on a NAV that nobody has reconciled against Exchange. |
 | 4 | Fund M capital vs fee units are split by ledger `kind` | A manager withdrawal is always taken from "capital", which can go negative while fee units stay untouched. |
 | 5 | Settlements leave no per-investor record | A fee cannot be re-derived later without replaying the whole ledger by hand. |
 
@@ -25,7 +25,7 @@ checked and is kept unchanged. Section 2 restates it because the HWM depends on 
 ## 2. Unit accounting (unchanged, restated)
 
 ```
-NAV                = MEXC total − deposits still waiting to be admitted   (waiting money is a liability, not pool equity)
+NAV                = Exchange total − deposits still waiting to be admitted   (waiting money is a liability, not pool equity)
 unit price P       = NAV ÷ U          U = every outstanding unit, Fund M's included
 admit deposit D    units = round8(D ÷ P) at the next valuation; P unchanged
 redeem n units     pay = round6((n − fee units) × P); P unchanged
@@ -58,7 +58,7 @@ shortfall as `below_hwm_usdt`, and `E − H` as `period_profit_usdt`. Fund M has
   deposits hold no units and earn nothing until a valuation admits them.
 - *Different entry dates* need no special handling: each investor's mark starts at their own admission value.
 - *Total fee over a life* is `r × (final value + withdrawals − deposits − fees already paid back into H)`: 10% of the net profit above the
-  best previous post-fee level, never more.
+  best previous post-fee level, never more. (Written at 10% when this was designed; the default is now 20%.)
 
 **Rejected alternatives.**
 - Per-deposit lots (the 2026-10-27 engine): an old lot's loss does not shelter a new lot's gain, so an investor who is down overall can still pay a fee.
@@ -87,7 +87,7 @@ can never exceed the loss the investor actually suffered. The manager forgoes at
 6. If a period is missed, the next settlement covers everything since the last one. The HWM makes this harmless, because fees depend on
    the mark, not on the period.
 
-**Order inside the one transaction** (single writer lock, idempotency key): period checks → MEXC gate (if on) → valuation sanity check →
+**Order inside the one transaction** (single writer lock, idempotency key): period checks → Exchange gate (if on) → valuation sanity check →
 settlement entry written at P → **reconciliation** → per-investor fees (`_hwm_close` on the stored mark) → `settlement_lines` → Fund M split →
 `settlements` row → scheduled fee-rate rises take effect → waiting deposits admitted at P → books check.
 
@@ -96,24 +96,24 @@ settlement entry written at P → **reconciliation** → per-investor fees (`_hw
 ```
 opening NAV + deposits admitted − withdrawals paid + trading P&L = closing NAV          (ledger identity; defines trading P&L)
 trading P&L  ==  Σ over entries of (units outstanding before the entry × its price move)  (independent recomputation)
-MEXC total   =  closing NAV + deposits waiting (liability)
+Exchange total   =  closing NAV + deposits waiting (liability)
 ```
 
 | Status | Meaning | Settlement |
 |---|---|---|
 | `internal_mismatch` | The two trading-P&L figures differ by more than `recon_internal_tolerance` (0.01 USDT): some entry's equity does not follow from its flows | **always refused** (`settlement_recon` ≠ `off`) |
-| `unmatched_transfers` | A MEXC transfer is not matched to a deposit or withdrawal, so part of the balance change is unexplained | **always refused** (`settlement_recon` ≠ `off`) |
-| `unverified` | No fresh, clean MEXC snapshot that agrees with the typed total | allowed only with (a) the newest **confirmed balance check** for the same total (`verified_manual`, 1108), or (b) an approved `unreconciled` exception for this period and total: written reason, open positions declared, activity log (1109) |
+| `unmatched_transfers` | A Exchange transfer is not matched to a deposit or withdrawal, so part of the balance change is unexplained | **always refused** (`settlement_recon` ≠ `off`) |
+| `unverified` | No fresh, clean Exchange snapshot that agrees with the typed total | allowed only with (a) the newest **confirmed balance check** for the same total (`verified_manual`, 1108), or (b) an approved `unreconciled` exception for this period and total: written reason, open positions declared, activity log (1109) |
 | `verified` | All of the above agree | allowed |
 
 **Open trades (1109).** If any position or order is open (balance check, bot snapshot, or the declaration in the exception), the settlement is
 refused unless an `open_positions` exception was approved. This is what stops a fee being charged on a paper gain that later reverses.
 Each exception is used by one settlement only and is saved on it (`settlements.exception_ids`).
 
-Realized vs unrealized P&L, trading fees and funding are **inside** the MEXC total. The bot does not report them yet (section 8). With
+Realized vs unrealized P&L, trading fees and funding are **inside** the exchange total. The bot does not report them yet (section 8). With
 `settlement_gate = 'on'` a settlement additionally needs the pool to be flat, which makes the fee realized-only.
 
-**Profit left on MEXC** is booked internally as unit transfers (`fee_out` / `fee_in`). It never creates a deposit, a pending deposit or a transfer match.
+**Profit left on the exchange** is booked internally as unit transfers (`fee_out` / `fee_in`). It never creates a deposit, a pending deposit or a transfer match.
 
 ## 5. Fund M: own capital vs performance-fee entitlement
 
@@ -124,19 +124,19 @@ this split, so they always add up to Fund M's units and neither can go negative.
 
 **Fee basis (`fee_basis`, confirm).**
 - `external_investors` (default; same as today): only investors' eligible profit is charged. Fund M's own capital pays nothing.
-- `all_pool`: in addition, Fund M's own capital is measured against its own HWM. 10% (`fund_m_own_fee_rate`) of its eligible profit is
+- `all_pool`: in addition, Fund M's own capital is measured against its own HWM. 20% (`fund_m_own_fee_rate`, default 20% from `20261114000000_fee_20.sql`) of its eligible profit is
   **reclassified** from Fund M capital to Fund M fee entitlement. No units move between people, and **investors pay exactly the same under
-  both settings**. The setting never charges investors for profit earned on Fund M's money. If "10% of all pool profit" was meant to come
+  both settings**. The setting never charges investors for profit earned on Fund M's money. If "20% of all pool profit" was meant to come
   out of investors' accounts, that rule is unfair to investors and is deliberately not implemented.
 
-## 6. Interface for Agent 2 (UI, MEXC balance entry, queues)
+## 6. Interface for Agent 2 (UI, Exchange balance entry, queues)
 
 All functions take the session token first, like the existing RPCs. Unchanged signatures are marked =.
 
 | Function | Use |
 |---|---|
 | `admin_settlement_preview(token, mexc_total, at default now)` → jsonb | **Read-only.** Period start/end, `can_settle` + `blocked_reasons[]`, reconciliation (opening NAV, deposits, withdrawals, trading P&L both ways, waiting-deposit liability, snapshot evidence, status), per-investor lines (units, value, hwm, eligible profit, fee USDT/units), fee totals, Fund M split, waiting deposits that will be admitted after. Show this before the manager confirms. |
-| `admin_approve_settlement_exception(token, kind, mexc_total, note ≥ 20 chars, at default now, open positions)` → jsonb (1109) | Approves an exception: `kind` is `unreconciled`, `late`, `backdated` or `open_positions`. Bound to the period and the MEXC total (± tolerance), used by one settlement, audited, append-only. An internal mismatch or an unmatched MEXC transfer cannot be excepted. |
+| `admin_approve_settlement_exception(token, kind, mexc_total, note ≥ 20 chars, at default now, open positions)` → jsonb (1109) | Approves an exception: `kind` is `unreconciled`, `late`, `backdated` or `open_positions`. Bound to the period and the exchange total (± tolerance), used by one settlement, audited, append-only. An internal mismatch or an unmatched Exchange transfer cannot be excepted. |
 | `admin_attest_settlement(token, mexc_total, note, at, open positions)` | The older name for an `unreconciled` exception. From 1109 it also needs the open-positions argument; without it the call is refused. |
 | `admin_backup_coverage(token)` → jsonb (1109) | Lists any ledger table that is neither in the backup nor deliberately excluded. Must be `[]`. |
 | `admin_close_quarter(token, equity, php_rate, note, at, idem, confirm)` = | Performs the settlement. It returns the old fields plus `settlement_id`, `period_start`, `period_end`, `fee_usdt`, `recon_status`. The name is kept so the app keeps working; it now settles the **two-month period**. |

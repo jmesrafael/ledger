@@ -12,9 +12,9 @@
 --    unless a 'backdated' exception was approved (written reason, logged). Each settlement saves both times (valued_at, recorded_at) and
 --    whether it was backdated; existing rows are not changed.
 -- 2. RECONCILIATION OR AN AUDITED EXCEPTION. A settlement needs (a) a verified bot snapshot, or (b) the newest confirmed balance check for the
---    same MEXC total. A typed note alone is no longer a verification: it is an EXCEPTION ('unreconciled'), approved with
+--    same Exchange total. A typed note alone is no longer a verification: it is an EXCEPTION ('unreconciled'), approved with
 --    admin_approve_settlement_exception (or the older admin_attest_settlement, now a wrapper), with the open positions declared, written
---    to the activity log, and saved on the settlement. An internal mismatch or an unmatched MEXC transfer can never be excepted.
+--    to the activity log, and saved on the settlement. An internal mismatch or an unmatched Exchange transfer can never be excepted.
 -- 3. NO FEES ON OPEN-TRADE GAINS by default. If any position or order is open (balance check, bot snapshot or the declaration), the
 --    settlement is refused unless an 'open_positions' exception was approved (written reason, logged).
 -- 4. A direct insert of a quarter close into pool_equity is refused unless it comes from admin_close_quarter (settle_guard).
@@ -70,7 +70,7 @@ alter table public.settlements add column if not exists backdated boolean not nu
 create or replace function public._clock() returns timestamptz language sql stable security definer set search_path = public as $$ select now() $$;
 
 -- ---------------------------------------------------------------- helpers
--- the newest approved exception of this kind for this period and MEXC total that no settlement has used yet
+-- the newest approved exception of this kind for this period and Exchange total that no settlement has used yet
 create or replace function public._settlement_exception(p_kind text, p_period_end timestamptz, p_total numeric) returns bigint
 language sql stable security definer set search_path = public as $$
   select x.id from settlement_exceptions x
@@ -79,7 +79,7 @@ language sql stable security definer set search_path = public as $$
    order by x.id desc limit 1
 $$;
 
--- the newest confirmed balance check, if it is for this MEXC total and every difference is explained (open positions are judged separately)
+-- the newest confirmed balance check, if it is for this exchange total and every difference is explained (open positions are judged separately)
 create or replace function public._settlement_check(p_total numeric, out o_id bigint, out o_open int)
 language plpgsql stable security definer set search_path = public as $$
 declare v balance_verifications%rowtype; rd jsonb; s exchange_snapshots%rowtype; v_bad boolean;
@@ -141,20 +141,20 @@ begin
       else
         v_x := _settlement_exception('unreconciled', v_per.o_end, p_equity);
         if v_x is null then
-          v_block := v_block || to_jsonb('RECONCILE: this period is not reconciled with MEXC (' || coalesce((select string_agg(r, '; ') from jsonb_array_elements_text(v_rec->'reasons') r), 'no verification')
-            || '). Enter and confirm this MEXC balance (balance check), or approve an exception for this MEXC total (admin_approve_settlement_exception) with a written reason and the open positions declared.');
+          v_block := v_block || to_jsonb('RECONCILE: this period is not reconciled with the exchange (' || coalesce((select string_agg(r, '; ') from jsonb_array_elements_text(v_rec->'reasons') r), 'no verification')
+            || '). Enter and confirm this exchange balance (balance check), or approve an exception for this exchange total (admin_approve_settlement_exception) with a written reason and the open positions declared.');
         else
           select open_positions, attestation_id into v_open, v_att from settlement_exceptions where id = v_x;
           v_ids := v_ids || v_x;
           if v_open is null then
-            v_block := v_block || to_jsonb('OPEN TRADES: say how many positions and orders are open on MEXC (declare them in the exception: admin_approve_settlement_exception).'::text);
+            v_block := v_block || to_jsonb('OPEN TRADES: say how many positions and orders are open on the exchange (declare them in the exception: admin_approve_settlement_exception).'::text);
           end if;
         end if;
       end if;
       if coalesce(v_open, 0) > 0 then
         v_x := _settlement_exception('open_positions', v_per.o_end, p_equity);
         if v_x is null then
-          v_block := v_block || to_jsonb(format('OPEN TRADES: %s position(s)/order(s) are open on MEXC, so the balance includes gains that are not realized yet. Close them and settle, or approve an open_positions exception with a written reason.', v_open));
+          v_block := v_block || to_jsonb(format('OPEN TRADES: %s position(s)/order(s) are open on the exchange, so the balance includes gains that are not realized yet. Close them and settle, or approve an open_positions exception with a written reason.', v_open));
         else v_ids := v_ids || v_x; end if;
       end if;
     end if;
@@ -171,10 +171,10 @@ declare v_actor uuid := _admin(p_token); v_at timestamptz := coalesce(p_at, now(
 begin
   perform _ledger_lock();
   if p_kind not in ('unreconciled', 'late', 'open_positions', 'backdated') then raise exception 'the exception is unreconciled, late, backdated or open_positions'; end if;
-  if p_equity is null or p_equity <= 0 then raise exception 'enter the MEXC total this exception is for'; end if;
+  if p_equity is null or p_equity <= 0 then raise exception 'enter the exchange total this exception is for'; end if;
   if p_note is null or length(trim(p_note)) < 20 then raise exception 'write the reason for the exception (at least 20 characters)'; end if;
   if p_kind in ('unreconciled', 'open_positions') and (p_open is null or p_open < 0) then
-    raise exception 'say how many positions and orders are open on MEXC right now (0 if none)';
+    raise exception 'say how many positions and orders are open on the exchange right now (0 if none)';
   end if;
   if p_kind = 'open_positions' and p_open = 0 then raise exception 'an open_positions exception is for open trades: declare how many are open'; end if;
   select * into v_per from _settlement_period(v_at);

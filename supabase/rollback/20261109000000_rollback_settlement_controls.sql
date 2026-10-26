@@ -34,7 +34,7 @@ language plpgsql security definer set search_path = public as $$
 declare v_actor uuid := _admin(p_token); v_per record; v_id bigint; v_rec jsonb;
 begin
   perform _ledger_lock();
-  if p_equity is null or p_equity <= 0 then raise exception 'enter the MEXC total this explanation is for'; end if;
+  if p_equity is null or p_equity <= 0 then raise exception 'enter the exchange total this explanation is for'; end if;
   if p_note is null or length(trim(p_note)) < 20 then raise exception 'write what explains the difference (at least 20 characters)'; end if;
   select * into v_per from _settlement_period(coalesce(p_at, now()));
   v_rec := _settlement_recon((select max(id) from pool_equity), p_equity, _price_from(p_equity), coalesce(p_at, now()));
@@ -89,14 +89,14 @@ begin
     end if;
     v_bv := _verified_balance_check(p_equity);
     if v_rec->>'status' = 'unverified' and v_bv is not null then
-      -- the manager typed this MEXC total and then confirmed it as a separate step (balance check), flat and with every difference explained
+      -- the manager typed this exchange total and then confirmed it as a separate step (balance check), flat and with every difference explained
       v_rec := v_rec || jsonb_build_object('status', 'verified_manual', 'balance_verification_id', v_bv, 'reasons_before', v_rec->'reasons', 'reasons', '[]'::jsonb);
     end if;
     if v_rec->>'status' = 'unverified' then
       v_tol := greatest(coalesce(_setting('recon_tolerance_abs'), '0.5')::numeric, p_equity * coalesce(_setting('recon_tolerance_pct'), '0.0005')::numeric);
       select id into v_att from settlement_attestations where period_end = v_per.o_end and abs(mexc_total - p_equity) <= v_tol order by id desc limit 1;
       if v_att is null and v_mode = 'require' then
-        raise exception 'RECONCILE: this period is not reconciled with MEXC (%). Enter and confirm this MEXC balance (balance check), or explain it with admin_attest_settlement for this MEXC total, then settle.',
+        raise exception 'RECONCILE: this period is not reconciled with the exchange (%). Enter and confirm this exchange balance (balance check), or explain it with admin_attest_settlement for this exchange total, then settle.',
           (select string_agg(x, '; ') from jsonb_array_elements_text(v_rec->'reasons') x);
       end if;
     end if;

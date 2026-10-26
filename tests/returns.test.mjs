@@ -45,7 +45,7 @@ async function world() {   // manager Raf + investors John and Dino, 20% profit 
   return { db, A, ids, T };
 }
 
-// what MEXC shows = the pool (units x price) + money still waiting to join
+// what Exchange shows = the pool (units x price) + money still waiting to join
 async function mexcTotal(db, A, priceFactor = 1) {
   const pool = await call(db, 'pool_summary', A);
   const waiting = (await call(db, 'admin_pending', A)).reduce((t, d) => t + Number(d.usdt), 0);

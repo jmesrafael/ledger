@@ -18,7 +18,7 @@ test('A1-A4 deposit buys units at the recorded price; trading moves the price, n
   assert.ok(near(await w.units('john'), 1000) && near(await w.price(), 1), 'A1: 1,000 USDT at 1.00 = 1,000 units');
   await post(w, 1100);
   assert.ok(near(await w.price(), 1.1) && near(await w.units('john'), 1000), 'A2: pool +10% moves the price, not the units');
-  await w.join('dino', 1100, 2200);                                           // MEXC now holds 1,100 (pool) + 1,100 (waiting)
+  await w.join('dino', 1100, 2200);                                           // Exchange now holds 1,100 (pool) + 1,100 (waiting)
   assert.ok(near(await w.units('dino'), 1000), 'A3: a deposit at 1.10 issues 1,100 / 1.10 = 1,000 units');
   assert.ok(near(await w.units('john'), 1000), "A3: nobody else's units changed");
   await w.unlockAll();
@@ -266,11 +266,11 @@ test('D27 a retried withdrawal does not redeem twice', async () => {
 });
 
 // ============================================================ E. exchange reconciliation and settlement safeguards
-test('E28-E30 a transfer into MEXC is not profit; transfers are matched, deduplicated, and unmatched ones block automatic readings', async () => {
+test('E28-E30 a transfer into the exchange is not profit; transfers are matched, deduplicated, and unmatched ones block automatic readings', async () => {
   const w = await john1000();
   await w.db.exec(`update public.ledger_settings set value = 'on' where key = 'settlement_gate'`);
-  await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, 0, null);   // received, but the money has not reached MEXC yet
-  const p0 = await post(w, 1000);                                             // MEXC still shows 1,000
+  await w.call('admin_receive_deposit', w.A, w.ids.dino, 500, 58, 0, null);   // received, but the money has not reached the exchange yet
+  const p0 = await post(w, 1000);                                             // Exchange still shows 1,000
   assert.ok(near(p0.unit_price, 1), 'E28: unarrived money is not subtracted, so the price is not diluted');
   assert.equal(await w.units('dino'), 0, 'and it does not join before it has arrived');
   const tr = { id: 'T-100', ts: new Date().toISOString(), dir: 'in', usdt: 500 };
@@ -286,7 +286,7 @@ test('E28-E30 a transfer into MEXC is not profit; transfers are matched, dedupli
   assert.equal((await w.q(`select count(*)::int n from public.exchange_transfers t where not exists (select 1 from public.transfer_matches m where m.transfer_id = t.id)`))[0].n, 1);
   const bot = await w.call('bot_post_equity', BOT_KEY, 1200);
   assert.match(bot.skipped, /not matched/, 'E29: the bot does not turn the missing 300 into a trading loss');
-  assert.match(await err(() => post(w, 1200, null, false)), /CONFIRM: 1 MEXC transfer/, 'neither does a typed reading without an explicit yes');
+  assert.match(await err(() => post(w, 1200, null, false)), /CONFIRM: 1 Exchange transfer/, 'neither does a typed reading without an explicit yes');
   await w.call('admin_classify_transfer', w.A, 'T-200', 'withdrawal_recorded', 'paid out to John, entry 12');
   await w.db.exec(`update public.ledger_settings set value = '0' where key = 'bot_min_minutes'`);
   const after = await w.call('bot_post_equity', BOT_KEY, 1200);
@@ -307,23 +307,23 @@ test('E31-E33 fee settlement is blocked by a stale snapshot, open trades, or an 
   const w = await john1000();
   await w.db.exec(`update public.ledger_settings set value = 'on' where key = 'settlement_gate'`);
   await post(w, 1100);
-  assert.match(await err(() => close(w, 1100)), /no MEXC snapshot yet/);
+  assert.match(await err(() => close(w, 1100)), /no Exchange snapshot yet/);
   await w.botSnap(1100, 0, 0, { realized: 0 });                               // baseline (first snapshot)
   assert.match(await err(() => close(w, 1100)), /not clean \(first snapshot/, 'a baseline needs a written attestation');
   const snaps = await w.q(`select id from public.exchange_snapshots order by id desc limit 1`);
-  await w.call('admin_attest_snapshot', w.A, snaps[0].id, 'baseline checked against the MEXC app by hand');
+  await w.call('admin_attest_snapshot', w.A, snaps[0].id, 'baseline checked against the exchange app by hand');
   // E32: an exchange failure is a refused call, never a zero balance
   assert.match(await err(() => w.call('bot_post_snapshot', BOT_KEY, null, 0, 0, 0, 0, '[]', true)), /incomplete snapshot/);
   assert.match(await err(() => w.call('bot_post_equity', BOT_KEY, 0)), /more than 0/);
   assert.match(await err(() => post(w, 0)), /must be > 0|must be/);
   // open trades
   await w.botSnap(1100, 1, 0, { realized: 0 });
-  assert.match(await err(() => close(w, 1100)), /still open on MEXC/);
+  assert.match(await err(() => close(w, 1100)), /still open on the exchange/);
   // E33: balance moves with no realised PnL to explain it
   const s = await w.botSnap(1100 + 40, 0, 0, { realized: 0 });
   assert.equal(s.recon_status, 'blocked'); assert.match(s.recon_detail, /differs from the expected/);
   assert.match(await err(() => close(w, 1140)), /not clean/);
-  await w.call('admin_attest_snapshot', w.A, s.snapshot_id, 'extra 40 USDT is an exchange rebate, checked in the MEXC statement');
+  await w.call('admin_attest_snapshot', w.A, s.snapshot_id, 'extra 40 USDT is an exchange rebate, checked in the exchange statement');
   const ok = await close(w, 1140);
   assert.ok(Number(ok.fee_units) > 0, 'settles after the attestation');
   // stale
