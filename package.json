@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "LEDGER: unit-based pool monitor (USDT-valued) for friends & family",
   "scripts": {
-    "test": "node --test tests/ledger.test.mjs tests/returns.test.mjs tests/audit-backup.test.mjs tests/statements.test.mjs tests/bot-sync.test.mjs tests/integrity.test.mjs tests/integrity.property.test.mjs tests/withdrawal-fee.test.mjs tests/capital-workflow.test.mjs tests/position-ui.test.mjs tests/hwm.test.mjs tests/risk-fixes.test.mjs tests/gate-ui.test.mjs tests/hwm-settlement.test.mjs tests/settlement-workflow.test.mjs tests/contact.test.mjs tests/pool-update.test.mjs tests/pool-ui.test.mjs tests/record-help.test.mjs",
+    "test": "node --test tests/ledger.test.mjs tests/returns.test.mjs tests/audit-backup.test.mjs tests/statements.test.mjs tests/bot-sync.test.mjs tests/integrity.test.mjs tests/integrity.property.test.mjs tests/withdrawal-fee.test.mjs tests/capital-workflow.test.mjs tests/position-ui.test.mjs tests/hwm.test.mjs tests/risk-fixes.test.mjs tests/gate-ui.test.mjs tests/hwm-settlement.test.mjs tests/settlement-workflow.test.mjs tests/contact.test.mjs tests/pool-update.test.mjs tests/pool-ui.test.mjs tests/record-help.test.mjs tests/payout-methods.test.mjs",
     "test:race": "node --test tests/concurrency.docker.mjs",
     "rehearse": "node scripts/rehearse-migration.mjs"
   },
