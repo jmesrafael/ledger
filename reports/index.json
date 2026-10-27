@@ -1,5 +1,13 @@
 [
   {
+    "slug": "ichimoku-vs-current-bot",
+    "title": "Ichimoku Trend-Follower vs the Current Bot",
+    "summary": "Research, five coins, 2020–2026: a cloud-breakout trend-follower against the current bot. Every year and every month, wins and losses, drops, per-coin results, stress tests, an independent re-check, and merge-or-separate-account test. Ichimoku makes more R but depends on a few giant trades.",
+    "updated": "27 Oct 2026",
+    "kind": "Research",
+    "file": "reports/ichimoku-vs-current-bot.html"
+  },
+  {
     "slug": "merged-strategies-sol",
     "title": "Merged Strategies on SOL — Current Bot + Trend-Follower",
     "summary": "Research, SOL only, 7 years: the current bot, a slow trend-follower and the two run side by side, year by year. Charts of growth, yearly results, who earns what, drops from peak, and a fair equal-risk comparison.",
