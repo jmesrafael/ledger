@@ -226,8 +226,14 @@
   const kv = (k, v, sub) => el('div', {}, el('dt', {}, k), el('span', { class: 'fill', 'aria-hidden': 'true' }), el('dd', {}, v, sub || null));
 
   function renderKpis(d) {
-    const cap = d.capital, o = d.overall, s = d.status;
-    if (cap) {
+    const cap = d.capital, o = d.overall, s = d.status, tc = d.bots && d.bots.icore ? d.total_capital : null;
+    if (tc) {   // both bots report: Total capital is BB-Core + I-Core added together, with each part shown (a paper balance is labelled as such)
+      $('#kCapital').textContent = fmtUsd(tc.usd);
+      const sub = $('#kCapitalSub'); clear(sub).append(tc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}${p.mode === 'live' ? '' : ' (paper)'}`).join(' + '));
+      if (tc.missing.length) sub.append(el('span', { class: 'bad' }, ` · ${tc.missing.join(', ')} balance not shared, not counted`));
+      else if (tc.paper.length) sub.append(` · includes paper balance (${tc.paper.join(', ')})`);
+      spark($('#kSpark'), cap ? cap.points.map((p) => p.usd) : d.equity.map((p) => p.r_cum));
+    } else if (cap) {
       $('#kCapital').textContent = fmtUsd(cap.usd);
       const sub = $('#kCapitalSub'); clear(sub).append(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`, cap.net_flows_usd ? ` · excl. ${fmtUsd(cap.net_flows_usd, true)} capital` : '');
       spark($('#kSpark'), cap.points.map((p) => p.usd));
