@@ -1,5 +1,13 @@
 [
   {
+    "slug": "merged-strategies-sol",
+    "title": "Merged Strategies on SOL — Current Bot + Trend-Follower",
+    "summary": "Research, SOL only, 7 years: the current bot, a slow trend-follower and the two run side by side, year by year. Charts of growth, yearly results, who earns what, drops from peak, and a fair equal-risk comparison.",
+    "updated": "27 Oct 2026",
+    "kind": "Research",
+    "file": "reports/merged-strategies-sol.html"
+  },
+  {
     "slug": "how-lucid-io-works-v2",
     "title": "How Your Money Works: Investor Guide (home page)",
     "summary": "The home page at lucidio.vercel.app. How it works, real-price examples, what ₱1,000 did in each past year, your slice of the pool (as a pizza), the 20% fee on new profit above your best level, taking money out and the real risks. Interactive examples.",
