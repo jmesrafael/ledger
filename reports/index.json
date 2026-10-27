@@ -1,11 +1,19 @@
 [
   {
-    "slug": "ichimoku-vs-current-bot",
-    "title": "Ichimoku Trend-Follower vs the Current Bot",
-    "summary": "Research, five coins, 2020–2026: a cloud-breakout trend-follower against the current bot. Every year and every month, wins and losses, drops, per-coin results, stress tests, an independent re-check, and merge-or-separate-account test. Ichimoku makes more R but depends on a few giant trades.",
+    "slug": "icore-10k-report",
+    "title": "I-Core at 2.5% and 5% Risk: ₱10,000 Report",
+    "summary": "Five coins, 2020–2026, 760 trades, starting with ₱10,000. Expectancy, statistics and odds, every year and month, fresh ₱10,000 each year vs compounding, max drawdowns, a quick 5% summary, per-coin results and limits. Before any fee. A test on past prices, not a promise.",
+    "updated": "Oct 27, 2026",
+    "kind": "Data report",
+    "file": "reports/icore-10k-report.html"
+  },
+  {
+    "slug": "icore-vs-current-bot",
+    "title": "I-Core vs the Current Bot",
+    "summary": "Research, five coins, 2020–2026: I-Core against the current bot. Every year and month, wins and losses, drops, per-coin results, stress tests, an independent re-check, and a merge-or-separate-account test. I-Core makes more R but depends on a few giant winners.",
     "updated": "27 Oct 2026",
     "kind": "Research",
-    "file": "reports/ichimoku-vs-current-bot.html"
+    "file": "reports/icore-vs-current-bot.html"
   },
   {
     "slug": "merged-strategies-sol",
