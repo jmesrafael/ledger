@@ -32,14 +32,30 @@ test('PU3 the forms call functions that exist with the arguments they take; the 
   assert.match(sql, /function public\.change_my_username\(p_token text, p_password text, p_username text\)/);
 });
 
-test('PU4 Home no longer carries the password, contact and payout forms: a short card points to Profile and says what is still missing; "view as" still shows the read-only details', () => {
+test('PU4 Home no longer carries the password form: a short card points to Profile and says what is missing, and a missing contact or payout form is right there; the manager acting as the person sees the same', () => {
   const home = grab('function viewHome()', '  const recentCard');
   assert.ok(!home.includes('passwordCard()'));
-  assert.match(home, /\$\{investor \? \(m\.impersonated \? contactCard\(m\) \+ payoutCard\(m\) : profileNudge\(m\) \+ \(S\.payout \? '' : payoutCard\(m\)\)\) : ''\}/);
+  assert.match(home, /\$\{investor \? profileNudge\(m\) \+ \(S\.contactOn && !S\.contact \? contactCard\(m\) : ''\) \+ \(S\.payout \? '' : payoutCard\(m\)\) : ''\}/);
+  assert.ok(!app.includes('if (m.impersonated) return `${head}'), 'the contact and payout cards are the real forms in view-as too');
   const mine = grab('function viewMine()', 'const viewMyHistory');
   assert.ok(!mine.includes('passwordCard()') && mine.includes('profileNudge(S.me)'));
   const n = grab('function profileNudge(m)', 'function viewProfile()');
   assert.match(n, /contact number/); assert.match(n, /details of where to send your money/); assert.match(n, /data-action="profile">Open profile/);
+});
+
+test('PU8 view-as: no banner on top; a round orange button at the end of the main nav goes back to the manager\'s ledger; name, contact and withdrawal details are editable, password and username are not offered', () => {
+  const r = grab('function render()', 'Back button (phone and browser)');
+  assert.ok(!r.includes('class="viewas"') && !r.includes('Back to fund manager'), 'the top banner is gone');
+  assert.match(r, /\$\{viewing \? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">\$\{ICON\.back\}<\/button>` : ''\}<\/div><\/nav>/);
+  assert.match(app, /a === 'exitview'/); assert.match(app, /back: svg\(/);
+  const css = read('login.html');
+  assert.match(css, /nav\.tabs button\.vaback \{[^}]*border-radius: 50%[^}]*#FFB020/);
+  const v = grab('function viewProfile()', '// ---------------------------------------------------------------- investor / shared views');
+  const view = v.slice(v.indexOf('if (m.impersonated)'), v.indexOf('return `<div class="sechead"><h2>Profile</h2>', v.indexOf('if (m.impersonated)') + 60));
+  assert.ok(view.includes('id="nameForm"') && view.includes('contactCard(m)') && view.includes('payoutCard(m)'));
+  assert.ok(!view.includes('id="usernameForm"') && !view.includes('passwordCard()'));
+  const sql = read('supabase/migrations/20261202000200_view_as_edit_profile.sql');
+  assert.match(sql, /from public, anon, authenticated;/, 'the internal helpers are revoked from the website roles');
 });
 
 test('PU5 the manager\'s own contact details are loaded too, and a changed username is shown in the audit log', () => {

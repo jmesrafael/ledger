@@ -54,12 +54,11 @@ test('P2 a username change needs the current password, follows the table rule, r
   assert.equal((await w.call('my_summary', w.D)).username, 'dino');
 });
 
-test('P3 the fund manager changes their own name and username too; a session that is only "viewing as" someone cannot change that person', async () => {
+test('P3 the fund manager changes their own name and username too; a "viewing as" session cannot change that person username (it needs their own password; name, contact and payout are covered by P7)', async () => {
   const w = await world();
   await w.call('set_my_name', w.A, 'Raf Boroy');
   assert.equal(await w.call('change_my_username', w.A, 'admin-password-1', 'rafboroy'), 'rafboroy');
   const V = (await w.call('admin_view_as', w.A, w.ids.john)).token;
-  await assert.rejects(() => w.call('set_my_name', V, 'Hacked'), /view-only/);
   await assert.rejects(() => w.call('change_my_username', V, 'john-password', 'hacked'), /view-only/);
   assert.equal((await w.call('my_summary', w.J)).username, 'john');
 });
@@ -91,7 +90,7 @@ test('P5 the manager changes an investor\'s username: lower case, table rule, re
 test('P6 the manager records or corrects an investor\'s payout details (free-text label, QR path); same checks as their own form; audited by field, never by number; a no-op leaves no entry', async () => {
   const w = await world();
   await assert.rejects(() => w.call('admin_set_payout', w.J, w.ids.dino, 'GCash', 'Dino', '09171234567', null, null), /admin only/);
-  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'x', 'John', '09171234567', null, null), /how they want to be paid/);
+  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'x', 'John', '09171234567', null, null), /how you want to be paid/);
   await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'J', '09171234567', null, null), /account name/);
   await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'John', '12', null, null), /number/);
   await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'John', '09171234567', null, '../evil.png'), /invalid QR/);
@@ -108,4 +107,41 @@ test('P6 the manager records or corrects an investor\'s payout details (free-tex
   assert.ok(!JSON.stringify(rows).includes('0999'), 'the number itself is never written to the log');
   assert.equal(rows[1].actor_id, w.ids.raf); assert.equal(rows[1].subject_id, w.ids.john);
   assert.equal(await w.call('my_payout', w.D), null);
+});
+
+test('P7 view-as: the manager adds and edits an investor\'s name, contact and withdrawal details like the signed-in person, audited with the manager as actor; password, username, terms and withdrawals stay refused', async () => {
+  const w = await world();
+  const V = (await w.call('admin_view_as', w.A, w.ids.john)).token;
+  await w.call('set_my_contact', V, '0917 111 2222', 'john@example.com', null, null);
+  assert.equal((await w.call('my_contact', w.J)).phone, '0917 111 2222');
+  await w.call('set_my_payout', V, 'GCash', 'John Berdin', '09171112222', null, null);
+  assert.equal((await w.call('my_payout', w.J)).method, 'GCash');
+  await w.call('set_my_name', V, 'John Lloyd Berdin');
+  assert.equal((await w.call('my_summary', w.J)).name, 'John Lloyd Berdin');
+  const pay = (await w.q(`select actor_id, subject_id from public.audit_log where action = 'payout_details_changed' order by id desc limit 1`))[0];
+  assert.equal(pay.actor_id, w.ids.raf, 'the manager did it'); assert.equal(pay.subject_id, w.ids.john);
+  const nm = (await w.q(`select actor_id from public.audit_log where action = 'name_changed' order by id desc limit 1`))[0];
+  assert.equal(nm.actor_id, w.ids.raf);
+  const ct = (await w.q(`select updated_by from public.contact_details where profile_id = $1`, [w.ids.john]))[0];
+  assert.equal(ct.updated_by, w.ids.raf, 'contact history says the manager');
+  await assert.rejects(() => w.call('change_my_password', V, 'john-password', 'new-password-1'), /view-only/);
+  await assert.rejects(() => w.call('change_my_username', V, 'john-password', 'hacked'), /view-only/);
+  await assert.rejects(() => w.call('request_withdrawal', V, 1, null), /view-only/);
+  // the person themselves still works and is recorded as themselves
+  await w.call('set_my_payout', w.J, 'Maya', 'John Berdin', '09171112222', null, null);
+  const own = (await w.q(`select actor_id from public.audit_log where action = 'payout_details_changed' order by id desc limit 1`))[0];
+  assert.equal(own.actor_id, w.ids.john);
+  assert.equal(await w.call('my_payout', w.D), null);
+});
+
+test('P8 the internal helpers behind the profile functions are not callable from the website (anon): they take a profile id with no sign-in check', async () => {
+  const w = await world();
+  const anon = async (fn, sig, args) => {
+    await w.db.exec('set role anon');
+    try { return await w.db.query(`select public.${fn}(${args.map((_, i) => '$' + (i + 1)).join(',')})`, args); } finally { await w.db.exec('reset role'); }
+  };
+  await assert.rejects(() => anon('_payout_save', '', [w.ids.john, w.ids.john, 'GCash', 'Attacker', '09170000000', null, null]), /permission denied/);
+  await assert.rejects(() => anon('_me_edit', '', ['x']), /permission denied/);
+  await assert.rejects(() => anon('_actor_of', '', ['x']), /permission denied/);
+  assert.equal(await w.call('my_payout', w.J), null, 'nothing was written');
 });

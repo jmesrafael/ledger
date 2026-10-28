@@ -21,6 +21,7 @@
     log: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     mine: svg('<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.2"/>'),
     refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    back: svg('<path d="M15 18l-6-6 6-6"/>'),
     user: svg('<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.9-3.6 3.9-5.4 7.5-5.4s6.6 1.8 7.5 5.4"/>'),
     tour: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
     bot: svg('<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 7V4M9 12.5h.01M15 12.5h.01M9.5 16h5"/>'),
@@ -397,7 +398,6 @@
   function contactCard(m) {
     if (!S.contactOn) return '';
     const d = S.contact, head = `<div class="card"><h2>How to reach me</h2>`;
-    if (m.impersonated) return `${head}${d ? contactBlock({ ...d, missing: false }) : '<p class="note">Not added yet.</p>'}</div>`;
     return `${head}<p class="note" style="margin-top:0">${m.role === 'admin' ? 'Your own phone and email on file.' : d ? 'Used only to contact you about your account.' : '<b class="warn">Please add this.</b> If anything happens with your account or a withdrawal, this is how the fund manager reaches you.'}</p>
       <form id="contactForm"><label>Phone number</label><input name="phone" type="tel" value="${esc((d && d.phone) || '')}" inputmode="tel" autocomplete="tel" placeholder="0917 123 4567" required>
         <label>Email (optional)</label><input name="email" type="email" value="${esc((d && d.email) || '')}" autocomplete="email" placeholder="you@example.com">
@@ -409,7 +409,6 @@
   function payoutCard(m) {
     const d = S.payout;
     const head = `<div class="card"><h2>Where to send my money</h2>`;
-    if (m.impersonated) return `${head}${d ? payoutBlock(d) : '<p class="note">Not added yet.</p>'}</div>`;
     return `${head}<p class="note" style="margin-top:0">${d ? 'Your withdrawals are sent here.' : 'Add this before you request a withdrawal.'} We will contact you to confirm these details before any money is sent.</p>
       <form id="payoutForm"><label>Label</label>
         <input name="method" value="${esc(payLabel(d && d.method))}" maxlength="40" autocomplete="off" placeholder="e.g. GCash" required>
@@ -434,10 +433,11 @@
     const m = S.me, investor = m.role === 'investor', home = tabsFor()[0][0];
     const started = startOf(m.id) ?? (S.history && S.history[0] ? new Date(S.history[0].ts).getTime() : null);
     if (m.impersonated) return `<div class="sechead"><h2>Profile</h2><button class="sm ghost" data-tab="${home}">Back</button></div>
-      <div class="card"><h2>Account</h2><div class="row"><span class="l">Name</span><span class="r">${esc(m.name || '')}</span></div>
-        <div class="row"><span class="l">Username</span><span class="r">@${esc(m.username)}</span></div>
+      <div class="card"><h2>Account</h2><div class="row"><span class="l">Username</span><span class="r">@${esc(m.username)}</span></div>
         <div class="row"><span class="l">Started</span><span class="r">${startedText(started)}</span></div>
-        <p class="note">Read-only while you view as them. Edit their profile from Users, on their sheet.</p></div>
+        <form id="nameForm" style="margin-top:12px"><label>Name</label><input name="name" value="${esc(m.name || '')}" maxlength="80" autocomplete="name" required>
+          <button class="full ghost">Save name</button></form>
+        <p class="note">You are acting as them. Their password and username are changed from Users, on their sheet.</p></div>
       ${contactCard(m)}${investor ? payoutCard(m) : ''}`;
     return `<div class="sechead"><h2>Profile</h2><button class="sm ghost" data-tab="${home}">Back</button></div>
       <div class="card"><h2>Your account</h2>
@@ -476,7 +476,7 @@
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
         <div class="row"><span class="l">Stays invested in the pool</span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${f(m.fee_units_earned, 4)} units</span></span></div></div>`}
-      ${investor ? (m.impersonated ? contactCard(m) + payoutCard(m) : profileNudge(m) + (S.payout ? '' : payoutCard(m))) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${DISC}`;
+      ${investor ? profileNudge(m) + (S.contactOn && !S.contact ? contactCard(m) : '') + (S.payout ? '' : payoutCard(m)) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
@@ -763,7 +763,7 @@
       case 'deactivated': return `deactivated ${who}'s account`;
       case 'reactivated': return `reactivated ${who}'s account`;
       case 'name_changed': return `renamed ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
-      case 'payout_details_changed': return `updated ${who}'s withdrawal details (${(d.fields || []).map(esc).join(', ')})`;
+      case 'payout_details_changed': return `updated ${own} withdrawal details (${(d.fields || []).map(esc).join(', ')})`;
       case 'username_changed': return `changed their username from ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
       case 'password_changed': return 'changed their own password';
       case 'password_reset': return `reset ${who}'s password`;
@@ -1369,13 +1369,11 @@
     if (!viewing && S.gate) return gateView();
     const tabs = tabsFor();
     if (S.tab !== 'profile' && !tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
-    app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
-        <button data-action="exitview">Back to fund manager</button></div>` : ''}
-      <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
+    app.innerHTML = `<header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
       <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu(!viewing, !!viewing)}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
-      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>
+      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}${viewing ? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">${ICON.back}</button>` : ''}</div></nav>
       ${viewing ? '' : userModal()}`;
     wirePreviews(); wireChart(); syncNav();
   }

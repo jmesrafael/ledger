@@ -78,13 +78,15 @@ test('every change is kept in an append-only history; unchanged saves add nothin
   assert.ok(!log.includes('0917') && !log.includes('0999') && !log.includes('example.com'), 'the activity log must not hold the values');
 });
 
-test('a "view as" session can look but not change contact details', async () => {
+test('a "view as" session can look AND change contact details like the person (20261202000200); the history says the manager did it', async () => {
   const w = await world();
   await w.call('set_my_contact', w.J, '09171234567');
   const V = (await w.call('admin_view_as', w.A, w.ids.john)).token;
   assert.equal((await w.call('my_contact', V)).phone, '09171234567');
-  await assert.rejects(() => w.call('set_my_contact', V, '09000000000'), /./);
-  assert.equal((await w.call('my_contact', w.J)).phone, '09171234567');
+  await w.call('set_my_contact', V, '09000000000');
+  assert.equal((await w.call('my_contact', w.J)).phone, '09000000000');
+  const row = (await w.q(`select updated_by from public.contact_details where profile_id = $1`, [w.ids.john]))[0];
+  assert.equal(row.updated_by, w.ids.raf, 'the manager is recorded as the one who changed it');
 });
 
 test('optional rule: with contact_required_for_withdrawal on, a withdrawal request needs a contact on file', async () => {
