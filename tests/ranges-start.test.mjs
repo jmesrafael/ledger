@@ -18,7 +18,7 @@ test('RS1 the ledger: both line charts (balance and return from trading) use the
 test('RS2 the bot dashboard: 1D / 1W / 1M / 3M / All above the chart, applied to Capital, Performance, R and Drawdown, and remembered', () => {
   for (const d of ['1', '7', '30', '91', '0']) assert.ok(botHtml.includes(`data-range="${d}"`), d);
   assert.ok(botHtml.indexOf('id="rangeTabs"') < botHtml.indexOf('id="chart"'));
-  assert.equal((bot.match(/inRange\(/g) || []).length, 5, 'the function and the four charts');
+  assert.equal((bot.match(/inRange\(/g) || []).length, 6, 'the function, the four charts and the wallet-report capital chart');
   assert.match(bot, /store\.set\('bot\.range', String\(chartDays\)\)/); assert.match(bot, /\[0, 1, 7, 30, 91\]\.includes\(\+store\.get\('bot\.range'\)\)/);
   assert.match(bot, /for \(const b of \$\$\('#rangeTabs button'\)\)/);
 });

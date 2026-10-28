@@ -194,7 +194,7 @@ kbd { font: 600 10.5px/1 var(--mono); color: var(--muted); border: 1px solid var
 .ln .tag { font-weight: 800; font-size: 11px; letter-spacing: .3px; min-width: 6.2ch; }
 .ln .msg { color: var(--ink-2); word-break: break-word; }
 .tag.entry { color: var(--info); } .tag.exit { color: var(--accent-text); } .tag.skip { color: var(--warn); } .tag.check { color: var(--muted); }
-.tag.capital { color: var(--info); } .tag.compare { color: var(--ink-2); } .tag.down { color: var(--down); } .tag.boot { color: var(--info); }
+.tag.capital { color: var(--info); } .tag.compare { color: var(--ink-2); } .tag.down { color: var(--down); } .tag.restart { color: var(--info); }
 
 /* text helpers */
 .muted { color: var(--muted); font-size: 12px; font-weight: 600; }
@@ -293,6 +293,8 @@ td.wrap { white-space: normal; min-width: 180px; }
   .hero-kpi { display: block; }
   .ln { grid-template-columns: auto 1fr; gap: 0 8px; padding: 4px 0; }
   .ln .msg { grid-column: 1 / -1; }
+  .log.short .ln { grid-template-columns: auto auto 1fr; padding: 2px 0; }
+  .log.short .ln .msg { grid-column: auto; }
   .spark { width: 100%; height: 40px; margin-top: 8px; }
   .clock { display: none; }
   .filters { grid-template-columns: 1fr 1fr; }
@@ -347,8 +349,8 @@ html, body { max-width: 100%; overflow-x: hidden; }
 @media (hover: none) { .menu-item { min-height: 44px; } .icon-btn { width: 44px; height: 44px; min-height: 44px; } }
 
 /* loading state shown until the first data arrives (instead of an empty page) */
-.boot { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 40vh; color: var(--muted); font-weight: 600; }
-.boot[hidden] { display: none; }
+#boot.boot { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 40vh; color: var(--muted); font-weight: 600; }
+#boot.boot[hidden] { display: none; }
 .spin { width: 20px; height: 20px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--accent-text); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }

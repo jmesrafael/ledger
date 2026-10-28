@@ -44,7 +44,7 @@ test('D4 the memory store returns what it was given, as copies', async () => {
 test('D5 the API asks the store for the wallets, tolerates a failure, and passes them on', () => {
   const api = read('api/data.js');
   assert.match(api, /store\.wallets \? store\.wallets\(\) : Promise\.resolve\(null\)\)\.catch\(\(\) => null\)/);
-  assert.match(api, /aggregate\(\{ events, heartbeat, icoreHeartbeat, beats, flows, wallets, now,/);
+  assert.match(api, /aggregate\(\{ events, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now,/);
   const st = read('lib/store.js');
   assert.match(st, /wallet_snapshots\?select=wallet,received_at,equity_usdt,open_positions,suspect,accepted_at&order=id\.desc/);
   assert.match(st, /bot_wallets\?select=wallet,label,active/);
@@ -69,4 +69,32 @@ test('D7 the bot dashboard has a back button to the ledger (its sign-in is kept 
   assert.ok(css.includes('.back-btn {'));
   assert.match(read('vercel.json'), /"source": "\/login",\s*"destination": "\/login\.html"/);
   assert.match(read('js/app.js'), /const TOKEN_KEY = 'ledger\.token'/);
+});
+
+test('D8 the page can render: every list of elements it loops over is looked up with $$ (a single $ returns one element and broke the whole render after the chart)', () => {
+  const app = read('bot-dashboard/app.js');
+  assert.equal((app.match(/of \$\(/g) || []).length, 0, 'no "for (... of $(...))"');
+  assert.match(app, /for \(const b of \$\$\('#chartTabs button'\)\)/); assert.match(app, /for \(const b of \$\$\('#rangeTabs button'\)\)/);
+  assert.match(app, /console\.error\('bot dashboard: refresh failed', e\)/, 'a failed render is never silent');
+});
+
+test('D9 every visit opens on Overview; candle times are shown at the close; restarts are grouped per day and never styled by the loading screen', () => {
+  const app = read('bot-dashboard/app.js'), css = read('bot-dashboard/style.css');
+  assert.match(app, /const h = location\.hash\.slice\(1\), r = TABS\.includes\(h\) \? h : 'overview';/);
+  assert.match(app, /const closeOf = \(v\) => v \+ CANDLE_MS;/); assert.match(app, /`closed \$\{fmtHm\(Math\.max\(\.\.\.candles\.map\(\(\[, v\]\) => closeOf\(v\)\)\)\)\}`/);
+  assert.match(app, /restarts that day/); assert.ok(!/tag: 'boot'/.test(app));
+  assert.match(css, /#boot\.boot \{/); assert.ok(!/^\.boot \{/m.test(css), 'the loading-screen style is scoped to its own element');
+  assert.match(css, /\.log\.short \.ln \{ grid-template-columns: auto auto 1fr;/);
+});
+
+test('D10 live capital chart: both wallets added over time, only once every wallet has reported, thinned to at most 600 points', async () => {
+  const { walletHistory } = require('../lib/aggregate.js');
+  assert.deepEqual(walletHistory([]), []);
+  const h = walletHistory([{ wallet: 'a', ts: 1, usd: 10 }, { wallet: 'b', ts: 2, usd: 5 }, { wallet: 'a', ts: 3, usd: 12 }]);
+  assert.deepEqual(h, [{ ts: 2, usd: 15 }, { ts: 3, usd: 17 }], 'no point with one account alone');
+  const many = []; for (let i = 0; i < 2000; i++) many.push({ wallet: i % 2 ? 'a' : 'b', ts: i, usd: 1 });
+  const t = walletHistory(many); assert.ok(t.length <= 600); assert.equal(t[t.length - 1].ts, 1999);
+  const d = aggregate({ now, walletHist: [{ wallet: 'a', ts: 1, usd: 10 }], flows: [{ flow_id: 'd:1', kind: 'deposit', ts_ms: 5, usdt: 200 }], mode: 'live' });
+  assert.equal(d.wallet_history.length, 1); assert.deepEqual(d.capital_flows, [{ ts: 5, usd: 200, kind: 'deposit' }]);
+  assert.match(read('api/data.js'), /store\.walletHistory\(\{ sinceMs: now - 7 \* 86400000 \}\)/);
 });

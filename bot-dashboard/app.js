@@ -97,6 +97,9 @@
     const s = sv('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', 'aria-hidden': 'true' }); s.append(sv('path', { d })); host.append(s);
   }
 
+  const CANDLE_MS = 4 * 3600e3;   // last_candle_ms holds each coin's candle OPEN time; the bot checks that candle when it closes, 4 hours later
+  const closeOf = (v) => v + CANDLE_MS;
+
   // ---------------- render ----------------
   function render(d) {
     data = d;
@@ -171,7 +174,7 @@
 
   // ---------------- sections (tabs): Overview · Status · Trades · Log · Verify. Every panel in the page says which tab it belongs to (data-tabs).
   const TABS = ['overview', 'status', 'trades', 'log', 'verify'];
-  let tab = (() => { const h = location.hash.slice(1), t = TABS.includes(h) ? h : store.get('bot.tab'); const r = TABS.includes(t) ? t : 'overview'; store.set('bot.tab', r); return r; })();   // a tab opened by link (#status) is remembered too
+  let tab = (() => { const h = location.hash.slice(1), r = TABS.includes(h) ? h : 'overview'; store.set('bot.tab', r); return r; })();   // every visit opens on Overview; a link like #status opens that tab   // a tab opened by link (#status) is remembered too
   function applyTab() {
     $('#app').dataset.tab = tab;
     for (const e of $$('[data-tabs]')) e.hidden = !e.dataset.tabs.split(' ').includes(tab);
@@ -215,7 +218,7 @@
       tile('State', waiting ? 'WAITING' : s.alive ? 'ONLINE' : 'STALE', waiting ? 'no heartbeat yet' : ['last heartbeat ', ago(s.last_heartbeat_ms)], waiting ? '' : s.alive ? 'good' : 'bad'),
       tile('Mode', mode, waiting ? '' : `build ${s.commit || '?'} · v${s.version || '?'}`),
       tile('Next check', s.next_wake_ms ? fmtHm(s.next_wake_ms) + tzTag() : '—', s.next_wake_ms ? until(s.next_wake_ms) : null),
-      tile('Last candle checked', candles.length ? candles.map(([k, v]) => `${sym(k)} ${fmtHm(v)}`).join(' · ') : '—', candles.length ? ago(Math.max(...candles.map(([, v]) => v))) : null),
+      tile('Last candle checked', candles.length ? `closed ${fmtHm(Math.max(...candles.map(([, v]) => closeOf(v))))}` : '—', candles.length ? ago(Math.max(...candles.map(([, v]) => closeOf(v)))) : null),
       tile('Open now', d.open.length ? `${d.open.length} open` : 'Flat', d.open.length ? coinsOpen : 'waiting for a signal', d.open.length ? 'warn' : ''),
       tile('Closed trades', String(o.trades), last ? [`last: ${sym(last.symbol)} ${last.side} ${fmtR(last.r)} `, ago(last.exit_ts)] : 'none yet'),
       tile('Drawdown vs halt', dd == null ? '—' : `${Number(dd).toFixed(1)}R / ${halt ?? '—'}R`, dd == null ? 'no heartbeat yet' : `${ddPct.toFixed(0)}% of the halt`, ddPct >= 60 ? 'warn' : ''),
@@ -281,7 +284,7 @@
       sys.append(
         kv('Status', el('span', { class: s.alive ? 'good' : 'bad' }, s.alive ? 'ONLINE' : 'STALE')),
         kv('Last heartbeat', fmtHm(s.last_heartbeat_ms) + tzTag(), ago(s.last_heartbeat_ms)),
-        kv('Last candle check', candles.length ? candles.map(([k, v]) => `${sym(k)} ${fmtShort(v)}`).join(' · ') : '—', candles.length ? ago(Math.max(...candles.map(([, v]) => v))) : null),
+        kv('Last candle check', candles.length ? `candle closed ${fmtShort(Math.max(...candles.map(([, v]) => closeOf(v))))}` + (new Set(candles.map(([, v]) => v)).size > 1 ? ` (${candles.map(([k, v]) => `${sym(k)} ${fmtHm(closeOf(v))}`).join(' · ')})` : ` · ${candles.length} coin${candles.length === 1 ? '' : 's'}`) : '—', candles.length ? ago(Math.max(...candles.map(([, v]) => closeOf(v)))) : null),
         kv('Next wake', s.next_wake_ms ? fmtHm(s.next_wake_ms) + tzTag() : '—', s.next_wake_ms ? until(s.next_wake_ms) : null),
         kv('Uptime (7d)', u ? el('span', { class: u.uptime_pct >= 99 ? 'good' : u.uptime_pct >= 95 ? 'warn' : 'bad' }, `${u.uptime_pct.toFixed(2)}%`) : '—',
           u ? el('small', {}, `${u.downtimes.length} outage${u.downtimes.length === 1 ? '' : 's'} · ${fmtDur(u.down_ms / 1000)} down · ${u.restarts.length} restart${u.restarts.length === 1 ? '' : 's'}`) : null),
@@ -307,7 +310,10 @@
     const lines = [];
     if (u) {
       for (const g of u.downtimes) lines.push({ ts: g.from, tag: 'down', text: g.ongoing ? `no heartbeat since ${fmtShort(g.from)} · ongoing ${fmtDur(g.dur_ms / 1000)}` : `${fmtShort(g.from)} → ${fmtHm(g.to)} · ${fmtDur(g.dur_ms / 1000)} without heartbeat` });
-      for (const r of u.restarts) lines.push({ ts: r.ts, tag: 'boot', text: 'process restarted' });
+      const byDay = new Map();
+      for (const r of u.restarts) { const k = fmtDay(r.ts); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(r.ts); }
+      for (const ts of byDay.values()) lines.push(ts.length === 1 ? { ts: ts[0], tag: 'restart', text: 'process restarted' }
+        : { ts: Math.max(...ts), tag: 'restart', text: `${ts.length} restarts that day · ${fmtHm(Math.min(...ts))} → ${fmtHm(Math.max(...ts))}` });
     }
     lines.sort((a, b) => b.ts - a.ts);
     const box = clear($('#downs'));
@@ -347,9 +353,13 @@
   function renderChart() {
     if (!data) return;
     for (const b of $$('#rangeTabs button')) { const on = +b.dataset.range === chartDays; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
-    for (const b of $('#chartTabs button')) { const on = b.dataset.chart === chartKind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+    for (const b of $$('#chartTabs button')) { const on = b.dataset.chart === chartKind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
     const d = data, note = $('#chartNote');
-    if (chartKind === 'capital') {
+    const wh = !d.capital && d.wallet_history && d.wallet_history.length ? d.wallet_history : null;   // live: the wallet reports (both accounts added) stand in for the bot's balance
+    if (chartKind === 'capital' && wh) {
+      lineChart($('#chart'), inRange(wh.map((p) => ({ ts: p.ts, y: p.usd }))), { marks: d.capital_flows || [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}` });
+      note.textContent = `Both trading accounts added together, from the bots' 5-minute wallet reports · ${fmtUsd(wh[wh.length - 1].usd)} at ${fmtTime(wh[wh.length - 1].ts)}. Deposits show as labelled steps, not as profit.`;
+    } else if (chartKind === 'capital') {
       const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `Balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
@@ -497,6 +507,7 @@
       $('#boot').hidden = true; $('#login').hidden = true; $('#app').hidden = false; $('#logoutBtn').hidden = false; $('#vpsBtn').hidden = false;
       render(await res.json());
     } catch (e) {
+      console.error('bot dashboard: refresh failed', e);
       if (data) { kept = true; $('#promptCmd').textContent = 'status --retrying (showing the last data)'; }   // a failed refresh never wipes the page: the last data stays until the next one arrives
       else showLogin(`Could not load data: ${e.message}`);
     }
