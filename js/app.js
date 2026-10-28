@@ -266,11 +266,11 @@
   }
   const rate = () => (S.fx && S.fx.rate) || (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
   const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${clock12(new Date(S.fx.t))})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
-  const settingsMenu = (account = false) => {
+  const settingsMenu = (account = false, viewOnly = false) => {
     const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
     return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
       <button data-action="refresh">${ICON.refresh}<span>Refresh</span></button>
-      ${account ? `<button data-action="profile">${ICON.user}<span>Profile</span></button>` : ''}
+      ${account || viewOnly ? `<button data-action="profile">${ICON.user}<span>Profile</span></button>` : ''}
       <button data-action="theme">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}<span>Theme</span><span class="val">${tl}</span></button>
       ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}
       ${account ? `<button data-action="welcome">${ICON.tour}<span>Welcome tour</span></button>${isAdmin() ? `<button data-action="botdash">${ICON.bot}<span>Bot dashboard</span></button>` : ''}<button class="danger" data-action="signout">${ICON.signout}<span>Sign out</span></button>` : ''}</div></details>`;
@@ -433,6 +433,12 @@
   function viewProfile() {
     const m = S.me, investor = m.role === 'investor', home = tabsFor()[0][0];
     const started = startOf(m.id) ?? (S.history && S.history[0] ? new Date(S.history[0].ts).getTime() : null);
+    if (m.impersonated) return `<div class="sechead"><h2>Profile</h2><button class="sm ghost" data-tab="${home}">Back</button></div>
+      <div class="card"><h2>Account</h2><div class="row"><span class="l">Name</span><span class="r">${esc(m.name || '')}</span></div>
+        <div class="row"><span class="l">Username</span><span class="r">@${esc(m.username)}</span></div>
+        <div class="row"><span class="l">Started</span><span class="r">${startedText(started)}</span></div>
+        <p class="note">Read-only while you view as them. Edit their profile from Users, on their sheet.</p></div>
+      ${contactCard(m)}${investor ? payoutCard(m) : ''}`;
     return `<div class="sechead"><h2>Profile</h2><button class="sm ghost" data-tab="${home}">Back</button></div>
       <div class="card"><h2>Your account</h2>
         <div class="row"><span class="l">Name</span><span class="r">${esc(m.name || '')}</span></div>
@@ -470,7 +476,7 @@
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
         <div class="row"><span class="l">Stays invested in the pool</span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${f(m.fee_units_earned, 4)} units</span></span></div></div>`}
-      ${investor ? (m.impersonated ? contactCard(m) + payoutCard(m) : profileNudge(m)) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${DISC}`;
+      ${investor ? (m.impersonated ? contactCard(m) + payoutCard(m) : profileNudge(m) + (S.payout ? '' : payoutCard(m))) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
@@ -1366,7 +1372,7 @@
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
         <button data-action="exitview">Back to fund manager</button></div>` : ''}
       <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
-      <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu(!viewing)}</div></header>
+      <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu(!viewing, !!viewing)}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
       <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>

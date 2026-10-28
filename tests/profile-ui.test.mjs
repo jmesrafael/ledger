@@ -8,8 +8,8 @@ const app = read('js/app.js');
 const grab = (start, end) => app.slice(app.indexOf(start), app.indexOf(end, app.indexOf(start)));
 
 test('PU1 Settings has Profile directly below Refresh, only for a real session (not while viewing as someone)', () => {
-  assert.match(app, /<button data-action="refresh">\$\{ICON\.refresh\}<span>Refresh<\/span><\/button>\r?\n\s+\$\{account \? `<button data-action="profile">\$\{ICON\.user\}<span>Profile<\/span><\/button>` : ''\}/);
-  assert.match(app, /settingsMenu\(!viewing\)/);
+  assert.match(app, /<button data-action="refresh">\$\{ICON\.refresh\}<span>Refresh<\/span><\/button>\r?\n\s+\$\{account \|\| viewOnly \? `<button data-action="profile">\$\{ICON\.user\}<span>Profile<\/span><\/button>` : ''\}/);
+  assert.match(app, /settingsMenu\(!viewing, !!viewing\)/);
   assert.match(app, /user: svg\(/);
 });
 
@@ -35,7 +35,7 @@ test('PU3 the forms call functions that exist with the arguments they take; the 
 test('PU4 Home no longer carries the password, contact and payout forms: a short card points to Profile and says what is still missing; "view as" still shows the read-only details', () => {
   const home = grab('function viewHome()', '  const recentCard');
   assert.ok(!home.includes('passwordCard()'));
-  assert.match(home, /\$\{investor \? \(m\.impersonated \? contactCard\(m\) \+ payoutCard\(m\) : profileNudge\(m\)\) : ''\}/);
+  assert.match(home, /\$\{investor \? \(m\.impersonated \? contactCard\(m\) \+ payoutCard\(m\) : profileNudge\(m\) \+ \(S\.payout \? '' : payoutCard\(m\)\)\) : ''\}/);
   const mine = grab('function viewMine()', 'const viewMyHistory');
   assert.ok(!mine.includes('passwordCard()') && mine.includes('profileNudge(S.me)'));
   const n = grab('function profileNudge(m)', 'function viewProfile()');
