@@ -21,7 +21,8 @@ async function setup() {
   await db.exec(`create function public._test_in_mexc() returns trigger language plpgsql as $t$ begin new.arrived_at := coalesce(new.arrived_at, now()); return new; end $t$;
                  create trigger test_in_mexc before insert on public.pending_deposits for each row execute function public._test_in_mexc();`);
   await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months');
-                 update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
+                 update public.ledger_settings set value = '4' where key = 'bcrypt_cost';
+                 update public.ledger_settings set value = 'immediate' where key = 'fee_timing'`);   // these tests expect the fee at the close (1105's rule; 1127's is in confirmed-fee.test.mjs)
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   return db;
 }

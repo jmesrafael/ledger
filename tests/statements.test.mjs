@@ -23,7 +23,8 @@ async function story() {
   await db.exec(`update public.ledger_settings set value = 'free' where key = 'settlement_schedule'; update public.ledger_settings set value = 'off' where key = 'settlement_recon';`);
   await db.exec(`create function public._test_in_mexc() returns trigger language plpgsql as $t$ begin new.arrived_at := coalesce(new.arrived_at, now()); return new; end $t$;
                  create trigger test_in_mexc before insert on public.pending_deposits for each row execute function public._test_in_mexc();`);
-  await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months'); update public.ledger_settings set value = '4' where key = 'bcrypt_cost'`);
+  await db.exec(`update public.ledger_settings set value = '0' where key in ('min_days_between_closes', 'lock_months'); update public.ledger_settings set value = '4' where key = 'bcrypt_cost';
+                 update public.ledger_settings set value = 'immediate' where key = 'fee_timing'`);   // fee at the close (1105's rule); 1127's rule: confirmed-fee.test.mjs
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   const call = async (fn, ...a) => { await db.exec('set role anon'); try { return (await db.query(`select public.${fn}(${a.map((_, i) => `$${i + 1}`).join(',')}) as r`, a)).rows[0].r; } finally { await db.exec('reset role'); } };
   const A = (await call('login', 'raf', 'admin-password-1')).token;

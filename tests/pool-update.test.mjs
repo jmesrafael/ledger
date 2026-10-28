@@ -274,7 +274,9 @@ test('6. the migration runs twice without error, and its rollback restores the o
   assert.equal((await w.q(`select to_regprocedure('public.admin_update_pool(text,bigint,text[],numeric,text,boolean,text)') is null as gone`))[0].gone, true);
   assert.equal((await w.q(`select to_regprocedure('public._admin_admit_deposit_core(text,bigint,bigint,text,boolean)') is null as gone`))[0].gone, true);
   check('6 applied-trades history kept', 1, Number((await w.q(`select count(*) n from public.applied_trades_rolled_back`))[0].n));
-  check('6 after the rollback only bot_events is uncovered (as before this migration: the earlier definition does not know it)', ['bot_events'], (await w.call('admin_backup_coverage', w.A)).missing);
+  // bot_wallets and wallet_snapshots (20261130000000_wallet_snapshots.sql, which comes AFTER this migration) are listed too: 1112's rollback puts back the older backup
+  // definition, which does not know tables added later. That is the order rule: if 1112 is rolled back or run again, run 1130 again afterwards (it is safe to run twice).
+  check('6 after the rollback only bot_events and the later wallet tables are uncovered (the earlier definition does not know them)', ['bot_events', 'bot_wallets', 'wallet_snapshots'], (await w.call('admin_backup_coverage', w.A)).missing);
   assert.equal(Array.isArray((await w.q(`select public._export_all() x`))[0].x.applied_trades_rolled_back), true);
   await w.call('admin_classify_difference', w.A, v2, 'trading_pnl', 'bot log shows one closed trade worth 5 USDT');   // the old way to explain it
   await w.call('admin_admit_deposit', w.A, dino, v2, null, false);   // old behaviour: no pending-P/L guard

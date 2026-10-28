@@ -24,7 +24,8 @@ async function fresh(pending = true) {
   await db.exec(BOOT);
   for (const f of pending ? FILES : APPLIED) await db.exec(readFileSync(f, 'utf8'));
   if (pending) await db.exec(CLOCK_SQL);
-  await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move';`);
+  await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move';
+                 update public.ledger_settings set value = 'immediate' where key = 'fee_timing';`);   // fee at the close (1105's rule); 1127's rule: confirmed-fee.test.mjs
   return db;
 }
 

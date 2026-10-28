@@ -18,7 +18,7 @@ async function world({ settings = {} } = {}) {
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
   for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
   await db.exec(CLOCK_SQL);
-  const set = { lock_months: '0', bcrypt_cost: '4', valuation_max_move: '1000', ...settings };
+  const set = { lock_months: '0', bcrypt_cost: '4', valuation_max_move: '1000', fee_timing: 'immediate', ...settings };   // fee at the close (1105's rule); 1127's: confirmed-fee.test.mjs
   for (const [k, v] of Object.entries(set)) await db.query(`update public.ledger_settings set value = $2 where key = $1`, [k, v]);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
   const call = async (fn, ...a) => {

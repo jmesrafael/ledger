@@ -100,3 +100,14 @@ button.busy:disabled { opacity: .8; }
 .helpsheet .hlist li { margin: 0 0 6px; }
 .helpsheet .hrefused .row { align-items: flex-start; gap: 12px; }
 .helpsheet .hrefused .r { text-align: right; max-width: 55%; }
+
+/* confirmation sheets (js/confirmsheet.js), investor position block, settlement preview (js/settlepreview.js) */
+.csbg { z-index: 60; }
+.cssheet { max-width: 480px; }
+.cssheet .csform label { display: block; margin-top: 12px; }
+.cssheet .csform textarea { width: 100%; font: inherit; }
+.cssheet [aria-invalid="true"] { border-color: var(--down, #c0392b); }
+.cssheet .btns .danger { margin-left: auto; }
+.invctx .btns button[disabled] { opacity: .5; cursor: not-allowed; }
+[data-sp="preview"] .card.inner { margin: 8px 0; box-shadow: none; border: 1px solid var(--soft-border); }
+.muted { color: var(--ink-2); }

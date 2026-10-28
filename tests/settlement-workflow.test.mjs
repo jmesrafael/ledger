@@ -21,7 +21,8 @@ async function fresh() {
 
 async function world() {
   const db = await fresh();
-  await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move';`);
+  await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move';
+                 update public.ledger_settings set value = 'immediate' where key = 'fee_timing';`);   // fee at the close (1105's rule); 1127's rule: confirmed-fee.test.mjs
   // these tests settle on the real date for a period that ended weeks ago: they are about the balance-check routine, not the window (tests/risk-fixes.test.mjs covers the window)
   await db.exec(`update public.ledger_settings set value = '3650' where key = 'settlement_window_days'`);
   await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);

@@ -77,14 +77,6 @@
   const cls = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'muted');
   const num = (v) => (v === '' || v == null ? null : Number(v));
   const isAdmin = () => S.me && S.me.role === 'admin';
-  // fee in units on taking `units` from a person's oldest deposits first, each measured against its own line
-  function lotFee(h, units, price) {
-    if (!h || h.role !== 'investor' || !(price > 0)) return 0;
-    let left = units, fee = 0;
-    for (const [u, line] of h.lots || []) { if (left <= 0) break; const t = Math.min(left, Number(u)); fee += Number(h.fee_rate) * Math.max(0, price - Number(line)) / price * t; left -= t; }
-    return fee;
-  }
-  const lotGain = (h, price) => (h.lots || []).reduce((t, [u, line]) => t + Math.max(0, price - Number(line)) * Number(u), 0);   // USDT above the lines
   const rateText = (h) => pc(h.fee_rate) + '%' + (h.fee_rate_next != null ? ` → ${pc(h.fee_rate_next)}% after next close` : '');
 
   function toast(msg, err) {
@@ -96,6 +88,64 @@
     get(k = TOKEN_KEY) { try { return localStorage.getItem(k); } catch { return null; } },
     set(v, k = TOKEN_KEY) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch { /* private mode: stay signed in for this tab only */ } },
   };
+  // ---------------------------------------------------------------- confirmation sheets (js/confirmsheet.js) instead of confirm() / prompt()
+  // askSheet(opts) resolves to { field: value } when confirmed, or null when cancelled (Cancel, Esc, or a tap outside). Focus moves into the sheet, stays inside
+  // it, and goes back to the button that opened it.
+  let csN = 0;
+  function askSheet(opts) {
+    return new Promise((resolve) => {
+      const prev = document.activeElement, uid = 'cs' + (++csN), fields = opts.fields || [];
+      const wrap = document.createElement('div'); wrap.innerHTML = ConfirmSheet.html(opts, uid);
+      const bg = wrap.firstElementChild, form = bg.querySelector('form');
+      document.body.appendChild(bg); document.body.style.overflow = 'hidden';
+      const finish = (v) => {
+        document.removeEventListener('keydown', onKey, true); bg.remove(); document.body.style.overflow = S.modal ? 'hidden' : '';
+        if (prev && prev.isConnected && prev.focus) prev.focus();
+        resolve(v);
+      };
+      function onKey(ev) {
+        if (ev.key === 'Escape') { ev.stopImmediatePropagation(); ev.preventDefault(); finish(null); return; }
+        if (ev.key !== 'Tab') return;
+        const els = [...bg.querySelectorAll('input, select, textarea, button:not([disabled])')]; if (!els.length) return;
+        const first = els[0], last = els[els.length - 1];
+        if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+        else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+      }
+      document.addEventListener('keydown', onKey, true);
+      bg.addEventListener('click', (ev) => { if (ev.target === bg || ev.target.closest('[data-cs="cancel"]')) finish(null); });
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();   // the page's own form handler must not see this form
+        const raw = {}; fields.forEach((fd) => { raw[fd.name] = form.elements[fd.name].value; });
+        const v = ConfirmSheet.validate(fields, raw);
+        fields.forEach((fd, i) => { const el = bg.querySelector(`#${uid}-f${i}-e`); if (el) el.textContent = v.errors[fd.name] || ''; const inp = form.elements[fd.name]; if (inp) inp.setAttribute('aria-invalid', v.errors[fd.name] ? 'true' : 'false'); });
+        if (!v.ok) { const bad = fields.findIndex((fd) => v.errors[fd.name]); form.elements[fields[bad].name].focus(); return; }
+        finish(v.values);
+      });
+      const target = fields.length ? form.elements[fields[0].name] : opts.danger && bg.querySelector('[data-cs="cancel"]') ? bg.querySelector('[data-cs="cancel"]') : bg.querySelector('[data-cs="ok"]');
+      if (target) target.focus();
+    });
+  }
+  class Cancelled extends Error { constructor() { super('Cancelled'); this.cancelled = true; } }
+  // a yes/no question; true = confirmed
+  const confirmSheet = async (title, text, label, danger) => !!(await askSheet({ title, text, confirmLabel: label || 'Confirm', danger }));
+  // one required written answer; throws Cancelled when the sheet is cancelled, so nothing is sent
+  async function askText(title, label, o = {}) {
+    const r = await askSheet({ title, text: o.text, fields: [{ name: 'v', label, type: o.type || 'textarea', required: true, minLength: o.min === undefined ? 5 : o.min, value: o.value, hint: o.hint, options: o.options }], confirmLabel: o.ok || 'Save', danger: o.danger });
+    if (!r) throw new Cancelled();
+    return r.v;
+  }
+  // The same request keeps the same idempotency key until it succeeds, so sending it again after a lost reply is recognised by the database (replayed)
+  // instead of being done twice. A different request (another balance check, another deposit) is a new key.
+  const idemKeys = new Map();
+  const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+  async function withStableKey(fn, args, send) {
+    const sig = fn + '|' + JSON.stringify(args);
+    if (!idemKeys.has(sig)) idemKeys.set(sig, newKey());
+    const r = await send(idemKeys.get(sig));
+    idemKeys.delete(sig);
+    return r;
+  }
+
   async function rpc(fn, args = {}) {
     const { data, error } = await sb.rpc(fn, args);
     if (error) throw new Error(error.message);
@@ -114,7 +164,7 @@
     try { r = await send({}); }
     catch (e) {
       if (!/^CONFIRM: /.test(e.message)) throw e;
-      if (!confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nSave it anyway?')) throw new Error('Not saved.');
+      if (!(await confirmSheet('Check this before saving', e.message.replace(/^CONFIRM: /, ''), 'Save it anyway'))) throw new Error('Not saved.');
       r = await send({ p_confirm: true });
     }
     delete fm.dataset.idem;
@@ -129,13 +179,13 @@
       catch (e) {
         const m = String(e.message), kind = /^LATE:/.test(m) ? 'late' : /^BACKDATED:/.test(m) ? 'backdated' : /^RECONCILE:/.test(m) ? 'unreconciled' : /^OPEN TRADES: [0-9]/.test(m) ? 'open_positions' : null;
         if (!kind) throw e;
-        if (!confirm(m + '\n\nApprove an exception? It is written to the activity log with your reason, and saved on the settlement.')) throw new Error('Not settled.');
-        const note = prompt('Why is this exception acceptable? (at least 20 characters)') || '';
-        let open = null;
-        if (kind !== 'late' && kind !== 'backdated') {
-          open = Number(prompt('How many positions and orders are open on the exchange right now? (0 if none)', kind === 'open_positions' ? '1' : '0'));
-          if (!Number.isFinite(open) || open < 0) throw new Error('Enter 0, or the number of open positions and orders.');
-        }
+        const needsOpen = kind !== 'late' && kind !== 'backdated';
+        const ex = await askSheet({ title: 'Approve an exception?', text: m + '\nAn exception is written to the activity log with your reason, and saved on the settlement.',
+          fields: [{ name: 'note', label: 'Why is this exception acceptable?', type: 'textarea', required: true, minLength: 20, hint: 'At least 20 characters.' },
+            ...(needsOpen ? [{ name: 'open', label: 'Positions and orders open on the exchange right now (0 if none)', type: 'number', required: true, min: 0, value: kind === 'open_positions' ? '1' : '0' }] : [])],
+          confirmLabel: 'Approve exception and continue', danger: true });
+        if (!ex) throw new Error('Not settled.');
+        const note = ex.note, open = needsOpen ? Number(ex.open) : null;
         await call('admin_approve_settlement_exception', { p_kind: kind, p_equity: equity, p_note: note, p_at: at, p_open: open });
       }
     }
@@ -754,6 +804,7 @@
       ${EXIT_FEE_ON && inv && exitInfo(h.id) ? line(`Withdrawal fee<br><span class="note">${exitNote(h.id)}</span>`, pc(exitRate(h.id)) + '%') : ''}
       ${line(inv ? 'Locked until' : 'Fees earned (units)', inv ? day(h.lock_until) : f(h.fee_units_earned, 3))}
       ${termsLine(h)}
+      ${IC.card(h, { pend: S.pend, reqs: S.reqs, queue: S.queue, pu: S.pu, fmt: icFmt })}
       ${S.contactOn ? `<details style="margin-top:12px" ${contactMissing(h.id) ? 'open' : ''}><summary class="note" style="cursor:pointer">Contact and payout details</summary>
         ${contactBlock(contactOf(h.id))}${inv ? payoutBlock(payOf(h.id)) : ''}
         <form class="adminContactForm" data-id="${h.id}"><p class="note" style="margin:8px 0 0">Record or correct ${nm}'s contact details (for example taken over the phone). The change is kept in a history.</p>
@@ -805,6 +856,10 @@
   const RH = RecordHelp;   // js/recordhelp.js: the "? How this works" instructions on the Record tabs
   const PU = PoolUpdate;   // js/poolupdate.js: the wording and the request for Update Pool
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
+  const SP = SettlePreview;   // js/settlepreview.js: prints what admin_settlement_preview returned (no maths)
+  const IC = InvestorCtx;     // js/investorctx.js: the investor's position and which actions apply (no maths)
+  const spFmt = { usdt: (n) => usdt(n), units: (n) => f(n, 4), day: (t) => day(t), pc: (r) => pc(r) };
+  const icFmt = { money: (n) => money(n), units: (n) => f(n, 4), day: (t) => day(t) };
   function pendingCard() {
     if (!S.pend.length) return '';
     const g = gateOn();
@@ -853,17 +908,61 @@
       ${pick('hist', `<div class="card"><h2>History</h2>
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
   }
+  // Review & Settle. The preview is the database's own (admin_settlement_preview); this screen only asks for it and prints it. The Settle button stays off until
+  // a preview for exactly the entered balance has come back, and any change to the balance hides the old figures instead of showing them for a different number.
+  const spState = (eq, at) => (S.sp && S.sp.eq === eq && (S.sp.at || null) === (at || null) ? S.sp : null);
+  // the preview's hash goes to the settlement, which refuses (server-side, when settlement_preview_mode = 'require') if the books changed since. Sent only when the
+  // database returned one for exactly this balance and date; an older database that returns none gets no extra argument.
+  const previewArg = (eq, at) => { const st = spState(eq, at); return st && st.status === 'ok' && st.pv && st.pv.preview_hash ? { p_preview: st.pv.preview_hash } : {}; };
+  const spHtml = (st) => (!st ? '' : st.status === 'loading' ? SP.loading() : st.status === 'error' ? SP.unavailable(st.err) : SP.render(st.pv, spFmt));
+  function syncSettle() {
+    const fm = $f('qForm'), btn = $f('qSettle'), box = $f('spBox'); if (!fm || !btn || !box) return;
+    const cur = spState(num(fv(fm, 'equity')), atOf(fm)), ok = !!cur && cur.status === 'ok';
+    btn.disabled = !ok;
+    if (S.sp && !cur && S.sp.status !== 'loading') box.innerHTML = '<p class="note warn" role="status">The balance or date changed. Press <b>Preview settlement</b> again to see the figures.</p>';
+    else if (cur) box.innerHTML = spHtml(cur);
+  }
+  async function loadPreview(eq, at) {
+    if (!(eq > 0)) { toast('Enter the exchange total first.', true); return; }
+    const put = () => { const box = $f('spBox'); if (box) box.innerHTML = spHtml(S.sp); syncSettle(); };
+    S.sp = { eq, at: at || null, status: 'loading' }; put();
+    try { S.sp = { eq, at: at || null, status: 'ok', pv: await call('admin_settlement_preview', { p_equity: eq, p_at: at || null }) }; }
+    catch (e) {
+      if (e.message === 'Signed out') return;
+      S.sp = { eq, at: at || null, status: 'error', err: /function|schema cache|does not exist/i.test(e.message) ? 'The database does not have this preview yet.' : e.message };
+    }
+    put();
+  }
+  // the confirmation before a settlement: the totals are the database's preview for this balance, or "not available" when none was run
+  async function settleSheet(eq, at) {
+    // a fresh preview right before the decision: an entry made since the last preview (a deposit, a payout, another screen) is included.
+    // Without a fresh preview from the database nothing is settled.
+    await loadPreview(eq, at);
+    const st = spState(eq, at), pv = st && st.status === 'ok' ? st.pv : null;
+    if (!pv) {
+      await askSheet({ title: 'Not settled', info: true, text: 'The database did not return a fresh preview for this balance' + (st && st.err ? ': ' + st.err : '') + '.\nNothing was saved. Check the balance and try again.' });
+      return false;
+    }
+    return !!(await askSheet({ title: 'Charge fees and settle this period?', danger: true, confirmLabel: 'Charge fees and settle',
+      body: `<p class="note">Exchange total: <b>${esc(usdt(eq))}</b>. This ends the period and cannot be undone.</p>${SP.summary(pv, spFmt)}` }));
+  }
   function viewQuarter() {
     const gSet = Gate.oldForm('settlement', S.queue);
-    if (gSet) return gSet + `<div class="card">${lastClose()}</div>`;
-    return `<div class="card"><h2>Two-month settlement</h2>
-      <p class="note">Takes each investor's fee (their own %, 20% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. Example: they gain $100 above it and the 20% fee = $20; the mark then moves up, so that $100 is never charged again. After a loss nothing is charged until they are back above the mark.</p>
-      <p class="note">The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss. Settle in the first 7 days after a two-month period ends (Manila time); a later settlement is a logged exception. Trades should be closed, and the exchange balance confirmed (or an exception approved with your reason). Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), from the 1st of the next month. First enter and confirm the exchange balance under <b>Record → Balance</b>: a settlement is refused until that balance check (or a written explanation) covers the same total.</p>
+    if (gSet) {
+      const bal = RD().ok ? Number(RD().balance) : 0;
+      return gSet + `<div class="card"><h2>Review before settling</h2>${bal > 0 ? `<p class="note">Uses your confirmed balance of <b>${esc(usdt(bal))}</b>.</p><div class="btns"><button type="button" class="ghost" data-action="spgate" data-eq="${bal}">Preview settlement</button></div>` : '<p class="warn">Preview not available: there is no usable confirmed balance. Enter and confirm one under Record → Balance.</p>'}<div id="spBox">${bal > 0 ? spHtml(spState(bal, null)) : ''}</div></div><div class="card">${lastClose()}</div>`;
+    }
+    const cur0 = S.sp ? S.sp.eq : '';
+    return `<div class="card"><h2>Review &amp; Settle</h2>
+      <p class="note">Takes each investor's fee (their own %, 20% by default) on their <b>gain above their high-water mark</b>: their best value after fees, raised by every deposit. After a loss nothing is charged until they are back above the mark. The share moves as <b>units</b> from them to you, still inside the pool. Deposits and withdrawals never count as profit or loss.</p>
+      <p class="note">Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), in the first 7 days after it ends. Confirm the exchange balance under <b>Record → Balance</b> first (or approve an exception with your reason). Whether open trades are allowed depends on the fee rule: the preview says so (with the confirmed-gain fee they are, as a heads-up).</p>
       ${lastClose()}
       ${S.pend.length ? `<p class="note">${pendNote()} Deposits in the exchange buy units at the close price after the fee, so they pay nothing for this period.</p>` : ''}
-      <form id="qForm"><label>Pool equity now (USDT, the exchange total)</label><input name="equity" type="number" step="any" inputmode="decimal" required>
-      ${phpField()}<label>Note (optional)</label><input name="note" value="Two-month settlement"><div class="preview" id="qPrev">Enter the equity to preview the fee.</div>
-      <button class="full">Charge fees and settle the period</button></form></div>`;
+      <form id="qForm"><label>Pool equity now (USDT, the exchange total)</label><input name="equity" type="number" step="any" inputmode="decimal" value="${cur0}" required>
+      ${phpField()}<label>Note (optional)</label><input name="note" value="Two-month settlement">
+      <div class="btns"><button type="button" class="ghost" data-action="sppreview">Preview settlement</button></div>
+      <div id="spBox" aria-live="polite"><p class="note">Press <b>Preview settlement</b> to see each person's fee, worked out by the database. Nothing is saved by a preview.</p></div>
+      <button class="full" id="qSettle" disabled>Charge fees and settle the period</button></form></div>`;
   }
   function lastClose() {
     const c = S.elog.find((e) => e.kind === 'close');
@@ -916,14 +1015,27 @@
       <div class="card"><h2>Deposits (${q.deposits.length})</h2>${depRows}${PU.admitMode(S.pu) === 'update_first' && PU.ready(rd).ok && q.deposits.some((d) => d.state !== 'awaiting_arrival') ? '<div class="btns"><button data-action="poolupdateadmit">Update Pool and accept ticked</button></div><p class="note">One step: the pool is updated to the confirmed balance first, then the ticked joiners buy in at that price. If anything fails, nothing is saved.</p>' : ''}</div>
       <div class="card"><h2>Withdrawals and payouts (${q.withdrawals.length})</h2>${wdRows}
         <p class="note">Requests wait until both positions are closed and the balance is confirmed and explained. Past ${q.escalate_after_hours} hours, or past the pay-by date, they are flagged for escalation.</p></div>
-      ${rd.ok ? `<div class="card"><h2>Valuation and settlement</h2><div class="btns"><button class="ghost" data-action="wfapply">Apply verified balance</button><button data-action="wfsettle">Settle two-month period</button></div></div>` : ''}`;
+      ${rd.ok ? `<div class="card"><h2>Valuation and settlement</h2><div class="btns"><button type="button" class="ghost" data-action="spgate" data-eq="${Number(rd.balance)}">Preview settlement</button><button class="ghost" data-action="wfapply">Apply verified balance</button><button data-action="wfsettle">Settle two-month period</button></div><div id="spBox">${spHtml(spState(Number(rd.balance), null))}</div></div>` : ''}`;
   }
   const usable = () => RD().verification_id;
-  const moneyWF = async (fn, args) => {
-    try { return await call(fn, { ...args, p_idem: crypto.randomUUID() }); }
-    catch (e) { if (!/^CONFIRM: /.test(e.message) || !confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nContinue anyway?')) throw e; return call(fn, { ...args, p_idem: crypto.randomUUID(), p_confirm: true }); }
+  // money steps through the Balance desk: the same request keeps the same key until it succeeds (a resend after a lost reply is a replay, not a second action)
+  const moneyWF = (fn, args) => withStableKey(fn, args, async (key) => {
+    try { return await call(fn, { ...args, p_idem: key }); }
+    catch (e) {
+      if (!/^CONFIRM: /.test(e.message) || !(await confirmSheet('Check this before continuing', e.message.replace(/^CONFIRM: /, ''), 'Continue anyway'))) throw e;
+      return call(fn, { ...args, p_idem: key, p_confirm: true });
+    }
+  });
+  const KINDS_ALL = [['trading_pnl', 'Trading result'], ['fees', 'Fees'], ['funding', 'Funding'], ['transfer', 'Transfer'], ['timing', 'Timing'], ['other', 'Other']];
+  const askKind = async (title, text, kinds, noteLabel, o = {}) => {
+    const r = await askSheet({ title, text, confirmLabel: 'Save', fields: [
+      { name: 'kind', label: 'What is it?', type: 'select', options: kinds, value: o.kind },
+      ...(o.amount ? [{ name: 'amount', label: 'Amount in USDT (negative for a loss or cost)', type: 'number', required: true }] : []),
+      { name: 'note', label: noteLabel, type: 'textarea', required: true, minLength: 5, hint: 'Written to the record.' }] });
+    if (!r) throw new Cancelled();
+    return r;
   };
-  const ask = (m, d) => prompt(m, d) || '';
+  const wdRow = (id) => ((S.queue && S.queue.withdrawals) || []).find((w) => Number(w.id) === Number(id));
   // Update Pool: the request carries exactly what this screen displayed; one request id per displayed state, so a double-click is a replay, not a second update
   let puSig = null, puKey = null;
   const poolUpdate = async (depositIds) => {
@@ -934,31 +1046,42 @@
     const mk = (extra) => (depositIds.length ? PU.requestAndAdmit(st, vid, puKey, depositIds, extra) : PU.request(st, vid, puKey, extra));
     let r;
     try { r = await call(fn, mk({})); }
-    catch (e) { if (!/^CONFIRM: /.test(e.message) || !confirm(e.message.replace(/^CONFIRM: /, '') + '\n\nContinue anyway?')) throw e; r = await call(fn, mk({ confirm: true })); }
+    catch (e) { if (!/^CONFIRM: /.test(e.message) || !(await confirmSheet('Check this before continuing', e.message.replace(/^CONFIRM: /, ''), 'Continue anyway'))) throw e; r = await call(fn, mk({ confirm: true })); }
     if (r && r.blocked) throw new Error(r.text || 'Blocked by the reconciliation.');
     return r;
   };
   const WF = {
     poolupdate: () => poolUpdate([]),
     poolupdateadmit: () => { const ids = [...document.querySelectorAll('input.pu-pick:checked')].map((i) => Number(i.value)); if (!ids.length) throw new Error('Tick the joiners to accept with this update.'); return poolUpdate(ids); },
-    wfclassifypool: (id) => call('admin_classify_pool_difference', { p_vid: id, p_kind: ask('Treat what the pending trades do not explain as: fees, funding, transfer, timing or other', 'fees'), p_note: ask('Why? (written to the record)') }),
+    wfclassifypool: async (id) => { const r = await askKind('Classify what the pending trades do not explain', 'The pending trades already explain their own part. Say what the rest is.', KINDS_ALL.filter((k) => k[0] !== 'trading_pnl'), 'Why?', { kind: 'fees' }); return call('admin_classify_pool_difference', { p_vid: id, p_kind: r.kind, p_note: r.note }); },
     wfconfirm: (id) => call('admin_confirm_balance', { p_vid: id }),
-    wfreject: (id) => call('admin_reject_balance', { p_vid: id, p_reason: ask('Why is this entry wrong?') }),
-    wfadjust: (id) => call('admin_add_adjustment', { p_vid: id, p_kind: ask('What is it? trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_amount: Number(ask('Amount in USDT (negative for a loss or cost)')), p_note: ask('Source (for example the exchange statement line)') }),
-    wfclassify: (id) => call('admin_classify_difference', { p_vid: id, p_kind: ask('Treat the unexplained rest as: trading_pnl, fees, funding, transfer, timing or other', 'trading_pnl'), p_note: ask('Why? (written to the record)') }),
-    wfarrive: (id) => call('admin_confirm_arrival', { p_pending: id, p_note: ask('How did you see it arrive in the exchange?') }),
+    wfreject: async (id) => call('admin_reject_balance', { p_vid: id, p_reason: await askText('Reject this balance entry', 'Why is this entry wrong?', { ok: 'Reject entry', danger: true }) }),
+    wfadjust: async (id) => { const r = await askKind('Explain part of the difference', 'Name a piece of the difference with its source.', KINDS_ALL, 'Source (for example the exchange statement line)', { amount: true, kind: 'trading_pnl' }); return call('admin_add_adjustment', { p_vid: id, p_kind: r.kind, p_amount: Number(r.amount), p_note: r.note }); },
+    wfclassify: async (id) => { const r = await askKind('Classify the unexplained rest', 'This records what the rest of the difference is. It changes nobody\'s units.', KINDS_ALL, 'Why?', { kind: 'trading_pnl' }); return call('admin_classify_difference', { p_vid: id, p_kind: r.kind, p_note: r.note }); },
+    wfarrive: async (id) => call('admin_confirm_arrival', { p_pending: id, p_note: await askText('Seen in the exchange', 'How did you see it arrive in the exchange?', { ok: 'Confirm arrival', hint: 'For example the exchange deposit record.' }) }),
     wfadmit: (id) => moneyWF('admin_admit_deposit', { p_pending: id, p_vid: usable() }),
-    wfapprove: (id, b) => call('admin_approve_withdrawal', { p_request: id, p_note: null, p_lock_reason: b.dataset.lock === 'true' ? ask('This person is inside the lock-up shown to investors. Why do you approve it (exception)?') : null }),
-    wfrejectwd: (id) => call('admin_reject_withdrawal', { p_request: id, p_reason: ask('Reason (the investor is told)') }),
-    wfquote: async (id) => { const r = await call('admin_quote_withdrawal', { p_request: id, p_vid: usable() }); alert(`Quote from the accounting engine (nothing saved):\nUnit price ${f(r.unit_price, 6)}\nFee units ${f(r.fee_units, 6)}\nPayout ${usdt(r.pay_usdt)}`); },
-    wfexec: (id) => moneyWF('admin_execute_withdrawal', { p_request: id, p_vid: usable(), p_to_manager: confirm('Pay from your own money (nothing leaves the exchange)? OK = yes, Cancel = paid from the exchange') }),
-    wfsent: (id, b) => (b.dataset.leaves === 'true' ? call('admin_payout_sent', { p_request: id, p_reference: ask('Exchange withdrawal reference') }) : call('admin_payout_complete', { p_request: id, p_reference: ask('Proof of payment') })),
-    wfcomplete: (id) => call('admin_payout_complete', { p_request: id, p_reference: ask('Payment reference (bank, GCash, Maya, etc.)') }),
-    wffail: (id) => call('admin_payout_fail', { p_request: id, p_reason: ask('What went wrong?') }),
+    wfapprove: async (id, b) => call('admin_approve_withdrawal', { p_request: id, p_note: null, p_lock_reason: b.dataset.lock === 'true' ? await askText('Approve inside the lock-up', 'This person is inside the lock-up shown to investors. Why do you approve it (exception)?', { min: 10, ok: 'Approve with exception' }) : null }),
+    wfrejectwd: async (id) => call('admin_reject_withdrawal', { p_request: id, p_reason: await askText('Reject this request', 'Reason (the investor is told)', { ok: 'Reject request', danger: true }) }),
+    wfquote: async (id) => {
+      const r = await call('admin_quote_withdrawal', { p_request: id, p_vid: usable() });
+      await askSheet({ title: 'Quote from the accounting engine', info: true, text: 'Nothing is saved by a quote.\nUnit price ' + (r && r.unit_price != null ? f(r.unit_price, 6) : 'not available') + '\nFee units ' + (r && r.fee_units != null ? f(r.fee_units, 6) : 'not available') + '\nPayout ' + (r && r.pay_usdt != null ? usdt(r.pay_usdt) : 'not available') });
+    },
+    wfexec: async (id) => {
+      const w = wdRow(id);
+      const r = await askSheet({ title: 'Redeem this withdrawal?', danger: true, confirmLabel: 'Redeem now',
+        text: (w ? w.name + ': ' + f(w.units, 4) + ' units.\n' : '') + 'Their units are sold at the confirmed balance\'s price and a payout is created. This cannot be undone here.',
+        fields: [{ name: 'src', label: 'How will you pay?', type: 'select', value: 'exchange', options: [['exchange', 'From the exchange (money leaves the account)'], ['manager', 'From my own money (nothing leaves the exchange)']] }] });
+      if (!r) throw new Cancelled();
+      return moneyWF('admin_execute_withdrawal', { p_request: id, p_vid: usable(), p_to_manager: r.src === 'manager' });
+    },
+    wfsent: async (id, b) => (b.dataset.leaves === 'true' ? call('admin_payout_sent', { p_request: id, p_reference: await askText('Sent from the exchange', 'Exchange withdrawal reference', { min: 3, type: 'text', ok: 'Mark as sent' }) })
+      : call('admin_payout_complete', { p_request: id, p_reference: await askText('Mark as paid', 'Proof of payment', { min: 3, type: 'text', ok: 'Mark as paid' }) })),
+    wfcomplete: async (id) => call('admin_payout_complete', { p_request: id, p_reference: await askText('Payout completed', 'Payment reference (bank, GCash, Maya, etc.)', { min: 3, type: 'text', ok: 'Mark as completed' }) }),
+    wffail: async (id) => call('admin_payout_fail', { p_request: id, p_reason: await askText('Payout failed', 'What went wrong?', { ok: 'Mark as failed', danger: true }) }),
     wfretry: (id) => call('admin_payout_retry', { p_request: id }),
-    wfescalate: (id, b) => call('admin_escalate', { p_kind: b.dataset.kind, p_id: id, p_note: ask('What will you do about it?') }),
+    wfescalate: async (id, b) => call('admin_escalate', { p_kind: b.dataset.kind, p_id: id, p_note: await askText('Escalate', 'What will you do about it?', { ok: 'Escalate' }) }),
     wfapply: () => moneyWF('admin_apply_balance', { p_vid: usable() }),
-    wfsettle: () => withSettlementExceptions(() => moneyWF('admin_settle_quarter', { p_vid: usable() }), Number(RD().balance), null),
+    wfsettle: () => withSettlementExceptions(() => moneyWF('admin_settle_quarter', { p_vid: usable(), ...previewArg(Number(RD().balance), null) }), Number(RD().balance), null),
   };
 
   function viewReports() {
@@ -1228,7 +1351,7 @@
   const $f = (id) => document.getElementById(id);
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
-    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', qPrev]]) {
+    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle]]) {
       const el = $f(id); if (el) { el.addEventListener('input', (e) => { el.dataset.last = e.target.name || ''; fn(el); }); fn(el); }
     }
   }
@@ -1274,6 +1397,7 @@
     toast('Entry undone — adjust the values and save again.');
   }
   const holder = (id) => S.all.find((h) => h.id === id);
+  let wdSeq = 0, wdTimer = null;   // Money out preview: the newest quote request; older answers are dropped
   function wdPrev(fm) {
     const h = holder(fv(fm, 'who')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
     const wp = $f('wdPay'); if (wp) wp.innerHTML = h && h.role === 'investor' ? `<details class="paydet" open><summary class="note">Where to send their money</summary>${payoutBlock(payOf(h.id))}</details>` : '';
@@ -1285,32 +1409,37 @@
       if (usd != null) fm.elements.units.value = Math.round((usd / price) * 1e8) / 1e8;
     }
     const units = num(fv(fm, 'units'));
+    wdSeq++; clearTimeout(wdTimer);
     if (!h || units == null || eq == null || !u) return setPrev('wdPrev', '—');
     if (eq - pendTotal() <= 0) return setPrev('wdPrev', `<span class="down">Must be more than the ${usdt(pendTotal())} still waiting.</span>`);
-    const price = (eq - pendTotal()) / u, xr = exitRate(h.id), fee = Math.min(units, lotFee(h, Math.min(units, Number(h.units)), price) + units * xr);
-    const net = units - fee, pay = net * price;
+    const price = (eq - pendTotal()) / u;
     const small = h.role === 'investor' && minPhp() && rate() && units < Number(h.units) - 1e-8 && units * price * rate() < minPhp() && !fm.elements.force.checked
       ? `<br><span class="warn">Under the ${php(minPhp())} minimum. Tick override to allow.</span>` : '';
     const warn = small + (units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
       : h.role === 'investor' && h.next_unlock ? `<br><span class="note">Inside their first-deposit lock-up (until ${day(h.next_unlock)}): your call.</span>` : '');
     const mgr = fm.elements.tomgr.checked, mgrWarn = mgr && h.role !== 'investor' ? '<br><span class="down">Only an investor\'s money can be moved to you.</span>' : '';
-    setPrev('wdPrev', `Price ${f(price, 4)}. Fee <b>${f(fee, 4)} units</b>${xr ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} (${f(net, 4)} units) to your fund manager account. Nothing leaves the exchange: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, num(fv(fm, 'rate')) || rate())} for ${f(net, 4)} units.`}${mgrWarn}${warn}`);
-  }
-  function qPrev(fm) {
-    const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units);
-    if (eq == null || !u) return setPrev('qPrev', 'Enter the equity to preview the fee.');
-    if (eq - pendTotal() <= 0) return setPrev('qPrev', `<span class="down">Must be more than the ${usdt(pendTotal())} still waiting.</span>`);
-    const price = (eq - pendTotal()) / u; let tot = 0;
-    const rows = S.all.filter((h) => h.role === 'investor' && Number(h.units) > 0).map((h) => {
-      const gain = lotGain(h, price), fee = Number(h.fee_rate) * gain / price; tot += fee;
-      return `<div class="row"><span class="l">${esc(h.name || h.username)}<br><span class="note">gain above mark ${money(gain)} × ${pc(h.fee_rate)}%${h.fee_rate_next != null ? ` (then ${pc(h.fee_rate_next)}%)` : ''}</span></span><span class="r">${money(fee * price)}<br><span class="note">${f(fee, 4)} units</span></span></div>`;
-    }).join('');
-    setPrev('qPrev', `Price ${f(price, 4)}.${rows || '<br>No investors hold units.'}<div class="row"><span class="l"><b>Total fee</b></span><span class="r"><b>${money(tot * price)}</b><br><span class="note">${f(tot, 4)} units</span></span></div>`);
+    // the fee, withdrawal fee and payout are the database's own answer (admin_quote_withdraw runs the real withdrawal and rolls it back), never a browser estimate;
+    // only the answer for the inputs still on screen is shown
+    const args = { p_profile: h.id, p_units: units, p_equity_before: eq, p_php_rate: num(fv(fm, 'rate')), p_force: fm.elements.force.checked, p_to_manager: mgr, p_at: atOf(fm) };
+    const my = wdSeq, xr = exitRate(h.id), r8 = num(fv(fm, 'rate')) || rate();
+    setPrev('wdPrev', `<span class="note">Asking the database for the fee and payout…</span>${mgrWarn}${warn}`);
+    wdTimer = setTimeout(async () => {
+      let r = null, err = null, checked = false;
+      try { r = await call('admin_quote_withdraw', { ...args, p_confirm: false }); }
+      catch (e) {
+        if (/^CONFIRM: /.test(e.message)) { checked = e.message.replace(/^CONFIRM: /, ''); try { r = await call('admin_quote_withdraw', { ...args, p_confirm: true }); } catch (e2) { err = e2.message; } }
+        else err = e.message;
+      }
+      if (my !== wdSeq || err === 'Signed out') return;
+      if (err) return setPrev('wdPrev', `<span class="down">The database would refuse this: ${esc(/function|schema cache|does not exist/i.test(err) ? 'the quote is not available on this database yet (run 20261128000000_withdraw_quote.sql).' : err)}</span>${mgrWarn}${warn}`);
+      const fee = Number(r.fee_units), net = Number(r.net_units), pay = Number(r.pay_usdt);
+      setPrev('wdPrev', `Price ${f(r.unit_price, 4)}. Fee <b>${f(fee, 4)} units</b>${Number(r.withdrawal_fee_units) > 0 ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, r8)} (${f(net, 4)} units) to your fund manager account. Nothing leaves the exchange: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, r8)} for ${f(net, 4)} units.`}<br><span class="note">Quoted by the database for these exact figures; nothing is saved until you press the button.</span>${checked ? `<br><span class="warn">Saving will ask you to confirm: ${esc(checked)}</span>` : ''}${mgrWarn}${warn}`);
+    }, 350);
   }
 
   // ---------------------------------------------------------------- actions
   async function act(fn, okMsg) {
-    try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
+    try { await fn(); await refresh(okMsg); } catch (e) { if (e.message !== 'Signed out' && !e.cancelled) toast(e.message, true); }
   }
   async function onClick(ev) {
     document.querySelectorAll('details.settings[open]').forEach((d) => { if (!d.contains(ev.target) || ev.target.closest('[data-action]')) d.removeAttribute('open'); });
@@ -1349,7 +1478,7 @@
     else if (a === 'auditmore') { try { const more = await call('admin_audit_log', { p_limit: 200, p_before: S.audit[S.audit.length - 1].id }); S.audit = S.audit.concat(more); S.auditMore = more.length >= 200; render(); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'backupjson' || a === 'backupcsv') { try { await backupDownload(a === 'backupjson' ? 'json' : 'csv'); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'makekey') { try { S.newKey = await call('admin_create_backup_key', { p_label: 'nightly backup' }); await loadAdminExtras(); render(); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
-    else if (a === 'revokekeys') { if (!confirm('Revoke all backup keys? The nightly backup stops until you create a new key.')) return; try { await call('admin_revoke_backup_keys'); S.newKey = null; await loadAdminExtras(); render(); toast('Backup keys revoked'); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
+    else if (a === 'revokekeys') { if (!(await confirmSheet('Revoke all backup keys?', 'Revoke all backup keys? The nightly backup stops until you create a new key.', 'Yes, continue', true))) return; try { await call('admin_revoke_backup_keys'); S.newKey = null; await loadAdminExtras(); render(); toast('Backup keys revoked'); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'splashskip') startTour();
     else if (a === 'welcomenext' || a === 'welcomeback') { S.welcome += a === 'welcomenext' ? 1 : -1; render(); window.scrollTo(0, 0); }
     else if (a === 'welcomedone') {
@@ -1374,18 +1503,19 @@
     else if (a === 'adduser') { S.addUser = !S.addUser; render(); }
     else if (a === 'maxunits') { const v = Number(S.me.units) * Number(S.me.unit_price) * (inPeso() ? rate() : 1); $f('rq-u').value = Math.floor(v * 100) / 100; }
     else if (a === 'arrived') {
-      if (!confirm('Is this money in the exchange account now? It joins the pool at your next Update equity, and that total must include it.')) return;
+      if (!(await confirmSheet('Is the money in the exchange?', 'Is this money in the exchange account now? It joins the pool at your next Update equity, and that total must include it.', 'Yes, continue', true))) return;
       await act(() => call('admin_mark_arrived', { p_pending: Number(id), p_transfer_id: null }), 'Marked as in the exchange');
     }
     else if (a === 'cancelpend') {
-      if (!confirm('Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.')) return;
+      if (!(await confirmSheet('Remove this waiting deposit?', 'Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.', 'Yes, continue', true))) return;
       await act(() => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
     }
+    else if (a === 'wfsettle' && !(await settleSheet(Number(RD().balance), null))) return;
     else if (WF[a]) await act(() => WF[a](Number(id), b), 'Saved');
     else if (a === 'cancelreq') await act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
     else if (a === 'toggleactive') {
       const on = b.dataset.active === 'true';
-      if (on && !confirm('Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.')) return;
+      if (on && !(await confirmSheet('Deactivate this person?', 'Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.', 'Yes, continue', true))) return;
       await act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
     }
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); } }
@@ -1398,12 +1528,12 @@
     else if (a === 'userview') { S.modal = id; render(); const x = document.querySelector('.sheet [data-action="closemodal"]'); if (x) x.focus(); }
     else if (a === 'closemodal') { if (ev.target === b || b.classList.contains('iconbtn') || ev.target.closest('.iconbtn')) closeModal(); }
     else if (a === 'undolast') {
-      if (!confirm('Delete the most recent entry? This appends a correction that cancels it out — nothing is erased from the history.')) return;
+      if (!(await confirmSheet('Delete the most recent entry?', 'Delete the most recent entry? This appends a correction that cancels it out — nothing is erased from the history.', 'Yes, continue', true))) return;
       await act(() => call('admin_undo_last', { p_note: 'correction: deleted' }), 'Last entry deleted (correction added)');
     }
     else if (a === 'editlast') {
       const e = S.elog[0]; if (!e) return;
-      if (!confirm('This undoes the most recent entry so you can re-enter it with the fix. Continue?')) return;
+      if (!(await confirmSheet('Undo the most recent entry?', 'This undoes the most recent entry so you can re-enter it with the fix. Continue?', 'Yes, continue', true))) return;
       const rows = S.ledger.filter((l) => l.equity_id === e.id);
       try {
         const undone = await call('admin_undo_last', { p_note: 'correction: edit' });
@@ -1413,6 +1543,21 @@
         render();
         prefillEdit(e, rows);
       } catch (err) { if (err.message !== 'Signed out') toast(err.message, true); }
+    }
+    else if (a === 'invact') {
+      // Add Money / Withdraw / Full Exit: open the existing form with this person filled in. Nothing is saved here.
+      const kind = b.dataset.inv, h = holder(id); if (!h) return;
+      S.modal = null; S.tab = 'record'; S.recWho = id;
+      if (kind === 'add') S.rec = 'dep';
+      else S.rec = gateOn() ? 'eq' : 'wd';   // with the workflow gate on, payouts are handled on the Balance desk
+      render(); window.scrollTo(0, 0);
+      const fm = $f('wdForm');
+      if (kind === 'exit' && fm) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); toast(`Full exit: all ${f(h.units, 4)} units are filled in. Enter the exchange balance to see the payout.`); }
+      else if (kind !== 'add' && gateOn()) toast(`${kind === 'exit' ? 'A full exit is a withdrawal of all their units: it' : 'Withdrawals'} go${kind === 'exit' ? 'es' : ''} through Approve, Quote and Redeem on this tab.`);
+    }
+    else if (a === 'sppreview' || a === 'spgate') {
+      const fm = $f('qForm'), eq = a === 'spgate' ? Number(b.dataset.eq) : num(fv(fm, 'equity'));
+      await loadPreview(eq, a === 'sppreview' ? atOf(fm) : null);
     }
     else if (a === 'payreq') {
       S.tab = 'record'; S.rec = 'wd'; render(); const fm = $f('wdForm');
@@ -1499,8 +1644,8 @@
         await refresh(mgr ? `Moved ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())} to your fund manager account. Nothing left Exchange.`
           : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
       } else if (id === 'qForm') {
-        if (!confirm('Charge fees and settle this two-month period? This cannot be undone.')) { if (btn) btn.disabled = false; return; }
-        const r = await settleWithExceptions(fm, { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
+        if (!(await settleSheet(num(fv(fm, 'equity')), atOf(fm)))) { if (btn) btn.disabled = false; return; }
+        const r = await settleWithExceptions(fm, { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), ...previewArg(num(fv(fm, 'equity')), atOf(fm)) });
         await refresh(`Period settled: fees charged on ${r.investors_charged} investor(s), ${f(r.fee_units, 4)} units`);
       } else if (btn) btn.disabled = false;
     } catch (e) {
