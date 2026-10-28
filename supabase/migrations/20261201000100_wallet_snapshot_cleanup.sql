@@ -1,8 +1,7 @@
 -- Wallet snapshot cleanup: the bots report every 5 minutes (about 17,000 rows a month), so rows older than 30 days are deleted once a day.
 -- Never deleted: the newest report of each wallet (bot_post_wallet_snapshot uses it for replay protection and the jump check) and any suspect report
 -- (kept as the audit trail of a big jump and of who accepted it). Safe to run twice. Undo: supabase/rollback/20261201000100_rollback_wallet_snapshot_cleanup.sql.
-
-create extension if not exists pg_cron;
+-- The daily schedule needs the pg_cron extension (Supabase has it). Where it is not available (the local test database) only the function is created.
 
 create or replace function public.purge_old_wallet_snapshots(p_days integer default 30)
 returns integer
@@ -23,5 +22,13 @@ end $$;
 
 revoke all on function public.purge_old_wallet_snapshots(integer) from public, anon, authenticated;
 
-select cron.unschedule('purge-wallet-snapshots') where exists (select 1 from cron.job where jobname = 'purge-wallet-snapshots');
-select cron.schedule('purge-wallet-snapshots', '15 3 * * *', $$select public.purge_old_wallet_snapshots(30)$$);
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron;
+    perform cron.unschedule('purge-wallet-snapshots') where exists (select 1 from cron.job where jobname = 'purge-wallet-snapshots');
+    perform cron.schedule('purge-wallet-snapshots', '15 3 * * *', 'select public.purge_old_wallet_snapshots(30)');
+  else
+    raise notice 'pg_cron is not available: the cleanup function exists but is not scheduled';
+  end if;
+end $$;
