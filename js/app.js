@@ -442,7 +442,7 @@
   }
 
   // ---------------------------------------------------------------- growth chart (Robinhood-style: drag across it to see any day)
-  const RANGES = [['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['1Y', 365, 'Past year'], ['ALL', null, 'All time']];
+  const RANGES = [['1D', 1, 'Past day'], ['1W', 7, 'Past week'], ['1M', 30, 'Past month'], ['3M', 91, 'Past 3 months'], ['YTD', 'ytd', 'This year'], ['1Y', 365, 'Past year'], ['ALL', null, 'All time']];
   // an investor's history with the latest point after the fee owed so far, so the balance and % are what is theirs
   function netHistory() {
     const H = (S.history || []).map((p) => ({ ...p })), acc = S.me && S.me.role === 'investor' ? Number(S.me.accrued_fee_usdt) || 0 : 0;
