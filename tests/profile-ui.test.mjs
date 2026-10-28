@@ -44,6 +44,31 @@ test('PU4 Home no longer carries the password, contact and payout forms: a short
 
 test('PU5 the manager\'s own contact details are loaded too, and a changed username is shown in the audit log', () => {
   assert.match(app, /S\.contact = await call\('my_contact'\);/);
-  assert.match(app, /'name_changed', 'username_changed', 'terms_agreed'/);
+  assert.match(app, /'name_changed', 'username_changed', 'payout_details_changed', 'terms_agreed'/);
   assert.match(app, /case 'username_changed': return `changed their username from/);
+});
+
+test('PU6 the manager sees an investor\'s withdrawal details up front (sheet, Users list, every withdrawal row) and can edit anything: name, fee, active, username, password, contact, payout', () => {
+  const sheet = grab('function userModal()', 'const holderOpts');
+  assert.ok(!sheet.includes('Contact and payout details'), 'no longer folded away under one collapsed heading');
+  assert.match(sheet, /<h3 class="subhead">Withdrawal details<\/h3>\$\{payoutBlock\(payOf\(h\.id\)\)\}/);
+  assert.match(sheet, /<h3 class="subhead">Contact<\/h3>\$\{contactBlock\(contactOf\(h\.id\)\)\}/);
+  for (const t of ['class="adminPayoutForm"', 'class="adminContactForm"', 'class="adminUserForm"', 'class="profForm"', 'class="resetForm"', 'data-action="toggleactive"']) assert.ok(sheet.includes(t), t);
+  assert.match(sheet, /<details \$\{payOf\(h\.id\) \? '' : 'open'\}>/, 'the form opens by itself when nothing is on file');
+  assert.match(app, /Withdraws to \$\{esc\(payLabel\(d\.method\)\)\}/); assert.match(app, /No withdrawal details on file/);
+  assert.match(grab('function viewUsers()', 'everything about one person'), /\$\{h\.role === 'investor' \? `<div class="note">\$\{payLine\(h\.id\)\}<\/div>` : ''\}/);
+  assert.match(app, /<span class="note">\$\{payLine\(w\.profile_id\)\}<\/span>/);
+});
+
+test('PU7 the manager\'s forms call admin functions that exist; the QR upload is shared with the investor\'s own form; an unchanged QR is kept', () => {
+  assert.match(app, /call\('admin_set_payout', \{ p_profile: fm\.dataset\.id, p_method: fv\(fm, 'method'\), p_name: fv\(fm, 'pname'\), p_number: fv\(fm, 'pnum'\), p_bank: null, p_qr: qr \}\)/);
+  assert.match(app, /call\('admin_set_username', \{ p_profile: fm\.dataset\.id, p_username: fv\(fm, 'username'\) \}\)/);
+  assert.match(app, /call\('admin_set_password'/); assert.match(app, /call\('admin_set_contact'/); assert.match(app, /call\('admin_set_profile'/);
+  assert.equal((app.match(/async function uploadQr\(/g) || []).length, 1);
+  assert.match(app, /if \(!file\) return current \|\| null;/);
+  assert.match(app, /const qr = await uploadQr\(fm\.elements\.qr\.files\[0\], S\.payout && S\.payout\.qr_path\);/);
+  const sql = read('supabase/migrations/20261202000100_admin_edit_profile.sql');
+  assert.match(sql, /function public\.admin_set_username\(p_token text, p_profile uuid, p_username text\)/);
+  assert.match(sql, /function public\.admin_set_payout\(p_token text, p_profile uuid, p_method text, p_name text, p_number text, p_bank text default null, p_qr text default null\)/);
+  assert.match(app, /case 'payout_details_changed'/);
 });

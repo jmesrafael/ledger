@@ -371,6 +371,18 @@
       <div class="row"><span class="l">Mobile or account number</span><span class="r">${esc(d.account_number)}</span></div>
       ${d.qr_path ? `<a href="${payUrl(d.qr_path)}" target="_blank" rel="noopener"><img class="payqr" src="${payUrl(d.qr_path)}" alt="Receiving QR code" loading="lazy"></a>` : '<p class="note">No QR image uploaded.</p>'}</div>`;
   }
+  // one line for lists: where this person is paid, or a warning when nothing is on file (the manager needs it the moment a withdrawal comes in)
+  const payLine = (pid) => { const d = payOf(pid); return d ? `Withdraws to ${esc(payLabel(d.method))} · ${esc(d.account_name)} · ${esc(d.account_number)}` : '<span class="warn">No withdrawal details on file</span>'; };
+  async function uploadQr(file, current) {
+    if (!file) return current || null;
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
+    if (!ext) throw new Error('The QR must be a PNG, JPG or WebP picture.');
+    if (file.size > 2 * 1024 * 1024) throw new Error('That picture is over 2 MB. Choose a smaller screenshot.');
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const up = await sb.storage.from('payout-qr').upload(path, file, { contentType: file.type, upsert: false });
+    if (up.error) throw new Error('Could not upload the QR: ' + up.error.message);
+    return path;
+  }
   const contactOf = (id) => (S.contacts || []).find((c) => c.profile_id === id) || null;
   const contactMissing = (id) => !!S.contactOn && !!contactOf(id) && contactOf(id).missing;
   // read-only view of how to reach someone (fund manager side)
@@ -728,7 +740,7 @@
   const AUDIT_GROUPS = {
     money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid'],
     readings: ['equity_reading', 'quarter_closed'],
-    accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'username_changed', 'terms_agreed'],
+    accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'username_changed', 'payout_details_changed', 'terms_agreed'],
     security: ['password_changed', 'password_reset', 'viewed_as', 'setting_changed', 'backup_exported', 'backup_key_created', 'backup_keys_revoked'],
   };
   async function loadAdminExtras() {
@@ -745,6 +757,7 @@
       case 'deactivated': return `deactivated ${who}'s account`;
       case 'reactivated': return `reactivated ${who}'s account`;
       case 'name_changed': return `renamed ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
+      case 'payout_details_changed': return `updated ${who}'s withdrawal details (${(d.fields || []).map(esc).join(', ')})`;
       case 'username_changed': return `changed their username from ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
       case 'password_changed': return 'changed their own password';
       case 'password_reset': return `reset ${who}'s password`;
@@ -808,7 +821,7 @@
       const inv = h.role === 'investor' && h.net_profit_usdt != null, val = inv ? h.net_value_usdt : h.value_usdt, gain = inv ? h.net_profit_usdt : h.profit_usdt, nm = esc(h.name || h.username);
       return `<div class="card ucard${h.active ? '' : ' off'}"><div class="ubody"><div class="unm">${nm}${h.role === 'admin' ? ' <span class="chip">fund manager</span>' : ''}${h.active ? '' : ' <span class="chip down">off</span>'}${h.role === 'investor' && contactMissing(h.id) ? ' <span class="chip down">no contact</span>' : ''}</div>
           <div class="uval"><b>${money(val)}</b> <span class="${cls(gain)}">(${smoney(gain)})</span></div>
-          <div class="note">Started ${startedText(startOf(h.id))}</div></div>
+          <div class="note">Started ${startedText(startOf(h.id))}</div>${h.role === 'investor' ? `<div class="note">${payLine(h.id)}</div>` : ''}</div>
         <button class="iconbtn" data-action="userview" data-id="${h.id}" aria-label="View ${nm}" title="View ${nm}">${ICON.eye}</button></div>`;
     };
     return `<div class="sechead"><h2>Users (${S.all.length})</h2><button class="sm ${S.addUser ? 'ghost' : ''}" data-action="adduser">${S.addUser ? 'Cancel' : '+ Add user'}</button></div>
@@ -845,19 +858,32 @@
       ${line(inv ? 'Locked until' : 'Fees earned (units)', inv ? day(h.lock_until) : f(h.fee_units_earned, 3))}
       ${termsLine(h)}
       ${IC.card(h, { pend: S.pend, reqs: S.reqs, queue: S.queue, pu: S.pu, fmt: icFmt })}
-      ${S.contactOn ? `<details style="margin-top:12px" ${contactMissing(h.id) ? 'open' : ''}><summary class="note" style="cursor:pointer">Contact and payout details</summary>
-        ${contactBlock(contactOf(h.id))}${inv ? payoutBlock(payOf(h.id)) : ''}
+      ${inv ? `<h3 class="subhead">Withdrawal details</h3>${payoutBlock(payOf(h.id))}
+        <details ${payOf(h.id) ? '' : 'open'}><summary class="note" style="cursor:pointer">${payOf(h.id) ? 'Edit' : 'Add'} withdrawal details</summary>
+          <form class="adminPayoutForm" data-id="${h.id}"><p class="note" style="margin:8px 0 0">Record or correct where ${nm} is paid (for example taken over the phone). Same details they can edit themselves.</p>
+            <label>Label</label><input name="method" value="${esc(payLabel((payOf(h.id) || {}).method))}" maxlength="40" autocomplete="off" placeholder="e.g. GCash, Bank transfer, GoTyme, Maya" required>
+            <label>Account name</label><input name="pname" value="${esc((payOf(h.id) || {}).account_name || '')}" autocomplete="off" required>
+            <label>Mobile number or bank account number</label><input name="pnum" value="${esc((payOf(h.id) || {}).account_number || '')}" inputmode="numeric" autocomplete="off" required>
+            <label>QR code (optional)</label>${(payOf(h.id) || {}).qr_path ? `<img class="payqr" src="${payUrl(payOf(h.id).qr_path)}" alt="Saved QR code"><p class="note" style="margin:0">Saved. Choose a new picture only to replace it.</p>` : ''}
+            <input name="qr" type="file" accept="image/png,image/jpeg,image/webp">
+            <div class="btns"><button class="ghost">Save withdrawal details</button></div></form></details>` : ''}
+      ${S.contactOn ? `<h3 class="subhead">Contact</h3>${contactBlock(contactOf(h.id))}
+        <details ${contactMissing(h.id) ? 'open' : ''}><summary class="note" style="cursor:pointer">Edit contact details</summary>
         <form class="adminContactForm" data-id="${h.id}"><p class="note" style="margin:8px 0 0">Record or correct ${nm}'s contact details (for example taken over the phone). The change is kept in a history.</p>
           <label>Phone number</label><input name="phone" type="tel" value="${esc((contactOf(h.id) || {}).phone || '')}" inputmode="tel" required>
           <label>Email (optional)</label><input name="email" type="email" value="${esc((contactOf(h.id) || {}).email || '')}">
           <div class="grid form2"><div><label>Emergency contact</label><input name="en" value="${esc((contactOf(h.id) || {}).emergency_name || '')}" placeholder="Name"></div>
             <div><label>Their number</label><input name="ep" type="tel" value="${esc((contactOf(h.id) || {}).emergency_phone || '')}"></div></div>
           <div class="btns"><button class="ghost">Save contact details</button></div></form></details>` : ''}
-      <details style="margin-top:12px"><summary class="note" style="cursor:pointer">Edit / reset password</summary>
+      <h3 class="subhead">Account</h3>
+      <details><summary class="note" style="cursor:pointer">Edit name, fee, username and password</summary>
         ${inv ? `<form class="profForm" data-id="${h.id}"><div class="grid form2"><div><label>Name</label><input name="name" value="${esc(h.name)}"></div>
           <div><label>Fee %</label><input name="fee" type="number" step="any" min="0" max="100" value="${pc(h.fee_rate)}"></div></div>
           <p class="note" style="margin:6px 0 0">Lowering applies at once. Raising only starts after the next settlement, so it never touches profit already made.${h.fee_rate_next != null ? ` Scheduled: ${pc(h.fee_rate_next)}%. Type the current % again to cancel it.` : ''}</p>
           <div class="btns"><button class="ghost">Save</button><button type="button" class="${h.active ? 'danger' : 'ghost'}" data-action="toggleactive" data-id="${h.id}" data-active="${h.active}">${h.active ? 'Deactivate' : 'Reactivate'}</button></div></form>` : ''}
+        <form class="adminUserForm" data-id="${h.id}"><label>Username (they sign in with it)</label>
+          <input name="username" value="${esc(h.username)}" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\-]{3,30}" title="3 to 30 letters, numbers, dot, dash or underscore" required>
+          <div class="btns"><button class="ghost">Save username</button></div></form>
         <form class="resetForm" data-id="${h.id}"><label>New password for ${nm}</label>
           <input name="password" type="text" minlength="8" autocomplete="off" required>
           <div class="btns"><button class="ghost">Set password</button></div></form></details>
@@ -1043,7 +1069,7 @@
     const depRows = q.deposits.map((d) => `<div class="row"><span class="l"><b>${esc(d.name)}</b> · ${usdt(d.usdt)}<br><span class="note">${chip(d.state.replace('_', ' '))} ${esc(d.reason || '')}${d.escalate ? ' <b class="warn">Escalate</b>' : ''}</span></span>
       <span class="r">${d.state === 'awaiting_arrival' ? `<button class="ghost sm" data-action="wfarrive" data-id="${d.id}">Seen in the exchange</button>` : PU.admitMode(S.pu) === 'update_first' ? `<label class="note"><input type="checkbox" class="pu-pick" value="${d.id}"> accept with Update Pool</label>` : d.state === 'ready' ? `<button class="sm" data-action="wfadmit" data-id="${d.id}">Admit</button>` : ''}
         ${d.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="deposit" data-id="${d.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No deposits waiting.</p>';
-    const wdRows = q.withdrawals.map((w) => `<div class="row"><span class="l"><b>${esc(w.name)}</b> · ${f(w.units, 4)} units · pay by ${day(w.pay_by)}<br><span class="note">${chip(w.state.replace('_', ' '))} ${w.delayed ? '<b class="warn">Delayed</b> ' : ''}${w.in_lockup ? 'inside lock-up ' : ''}${w.lock_exception ? '(exception recorded) ' : ''}${esc(w.reason || '')}${w.payout && w.payout.failure_reason ? ' ' + esc(w.payout.failure_reason) : ''}</span></span>
+    const wdRows = q.withdrawals.map((w) => `<div class="row"><span class="l"><b>${esc(w.name)}</b> · ${f(w.units, 4)} units · pay by ${day(w.pay_by)}<br><span class="note">${payLine(w.profile_id)}</span><br><span class="note">${chip(w.state.replace('_', ' '))} ${w.delayed ? '<b class="warn">Delayed</b> ' : ''}${w.in_lockup ? 'inside lock-up ' : ''}${w.lock_exception ? '(exception recorded) ' : ''}${esc(w.reason || '')}${w.payout && w.payout.failure_reason ? ' ' + esc(w.payout.failure_reason) : ''}</span></span>
       <span class="r">${w.state === 'awaiting_approval' ? `<button class="sm" data-action="wfapprove" data-id="${w.id}" data-lock="${w.in_lockup}">Approve</button><button class="ghost sm" data-action="wfrejectwd" data-id="${w.id}">Reject</button>`
         : w.state === 'ready' ? `<button class="ghost sm" data-action="wfquote" data-id="${w.id}">Quote</button><button class="sm" data-action="wfexec" data-id="${w.id}">Redeem</button>`
         : w.state === 'payout_awaiting' ? `<button class="sm" data-action="wfsent" data-id="${w.id}" data-leaves="${w.payout.leaves_mexc}">${w.payout.leaves_mexc ? 'Sent from the exchange' : 'Paid'}</button><button class="ghost sm" data-action="wffail" data-id="${w.id}">Failed</button>`
@@ -1688,17 +1714,15 @@
       } else if (fm.classList.contains('adminContactForm')) {
         await call('admin_set_contact', { p_profile: fm.dataset.id, p_phone: fv(fm, 'phone'), p_email: fv(fm, 'email') || null, p_emergency_name: fv(fm, 'en') || null, p_emergency_phone: fv(fm, 'ep') || null });
         await refresh('Contact details saved');
+      } else if (fm.classList.contains('adminPayoutForm')) {
+        const cur = payOf(fm.dataset.id), qr = await uploadQr(fm.elements.qr.files[0], cur && cur.qr_path);
+        await call('admin_set_payout', { p_profile: fm.dataset.id, p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: null, p_qr: qr });
+        await refresh('Withdrawal details saved');
+      } else if (fm.classList.contains('adminUserForm')) {
+        const u = await call('admin_set_username', { p_profile: fm.dataset.id, p_username: fv(fm, 'username') });
+        await refresh(`Username changed to ${u}. Tell them, they sign in with it.`);
       } else if (id === 'payoutForm') {
-        let qr = (S.payout && S.payout.qr_path) || null; const file = fm.elements.qr.files[0];
-        if (file) {
-          const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[file.type];
-          if (!ext) throw new Error('The QR must be a PNG, JPG or WebP picture.');
-          if (file.size > 2 * 1024 * 1024) throw new Error('That picture is over 2 MB. Choose a smaller screenshot.');
-          const path = `${crypto.randomUUID()}.${ext}`;
-          const up = await sb.storage.from('payout-qr').upload(path, file, { contentType: file.type, upsert: false });
-          if (up.error) throw new Error('Could not upload the QR: ' + up.error.message);
-          qr = path;
-        }
+        const qr = await uploadQr(fm.elements.qr.files[0], S.payout && S.payout.qr_path);
         await call('set_my_payout', { p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: null, p_qr: qr });
         await refresh('Payout details saved');
       } else if (id === 'reqForm') {

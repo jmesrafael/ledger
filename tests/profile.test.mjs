@@ -73,3 +73,39 @@ test('P4 payout details take a free-text label (GCash, Bank transfer, "BDO bank 
   await assert.rejects(() => w.call('set_my_payout', w.J, 'GCash', 'John Berdin', '12', null, null), /number/);
   assert.equal(await w.call('my_payout', w.D), null);
 });
+
+test('P5 the manager changes an investor\'s username: lower case, table rule, refused when taken, audited with the manager as actor; the investor signs in under the new name; an investor cannot do it', async () => {
+  const w = await world();
+  await assert.rejects(() => w.call('admin_set_username', w.J, w.ids.dino, 'hacked'), /admin only/);
+  await assert.rejects(() => w.call('admin_set_username', w.A, w.ids.john, 'ab'), /3 to 30 characters/);
+  await assert.rejects(() => w.call('admin_set_username', w.A, w.ids.john, 'DINO'), /already taken/);
+  await assert.rejects(() => w.call('admin_set_username', w.A, '00000000-0000-0000-0000-000000000000', 'nobody'), /unknown person/);
+  assert.equal(await w.call('admin_set_username', w.A, w.ids.john, '  John.Lloyd '), 'john.lloyd');
+  assert.equal((await w.call('login', 'john', 'john-password')).ok, false);
+  assert.equal((await w.call('login', 'john.lloyd', 'john-password')).ok, true, 'same password, new name');
+  assert.equal((await w.call('my_summary', w.J)).username, 'john.lloyd', 'their open session keeps working');
+  const a = (await w.q(`select actor_id, subject_id, detail from public.audit_log where action = 'username_changed'`))[0];
+  assert.equal(a.actor_id, w.ids.raf); assert.equal(a.subject_id, w.ids.john); assert.deepEqual(a.detail, { from: 'john', to: 'john.lloyd' });
+});
+
+test('P6 the manager records or corrects an investor\'s payout details (free-text label, QR path); same checks as their own form; audited by field, never by number; a no-op leaves no entry', async () => {
+  const w = await world();
+  await assert.rejects(() => w.call('admin_set_payout', w.J, w.ids.dino, 'GCash', 'Dino', '09171234567', null, null), /admin only/);
+  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'x', 'John', '09171234567', null, null), /how they want to be paid/);
+  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'J', '09171234567', null, null), /account name/);
+  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'John', '12', null, null), /number/);
+  await assert.rejects(() => w.call('admin_set_payout', w.A, w.ids.john, 'GCash', 'John', '09171234567', null, '../evil.png'), /invalid QR/);
+  const qr = '0f8fad5b-d9cb-469f-a165-70867728950e.png';
+  await w.call('admin_set_payout', w.A, w.ids.john, ' GoTyme ', ' John Berdin ', ' 0917 123 4567 ', null, qr);
+  let p = await w.call('my_payout', w.J);
+  assert.equal(p.method, 'GoTyme'); assert.equal(p.account_name, 'John Berdin'); assert.equal(p.account_number, '0917 123 4567'); assert.equal(p.qr_path, qr);
+  await w.call('admin_set_payout', w.A, w.ids.john, 'GoTyme', 'John Berdin', '0917 123 4567', null, qr);          // nothing changed
+  await w.call('admin_set_payout', w.A, w.ids.john, 'GoTyme', 'John Berdin', '0999 000 1111', null, qr);          // the number changed
+  p = await w.call('my_payout', w.J); assert.equal(p.account_number, '0999 000 1111');
+  const rows = await w.q(`select actor_id, subject_id, detail from public.audit_log where action = 'payout_details_changed' order by id`);
+  assert.equal(rows.length, 2, 'the first save and the real change, not the no-op');
+  assert.deepEqual(rows[1].detail, { fields: ['account number'] });
+  assert.ok(!JSON.stringify(rows).includes('0999'), 'the number itself is never written to the log');
+  assert.equal(rows[1].actor_id, w.ids.raf); assert.equal(rows[1].subject_id, w.ids.john);
+  assert.equal(await w.call('my_payout', w.D), null);
+});
