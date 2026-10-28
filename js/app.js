@@ -858,6 +858,7 @@
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   const SP = SettlePreview;   // js/settlepreview.js: prints what admin_settlement_preview returned (no maths)
   const IC = InvestorCtx;     // js/investorctx.js: the investor's position and which actions apply (no maths)
+  const BT = BotTotal;        // js/bottotal.js: "Read from the bots" fills an Exchange total field from the bots' latest wallet reports (admin_wallet_nav)
   const spFmt = { usdt: (n) => usdt(n), units: (n) => f(n, 4), day: (t) => day(t), pc: (r) => pc(r) };
   const icFmt = { money: (n) => money(n), units: (n) => f(n, 4), day: (t) => day(t) };
   function pendingCard() {
@@ -891,7 +892,7 @@
       ${pick('wd', RH.button('wd') + (Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
         <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
-        <label>Exchange balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>
+        <label>Exchange balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>${BT.button('wdForm', 'eq')}
         <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="1000"></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <input type="hidden" name="units"><input type="hidden" name="reqid"><input type="hidden" name="rate" value="${rate() || ''}">
@@ -905,7 +906,7 @@
       ${pick('eq', RH.button('eq') + (empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
         <p class="note">The quick old way. The checked route above is safer.</p>
         <form id="eqForm"><label>Exchange total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
-        <input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
+        ${BT.button('eqForm', 'equity')}<input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
         <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`))}
       ${pick('hist', `<div class="card"><h2>History</h2>
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
@@ -960,7 +961,7 @@
       <p class="note">Once per two-month period (Jan–Feb, Mar–Apr, May–Jun, Jul–Aug, Sep–Oct, Nov–Dec, Manila time), in the first 7 days after it ends. Confirm the exchange balance under <b>Record → Balance</b> first (or approve an exception with your reason). Whether open trades are allowed depends on the fee rule: the preview says so (with the confirmed-gain fee they are, as a heads-up).</p>
       ${lastClose()}
       ${S.pend.length ? `<p class="note">${pendNote()} Deposits in the exchange buy units at the close price after the fee, so they pay nothing for this period.</p>` : ''}
-      <form id="qForm"><label>Pool equity now (USDT, the exchange total)</label><input name="equity" type="number" step="any" inputmode="decimal" value="${cur0}" required>
+      <form id="qForm"><label>Pool equity now (USDT, the exchange total)</label><input name="equity" type="number" step="any" inputmode="decimal" value="${cur0}" required>${BT.button('qForm', 'equity')}
       ${phpField()}<label>Note (optional)</label><input name="note" value="Two-month settlement">
       <div class="btns"><button type="button" class="ghost" data-action="sppreview">Preview settlement</button></div>
       <div id="spBox" aria-live="polite"><p class="note">Press <b>Preview settlement</b> to see each person's fee, worked out by the database. Nothing is saved by a preview.</p></div>
@@ -1011,7 +1012,7 @@
         ${w.escalate ? `<button class="ghost sm" data-action="wfescalate" data-kind="withdrawal" data-id="${w.id}">Escalate</button>` : ''}</span></div>`).join('') || '<p class="note">No withdrawal requests open.</p>';
     return `${PU.pendingCard(S.pu, rd)}${PU.reconCard(S.pu)}<div class="card"><h2>Balance check</h2>
         <p class="note">${rd.ok ? '<b class="up">Ready:</b> a confirmed, flat, explained balance is available for deposits, payouts and settlement.' : '<b class="warn">Money is waiting.</b> ' + rd.reasons.map((r) => esc(r.text)).join(' ')}${q.gate === 'on' ? '' : ' (The workflow gate is off: the old direct forms still work.)'}</p>
-        <form id="wfBal"><label>Exchange total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>
+        <form id="wfBal"><label>Exchange total balance (USDT)</label><input name="total" type="number" step="any" inputmode="decimal" required>${BT.button('wfBal', 'total')}
           <div class="grid form2"><div><label>Open positions (0, 1 or 2)</label><input name="pos" type="number" min="0" max="2" value="0" required></div><div><label>Open orders</label><input name="ord" type="number" min="0" value="0"></div></div>
           <button class="full">Enter balance (not confirmed yet)</button></form>${bal}</div>
       <div class="card"><h2>Deposits (${q.deposits.length})</h2>${depRows}${PU.admitMode(S.pu) === 'update_first' && PU.ready(rd).ok && q.deposits.some((d) => d.state !== 'awaiting_arrival') ? '<div class="btns"><button data-action="poolupdateadmit">Update Pool and accept ticked</button></div><p class="note">One step: the pool is updated to the confirmed balance first, then the ticked joiners buy in at that price. If anything fails, nothing is saved.</p>' : ''}</div>
@@ -1542,6 +1543,15 @@
       const on = b.dataset.active === 'true';
       if (on && !(await confirmSheet('Deactivate this person?', 'Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.', 'Yes, continue', true))) return;
       await act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
+    }
+    else if (a === 'bottotal') {
+      const fm = $f(b.dataset.form), box = fm && fm.querySelector('[data-botbox]'), inp = fm && fm.elements[b.dataset.field]; if (!box || !inp) return;
+      box.textContent = 'Reading the bots…';
+      try {
+        const r = BT.read(await call('admin_wallet_nav'));
+        box.innerHTML = BT.html(r, { usdt });
+        if (r.ok) { inp.value = r.total; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      } catch (e) { if (e.message !== 'Signed out') box.innerHTML = `<span class="warn">Could not read the bots: ${esc(/function|schema cache|does not exist/i.test(e.message) ? 'the database has no wallet reports yet.' : e.message)}</span>`; }
     }
     else if (a === 'allunits') { const fm = $f('wdForm'), h = holder(fv(fm, 'who')); if (h) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); } }
     else if (a === 'viewas') { try { await viewAs(id); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
