@@ -79,7 +79,7 @@ button.busy:disabled { opacity: .8; }
 .login-brand .tagline { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .5px; color: var(--accent-text); }
 
 /* "? How this works" on the Record tabs: the button and the instruction sheet (js/recordhelp.js) */
-.helprow { display: flex; justify-content: flex-end; margin: 10px 0 2px; }
+.helprow { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
 .helpbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px 6px 8px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--ink-2);
   background: var(--soft-bg); border: 1px solid var(--soft-border); cursor: pointer; }
 .helpbtn .q { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 800; font-size: 15px; }

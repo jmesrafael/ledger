@@ -108,6 +108,54 @@
         ],
         labels: [],
       },
+      // "Situations": which way to record each real-life case. Same shape as the tabs above (one chip per case), so the same sheet and the same label test apply.
+      sit: {
+        title: 'Situations: which way to record it', tab: 'Record', cases: true,   // independent cases, not a sequence: no arrows, no "Step by step"
+        intro: `The one rule: <b>every peso a person moves</b> into or out of the exchange is recorded here <b>before the next balance reading</b>. Anything the ledger is not told about counts as trading profit or loss for everyone.`,
+        glance: ['Money into the exchange', 'Paid you directly', 'Money out of the exchange', 'You pay them yourself', 'Your own capital in', 'Your own money out', 'Moving between wallets', 'A trade is open', 'Middle of the period', 'The balance does not add up', 'A typo'],
+        steps: [
+          { t: 'An investor sends money to the exchange (new, or a top-up)', where: 'Money in',
+            body: `Choose ${b('Who')}, the amount, ${b('Save')}. When it is in your exchange Spot wallet press ${b('In the exchange')}. It buys units at the next ${b('Update Pool')}, at that day's price, so it never gets profit made before it joined. Then move it Spot → Futures.`,
+            labels: ['Save', 'In the exchange', 'Update Pool'] },
+          { t: 'An investor pays YOU directly (cash, GCash, bank) instead of the exchange', where: 'Money in',
+            body: `Tick ${b('They paid me directly')}, type the amount and the exchange balance now (open trades included), ${b('Save')}. They get <b>your</b> units worth what they paid, at today's price. Nothing goes into the exchange and nobody else's value moves. Their fee is only on gain from today. If you hold fewer units than that, it is refused: put the rest into the exchange as a normal deposit.`,
+            labels: ['They paid me directly', 'Save'] },
+          { t: 'An investor wants money out of the exchange', where: 'Balance tab, Withdrawals and payouts',
+            body: `${b('Approve')} their request, ${b('Quote')} (saves nothing), ${b('Redeem')}. Then send the money and press ${b('Sent from the exchange')}, and ${b('Completed')} once they have it. Their fee is taken from that share first.`,
+            labels: ['Approve', 'Quote', 'Redeem', 'Sent from the exchange', 'Completed'] },
+          { t: 'You pay an investor out of your own pocket (the exchange stays the same)', where: 'Money out (or Redeem: From my own money)',
+            body: `Tick ${b('I pay from my own money (nothing leaves the exchange)')}. Their units become yours (their fee is taken first), and you hand them the cash or send it from your e-wallet. Nothing leaves the exchange. ${b('Everything they hold')} fills in a full exit.`,
+            labels: ['I pay from my own money (nothing leaves the exchange)', 'Everything they hold'] },
+          { t: 'You add your own capital to the exchange', where: 'Money in',
+            body: `The same as an investor, with ${b('Who')} = you. You get units like anyone; there is no fee on your own capital.`, labels: ['Save'] },
+          { t: 'You take your own money out of the exchange', where: 'Money out',
+            body: `${b('Who')} = you. Your units are sold; nobody else's value moves. Record it before you withdraw from the exchange.`, labels: [] },
+          { t: 'Money moved between Spot and Futures, or between the two strategy accounts', where: 'Nothing to record',
+            body: 'The total of all accounts is the same, so record nothing. Only make sure the balance you type adds up every account, Spot + Futures.', labels: [] },
+          { t: 'A trade is still open', where: 'Money in / Money out',
+            body: `Money that goes into or out of <b>the exchange</b> waits until the account is flat (the balance check needs no open positions). A <b>unit transfer</b> does not wait: ${b('They paid me directly')} or ${b('I pay from my own money (nothing leaves the exchange)')}, with the exchange balance including the open trade. If a <b>Pending P/L</b> card shows, press ${b('Update Pool')} first.`,
+            labels: ['They paid me directly', 'I pay from my own money (nothing leaves the exchange)', 'Update Pool'] },
+          { t: 'Someone joins or leaves in the middle of the 2-month period', where: 'Nothing special',
+            body: 'A joiner is measured from their own day; a leaver settles their own share when they leave. Nobody pays for, or gets, anyone else\'s profit.', labels: [] },
+          { t: 'The balance does not add up', where: 'Balance tab',
+            body: 'Do not press Update Pool yet. Was it a deposit or a withdrawal you forgot? Record it (Money in / Money out) for the right person. Explaining it as a "transfer" or "other" does not take it out of the pool: it would still be shared as profit or loss. Classify only fees, funding or a trade result.',
+            labels: [] },
+          { t: 'You typed something wrong', where: 'History',
+            body: `Only the newest entry can be undone (${b('Edit')} undoes it so you can re-enter it). It adds a correction and erases nothing. An older mistake needs a new entry with a written note.`, labels: ['Edit'] },
+        ],
+        good: [
+          'Units decide everything: money in buys units at today\'s price, money out sells them at today\'s price, and only trading moves the price.',
+          'Each person pays the fee only on their own gain above their own best value (their mark), never on money they put in.',
+          'A unit transfer changes who owns units, not how many there are or what the pool is worth, so it can never move anyone else\'s value.',
+        ],
+        refused: [
+          ['"you hold N units (worth …)"', 'You do not have enough units to give. Give what you hold, or put the money into the exchange as a normal deposit.'],
+          ['"pending P/L … Click Update Pool first"', 'Closed trades are waiting. Press Update Pool, then try again.'],
+          ['"only an investor can receive the fund manager\'s units"', 'Choose the investor, not yourself, under Who.'],
+          ['"unit transfers are not available on this database yet"', 'The database needs 20261201000000_units_from_manager.sql.'],
+        ],
+        labels: [],
+      },
     };
   }
 
@@ -115,7 +163,9 @@
   const labels = (topic, ctx) => { const t = topics(ctx)[topic]; return [...new Set(t.steps.flatMap((s) => s.labels || []))]; };
 
   // the button that opens it, placed at the top of each tab
-  const button = (topic) => `<div class="helprow"><button type="button" class="helpbtn" data-action="help" data-help="${esc(topic)}" aria-haspopup="dialog"><span class="q" aria-hidden="true">?</span> How this works</button></div>`;
+  // next to it on every tab: the Situations sheet (which way to record each real-life case)
+  const button = (topic) => `<div class="helprow"><button type="button" class="helpbtn" data-action="help" data-help="${esc(topic)}" aria-haspopup="dialog"><span class="q" aria-hidden="true">?</span> How this works</button>`
+    + `<button type="button" class="helpbtn" data-action="help" data-help="sit" aria-haspopup="dialog"><span class="q" aria-hidden="true">≡</span> Situations</button></div>`;
 
   // the modal: same look as the person sheet (modal-bg + sheet), closed by the existing closemodal action
   function sheet(topic, ctx, closeIcon) {
@@ -125,12 +175,12 @@
       <div class="sheet-head"><div><div class="sheet-nm">${esc(t.title)}</div><div class="note">How this works · the ${esc(t.tab)} tab</div></div>
         <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${closeIcon || '×'}</button></div>
       <p class="hintro">${t.intro}</p>
-      <div class="hglance" aria-label="The whole flow">${t.glance.map((g, i) => `<span class="hchip">${esc(g)}</span>${i < t.glance.length - 1 ? '<span class="harrow" aria-hidden="true">›</span>' : ''}`).join('')}</div>
-      <h3 class="hh">Step by step</h3><ol class="hsteps">${steps}</ol>
+      <div class="hglance" aria-label="${t.cases ? 'The situations' : 'The whole flow'}">${t.glance.map((g, i) => `<span class="hchip">${esc(g)}</span>${!t.cases && i < t.glance.length - 1 ? '<span class="harrow" aria-hidden="true">›</span>' : ''}`).join('')}</div>
+      <h3 class="hh">${t.cases ? 'The situations' : 'Step by step'}</h3><ol class="hsteps">${steps}</ol>
       <h3 class="hh">Good to know</h3><ul class="hlist">${t.good.map((g) => `<li>${g}</li>`).join('')}</ul>
       <h3 class="hh">If something is refused</h3><div class="hrefused">${t.refused.map(([a, c]) => `<div class="row"><span class="l">${esc(a)}</span><span class="r note">${esc(c)}</span></div>`).join('')}</div>
       <div class="btns"><button data-action="closemodal" class="full">Got it</button></div></div></div>`;
   }
   const isHelp = (modal) => typeof modal === 'string' && modal.startsWith('help:');
-  return { topics, labels, button, sheet, isHelp, TOPIC_IDS: ['dep', 'wd', 'eq'] };
+  return { topics, labels, button, sheet, isHelp, TOPIC_IDS: ['dep', 'wd', 'eq', 'sit'] };
 });

@@ -45,6 +45,13 @@ Why step 2: running file #1 on its own switches your live fee rule to "charge a 
   Expected: `fee_timing = immediate`, and the other three `off`. Then run the detector again: steps 10, 11, 12 must be `true`.
 - [ ] **STOP if** any file errored or `fee_timing` is not `immediate`. Restore the backup if anything looks wrong; nothing is deleted by these files, so a restore is only needed if data looks different.
 
+### Part 1b. One more SQL file: unit transfers (run any time after Part 1)
+
+- [ ] Paste `supabase/migrations/20261201000000_units_from_manager.sql` whole into the SQL Editor and Run. It adds two functions and changes no data, no table and no existing function.
+  It lets you give an investor **your** units when they paid **you** directly (Money in → *They paid me directly*). The other direction (*I pay from my own money* on Money out) already existed.
+- [ ] Check: the detector now shows step 13 = true.
+- [ ] The tick box appears in the app only after the new website is deployed (Part 2).
+
 **Order rule (important):** never re-run an earlier migration (for example 1112) after these. It silently undoes parts of the later files. If you ever must, run `20261130000000_wallet_snapshots.sql` again afterwards (and 1127 before it).
 
 ---

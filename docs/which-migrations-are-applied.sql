@@ -12,5 +12,6 @@ select * from (values
   (9, '20261126000000_bot_events_gala',              exists (select 1 from pg_constraint where conname = 'bot_events_symbol_check' and conrelid = to_regclass('public.bot_events') and pg_get_constraintdef(oid) like '%GALA_USDT%')),
   (10, '20261127000000_confirmed_gain_fee',          to_regprocedure('public._settlement_fingerprint(numeric,timestamptz)') is not null),
   (11, '20261128000000_withdraw_quote',              to_regprocedure('public.admin_quote_withdraw(text,uuid,numeric,numeric,numeric,boolean,boolean,timestamptz,boolean)') is not null),
-  (12, '20261130000000_wallet_snapshots',            to_regclass('public.wallet_snapshots') is not null)
+  (12, '20261130000000_wallet_snapshots',            to_regclass('public.wallet_snapshots') is not null),
+  (13, '20261201000000_units_from_manager',          to_regprocedure('public.admin_units_from_manager(text,uuid,numeric,numeric,numeric,numeric,text,timestamptz,text,boolean)') is not null)
 ) as t(step, migration, applied) order by step;

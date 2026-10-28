@@ -60,7 +60,8 @@ test('H6 the sheet: a labelled dialog with numbered steps, a close button and Go
     const h = RH.sheet(topic, { gate, maxAgeHours: 12 }, '<svg></svg>');
     assert.match(h, /role="dialog" aria-modal="true" aria-label="How this works: /); assert.ok(h.includes(`data-help="${topic}"`));
     assert.equal((h.match(/<li class="hstep">/g) || []).length, RH.topics({ gate })[topic].steps.length);
-    for (const w of ['data-action="closemodal"', 'Got it', 'Step by step', 'Good to know', 'If something is refused']) assert.ok(h.includes(w), w);
+    const heading = RH.topics({ gate })[topic].cases ? 'The situations' : 'Step by step';   // the Situations sheet lists independent cases (H8), not a flow
+    for (const w of ['data-action="closemodal"', 'Got it', heading, 'Good to know', 'If something is refused']) assert.ok(h.includes(w), w);
     assert.ok(!/undefined|\[object|NaN/.test(h), `${topic}/${gate} has no undefined text`);
   }
   assert.equal(RH.sheet('nope', {}), '');
@@ -75,4 +76,17 @@ test('H7 wiring: script before the app; the button on all three tabs (also when 
   assert.ok(app.includes('if (RH.isHelp(S.modal)) return helpModal(S.modal.slice(5));') && app.includes("a === 'help') { S.modal = 'help:' + b.dataset.help"));
   assert.ok(app.includes("ev.key === 'Escape' && S.modal) closeModal()"), 'Esc closes it');
   for (const c of ['.helpbtn', '.helpsheet .hstep', '.helpsheet .hnum', '.helpsheet .hglance']) assert.ok(css.includes(c), c);
+});
+
+test('H8 Situations: the button sits next to "How this works" on every Record tab, opens its own sheet, and covers the unit transfers both ways', () => {
+  for (const t of ['dep', 'wd', 'eq']) { const b = RH.button(t); assert.match(b, /data-help="sit"/); assert.match(b, /Situations/); assert.match(b, new RegExp(`data-help="${t}"`)); }
+  const s = RH.topics({ gate: false }).sit;
+  assert.equal(s.glance.length, s.steps.length, 'one chip per situation');
+  const text = strip(s.steps.map((x) => x.t + ' ' + x.body).join(' '));
+  for (const must of [/pays YOU directly/, /They paid me directly/, /out of your own pocket/, /I pay from my own money/, /between Spot and Futures/, /A trade is still open/, /does not add up/])
+    assert.match(text, must);
+  const sheet = RH.sheet('sit', { gate: false }, 'x');
+  assert.match(sheet, /role="dialog"/); assert.match(sheet, /Situations: which way to record it/);
+  assert.ok(!sheet.includes('harrow') && !sheet.includes('Step by step') && sheet.includes('The situations'), 'independent cases: no flow arrows, no "Step by step"');
+  assert.ok(RH.sheet('dep', { gate: false }, 'x').includes('Step by step'), 'the tab sheets keep their step-by-step flow');
 });

@@ -883,7 +883,9 @@
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
         <input type="hidden" name="rate" value="${rate() ? Number(rate()).toFixed(2) : ''}">
         ${gateOn() ? '<p class="note"><b>The workflow gate is on.</b> ' + Gate.TEXT.deposit + '</p><input type="hidden" name="inmexc">'
-          : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in the exchange</span></label>'}
+          : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in the exchange</span></label>'
+            + '<label style="display:flex;gap:8px;align-items:flex-start"><input name="frommgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>They paid me directly: give them my units (nothing goes into the exchange)</span></label>'
+            + '<div data-frommgr hidden><label>Exchange balance now (USDT, Spot + Futures, open trades included)</label><input name="eq" type="number" step="any" inputmode="decimal"></div>'}
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
         <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
       ${pick('wd', RH.button('wd') + (Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
@@ -1371,10 +1373,33 @@
     if (fv(fm, 'ccy') === 'USDT') return { usdt: amt, php: null, rate: r };
     return r > 0 ? { usdt: Math.round((amt / r) * 1e4) / 1e4, php: amt, rate: r } : { usdt: null };
   }
+  // "They paid me directly": the investor gets the fund manager's units at today's price; the figures are the database's own quote (admin_quote_units_from_manager)
+  let depSeq = 0, depTimer = null;
   function depPrev(fm) {
-    const d = depUsdt(fm);
+    const d = depUsdt(fm), mgr = !!(fm.elements.frommgr && fm.elements.frommgr.checked), box = fm.querySelector('[data-frommgr]');
+    if (box) box.hidden = !mgr;
+    depSeq++; clearTimeout(depTimer);
     if (!d) return setPrev('depPrev', '—');
     if (d.usdt == null) return setPrev('depPrev', 'Enter the peso rate to convert.');
+    if (mgr) {
+      const eq = num(fv(fm, 'eq')), who = fv(fm, 'who');
+      if (!(eq > 0)) return setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b> paid to you. Type the exchange balance now to see how many of your units they get.`);
+      const my = depSeq, args = { p_profile: who, p_usdt: d.usdt, p_equity_before: eq, p_php_rate: d.rate, p_at: atOf(fm) };
+      setPrev('depPrev', '<span class="note">Asking the database how many of your units this buys…</span>');
+      depTimer = setTimeout(async () => {
+        let r = null, err = null, checked = false;
+        try { r = await call('admin_quote_units_from_manager', { ...args, p_confirm: false }); }
+        catch (e) {
+          if (/^CONFIRM: /.test(e.message)) { checked = e.message.replace(/^CONFIRM: /, ''); try { r = await call('admin_quote_units_from_manager', { ...args, p_confirm: true }); } catch (e2) { err = e2.message; } }
+          else err = e.message;
+        }
+        if (my !== depSeq || err === 'Signed out') return;
+        if (err) return setPrev('depPrev', `<span class="down">The database would refuse this: ${esc(/function|schema cache|does not exist/i.test(err) ? 'unit transfers are not available on this database yet (run 20261201000000_units_from_manager.sql).' : err)}</span>`);
+        setPrev('depPrev', `They get <b>${f(r.units, 4)} of your units</b> at ${f(r.unit_price, 4)} (worth ${usdt(d.usdt)}${d.php != null ? ', ' + php(d.php) : ''}). You keep ${f(r.manager_units_after, 4)} units.
+          <br><span class="note">Nothing goes into the exchange and nobody else's value changes. Their fee is only on gain from today. Quoted by the database; nothing is saved until you press Save.</span>${checked ? `<br><span class="warn">Saving will ask you to confirm: ${esc(checked)}</span>` : ''}${termsWarn(who)}`);
+      }, 350);
+      return;
+    }
     setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until it is in the exchange and your next equity reading, then buys units at that price.${termsWarn(fv(fm, 'who'))}`);
   }
   // after an "Edit" undoes the last entry, refill the matching form with its old values so the fund manager just fixes the typo and re-saves
@@ -1634,6 +1659,13 @@
         await refresh(Number(r.converted) ? `Equity saved. ${r.converted} waiting deposit${Number(r.converted) === 1 ? '' : 's'} joined at ${f(r.unit_price, 4)}.` : 'Equity saved');
       } else if (id === 'depForm') {
         const d = depUsdt(fm); if (!d || !(d.usdt > 0)) throw new Error('Enter an amount and the peso rate.');
+        if (fm.elements.frommgr && fm.elements.frommgr.checked) {
+          if (!(num(fv(fm, 'eq')) > 0)) throw new Error('Type the exchange balance now (Spot + Futures, open trades included).');
+          const r = await moneyCall(fm, 'admin_units_from_manager', { p_profile: fv(fm, 'who'), p_usdt: d.usdt, p_equity_before: num(fv(fm, 'eq')), p_php_rate: d.rate, p_php_amount: d.php,
+            p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
+          await refresh(`Gave ${f(r.units, 4)} of your units (${usdt(d.usdt)}${d.php != null ? ', ' + php(d.php) : ''}) to them. Nothing went into the exchange.`);
+          return;
+        }
         await moneyCall(fm, 'admin_receive_deposit', { p_profile: fv(fm, 'who'), p_usdt: d.usdt, p_php_rate: d.rate, p_php_amount: d.php,
           p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_in_mexc: fm.elements.inmexc.checked });
         await refresh(`Received ${d.php != null ? php(d.php) + ' = ' : ''}${usdt(d.usdt)}. It buys units at your next equity reading.`);
