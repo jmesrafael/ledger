@@ -225,18 +225,37 @@
 
   const kv = (k, v, sub) => el('div', {}, el('dt', {}, k), el('span', { class: 'fill', 'aria-hidden': 'true' }), el('dd', {}, v, sub || null));
 
+  // Total capital is remembered in this browser, so a report that carries no balance (or a refresh that fails) never blanks the overview: the last known figure stays, labelled with its age.
+  const LAST_CAP = 'bot.lastCapital';
+  const rememberCapital = (usd, text, asOf) => { if (Number.isFinite(usd)) store.set(LAST_CAP, JSON.stringify({ usd, text, as_of: asOf || Date.now() })); };
+  const lastCapital = () => { try { const c = JSON.parse(store.get(LAST_CAP)); return c && Number.isFinite(c.usd) ? c : null; } catch { return null; } };
   function renderKpis(d) {
-    const cap = d.capital, o = d.overall, s = d.status, tc = d.bots && d.bots.icore ? d.total_capital : null;
-    if (tc) {   // both bots report: Total capital is BB-Core + I-Core added together, with each part shown (a paper balance is labelled as such)
+    const cap = d.capital, o = d.overall, s = d.status, tc = d.bots && d.bots.icore ? d.total_capital : null, wc = d.wallet_capital;
+    if (wc) {   // the real balances from the bots' 5-minute wallet reports: Total capital is every trading account added together
+      const txt = wc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}`).join(' + ');
+      $('#kCapital').textContent = fmtUsd(wc.usd);
+      const sub = $('#kCapitalSub'); clear(sub).append(txt, ' · MEXC reports ', ago(wc.as_of));
+      if (wc.missing.length) sub.append(el('span', { class: 'bad' }, ` · ${wc.missing.join(', ')} has not reported, not counted`));
+      if (Date.now() - wc.as_of > 30 * 60000) sub.append(el('span', { class: 'bad' }, ' · old: the VPS has not reported for a while'));
+      if (!wc.missing.length) rememberCapital(wc.usd, txt, wc.as_of);
+      spark($('#kSpark'), cap ? cap.points.map((p) => p.usd) : d.equity.map((p) => p.r_cum));
+    } else if (tc) {   // both bots report: Total capital is BB-Core + I-Core added together, with each part shown (a paper balance is labelled as such)
       $('#kCapital').textContent = fmtUsd(tc.usd);
       const sub = $('#kCapitalSub'); clear(sub).append(tc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}${p.mode === 'live' ? '' : ' (paper)'}`).join(' + '));
       if (tc.missing.length) sub.append(el('span', { class: 'bad' }, ` · ${tc.missing.join(', ')} balance not shared, not counted`));
       else if (tc.paper.length) sub.append(` · includes paper balance (${tc.paper.join(', ')})`);
+      if (!tc.missing.length && !tc.paper.length) rememberCapital(tc.usd, tc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}`).join(' + '), tc.as_of);
       spark($('#kSpark'), cap ? cap.points.map((p) => p.usd) : d.equity.map((p) => p.r_cum));
     } else if (cap) {
       $('#kCapital').textContent = fmtUsd(cap.usd);
       const sub = $('#kCapitalSub'); clear(sub).append(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`, cap.net_flows_usd ? ` · excl. ${fmtUsd(cap.net_flows_usd, true)} capital` : '');
+      if (d.mode === 'live') rememberCapital(cap.usd, 'Balance', cap.as_of);
       spark($('#kSpark'), cap.points.map((p) => p.usd));
+    } else if (lastCapital()) {   // nothing came with this report: keep the last known total instead of a blank
+      const c = lastCapital();
+      $('#kCapital').textContent = fmtUsd(c.usd);
+      const sub = $('#kCapitalSub'); clear(sub).append(c.text ? c.text + ' · ' : '', 'last known, ', ago(c.as_of));
+      spark($('#kSpark'), d.equity.map((p) => p.r_cum));
     } else {
       $('#kCapital').textContent = '—';
       $('#kCapitalSub').textContent = d.mode === 'live' ? 'Live balance is not shared with the dashboard.' : 'No balance received yet (arrives with each report).';
@@ -456,6 +475,7 @@
   // ---------------- data + login ----------------
   async function load() {
     $('#promptCmd').textContent = 'status --refresh';
+    let kept = false;
     try {
       const res = await fetch('/api/data' + (modeSel ? `?mode=${encodeURIComponent(modeSel)}` : ''), { credentials: 'same-origin', cache: 'no-store' });
       if (res.status === 401) return showLogin('');
@@ -463,8 +483,11 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       $('#boot').hidden = true; $('#login').hidden = true; $('#app').hidden = false; $('#logoutBtn').hidden = false; $('#vpsBtn').hidden = false;
       render(await res.json());
-    } catch (e) { showLogin(`Could not load data: ${e.message}`); }
-    finally { $('#promptCmd').textContent = 'status --watch'; }
+    } catch (e) {
+      if (data) { kept = true; $('#promptCmd').textContent = 'status --retrying (showing the last data)'; }   // a failed refresh never wipes the page: the last data stays until the next one arrives
+      else showLogin(`Could not load data: ${e.message}`);
+    }
+    finally { if (!kept) $('#promptCmd').textContent = 'status --watch'; }
   }
   function showLogin(msg) { $('#boot').hidden = true; $('#app').hidden = true; $('#login').hidden = false; $('#logoutBtn').hidden = true; $('#vpsBtn').hidden = true; $('#statusPill').hidden = true; $('#loginMsg').textContent = msg; }
 

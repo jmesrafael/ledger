@@ -111,6 +111,8 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .icon-btn { display: grid; place-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 12px; color: var(--ink);
   background-color: var(--ghost-bg); background-image: var(--ghost-img); box-shadow: var(--ghost-shadow); border: 1px solid var(--soft-border); }
 .icon-btn .ico { width: 19px; height: 19px; transition: transform .3s ease; }
+.back-btn { flex: 0 0 auto; text-decoration: none; }
+.back-btn:hover .ico { transform: translateX(-2px); }
 .icon-btn[aria-expanded="true"] .ico { transform: rotate(60deg); }
 .menu { position: absolute; right: 0; left: auto; top: calc(100% + 8px); z-index: 40; width: min(260px, calc(100vw - 32px)); max-height: calc(100vh - 90px); overflow-y: auto; padding: 8px; border-radius: var(--r);
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--sheet-shadow); }
