@@ -104,5 +104,31 @@
   const csvCell = (v) => { const t = v == null ? '' : String(v); return /[,"\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   const toCsv = (columns, rows) => [columns.map((c) => csvCell(c[0])).join(','), ...rows.map((r) => columns.map((c) => csvCell(c[1](r))).join(','))].join('\r\n') + '\r\n';
 
-  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, drawdown, pesos, toCsv };
+  // A return line seen from a later start (the chart's 1D / 1W / ... ranges). pts: [[time, cumulative return], ...] oldest first. Points before `start` are dropped, the line
+  // begins at `start` at 0 with everything measured from the value it had then, and returns are rebased: (1 + r) / (1 + base) - 1, the same chaining as between().
+  // A line that began after `start` is unchanged. start = -Infinity returns the line as it is.
+  function fromStart(pts, start) {
+    if (!pts.length || start === -Infinity) return pts;
+    const before = pts.filter((p) => p[0] < start).pop(), inside = pts.filter((p) => p[0] >= start);
+    if (!before) return inside;
+    const k = 1 + before[1];
+    if (!(k > EPS)) return inside;
+    return [[start, 0], ...inside.map((p) => [p[0], (1 + p[1]) / k - 1])];
+  }
+
+  // The day a person started: the time of their earliest deposit entry (rows: ledger rows { profile_id, kind, ts }); null until they have one.
+  // A late entry dated back with the form's "When" moves it back, so the manager can record a start that happened before it was typed in.
+  // A deposit that was undone (it has a reversing entry, or is one) is not a start.
+  function firstDeposit(rows, pid) {
+    let best = null;
+    const undone = new Set((rows || []).filter((l) => l && l.reversed_of != null).map((l) => l.reversed_of));
+    for (const l of rows || []) {
+      if (!l || l.profile_id !== pid || l.kind !== 'deposit' || l.reversed_of != null || undone.has(l.id)) continue;
+      const t = typeof l.ts === 'number' ? l.ts : Date.parse(l.ts);
+      if (Number.isFinite(t) && (best === null || t < best)) best = t;
+    }
+    return best;
+  }
+
+  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, drawdown, pesos, toCsv, fromStart, firstDeposit };
 });

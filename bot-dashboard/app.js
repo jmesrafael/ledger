@@ -18,6 +18,7 @@
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
   let tz = store.get('bot.tz') === 'local' ? 'local' : 'utc', data = null, modeSel = store.get('bot.mode') || '';
+  let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
   let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
 
@@ -333,23 +334,34 @@
     else box.append(...out);
   }
 
+  // The chart for the chosen range: points before it are dropped and the line starts at the range start with the value it had then; flat until now when nothing changed since.
+  // dd is the drawdown chart, which carries no value forward (it is zero at a new peak).
+  function inRange(pts, now = Date.now()) {
+    if (!chartDays || !pts.length) return pts;
+    const start = now - chartDays * 864e5, before = pts.filter((p) => p.ts < start).pop(), out = pts.filter((p) => p.ts >= start);
+    if (before) out.unshift({ ts: start, y: before.y });
+    const last = out[out.length - 1];
+    if (last && last.ts < now - 36e5) out.push({ ts: now, y: last.y });
+    return out;
+  }
   function renderChart() {
     if (!data) return;
-    for (const b of $$('#chartTabs button')) { const on = b.dataset.chart === chartKind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+    for (const b of $$('#rangeTabs button')) { const on = +b.dataset.range === chartDays; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+    for (const b of $('#chartTabs button')) { const on = b.dataset.chart === chartKind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
     const d = data, note = $('#chartNote');
     if (chartKind === 'capital') {
-      const pts = d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : [];
+      const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `Balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
     } else if (chartKind === 'perf') {
-      const pts = d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : [];
+      const pts = inRange(d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `Balance with deposits and payouts taken out: only trading moves this line · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since start${d.capital.twr_pct != null ? ` · time-weighted return ${fmtPct(d.capital.twr_pct, true)}` : ''}` : '';
     } else if (chartKind === 'r') {
-      lineChart($('#chart'), d.equity.map((p) => ({ ts: p.ts, y: p.r_cum })), { fmtY: (v) => `${v.toFixed(1)}R` });
+      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.r_cum }))), { fmtY: (v) => `${v.toFixed(1)}R` });
       note.textContent = d.equity.length ? `Cumulative R over ${d.overall.trades} closed trades: ${fmtR(d.overall.total_r)}` : '';
     } else {
-      lineChart($('#chart'), d.equity.map((p) => ({ ts: p.ts, y: p.dd_r })), { dd: true, fmtY: (v) => `${v.toFixed(1)}R` });
+      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.dd_r }))), { dd: true, fmtY: (v) => `${v.toFixed(1)}R` });
       note.textContent = d.equity.length ? `Max drawdown ${Number(d.overall.max_dd_r).toFixed(1)}R · now ${Number(d.equity[d.equity.length - 1].dd_r).toFixed(1)}R · halt at ${d.status.halt_r != null ? Math.abs(d.status.halt_r) : '—'}R` : '';
     }
   }
@@ -405,6 +417,7 @@
   });
   document.addEventListener('keydown', (e) => { if (/^[1-5]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) && !$('#app').hidden) setTab(TABS[+e.key - 1]); });
   window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== tab) setTab(h); });
+  $('#rangeTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartDays = +b.dataset.range; store.set('bot.range', String(chartDays)); renderChart(); });
   $('#chartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartKind = b.dataset.chart; store.set('bot.chart', chartKind); renderChart(); });
 
   // ---------------- VPS specs panel ----------------

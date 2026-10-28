@@ -21,6 +21,7 @@
     log: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
     mine: svg('<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.2"/>'),
     refresh: svg('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>'),
+    user: svg('<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c.9-3.6 3.9-5.4 7.5-5.4s6.6 1.8 7.5 5.4"/>'),
     tour: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
     bot: svg('<rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 7V4M9 12.5h.01M15 12.5h.01M9.5 16h5"/>'),
     signout: svg('<path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4M20 12H9"/>'),
@@ -222,7 +223,7 @@
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
     try { S.payout = admin ? null : await call('my_payout'); S.payouts = admin ? (await call('admin_payouts')) || [] : []; }
     catch (e) { if (e.message === 'Signed out') throw e; S.payout = null; S.payouts = []; }   // empty until the payout-details migration is run
-    try { S.contact = admin ? null : await call('my_contact'); S.contacts = admin ? (await call('admin_contacts')) || [] : []; S.contactOn = true; }
+    try { S.contact = await call('my_contact'); S.contacts = admin ? (await call('admin_contacts')) || [] : []; S.contactOn = true; }
     catch (e) { if (e.message === 'Signed out') throw e; S.contact = null; S.contacts = []; S.contactOn = false; }   // hidden until the contact-details migration is run
     try { S.pos = admin ? null : await call('my_position'); S.queue = admin ? await call('admin_capital_queue') : null; S.checks = admin ? await call('admin_balance_checks') : null; }
     catch (e) { if (e.message === 'Signed out') throw e; S.pos = null; S.queue = null; S.checks = null; }   // empty until the capital-workflow migration is run
@@ -269,6 +270,7 @@
     const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
     return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
       <button data-action="refresh">${ICON.refresh}<span>Refresh</span></button>
+      ${account ? `<button data-action="profile">${ICON.user}<span>Profile</span></button>` : ''}
       <button data-action="theme">${ICON[p === 'light' ? 'sun' : p === 'dark' ? 'moon' : 'auto']}<span>Theme</span><span class="val">${tl}</span></button>
       ${rate() ? `<button data-action="cur"><span style="width:18px;text-align:center;font-weight:800">${inPeso() ? '₱' : '$'}</span><span>Currency</span><span class="val">${inPeso() ? 'Peso' : 'USD'}</span></button>` : ''}
       ${account ? `<button data-action="welcome">${ICON.tour}<span>Welcome tour</span></button>${isAdmin() ? `<button data-action="botdash">${ICON.bot}<span>Bot dashboard</span></button>` : ''}<button class="danger" data-action="signout">${ICON.signout}<span>Sign out</span></button>` : ''}</div></details>`;
@@ -320,7 +322,7 @@
     return `${pb ? `<div class="card" data-pool="banner"><p class="warn"><b>Pending P/L: ${esc(pb)}</b></p><p class="note">Nobody can join or be paid out until you click Update Pool (Record → Balance).</p><div class="btns"><button data-tab="record" data-rec="eq">Go to Update Pool</button></div></div>` : ''}<div class="card hero"><h2>Total Fund</h2>
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
-        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}</p>${lastClose()}</div>
+        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>
       <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
@@ -384,7 +386,7 @@
     if (!S.contactOn) return '';
     const d = S.contact, head = `<div class="card"><h2>How to reach me</h2>`;
     if (m.impersonated) return `${head}${d ? contactBlock({ ...d, missing: false }) : '<p class="note">Not added yet.</p>'}</div>`;
-    return `${head}<p class="note" style="margin-top:0">${d ? 'Used only to contact you about your account.' : '<b class="warn">Please add this.</b> If anything happens with your account or a withdrawal, this is how the fund manager reaches you.'}</p>
+    return `${head}<p class="note" style="margin-top:0">${m.role === 'admin' ? 'Your own phone and email on file.' : d ? 'Used only to contact you about your account.' : '<b class="warn">Please add this.</b> If anything happens with your account or a withdrawal, this is how the fund manager reaches you.'}</p>
       <form id="contactForm"><label>Phone number</label><input name="phone" type="tel" value="${esc((d && d.phone) || '')}" inputmode="tel" autocomplete="tel" placeholder="0917 123 4567" required>
         <label>Email (optional)</label><input name="email" type="email" value="${esc((d && d.email) || '')}" autocomplete="email" placeholder="you@example.com">
         <label>Someone we can call if we cannot reach you (optional)</label>
@@ -409,6 +411,32 @@
         <input name="qr" type="file" accept="image/png,image/jpeg,image/webp">
         <button class="full">${d ? 'Update details' : 'Save details'}</button></form></div>`;
   }
+  // ---------------------------------------------------------------- Profile (Settings menu): everything personal about this person in one place
+  // Home keeps only a short card that points here, and says so when the contact number or the payout details are still missing.
+  function profileNudge(m) {
+    const need = m.role === 'investor' ? [S.contactOn && !S.contact ? 'contact number' : '', !S.payout ? 'details of where to send your money' : ''].filter(Boolean) : [];
+    return `<div class="card"><h2>Profile</h2>${need.length ? `<p class="note"><b class="warn">Please add your ${need.join(' and ')}.</b> It takes a minute, and we need them before a withdrawal.</p>`
+      : '<p class="note">Your name, username, contact details, payout details and password.</p>'}<div class="btns"><button class="ghost" data-action="profile">Open profile</button></div></div>`;
+  }
+  function viewProfile() {
+    const m = S.me, investor = m.role === 'investor', home = tabsFor()[0][0];
+    const started = startOf(m.id) ?? (S.history && S.history[0] ? new Date(S.history[0].ts).getTime() : null);
+    return `<div class="sechead"><h2>Profile</h2><button class="sm ghost" data-tab="${home}">Back</button></div>
+      <div class="card"><h2>Your account</h2>
+        <div class="row"><span class="l">Name</span><span class="r">${esc(m.name || '')}</span></div>
+        <div class="row"><span class="l">Username</span><span class="r">@${esc(m.username)}</span></div>
+        <div class="row"><span class="l">Role</span><span class="r">${investor ? 'Investor' : 'Fund manager'}</span></div>
+        <div class="row"><span class="l">Started</span><span class="r">${startedText(started)}</span></div>
+        <form id="nameForm" style="margin-top:12px"><label>Name</label><input name="name" value="${esc(m.name || '')}" maxlength="80" autocomplete="name" required>
+          <button class="full ghost">Save name</button></form>
+        <form id="usernameForm" style="margin-top:12px"><label>New username</label>
+          <input name="username" placeholder="${esc(m.username)}" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\-]{3,30}" title="3 to 30 letters, numbers, dot, dash or underscore" required>
+          <label>Current password (to confirm)</label>${pw('pw', 'current-password')}
+          <button class="full ghost">Change username</button></form>
+        <p class="note">You sign in with your username: 3 to 30 letters, numbers, dot, dash or underscore. ${investor ? 'Tell the fund manager if you change it.' : ''}</p></div>
+      ${contactCard(m)}${investor ? payoutCard(m) : ''}${passwordCard()}`;
+  }
+
   // ---------------------------------------------------------------- investor / shared views
   function viewHome() {
     const m = S.me, investor = m.role === 'investor';
@@ -430,7 +458,7 @@
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
         <div class="row"><span class="l">Stays invested in the pool</span><span class="r">${money(m.fee_units_value_usdt)}<br><span class="note">${f(m.fee_units_earned, 4)} units</span></span></div></div>`}
-      ${investor ? contactCard(m) + payoutCard(m) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${m.impersonated ? '' : passwordCard()}${DISC}`;
+      ${investor ? (m.impersonated ? contactCard(m) + payoutCard(m) : profileNudge(m)) : ''}${recentCard()}${investor ? aboutTeaser() : ''}${DISC}`;
   }
   const aboutTeaser = () => `<div class="card"><h2>Good to know</h2>
     <p class="note" style="margin:0 0 4px"><b style="color:var(--ink)">You can take your money out.</b> It grows with the fund's results, so the balance moves up and down. <b style="color:var(--ink)">You can still lose money.</b></p>
@@ -449,11 +477,15 @@
     if (acc > 0 && H.length) H[H.length - 1].value = Number(H[H.length - 1].value) - acc;
     return H;
   }
+  // when a person started = the date of their first deposit (js/returns.js firstDeposit); the fund started with the first pool reading
+  const startOf = (pid) => Returns.firstDeposit(S.ledger, pid);
+  const startedText = (ms) => (ms == null ? 'No deposit yet' : `${day(ms)} · ${Math.max(0, Math.floor((Date.now() - ms) / 864e5))} days ago`);
+  const fundStart = () => { const h = S.hist && S.hist[0]; return h && h.ts ? new Date(h.ts).getTime() : null; };
+  const rangeStart = () => { const r = RANGES.find((x) => x[0] === S.range)[1]; return r == null ? -Infinity : r === 'ytd' ? Date.UTC(new Date().getUTCFullYear(), 0, 1) : Date.now() - r * 864e5; };
   function series() {
     const H = netHistory().map((p) => ({ t: new Date(p.ts).getTime(), v: Number(p.value), n: Number(p.net_in) }));
     if (!H.length) return [];
-    const now = Date.now(), r = RANGES.find((x) => x[0] === S.range)[1];
-    const start = r == null ? -Infinity : r === 'ytd' ? Date.UTC(new Date().getUTCFullYear(), 0, 1) : now - r * 864e5;
+    const now = Date.now(), start = rangeStart();
     let pts = H.filter((p) => p.t >= start);
     const before = H.filter((p) => p.t < start).pop();
     if (before) pts = [{ ...before, t: start }, ...pts];          // the line starts at the range start with the value it had then
@@ -474,6 +506,7 @@
     return `<div class="card hero" style="--dot:${color}"><h2>${title}</h2>
       <div class="big" id="gv">${money(z.v)}</div><div class="sub" id="gp">${alt(z.v)}</div>
       <div id="gd" class="delta"></div>
+      <div class="note" id="gs" style="margin:2px 0 0">Started ${startedText(startOf(m.id) ?? new Date(netHistory()[0].ts).getTime())}</div>
       <div class="gwrap"><svg id="gc" class="growth" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Your balance over time">
         ${area('gfill', pts.map((p) => X(p.t)), pts.map((p) => Y(p.v)), W, H, color, dashed)}
         <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-opacity=".6" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
@@ -547,7 +580,7 @@
         ${fees.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all</button></div>` : ''}</div>
       <div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
         ${mine.length > 5 ? `<div class="btns"><button class="ghost" data-tab="myhistory">See all ${mine.length}</button></div>` : ''}</div>
-      ${passwordCard()}`;
+      ${profileNudge(S.me)}`;
   }
   const viewMyHistory = () => `<div class="card"><h2>My transactions</h2>${activityRows(myRows(), false)}</div>`;
 
@@ -555,8 +588,11 @@
   // S.history: the signed-in person's points (one per pool event since they joined). S.fund: the unit price at every pool
   // event and whether the fund manager's own money was in. Money added or taken out never counts in any % here.
   const tms = (ts) => new Date(ts).getTime();
-  function pctChart(lines) {   // lines: [{ name, color, dash, pts: [[time, return], ...] }]
-    if (lines.some((l) => l.pts.length < 2)) return '<p class="note">The chart starts after the next equity reading.</p>';
+  function pctChart(lines) {   // lines: [{ name, color, dash, pts: [[time, return], ...] }]; drawn for the chosen range (1D, 1W ...), returns measured from its start
+    const start = rangeStart(), label = RANGES.find((x) => x[0] === S.range)[2];
+    lines = lines.map((l) => ({ ...l, pts: Returns.fromStart(l.pts, start) }));
+    const rangeRow = `<div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>`;
+    if (lines.some((l) => l.pts.length < 2)) return `<p class="note">The chart starts after the next equity reading, or has no readings in this range.</p>${rangeRow}`;
     const all = lines.flatMap((l) => l.pts);
     const t0 = Math.min(...all.map((p) => p[0])), t1 = Math.max(t0 + 1, ...all.map((p) => p[0]));
     let lo = Math.min(0, ...all.map((p) => p[1])), hi = Math.max(0, ...all.map((p) => p[1]));
@@ -565,7 +601,8 @@
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Return from trading over time">
       <line x1="0" x2="${W}" y1="${Y(0).toFixed(2)}" y2="${Y(0).toFixed(2)}" stroke="var(--muted)" stroke-opacity=".55" stroke-width="1" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>
       ${lines.map((l) => `<polyline fill="none" stroke="${l.color}" stroke-width="2.2" ${l.dash ? 'stroke-dasharray="6 4"' : ''} stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${l.pts.map((p) => `${X(p[0]).toFixed(2)},${Y(p[1]).toFixed(2)}`).join(' ')}"/>`).join('')}</svg>
-      <div class="legend" style="margin-top:8px">${lines.map((l) => { const r = l.pts[l.pts.length - 1][1]; return `<span><b style="background:${l.color}"></b>${l.name} <span class="${cls(r)}">${pct(r)}</span></span>`; }).join('')}</div>`;
+      ${rangeRow}
+      <div class="legend" style="margin-top:8px">${lines.map((l) => { const r = l.pts[l.pts.length - 1][1]; return `<span><b style="background:${l.color}"></b>${l.name} <span class="${cls(r)}">${pct(r)}</span></span>`; }).join('')}<span class="note">${label.toLowerCase()}</span></div>`;
   }
   const withNow = (pts) => (pts.length ? [...pts, [Date.now(), pts[pts.length - 1][1]]] : pts);   // flat until today
   function myGrowths() {
@@ -691,7 +728,7 @@
   const AUDIT_GROUPS = {
     money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid'],
     readings: ['equity_reading', 'quarter_closed'],
-    accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'terms_agreed'],
+    accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'username_changed', 'terms_agreed'],
     security: ['password_changed', 'password_reset', 'viewed_as', 'setting_changed', 'backup_exported', 'backup_key_created', 'backup_keys_revoked'],
   };
   async function loadAdminExtras() {
@@ -708,6 +745,7 @@
       case 'deactivated': return `deactivated ${who}'s account`;
       case 'reactivated': return `reactivated ${who}'s account`;
       case 'name_changed': return `renamed ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
+      case 'username_changed': return `changed their username from ${esc(d.from || '—')} to ${esc(d.to || '—')}`;
       case 'password_changed': return 'changed their own password';
       case 'password_reset': return `reset ${who}'s password`;
       case 'equity_reading': return `posted an equity reading of ${usdt(d.equity_usdt)} (unit price ${f(d.unit_price, 4)})${d.note ? ' · ' + esc(d.note) : ''}`;
@@ -769,7 +807,8 @@
     const card = (h) => {
       const inv = h.role === 'investor' && h.net_profit_usdt != null, val = inv ? h.net_value_usdt : h.value_usdt, gain = inv ? h.net_profit_usdt : h.profit_usdt, nm = esc(h.name || h.username);
       return `<div class="card ucard${h.active ? '' : ' off'}"><div class="ubody"><div class="unm">${nm}${h.role === 'admin' ? ' <span class="chip">fund manager</span>' : ''}${h.active ? '' : ' <span class="chip down">off</span>'}${h.role === 'investor' && contactMissing(h.id) ? ' <span class="chip down">no contact</span>' : ''}</div>
-          <div class="uval"><b>${money(val)}</b> <span class="${cls(gain)}">(${smoney(gain)})</span></div></div>
+          <div class="uval"><b>${money(val)}</b> <span class="${cls(gain)}">(${smoney(gain)})</span></div>
+          <div class="note">Started ${startedText(startOf(h.id))}</div></div>
         <button class="iconbtn" data-action="userview" data-id="${h.id}" aria-label="View ${nm}" title="View ${nm}">${ICON.eye}</button></div>`;
     };
     return `<div class="sechead"><h2>Users (${S.all.length})</h2><button class="sm ${S.addUser ? 'ghost' : ''}" data-action="adduser">${S.addUser ? 'Cancel' : '+ Add user'}</button></div>
@@ -795,6 +834,7 @@
       <div class="sheet-head"><div><div class="sheet-nm">${nm}${h.active ? '' : ' <span class="chip down">off</span>'}</div><div class="note">@${esc(h.username)}${inv ? '' : ' · fund manager'}</div></div>
         <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
+      ${line('Started', startedText(startOf(h.id)))}
       ${line('Put in', putIn(h))}
       ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
         : line('Profit', gainOf(h.profit_usdt, h.return_pct))}
@@ -1108,7 +1148,7 @@
     admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Settle'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
     adminMe: [['mine', 'My account'], ['statements', 'Statements'], ['myhistory', 'History']],                                                                              // side "My account": only the fund manager's own money
   };
-  const VIEWS = { home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, capital: viewCapital, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
+  const VIEWS = { profile: viewProfile, home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, capital: viewCapital, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
   const TABICON = { users: 'people', capital: 'pool', dashboard: 'dash', myhistory: 'activity', statements: 'reports' };
   const tabsFor = () => (isAdmin() ? TABS[S.side === 'me' ? 'adminMe' : 'admin'] : TABS.investor);
 
@@ -1296,7 +1336,7 @@
     if (!viewing && S.gate == null) { if (needsTerms()) S.gate = 'terms'; else if (!S.welcomeDone && !welcomed(S.me.id)) S.gate = 'splash'; }
     if (!viewing && S.gate) return gateView();
     const tabs = tabsFor();
-    if (!tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
+    if (S.tab !== 'profile' && !tabs.some(([k]) => k === S.tab)) S.tab = tabs[0][0];
     app.innerHTML = `${viewing ? `<div class="viewas"><span>Viewing as <b>${esc(S.me.name || S.me.username)}</b>, exactly what they see (read-only)</span>
         <button data-action="exitview">Back to fund manager</button></div>` : ''}
       <header><div><div class="hello">${greeting()}${isAdmin() ? (S.side === 'me' ? ' · my account' : ' · fund manager') : ''}</div><h1>${esc(S.me.name || S.me.username)}</h1></div>
@@ -1495,6 +1535,7 @@
       b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); inp.focus();
     }
     else if (a === 'refresh') await refresh('Up to date');
+    else if (a === 'profile') { S.tab = 'profile'; S.modal = null; render(); window.scrollTo(0, 0); }
     else if (a === 'welcome') startTour();
     else if (a === 'stmtpick') { S.stmt = id; render(); const el = $f('stmt'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     else if (a === 'stmtcsv') { const m = stmtMonth(myMonths()); if (m) download(`lucid-io-statement-${m.key}.csv`, stmtMonthCsv(m)); }
@@ -1625,6 +1666,12 @@
       } else if (id === 'pwForm') {
         await call('change_my_password', { p_old: fv(fm, 'old'), p_new: fv(fm, 'new') });
         fm.reset(); toast('Password changed'); if (btn) btn.disabled = false;
+      } else if (id === 'nameForm') {
+        await call('set_my_name', { p_name: fv(fm, 'name') });
+        await refresh('Name saved');
+      } else if (id === 'usernameForm') {
+        const u = await call('change_my_username', { p_password: fv(fm, 'pw'), p_username: fv(fm, 'username') });
+        await refresh(`Username changed. You now sign in as ${u}.`);
       } else if (id === 'newUserForm') {
         await call('admin_create_user', { p_username: fv(fm, 'username'), p_name: fv(fm, 'name'), p_password: fv(fm, 'password'), p_fee_rate: num(fv(fm, 'fee')) / 100 });
         S.addUser = false;

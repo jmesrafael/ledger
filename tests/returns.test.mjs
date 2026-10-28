@@ -171,3 +171,34 @@ test('stress: 120 random actions; trading % = price since joining for everyone, 
     else assert.ok(yours <= trading + 1e-9);                            // investors only ever pay it
   }
 });
+
+// ---------------------------------------------------------------- chart ranges and start dates
+test('R-range fromStart: a line seen from a later start is rebased to 0 there, and chains like between()', async () => {
+  const { createRequire } = await import('node:module');
+  const R = createRequire(import.meta.url)('../js/returns.js');
+  const pts = [[100, 0], [200, 0.10], [300, 0.21]];                       // +10%, then +10% again (1.21 / 1.10)
+  assert.deepEqual(R.fromStart(pts, -Infinity), pts);
+  const f = R.fromStart(pts, 250);                                       // starts between the 2nd and 3rd point: value then = +10%
+  assert.equal(f[0][0], 250); assert.equal(f[0][1], 0); assert.equal(f.length, 2);
+  assert.ok(Math.abs(f[1][1] - 0.10) < 1e-12, 'the last 10% only');
+  assert.deepEqual(R.fromStart(pts, 50), pts);                           // began after the start: unchanged
+  assert.deepEqual(R.fromStart([], 5), []);
+  assert.deepEqual(R.fromStart([[1, 0], [2, 0.5]], 10), [[10, 0]]);      // nothing inside the range yet: only the starting point (the app adds "now")
+});
+
+test('R-start firstDeposit: the earliest real deposit; none yet is null; undone deposits and other people do not count; a back-dated entry moves it earlier', async () => {
+  const { createRequire } = await import('node:module');
+  const R = createRequire(import.meta.url)('../js/returns.js');
+  const rows = [
+    { id: 5, profile_id: 'a', kind: 'deposit', ts: '2026-10-25T10:00:00Z', reversed_of: null },
+    { id: 4, profile_id: 'a', kind: 'withdrawal', ts: '2026-10-24T10:00:00Z', reversed_of: null },
+    { id: 3, profile_id: 'a', kind: 'deposit', ts: '2026-10-23T16:29:11Z', reversed_of: null },
+    { id: 2, profile_id: 'b', kind: 'deposit', ts: '2026-10-01T00:00:00Z', reversed_of: null }];
+  assert.equal(R.firstDeposit(rows, 'a'), Date.parse('2026-10-23T16:29:11Z'));
+  assert.equal(R.firstDeposit(rows, 'c'), null);
+  assert.equal(R.firstDeposit([], 'a'), null); assert.equal(R.firstDeposit(null, 'a'), null);
+  const undone = [...rows, { id: 6, profile_id: 'a', kind: 'withdrawal', ts: '2026-10-26T00:00:00Z', reversed_of: 3 }];
+  assert.equal(R.firstDeposit(undone, 'a'), Date.parse('2026-10-25T10:00:00Z'), 'the undone first deposit is skipped');
+  assert.equal(R.firstDeposit([...rows, { id: 7, profile_id: 'a', kind: 'deposit', ts: '2026-09-30T00:00:00Z', reversed_of: null }], 'a'), Date.parse('2026-09-30T00:00:00Z'));
+  assert.equal(R.firstDeposit([{ id: 1, profile_id: 'a', kind: 'deposit', ts: 'not a date' }], 'a'), null);
+});

@@ -184,6 +184,6 @@ test('S14 with the default (confirmed-gain) fee timing the screen still prints e
 
 test('S15 the balance chart has a 1D (past day) range before 1W; the line still starts at the range start with the value it had then', () => {
   assert.match(app, /const RANGES = \[\['1D', 1, 'Past day'\], \['1W', 7, 'Past week'\]/);
-  assert.match(app, /const start = r == null \? -Infinity : r === 'ytd' \? Date\.UTC\(new Date\(\)\.getUTCFullYear\(\), 0, 1\) : now - r \* 864e5;/);
+  assert.match(app, /const rangeStart = \(\) => \{ const r = RANGES\.find\(\(x\) => x\[0\] === S\.range\)\[1\]; return r == null \? -Infinity : r === 'ytd' \? Date\.UTC\(new Date\(\)\.getUTCFullYear\(\), 0, 1\) : Date\.now\(\) - r \* 864e5; \};/);
   assert.match(app, /RANGES\.map\(\(\[k\]\) => `<button class="\$\{k === S\.range \? 'on' : ''\}" data-range="\$\{k\}">/);
 });
