@@ -1,5 +1,14 @@
 [
   {
+    "slug": "bbcore-icore-trades-and-profit",
+    "title": "BB-Core and I-Core: Trades, Monthly Profit and ₱10,000 Results",
+    "summary": "Five coins, Jan 2020 to Oct 2026. How many trades each bot takes every month, the busiest months and days, how many months make or lose money at the bots' own settings, and what ₱10,000 becomes at the live 2.5% risk: fresh each January, compounding every trade or every month. Before any fee. A test on past prices, not a promise.",
+    "updated": "Oct 28, 2026",
+    "kind": "Data report",
+    "file": "/reports/bbcore-icore-trades-and-profit.html",
+    "pdf": "/reports/bbcore-icore-trades-and-profit.pdf"
+  },
+  {
     "slug": "icore-10k-report",
     "title": "I-Core at 2.5% and 5% Risk: ₱10,000 Report",
     "summary": "Five coins, 2020–2026, 760 trades, starting with ₱10,000. Expectancy, statistics and odds, every year and month, fresh ₱10,000 each year vs compounding, max drawdowns, a quick 5% summary, per-coin results and limits. Before any fee. A test on past prices, not a promise.",
