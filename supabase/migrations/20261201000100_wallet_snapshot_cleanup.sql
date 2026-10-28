@@ -1,6 +1,6 @@
 -- Wallet snapshot cleanup: the bots report every 5 minutes (about 17,000 rows a month), so rows older than 30 days are deleted once a day.
 -- Never deleted: the newest report of each wallet (bot_post_wallet_snapshot uses it for replay protection and the jump check) and any suspect report
--- (kept as the audit trail of a big jump and of who accepted it). Safe to run twice. Undo: supabase/rollback/20261201000000_rollback_wallet_snapshot_cleanup.sql.
+-- (kept as the audit trail of a big jump and of who accepted it). Safe to run twice. Undo: supabase/rollback/20261201000100_rollback_wallet_snapshot_cleanup.sql.
 
 create extension if not exists pg_cron;
 
