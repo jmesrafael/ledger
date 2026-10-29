@@ -1,5 +1,13 @@
 [
   {
+    "slug": "bbcore-no-target-three-way",
+    "title": "Three Strategies Compared: BB-Core Fixed Target, BB-Core No Target, I-Core",
+    "summary": "Five coins, 2020 to Oct 2026. Per trade, ₱10,000 in each year at 2.5% risk, without the best years and trades, on seven coins never used to design the bots, the three pairs of two bots, and the new risk rule (steps down as the account grows, no cap). BB-Core with no target averages +0.45R per trade against +0.33R with the fixed target; I-Core +0.87R but 74% of its profit is ten trades. The no-target version is not live yet. A test on past prices, not a promise.",
+    "updated": "Oct 29, 2026",
+    "kind": "Data report",
+    "file": "/reports/bbcore-no-target-three-way.html"
+  },
+  {
     "slug": "bbcore-icore-trades-and-profit",
     "title": "BB-Core and I-Core: Trades, Monthly Profit and ₱10,000 Results",
     "summary": "Five coins, Jan 2020 to Oct 2026. How many trades each bot takes every month, the busiest months and days, how many months make or lose money at the bots' own settings, and what ₱10,000 becomes at the live 2.5% risk: fresh each January, compounding every trade or every month. Before any fee. A test on past prices, not a promise.",
