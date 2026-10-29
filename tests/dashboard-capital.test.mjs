@@ -43,7 +43,7 @@ test('D4 the memory store returns what it was given, as copies', async () => {
 
 test('D5 the API asks the store for the wallets, tolerates a failure, and passes them on', () => {
   const api = read('api/data.js');
-  assert.match(api, /store\.wallets \? store\.wallets\(\) : Promise\.resolve\(null\)\)\.catch\(\(\) => null\)/);
+  assert.match(api, /store\.wallets \? store\.wallets\(\) : Promise\.resolve\(null\)\)\)\.catch\(\(\) => null\)/);   // read through the short-lived cache; a failure still gives null
   assert.match(api, /aggregate\(\{ events, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now,/);
   const st = read('lib/store.js');
   assert.match(st, /wallet_snapshots\?select=wallet,received_at,equity_usdt,open_positions,suspect,accepted_at&order=id\.desc/);

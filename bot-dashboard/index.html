@@ -9,9 +9,7 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="theme-color" content="#0A0A0A">
 <title>Lucid'io Bot</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="../fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>
   // Apply the saved theme before first paint (system | light | dark), so there is no flash.
   try { var t = localStorage.getItem('bot.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
@@ -167,6 +165,7 @@
           </div>
           <p id="tradeSummary" class="summary"></p>
           <div id="trades" class="scroll capped tall"></div>
+          <div id="tradesMore" class="more"></div>
         </div>
       </section>
 
@@ -190,7 +189,7 @@
 
       <section class="panel c5" id="pSkipped" data-tabs="log">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
-        <div class="pb"><div id="skipped" class="scroll capped"></div></div>
+        <div class="pb"><div id="skipped" class="scroll capped"></div><div id="skippedMore" class="more"></div></div>
       </section>
 
       <!-- ===== Status ===== -->

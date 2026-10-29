@@ -25,6 +25,8 @@
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'month';
   let bot = store.get('bot.view') === 'icore' ? 'icore' : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
+  const PAGE = { trades: 100, skipped: 50 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
+  const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
 
   // ---------------- formatting ----------------
   const pad = (n) => String(n).padStart(2, '0');
@@ -451,11 +453,13 @@
     const rows = all.filter((t) => (!f.coin || t.symbol === f.coin) && (!f.side || t.side === f.side) && (!f.reason || t.reason === f.reason) && (from == null || t.exit_ts >= from) && (to == null || t.exit_ts <= to)).sort((a, b) => b.exit_ts - a.exit_ts);
     const total = rows.reduce((a, t) => a + t.r, 0), hasUsd = rows.some((t) => t.usd != null), usd = rows.reduce((a, t) => a + (t.usd || 0), 0), wins = rows.filter((t) => t.r > 0).length;
     clear($('#tradeSummary')).append(`${rows.length} trade${rows.length === 1 ? '' : 's'} · ${rows.length ? Math.round((wins / rows.length) * 100) : 0}% won · total `, el('span', { class: cls(total) }, fmtR(total)), hasUsd ? el('span', { class: cls(usd) }, ` (${fmtUsd(usd, true)})`) : '');
+    const page = rows.slice(0, shown.trades);
     clear($('#trades')).append(table([
       { h: 'Exit time', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'SL', f: (r) => fmtPx(r.sl) }, { h: 'TP', f: (r) => fmtPx(r.tp) },
       { h: 'Exit', f: (r) => fmtPx(r.exit) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
       ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
-    ], rows, all.length ? 'No trades match.' : 'No closed trades yet.'));
+    ], page, all.length ? 'No trades match.' : 'No closed trades yet.'));
+    moreBtn($('#tradesMore'), 'trades', rows.length, renderTrades);
   }
 
   // ---------------- Verify ----------------
@@ -503,10 +507,11 @@
     else box.append(...out);
   }
   function renderSkipped(d) {
+    moreBtn($('#skippedMore'), 'skipped', d.skipped.length, () => renderSkipped(d));
     clear($('#skipped')).append(table([
       { h: 'Signal candle', left: true, f: (r) => fmtShort(r.signal_candle_open_ms) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
       { h: 'Reason', left: true, f: (r) => el('span', { class: 'chip' }, r.reason) }, { h: 'Detail', left: true, f: (r) => r.detail || '', c: () => 'wrap' },
-    ], d.skipped, 'No skipped signals.'));
+    ], d.skipped.slice(0, shown.skipped), 'No skipped signals.'));
   }
 
   // ---------------- Status: one summary + one list (no repeated tiles) ----------------
@@ -609,10 +614,10 @@
   $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); renderPeriods(view().perf); });
   document.addEventListener('click', (e) => {
     const b = e.target.closest('.botseg button[data-bot]'); if (!b || !data) return;
-    bot = b.dataset.bot; store.set('bot.view', bot); dirty.add('performance'); dirty.add('trades'); drawTab();
+    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; dirty.add('performance'); dirty.add('trades'); drawTab();
   });
   $('#pChecks').addEventListener('click', () => setTab('verify'));
-  for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; renderTrades(); });
+  for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
 
   // ---------------- VPS specs (Status tab) ----------------
   const ICON = {
@@ -659,7 +664,8 @@
     let kept = false;
     try {
       const headers = !force && etag && data ? { 'If-None-Match': etag } : {};
-      const res = await fetch('/api/data' + (modeSel ? `?mode=${encodeURIComponent(modeSel)}` : ''), { credentials: 'same-origin', cache: 'no-store', headers });
+      const qs = [modeSel ? `mode=${encodeURIComponent(modeSel)}` : '', force || askWatch ? 'fresh=1' : ''].filter(Boolean).join('&');   // fresh=1: skip the server's 10 s reuse (a person asked, or the bot is being asked)
+      const res = await fetch('/api/data' + (qs ? `?${qs}` : ''), { credentials: 'same-origin', cache: 'no-store', headers });
       if (res.status === 401) return showLogin('');
       if (res.status === 503) return showLogin('The dashboard login is not configured on the server (set DASHBOARD_PASSWORD and DASHBOARD_SESSION_SECRET in Vercel).');
       if (res.status === 304) return;                                       // nothing new: keep what is on screen
@@ -703,8 +709,8 @@
       askWatch = setInterval(async () => {
         await load();
         const hb = data && data.status && data.status.last_heartbeat_ms;
-        if (hb != null && hb >= since) { clearInterval(askWatch); btn.disabled = false; msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
-        else if (Date.now() > stop) { clearInterval(askWatch); btn.disabled = false; msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
+        if (hb != null && hb >= since) { clearInterval(askWatch); askWatch = null; btn.disabled = false; msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
+        else if (Date.now() > stop) { clearInterval(askWatch); askWatch = null; btn.disabled = false; msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
       }, 5000);
     } catch (e) { btn.disabled = false; msg.textContent = `Could not ask: ${e.message}`; }
   }

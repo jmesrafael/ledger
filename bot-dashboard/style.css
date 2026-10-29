@@ -2,6 +2,11 @@
    Everything in Manrope, the same font as the main Ledger. Keep the colour tokens in step with 🔴LEDGER/index.html.
    Kept light on purpose: the glow is a static gradient painted once (no animated blurred layers, no backdrop-filter re-blurring it every frame),
    and nothing animates except the prompt cursor and the loading spinner. */
+/* Manrope, served from this site (no Google Fonts request): one variable file per script range, weights 400 to 800. */
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(../fonts/manrope-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(../fonts/manrope-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 :root {
   --accent: #C8FF3D; --accent-2: #DDFF7A; --accent-pressed: #B4EA2C; --accent-ink: #0D0D0D;
   --accent-text: #4F7A00; --accent-soft: rgba(200,255,61,0.32);
@@ -384,3 +389,8 @@ tr.total td { font-weight: 800; border-top: 1px solid var(--line); }
 .scroll.capped.tall { max-height: 560px; }
 #perfTiles .tile .v { font-size: 20px; }
 @media (max-width: 640px) { .tiles { grid-template-columns: 1fr 1fr; gap: 8px; } .tile { padding: 9px 10px; } #perfTiles .tile .v { font-size: 17px; } .checkbar .cb-go { display: none; } }
+
+/* long lists show their first rows and a button for the rest */
+.more { display: flex; justify-content: center; }
+.more:empty { display: none; }
+.more button { margin-top: 10px; }
