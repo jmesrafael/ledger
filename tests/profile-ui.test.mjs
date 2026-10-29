@@ -59,7 +59,7 @@ test('PU8 view-as: no banner on top; a round orange button at the end of the mai
 });
 
 test('PU5 the manager\'s own contact details are loaded too, and a changed username is shown in the audit log', () => {
-  assert.match(app, /S\.contact = await call\('my_contact'\);/);
+  assert.match(app, /Promise\.all\(\[call\('my_contact'\), admin \? call\('admin_contacts'\) : null\]\); S\.contact = c;/);   // everyone, the manager included, loads their own contact (in parallel with the rest)
   assert.match(app, /'name_changed', 'username_changed', 'payout_details_changed', 'terms_agreed'/);
   assert.match(app, /case 'username_changed': return `changed their username from/);
 });

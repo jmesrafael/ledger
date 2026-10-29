@@ -217,19 +217,19 @@
     if (!S.me) { signedOut(); throw new Error('Signed out'); }
     if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
     const admin = S.me.role === 'admin';   // only the fund manager sees the pool; investors get just their own money
+    // Everything below is independent of the rest, so it all goes out at once. It used to run one after another (about nine round trips in a row for the fund manager).
+    // A "group" keeps the meaning of the old try/catch: when its call fails (a migration that is not applied yet) its own fields fall back to empty; "Signed out" still stops everything.
+    const group = (run, fallback) => run().catch((e) => { if (e.message === 'Signed out') throw e; fallback(); });
     const [pool, hist, history, led, reqs, all, elog, pend] = await Promise.all([admin ? call('pool_summary') : null, admin ? call('price_history') : [], call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, call(admin ? 'admin_pending' : 'my_pending'),
-      loadFx(), admin ? loadReports() : null, loadFund(), admin ? loadAdminExtras() : null]);
+      loadFx(), admin ? loadReports() : null, loadFund(), admin ? loadAdminExtras() : null,
+      group(async () => { const [p, ps] = await Promise.all([admin ? null : call('my_payout'), admin ? call('admin_payouts') : null]); S.payout = p; S.payouts = ps || []; }, () => { S.payout = null; S.payouts = []; }),   // empty until the payout-details migration is run
+      group(async () => { const [c, cs] = await Promise.all([call('my_contact'), admin ? call('admin_contacts') : null]); S.contact = c; S.contacts = cs || []; S.contactOn = true; }, () => { S.contact = null; S.contacts = []; S.contactOn = false; }),   // hidden until the contact-details migration is run
+      group(async () => { const [p, q, c] = await Promise.all([admin ? null : call('my_position'), admin ? call('admin_capital_queue') : null, admin ? call('admin_balance_checks') : null]); S.pos = p; S.queue = q; S.checks = c; }, () => { S.pos = null; S.queue = null; S.checks = null; }),   // empty until the capital-workflow migration is run
+      group(async () => { S.pu = admin ? await call('admin_pool_status') : null; }, () => { S.pu = null; }),   // null until the pool-update migration is run
+      group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; })]);   // null until the withdrawal-fee migration is run
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
-    try { S.payout = admin ? null : await call('my_payout'); S.payouts = admin ? (await call('admin_payouts')) || [] : []; }
-    catch (e) { if (e.message === 'Signed out') throw e; S.payout = null; S.payouts = []; }   // empty until the payout-details migration is run
-    try { S.contact = await call('my_contact'); S.contacts = admin ? (await call('admin_contacts')) || [] : []; S.contactOn = true; }
-    catch (e) { if (e.message === 'Signed out') throw e; S.contact = null; S.contacts = []; S.contactOn = false; }   // hidden until the contact-details migration is run
-    try { S.pos = admin ? null : await call('my_position'); S.queue = admin ? await call('admin_capital_queue') : null; S.checks = admin ? await call('admin_balance_checks') : null; }
-    catch (e) { if (e.message === 'Signed out') throw e; S.pos = null; S.queue = null; S.checks = null; }   // empty until the capital-workflow migration is run
-    try { S.pu = admin ? await call('admin_pool_status') : null; } catch (e) { if (e.message === 'Signed out') throw e; S.pu = null; }   // null until the pool-update migration is run
-    try { S.exit = await call('exit_fee_info'); } catch (e) { if (e.message === 'Signed out') throw e; S.exit = null; }   // null until the withdrawal-fee migration is run
   }
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
   const exitInfo = (id) => (S.exit && (S.exit.people || []).find((x) => x.id === id)) || null;
@@ -750,8 +750,9 @@
     security: ['password_changed', 'password_reset', 'viewed_as', 'setting_changed', 'backup_exported', 'backup_key_created', 'backup_keys_revoked'],
   };
   async function loadAdminExtras() {
-    try { S.audit = await call('admin_audit_log', { p_limit: 200 }); S.auditMore = S.audit.length >= 200; } catch (e) { if (e.message === 'Signed out') throw e; S.audit = null; }
-    try { S.backup = await call('admin_backup_status'); } catch (e) { if (e.message === 'Signed out') throw e; S.backup = null; }
+    const soft = (p) => p.catch((e) => { if (e.message === 'Signed out') throw e; return null; });   // a failed read leaves that part empty
+    const [audit, backup] = await Promise.all([soft(call('admin_audit_log', { p_limit: 200 })), soft(call('admin_backup_status'))]);   // both at once
+    S.audit = audit; if (audit) S.auditMore = audit.length >= 200; S.backup = backup;
   }
   const auditTime = (ts) => dayTime(ts);
   function auditText(r) {
