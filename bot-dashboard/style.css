@@ -379,6 +379,8 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .chart .limit { stroke: var(--down); stroke-dasharray: 5 4; stroke-width: 1.2; }
 #periodChart { margin-bottom: 10px; }
 tr.total td { font-weight: 800; border-top: 1px solid var(--line); }
+.strat-s { color: var(--muted); font-weight: 600; }
+.strats { margin-top: 10px; } .strats p { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-2); } .strats p.muted { color: var(--muted); }
 .scroll.capped.tall { max-height: 560px; }
 #perfTiles .tile .v { font-size: 20px; }
 @media (max-width: 640px) { .tiles { grid-template-columns: 1fr 1fr; gap: 8px; } .tile { padding: 9px 10px; } #perfTiles .tile .v { font-size: 17px; } .checkbar .cb-go { display: none; } }

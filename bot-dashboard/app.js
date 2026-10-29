@@ -165,7 +165,7 @@
   }
   const RENDER = {
     overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpen(data); },
-    performance: () => renderPerf(),
+    performance: () => { renderPerf(); renderCoins(); },
     trades: () => renderTrades(),
     verify: () => { renderChecks(data); renderCompare(data); },
     log: () => { renderActivity(data); renderSkipped(data); },
@@ -404,6 +404,39 @@
       { h: 'In R', f: (r) => (r.avg_slip_r == null ? '—' : fmtR(r.avg_slip_r)) }, { h: 'Delay', f: (r) => (r.avg_delay_sec == null ? '—' : fmtDur(r.avg_delay_sec)) }, { h: 'Fees', f: (r) => (r.avg_fees_r == null ? '—' : fmtR(-Math.abs(r.avg_fees_r))) },
     ], rows, 'No closed trades yet.'));
     $('#execNote').textContent = `Slippage is the fill price against the price the decision used (+ = worse). The backtest assumes about 0.02% a side. Delay is the time from the candle close to the fill.${view().mode === 'live' ? '' : ' Paper fills are simulated, so these numbers only mean something in LIVE mode.'}`;
+  }
+
+  // One row per coin per strategy, whichever bot is selected above: what triggers it, trades, wins, losses, returns, and whether it is open now. Built from the trades the page
+  // already has (per_coin of lib/perf.js), so it costs no extra request; a few rows at most. A coin with no trade yet still gets its row (zeros).
+  const STRATS = {
+    bbcore: { name: 'BB-Core', short: 'Bollinger breakout', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, 4R target, closed after about 8 days at most.' },
+    icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
+  };
+  const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
+  function renderCoins() {
+    const d = data, rows = [];
+    for (const k of ['bbcore', 'icore']) {
+      const p = d.perf && d.perf[k]; if (!p) continue;
+      const ic = k === 'icore', trades = ic ? d.bots.icore.trades || [] : d.trades, opens = (ic ? d.bots.icore.open_list : d.open) || [];
+      const coins = [...new Set([...Object.keys(p.per_coin), ...((ic ? d.bots.icore.enabled_coins : d.status.enabled_coins) || []).map(full), ...opens.map((o) => o.symbol)])].sort();
+      const last = new Map(); for (const t of trades) if (!last.has(t.symbol) || t.exit_ts > last.get(t.symbol)) last.set(t.symbol, t.exit_ts);
+      const zero = { trades: 0, wins: 0, losses: 0, win_rate: null, avg_r: null, total_r: 0, profit_factor: null, best_r: null, worst_r: null, max_dd_r: null, usd: null };
+      for (const c of coins) rows.push({ bot: k, coin: c, ...zero, ...(p.per_coin[c] || {}), last: last.get(c) || null, open: opens.find((o) => o.symbol === c) || null });
+      rows.push({ bot: k, coin: 'ALL', ...zero, ...p.overall, last: p.last_ts, open: null, openN: opens.length, _cls: 'total' });
+    }
+    $('#coinCount').textContent = rows.length ? `${rows.filter((r) => r.coin !== 'ALL').length} coin rows` : '';
+    const hasUsd = rows.some((r) => r.usd != null);
+    clear($('#coinRecord')).append(table([
+      { h: 'Strategy', left: true, f: (r) => (r.coin === 'ALL' ? el('strong', {}, `${STRATS[r.bot].name} total`) : el('span', {}, el('strong', {}, STRATS[r.bot].name), el('small', { class: 'strat-s' }, ` ${STRATS[r.bot].short}`))) },
+      { h: 'Coin', left: true, f: (r) => (r.coin === 'ALL' ? '' : sym(r.coin)) }, { h: 'Trades', f: (r) => r.trades }, { h: 'Wins', f: (r) => r.wins, c: (r) => (r.wins ? 'good' : '') }, { h: 'Losses', f: (r) => r.losses, c: (r) => (r.losses ? 'bad' : '') },
+      { h: 'Win', f: (r) => pct0(r.win_rate) }, { h: 'Avg R', f: (r) => fmtR(r.avg_r), c: (r) => cls(r.avg_r) }, { h: 'Total R', f: (r) => fmtR(r.total_r), c: (r) => cls(r.total_r) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []),
+      { h: 'PF', f: (r) => (r.profit_factor == null ? '—' : r.profit_factor) }, { h: 'Best', f: (r) => fmtR(r.best_r) }, { h: 'Worst', f: (r) => fmtR(r.worst_r) }, { h: 'Max DD', f: (r) => (r.max_dd_r == null ? '—' : `${r.max_dd_r}R`) },
+      { h: 'Last trade', f: (r) => (r.last ? fmtDay(r.last) : '—') },
+      { h: 'Open now', f: (r) => (r.coin === 'ALL' ? (r.openN ? `${r.openN} open` : 'flat') : r.open ? el('span', {}, sideEl(r.open.side), ' ', el('span', { class: cls(r.open.current_r) }, r.open.current_r == null ? '' : fmtR(r.open.current_r))) : '—') },
+    ], rows, 'No coins yet.'));
+    clear($('#coinNote')).append(...['bbcore', 'icore'].filter((k) => d.perf && d.perf[k]).map((k) => el('p', {}, el('b', {}, `${STRATS[k].name} · ${STRATS[k].short}: `), STRATS[k].how)),
+      el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
   }
 
   // ---------------- Trades ----------------
