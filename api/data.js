@@ -1,12 +1,25 @@
 // GET /api/data[?mode=paper|live] - everything the page shows. Needs the session cookie from /api/login (401 otherwise).
 // Env: DASHBOARD_PASSWORD, DASHBOARD_SESSION_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// ETag: a short fingerprint of what the answer is built from (newest event, heartbeats, flows, alive/stale). The page sends it back as If-None-Match and gets
+// 304 with no body when nothing changed, so a page left open re-downloads and redraws nothing between the bot's reports.
 'use strict';
+const crypto = require('crypto');
 const { makeAuth } = require('../lib/auth.js');
 const { createSupabaseStore } = require('../lib/store.js');
-const { aggregate } = require('../lib/aggregate.js');
+const { aggregate, STALE_MS } = require('../lib/aggregate.js');
 const { send } = require('../lib/http.js');
 
+const VERSION = 'perf-2';   // change it when aggregate() output changes shape, so every open page reloads once
 let store = null;
+
+function fingerprint({ mode, events, equity, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now }) {
+  const newest = (list) => (list || []).reduce((m, e) => Math.max(m, +e.ts_ms || 0), 0);
+  const alive = (hb) => (hb ? (now - hb.ts_ms <= STALE_MS ? 'a' : `s${Math.floor(now / 60000)}`) : '-');   // a stale bot's "no heartbeat for x" grows each minute
+  const key = [VERSION, mode || '', events.length, newest(events), (equity || []).length, newest(equity), heartbeat ? heartbeat.ts_ms : 0, alive(heartbeat),
+    icoreHeartbeat ? icoreHeartbeat.ts_ms : 0, alive(icoreHeartbeat), (beats || []).length, (flows || []).length, newest((flows || []).map((f) => ({ ts_ms: f.ts_ms }))),
+    (wallets || []).map((w) => `${w.wallet}:${w.received_ms}:${w.equity_usdt}`).join(','), (walletHist || []).length, (walletHist || []).reduce((m, w) => Math.max(m, +w.ts || 0), 0)].join('|');
+  return `"${crypto.createHash('sha1').update(key).digest('hex').slice(0, 20)}"`;
+}
 
 module.exports = async (req, res) => {
   const auth = makeAuth({ password: process.env.DASHBOARD_PASSWORD, sessionSecret: process.env.DASHBOARD_SESSION_SECRET });
@@ -15,11 +28,23 @@ module.exports = async (req, res) => {
   if (!auth.verifyToken(auth.fromCookie(req.headers.cookie))) return send(res, 401, { error: 'login required' });
   try {
     store = store || createSupabaseStore({ url: process.env.SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY });
-    const mode = new URL(req.url, 'http://x').searchParams.get('mode');
+    const q = new URL(req.url, 'http://x').searchParams.get('mode'), mode = q === 'paper' || q === 'live' ? q : null;
     const now = Date.now();
     // heartbeat history only feeds the uptime panel: if it fails, the rest of the page still loads
     // capital movements come from the ledger's capital_flows view; before that migration exists they are simply absent
-    const [events, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist] = await Promise.all([store.recent({ limit: 5000 }), store.latestHeartbeat(), store.latestHeartbeat({ bot: 'icore' }).catch(() => null), store.heartbeats({ sinceMs: now - 7 * 86400000 }).catch(() => null), (store.flows ? store.flows() : Promise.resolve([])).catch(() => []), (store.wallets ? store.wallets() : Promise.resolve(null)).catch(() => null), (store.walletHistory ? store.walletHistory({ sinceMs: now - 7 * 86400000 }) : Promise.resolve(null)).catch(() => null)]);
-    send(res, 200, aggregate({ events, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now, mode: mode === 'paper' || mode === 'live' ? mode : null }));
+    const [tradeEvs, equity, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist] = await Promise.all([
+      store.tradeEvents ? store.tradeEvents() : store.recent({ limit: 5000 }), store.equityEvents ? store.equityEvents() : Promise.resolve([]),
+      store.latestHeartbeat(), store.latestHeartbeat({ bot: 'icore' }).catch(() => null), store.heartbeats({ sinceMs: now - 7 * 86400000 }).catch(() => null),
+      (store.flows ? store.flows() : Promise.resolve([])).catch(() => []),
+      // the bots' 5-minute wallet reports: the real balance of each trading account (absent before the wallet tables exist)
+      (store.wallets ? store.wallets() : Promise.resolve(null)).catch(() => null), (store.walletHistory ? store.walletHistory({ sinceMs: now - 7 * 86400000 }) : Promise.resolve(null)).catch(() => null)]);
+    const events = tradeEvs.concat(equity);
+    const etag = fingerprint({ mode, events: tradeEvs, equity, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now });
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    if (req.headers['if-none-match'] === etag) { res.statusCode = 304; return res.end(); }
+    send(res, 200, aggregate({ events, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, now, mode }));
   } catch { send(res, 502, { error: 'store unavailable' }); }
 };
+
+module.exports.fingerprint = fingerprint;
