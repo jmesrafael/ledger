@@ -19,8 +19,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
-
 <div class="wrap">
   <header class="topbar">
     <div class="brand">
@@ -52,7 +50,6 @@
           </div>
           <div class="menu-line"></div>
           <button type="button" class="menu-item" role="menuitem" id="refreshBtn"><span>Refresh now</span><kbd>R</kbd></button>
-          <button type="button" class="menu-item" role="menuitem" id="vpsBtn" hidden><span>Server specs (VPS)</span></button>
           <div class="menu-line"></div>
           <button type="button" class="menu-item danger" role="menuitem" id="logoutBtn" hidden><span>Log out</span></button>
         </div>
@@ -78,16 +75,18 @@
   <div id="app" hidden>
     <div id="alert" class="alert" role="alert" hidden></div>
 
-    <!-- the sections: one tab each; every panel below says which tab it belongs to (data-tabs) -->
+    <!-- one tab per question: how are we doing (Overview) · is the edge real (Performance) · what happened (Trades, Log) · is it behaving (Verify) · is it running (Status).
+         Every panel says which tab it belongs to (data-tabs) and appears in exactly one tab. -->
     <nav class="maintabs" id="mainTabs" role="tablist" aria-label="Dashboard sections">
       <button type="button" role="tab" data-tab="overview">Overview</button>
-      <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
+      <button type="button" role="tab" data-tab="performance">Performance</button>
       <button type="button" role="tab" data-tab="trades">Trades <span class="tb-n" id="tbTrades"></span></button>
+      <button type="button" role="tab" data-tab="verify"><span id="tbCheck" class="tb-dot" aria-hidden="true"></span>Verify</button>
       <button type="button" role="tab" data-tab="log">Log <span class="tb-n" id="tbLog"></span></button>
-      <button type="button" role="tab" data-tab="verify">Verify</button>
+      <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
     </nav>
 
-    <!-- headline numbers -->
+    <!-- ===== Overview ===== -->
     <section class="kpis" id="pKpis" data-tabs="overview" aria-label="Headline numbers">
       <div class="kpi hero-kpi">
         <div class="k">Total capital <span class="modeTag"></span></div>
@@ -99,54 +98,77 @@
       <div class="kpi"><div class="k">Win rate · PF</div><div class="mid" id="kWin">—</div><div class="sub" id="kWinSub"></div></div>
       <div class="kpi"><div class="k">Drawdown vs halt</div><div class="mid" id="kDd">—</div><div class="meter"><i id="kDdBar"></i></div><div class="sub" id="kDdSub"></div></div>
     </section>
+    <button type="button" class="checkbar" id="pChecks" data-tabs="overview" title="Open the Verify tab"></button>
 
     <div class="grid">
-      <section class="panel c12" id="pNow" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bot / right now</h2><span class="modeTag"></span></div>
-        <div class="pb">
-          <p id="nowText" class="nowtext"></p>
-          <div id="nowTiles" class="tiles"></div>
-          <p id="nowNote" class="muted note"></p>
-          <div class="askrow"><button type="button" class="askbtn" id="askBtn">Ask bot now</button><span id="askMsg" class="muted" role="status" aria-live="polite"></span></div>
-        </div>
+      <section class="panel c12" id="pBots" data-tabs="overview">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bots / side by side</h2></div>
+        <div class="pb"><div id="bots" class="scroll"></div></div>
       </section>
 
-      <section class="panel c5" id="pSystem" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>system / health</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span></div>
-        <div class="pb">
-          <dl id="sys" class="kvlist"></dl>
-          <div class="sub-h">Uptime · last 7 days</div>
-          <div id="upBar" class="upbar" role="img" aria-label="Uptime timeline"></div>
-          <div id="upAxis" class="upaxis"></div>
-          <div class="sub-h">Downtime &amp; restarts</div>
-          <div id="downs" class="log short"></div>
-        </div>
-      </section>
-
-      <section class="panel c7" id="pServer" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>server / specs</h2></div>
-        <div class="pb"><div id="vpsInline"><div class="empty">Loading…</div></div></div>
-      </section>
-
-      <div class="col c7">
-        <section class="panel" id="pChart" data-tabs="overview">
-          <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
-            <div class="tabs" id="chartTabs" role="tablist">
-              <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Performance</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
-            </div>
+      <section class="panel c7" id="pChart" data-tabs="overview">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
+          <div class="tabs" id="chartTabs" role="tablist">
+            <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Performance</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
           </div>
-          <div class="pb"><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
-        </section>
+        </div>
+        <div class="pb"><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
+      </section>
 
-        <section class="panel grow" id="pOpen" data-tabs="overview trades">
-          <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>positions / open</h2><span class="modeTag"></span></div>
-          <div class="pb"><div id="open" class="scroll"></div></div>
-        </section>
-      </div>
+      <section class="panel c5" id="pOpen" data-tabs="overview">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>positions / open</h2><span class="count" id="openCount"></span></div>
+        <div class="pb"><div id="open" class="scroll"></div></div>
+      </section>
 
-      <section class="panel c7" id="pActivity" data-tabs="log">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>activity / log</h2><span class="count" id="actCount"></span></div>
-        <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
+      <!-- ===== Performance ===== -->
+      <section class="panel c12" id="pPerf" data-tabs="performance">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / live vs expected</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+        <div class="pb"><div id="perfTiles" class="tiles"></div><p id="perfNote" class="muted note"></p></div>
+      </section>
+
+      <section class="panel c7" id="pPeriods" data-tabs="performance">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>results / by period</h2>
+          <div class="tabs" id="periodTabs" role="tablist"><button type="button" role="tab" data-period="month">Month</button><button type="button" role="tab" data-period="year">Year</button><button type="button" role="tab" data-period="day">Day</button></div>
+        </div>
+        <div class="pb"><div id="periodChart" class="chart"></div><div id="periods" class="scroll capped"></div></div>
+      </section>
+
+      <section class="panel c5" id="pBreak" data-tabs="performance">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>breakdown / coin · side · exit</h2></div>
+        <div class="pb"><div id="breakdown"></div></div>
+      </section>
+
+      <section class="panel c7" id="pExec" data-tabs="performance">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>execution / fills vs model</h2></div>
+        <div class="pb"><div id="exec" class="scroll"></div><p id="execNote" class="muted note"></p></div>
+      </section>
+
+      <section class="panel c5" id="pRolling" data-tabs="performance">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>rolling / last trades</h2></div>
+        <div class="pb"><div id="rolling" class="chart"></div><p id="rollingNote" class="muted note"></p></div>
+      </section>
+
+      <!-- ===== Trades ===== -->
+      <section class="panel c12" id="pTrades" data-tabs="trades">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+        <div class="pb">
+          <div class="filters">
+            <label>Coin <select id="fCoin"><option value="">All</option></select></label>
+            <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
+            <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>trail</option><option>time</option><option>abort</option></select></label>
+            <label>From <input id="fFrom" type="date"></label>
+            <label>To <input id="fTo" type="date"></label>
+          </div>
+          <p id="tradeSummary" class="summary"></p>
+          <div id="trades" class="scroll capped tall"></div>
+        </div>
+      </section>
+
+      <!-- ===== Verify ===== -->
+      <section class="panel c7" id="pCheckList" data-tabs="verify">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>checks / stop-and-review rules</h2></div>
+        <div class="pb"><div id="checks"></div>
+          <p class="muted note">A rule that is not met is a reason to look, never an automatic action. The daily Telegram watch on the server uses the same rules and says so when one changes.</p></div>
       </section>
 
       <section class="panel c5" id="pCompare" data-tabs="verify">
@@ -154,39 +176,48 @@
         <div class="pb"><div id="compare"></div></div>
       </section>
 
-      <section class="panel c12" id="pTrades" data-tabs="trades">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag"></span></div>
+      <!-- ===== Log ===== -->
+      <section class="panel c7" id="pActivity" data-tabs="log">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>activity / log</h2><span class="count" id="actCount"></span></div>
+        <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
+      </section>
+
+      <section class="panel c5" id="pSkipped" data-tabs="log">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
+        <div class="pb"><div id="skipped" class="scroll capped"></div></div>
+      </section>
+
+      <!-- ===== Status ===== -->
+      <section class="panel c7" id="pNow" data-tabs="status">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bot / right now</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span><span class="modeTag"></span></div>
         <div class="pb">
-          <div class="filters">
-            <label>Coin <select id="fCoin"><option value="">All</option></select></label>
-            <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
-            <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>time</option><option>abort</option></select></label>
-            <label>From <input id="fFrom" type="date"></label>
-            <label>To <input id="fTo" type="date"></label>
-          </div>
-          <p id="tradeSummary" class="summary"></p>
-          <div id="trades" class="scroll"></div>
+          <p id="nowText" class="nowtext"></p>
+          <dl id="sys" class="kvlist"></dl>
+          <div class="askrow"><button type="button" class="askbtn" id="askBtn">Ask bot now</button><span id="askMsg" class="muted" role="status" aria-live="polite"></span></div>
+          <p id="nowNote" class="muted note"></p>
         </div>
       </section>
 
-      <section class="panel c12" id="pCoin" data-tabs="trades">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>stats / per coin</h2><span class="modeTag"></span></div>
-        <div class="pb"><div id="perCoin" class="scroll"></div></div>
+      <section class="panel c5" id="pSystem" data-tabs="status">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>system / uptime</h2></div>
+        <div class="pb">
+          <div class="sub-h first">Uptime · last 7 days</div>
+          <div id="upBar" class="upbar" role="img" aria-label="Uptime timeline"></div>
+          <div id="upAxis" class="upaxis"></div>
+          <div class="sub-h">Downtime &amp; restarts</div>
+          <div id="downs" class="log short"></div>
+        </div>
       </section>
 
-      <section class="panel c12" id="pSkipped" data-tabs="log">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
-        <div class="pb"><div id="skipped" class="scroll capped"></div></div>
+      <section class="panel c12" id="pServer" data-tabs="status">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>server / specs</h2></div>
+        <div class="pb"><div id="vpsInline"><div class="empty">Loading…</div></div></div>
       </section>
     </div>
 
     <p id="footer" class="footer"></p>
   </div>
 </div>
-<dialog id="vpsDlg" class="vpsdlg" aria-label="VPS specs">
-  <div class="vpshead"><h2>VPS specs</h2><button type="button" class="ghost sm" id="vpsClose">Close</button></div>
-  <div id="vpsBody"></div>
-</dialog>
 <script src="app.js"></script>
 </body>
 </html>
