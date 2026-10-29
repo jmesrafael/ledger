@@ -13,5 +13,8 @@ select * from (values
   (10, '20261127000000_confirmed_gain_fee',          to_regprocedure('public._settlement_fingerprint(numeric,timestamptz)') is not null),
   (11, '20261128000000_withdraw_quote',              to_regprocedure('public.admin_quote_withdraw(text,uuid,numeric,numeric,numeric,boolean,boolean,timestamptz,boolean)') is not null),
   (12, '20261130000000_wallet_snapshots',            to_regclass('public.wallet_snapshots') is not null),
-  (13, '20261201000000_units_from_manager',          to_regprocedure('public.admin_units_from_manager(text,uuid,numeric,numeric,numeric,numeric,text,timestamptz,text,boolean)') is not null)
+  (13, '20261201000000_units_from_manager',          to_regprocedure('public.admin_units_from_manager(text,uuid,numeric,numeric,numeric,numeric,text,timestamptz,text,boolean)') is not null),
+  (14, '20261202000000_profile_self_edit',            to_regprocedure('public.set_my_name(text,text)') is not null),
+  (15, '20261202000100_admin_edit_profile',          to_regprocedure('public.admin_set_username(text,uuid,text)') is not null),
+  (16, '20261202000200_view_as_edit_profile',        to_regprocedure('public._me_edit(text)') is not null)
 ) as t(step, migration, applied) order by step;
