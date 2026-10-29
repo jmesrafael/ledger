@@ -411,7 +411,7 @@
   // One row per coin per strategy, whichever bot is selected above: what triggers it, trades, wins, losses, returns, and whether it is open now. Built from the trades the page
   // already has (per_coin of lib/perf.js), so it costs no extra request; a few rows at most. A coin with no trade yet still gets its row (zeros).
   const STRATS = {
-    bbcore: { name: 'BB-Core', short: 'Bollinger breakout', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, 4R target, closed after about 8 days at most.' },
+    bbcore: { name: 'BB-Core', short: 'Bollinger breakout, no target', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, no profit target: the trade runs until the stop or about 8 days at most.' },
     icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
   };
   const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
