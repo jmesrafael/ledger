@@ -202,3 +202,57 @@ test('CT7 many trades and reports: books balance, every trade included exactly o
   assert.equal((await w.q('select count(*)::int n from public.auto_pool_runs where residual_flag'))[0].n, 0, 'trades + unrealized explain every change');
   near(await w.units('john'), 1000);
 });
+
+// ---- trades mode (migration 20261204000000_auto_pool_trades_mode.sql): the pool = last booked value + the realized P&L of the trades closed since
+async function rolling() {
+  const w = await world();
+  await w.join('john', 1000);
+  await w.mode('auto_pool_mode', 'trades'); await w.clock(Date.now());   // the pool rows carry the real time (_at), so the test clock must too
+  return w;
+}
+
+test('CT8 trades mode: last booked value + realized P&L, every trade once, no wallet needed', async () => {
+  const w = await rolling();
+  await adv(w, 30);
+  const t = await trade(w, { pos: 'a', pnl: -30 });
+  assert.equal(t.pool.ok, true);
+  near((await w.pool()).e, 970); near((await w.pool()).p, 0.97); near((await w.pool()).u, 1000);
+  assert.equal((await trade(w, { pos: 'a', pnl: -30 })).replayed, true);
+  near((await w.pool()).e, 970, 1e-6, 'a replay is not added twice');
+  await adv(w, 60); await trade(w, { pos: 'b', pnl: 12.5 });
+  near((await w.pool()).e, 982.5);
+  near(await w.units('john'), 1000);
+  const r = await runs(w); assert.equal(r.length, 2); assert.equal(r[1].trades, 1); near(r[1].nav_before, 970);
+  assert.equal((await w.q('select count(*)::int n from public.closed_trades where equity_id is null'))[0].n, 0);
+  assert.equal((await both(w, 5000)).pool.skipped, 'nothing_new', 'wallet reports do not move the pool in trades mode');
+  near((await w.pool()).e, 982.5);
+});
+
+test('CT9 trades mode: a trade that closed before the last booked value is already in it; a joiner never shares earlier results', async () => {
+  const w = await rolling();
+  await adv(w, 30);
+  await w.q(`insert into public.closed_trades(wallet, position_id, symbol, side, closed_at, realized_usd) values ('bbcore', 'old', 'SOL_USDT', 'LONG', $1, -500)`, ['2026-02-01T00:00:00Z']);   // before the pool value booked by the join
+  await trade(w, { pos: 'n1', pnl: 100 });
+  near((await w.pool()).e, 1100, 1e-6, 'the old trade (closed before the booked value) is not added');
+  assert.equal((await w.q(`select equity_id from public.closed_trades where position_id='old'`))[0].equity_id != null, true);
+  await w.call('admin_receive_deposit', w.A, w.ids.dino, 1100, 58, 1100 * 58, null, w.d(), null, true);
+  await w.call('admin_post_equity', w.A, (await w.pool()).e + 1100, 58, null, new Date().toISOString());
+  const p = await w.pool(); near(p.p, 1.1); near(await w.units('dino'), 1000);
+  await adv(w, 30); await trade(w, { pos: 'n2', pnl: -210 });
+  near((await w.pool()).e, 1990, 1e-6);
+  near(await w.units('john'), 1000); near(await w.units('dino'), 1000);
+});
+
+test('CT10 trades mode: gates (paused, off, jump, payout) and the switch back to off', async () => {
+  const w = await rolling();
+  await adv(w, 30);
+  await w.mode('bot_sync_paused', '1');
+  assert.equal((await trade(w, { pos: 'p1', pnl: 10 })).pool.skipped, 'paused');
+  near((await w.pool()).e, 1000);
+  await w.mode('bot_sync_paused', '0');
+  assert.equal((await trade(w, { pos: 'p2', pnl: 400 })).pool.skipped, 'jump');
+  near((await w.pool()).e, 1000);
+  await w.mode('auto_pool_mode', 'off');
+  assert.equal((await trade(w, { pos: 'p3', pnl: 1 })).pool.skipped, 'off');
+  near((await w.pool()).e, 1000);
+});
