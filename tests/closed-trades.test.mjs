@@ -256,3 +256,67 @@ test('CT10 trades mode: gates (paused, off, jump, payout) and the switch back to
   assert.equal((await trade(w, { pos: 'p3', pnl: 1 })).pool.skipped, 'off');
   near((await w.pool()).e, 1000);
 });
+
+test('CT11 trades mode, dated: each trade is its own pool entry at its close time; same final value; units untouched', async () => {
+  const w = await rolling();
+  await adv(w, 30);
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  await w.mode('bot_sync_paused', '1');
+  await trade(w, { pos: 'd1', pnl: -20, at: day(3) }); await trade(w, { pos: 'd2', pnl: 5.5, at: day(2) }); await trade(w, { pos: 'd3', pnl: -12.25, at: day(1) });
+  assert.equal((await w.q('select count(*)::int n from public.pool_equity'))[0].n, 1, 'paused: nothing booked');
+  await w.mode('bot_sync_paused', '0');
+  const r = (await w.q(`select public._auto_pool_value('test') as r`))[0].r;
+  assert.equal(r.ok, true); assert.equal(r.trades, 3); near(r.nav_after, 973.25);
+  const rows = await w.q(`select ts, equity_usdt::float e, total_units::float u, note from public.pool_equity where note like 'Auto%' order by id`);
+  assert.equal(rows.length, 3);
+  near(rows[0].e, 980); near(rows[1].e, 985.5); near(rows[2].e, 973.25);
+  const t = await w.q(`select closed_at, equity_id from public.closed_trades order by closed_at`);
+  for (let i = 0; i < 3; i++) assert.equal(new Date(rows[i].ts).getTime(), new Date(t[i].closed_at).getTime(), 'entry dated at the close time');
+  assert.ok(rows.every((x) => x.u === 1000));
+  assert.equal((await w.q('select count(*)::int n from public.closed_trades where equity_id is null'))[0].n, 0);
+  near(await w.units('john'), 1000);
+  assert.equal((await w.q(`select public._auto_pool_value('again') as r`))[0].r.skipped, 'nothing_new');
+});
+
+// the one-time script that replaces an automatic LUMP entry by dated per-trade entries (supabase/maintenance/respread_auto_lump.sql)
+async function lumpWorld() {
+  const w = await rolling();
+  await adv(w, 30);
+  const day = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  await w.mode('bot_sync_paused', '1');
+  await trade(w, { pos: 'l1', pnl: -20, at: day(3) }); await trade(w, { pos: 'l2', pnl: 5.5, at: day(2) }); await trade(w, { pos: 'l3', pnl: -12.25, at: day(1) });
+  // the old behaviour: ONE entry for all three, dated when it was noticed
+  const [e] = await w.q(`insert into public.pool_equity(ts, kind, equity_usdt, total_units, unit_price, php_rate, note, created_by)
+    values (now(), 'update', 973.25, 1000, 0.97325, 58, 'Auto (wallet_report): 3 closed trade(s), realized -26.75 USDT, from 1000', null) returning id`);
+  await w.q(`insert into public.auto_pool_runs(equity_id, nav_before, nav_after, unit_price, trades, realized_usd) values ($1, 1000, 973.25, 0.97325, 3, -26.75)`, [e.id]);
+  await w.q(`update public.closed_trades set equity_id = $1, reflected_at = now()`, [e.id]);
+  await w.mode('bot_sync_paused', '0');
+  return { w, lump: e.id };
+}
+const SCRIPT = readFileSync(new URL('../supabase/maintenance/respread_auto_lump.sql', import.meta.url), 'utf8');
+
+test('CT12 respread: the lump entry becomes one dated entry per trade, same final value and units, append-only guard back on', async () => {
+  const { w, lump } = await lumpWorld();
+  await w.db.exec(SCRIPT);
+  const rows = await w.q(`select id, ts, equity_usdt::float e, total_units::float u from public.pool_equity where id >= $1 order by id`, [lump]);
+  assert.equal(rows.length, 3); assert.ok(!rows.some((r) => r.id === lump) || rows[0].id !== lump, 'the lump entry is gone');
+  near(rows[0].e, 980); near(rows[1].e, 985.5); near(rows[2].e, 973.25);
+  const t = await w.q(`select closed_at from public.closed_trades order by closed_at`);
+  for (let i = 0; i < 3; i++) assert.equal(new Date(rows[i].ts).getTime(), new Date(t[i].closed_at).getTime());
+  assert.ok(rows.every((r) => r.u === 1000));
+  assert.equal((await w.q(`select count(*)::int n from public.closed_trades where equity_id is null`))[0].n, 0);
+  assert.equal((await w.q(`select count(*)::int n from public.auto_pool_runs`))[0].n, 3);
+  await assert.rejects(() => w.db.query(`delete from public.pool_equity where id = $1`, [rows[2].id]), /./, 'the guard is on again');
+  await assert.rejects(() => w.db.query(`update public.closed_trades set realized_usd = 1`), /cannot be edited/);
+  await assert.rejects(() => w.db.exec(SCRIPT), /STOP: the latest pool entry is not an automatic lump entry/, 'a second run changes nothing');
+  near(await w.units('john'), 1000);
+});
+
+test('CT13 respread refuses when an investor entry points at the lump, and rolls back completely', async () => {
+  const { w, lump } = await lumpWorld();
+  await w.q(`insert into public.ledger(ts, profile_id, kind, units, usdt, unit_price, php_rate, equity_id, note) values (now(), $1, 'deposit', 1, 1, 1, 58, $2, 'x')`, [w.ids.dino, lump]);
+  await assert.rejects(() => w.db.exec(SCRIPT), /STOP: 1 row\(s\) in .*ledger refer to the lump entry/);
+  assert.equal((await w.q(`select count(*)::int n from public.pool_equity where id = $1`, [lump]))[0].n, 1, 'lump entry untouched');
+  assert.equal((await w.q(`select count(*)::int n from public.closed_trades where equity_id = $1`, [lump]))[0].n, 3);
+  await assert.rejects(() => w.db.query(`delete from public.pool_equity where id = $1`, [lump]), /./, 'guard still on');
+});
