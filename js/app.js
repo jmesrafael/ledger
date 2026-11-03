@@ -1341,7 +1341,7 @@
 
   function loginView() {
     syncNav();
-    app.innerHTML = `<div class="login-brand login"><span class="logo">${ICON.logo}</span><h1>Lucid'io</h1><p class="tagline">Where Markets Meet Compounding</p></div>
+    app.innerHTML = `<div class="login-brand login"><span class="logo">${ICON.logo}</span><h1>Lucid'io</h1><p class="tagline">Where Market Meets Compounding</p></div>
       <div class="card"><h2>Sign in</h2>
       <form id="loginForm"><label>Username</label><input name="username" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required>
       <label>Password</label>${pw('password', 'current-password')}
