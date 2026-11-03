@@ -472,20 +472,25 @@
         el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, c.title, el('span', { class: 'ck-v' }, c.value ?? '—')), el('div', { class: 'ck-n' }, `limit ${c.limit}${c.note ? ' · ' + c.note : ''}`))))));
     }
   }
+  // one block per strategy: BB-Core's result, then I-Core's when it reports. A refused order (and the trade that follows from it) is listed as INFO: a missed trade, not a logic difference.
+  const KIND = { 'exchange-refused': 'MISSED · exchange refused the order', 'follows-refused': 'FOLLOWS the refused trade', 'backtest-only': 'BACKTEST-ONLY · the backtest took it, the bot did not', 'live-only': 'LIVE-ONLY · the bot took it, the backtest did not', differs: 'DIFFERS · both took it, the result differs' };
   function renderCompare(d) {
-    const c = clear($('#compare'));
-    if (!d.compare) { c.append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
-    const k = d.compare;
-    c.append(el('dl', { class: 'kvlist' },
-      kv('Result', el('span', { class: k.match ? 'good' : 'bad' }, k.match ? 'MATCH' : 'NOT A MATCH')),
-      kv('Window', `${fmtShort(k.window_from_ms)} → ${fmtShort(k.window_to_ms)}`),
-      kv('Checked', fmtTime(k.ts), ago(k.ts)),
-      kv('Trades', `${k.matched ?? 0} matched · ${k.live_only ?? 0} live-only · ${k.backtest_only ?? 0} backtest-only`),
-      kv('Other', `${k.skipped_signals ?? 0} skipped · ${k.candle_diffs ?? 0} candle diffs · tol ${k.tolerance_r}R`)));
-    if ((k.mismatches || []).length) c.append(el('div', { class: 'sub-h' }, 'Mismatches'), el('div', { class: 'scroll' }, table([
-      { h: 'Kind', left: true, f: (r) => r.kind }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Candle', f: (r) => fmtShort(r.signal_candle_open_ms) },
-      { h: 'Near thr.', f: (r) => (r.nearest_threshold_pct == null ? '—' : `${Number(r.nearest_threshold_pct).toFixed(3)}%`) }, { h: 'Why', left: true, f: (r) => r.why, c: () => 'wrap' },
-    ], k.mismatches, '')));
+    const c = clear($('#compare')), ic = d.bots && d.bots.icore, sets = [['BB-Core', d.compare]].concat(ic ? [['I-Core', ic.compare]] : []);
+    if (!sets.some(([, k]) => k)) { c.append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
+    sets.forEach(([name, k], i) => {
+      c.append(el('div', { class: i ? 'sub-h' : 'sub-h first' }, name));
+      if (!k) { c.append(el('div', { class: 'empty' }, 'No comparison received yet.')); return; }
+      const missed = k.refused || 0, explained = k.explained || 0;
+      c.append(el('dl', { class: 'kvlist' },
+        kv('Result', el('span', { class: k.match ? 'good' : 'bad' }, k.match ? 'MATCH' : 'NOT A MATCH'), missed ? ` · ${missed} missed (exchange refused)` : ''),
+        kv('Window', `${fmtShort(k.window_from_ms)} → ${fmtShort(k.window_to_ms)}`),
+        kv('Checked', fmtTime(k.ts), ago(k.ts)),
+        kv('Trades', `${k.matched ?? 0} matched · ${k.live_only ?? 0} live-only · ${k.backtest_only ?? 0} backtest-only${explained ? ` · ${explained} explained` : ''}`),
+        kv('Other', `${k.skipped_signals ?? 0} skipped · ${k.candle_diffs ?? 0} candle diffs · tol ${k.tolerance_r}R`)));
+      if ((k.mismatches || []).length) c.append(el('div', { class: 'checklist' }, k.mismatches.map((m) => el('div', { class: `ck ${m.explained ? 'info' : 'warn'}` }, lvlChip(m.explained ? 'info' : 'warn'),
+        el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, el('span', {}, `${name} · ${sym(m.symbol)} `, sideEl(m.side), ` · candle ${fmtShort(m.signal_candle_open_ms)}`), el('span', { class: 'ck-v' }, m.nearest_threshold_pct == null ? '' : `near thr. ${Number(m.nearest_threshold_pct).toFixed(3)}%`)),
+          el('div', { class: 'ck-n' }, `${KIND[m.kind] || m.kind} · ${m.why || ''}`))))));
+    });
   }
 
   // ---------------- Log ----------------
