@@ -50,8 +50,8 @@
   {
     "slug": "backtest-data",
     "title": "What ₱1,000 Could Have Become: Past-Price Data",
-    "summary": "Growth of ₱1,000 after the 20% fee, year-by-year and month-by-month results, drops, and which months tend to be weak. Compounded vs. a fresh ₱1,000 each year. A test on past prices, not a promise.",
-    "updated": "Oct 26, 2026",
+    "summary": "Growth of ₱1,000 after the 20% fee, year-by-year and month-by-month results, drops, and which months tend to be weak, using the two trading systems the pool runs today at 2.5% risk per trade. A test on past prices, not a promise.",
+    "updated": "Nov 3, 2026",
     "kind": "Data report",
     "file": "backtest-data.html",
     "pdf": "backtest-data.pdf"
