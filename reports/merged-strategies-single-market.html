@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Merged Strategies on SOL</title>
-<meta name="description" content="Research: the current bot, a slow trend-follower, and the two run together, year by year on SOL.">
+<title>Merged Strategies on Market 1</title>
+<meta name="description" content="Research: the current bot, a slow trend-follower, and the two run together, year by year on Market 1.">
 <meta name="theme-color" content="#0A0A0A">
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,8 +75,8 @@ svg { width: 100%; height: auto; display: block; }
 <body>
 <div class="wrap">
   <a class="back" href="./">← Reports</a>
-  <h1>Merged Strategies on SOL</h1>
-  <div class="meta">Research · SOL only · 7 years (2020–2026) · data to 27 Oct 2026</div>
+  <h1>Merged Strategies on Market 1</h1>
+  <div class="meta">Research · Market 1 only · 7 years (2020–2026) · data to 27 Oct 2026</div>
   <p class="lead">What happens if the current bot is run together with a second, slower trend-following strategy? This report compares three things year by year: the <b style="color:var(--c-bb)">current bot</b>, the <b style="color:var(--c-ema)">trend-follower</b> on its own, and the <b style="color:var(--c-two)">merged</b> version where both run side by side. "R" is the amount risked on one trade (1R = $5 here), so +10R means ten times the amount risked.</p>
 
   <div class="card">
@@ -84,14 +84,14 @@ svg { width: 100%; height: auto; display: block; }
     <div class="kpis">
       <div class="kpi bb"><div class="n">Lucid’io (current bot)</div><div class="v pos">+105.4R</div><div class="s">+$527 · 7 of 7 years up<br>worst drop 12.8R</div></div><div class="kpi ema"><div class="n">Trend-follower</div><div class="v pos">+166.2R</div><div class="s">+$831 · 4 of 7 years up<br>worst drop 18.3R</div></div><div class="kpi two"><div class="n">Merged</div><div class="v pos">+271.6R</div><div class="s">+$1,358 · 7 of 7 years up<br>worst drop 24.6R</div></div>
     </div>
-    <div class="call"><b>Merged made 2.6× the current bot's profit and was up in all 7 years.</b> The price: it can have two trades open at once, so its worst drop (24.6R) is about double the current bot's (12.8R). Per unit of drop it still came out ahead (11.0 vs 8.3). This is SOL only — see the limits at the end.</div>
+    <div class="call"><b>Merged made 2.6× the current bot's profit and was up in all 7 years.</b> The price: it can have two trades open at once, so its worst drop (24.6R) is about double the current bot's (12.8R). Per unit of drop it still came out ahead (11.0 vs 8.3). This is Market 1 only — see the limits at the end.</div>
   </div>
 
   <div class="card">
     <h2>How these numbers were made</h2>
     <ul>
       <li><b>Current bot:</b> the live Lucid’io rules, unchanged (rules are confidential and not described here).</li>
-      <li><b>Trend-follower:</b> a slow, textbook moving-average strategy. It trades rarely, holds for days and lets winners run until the trend turns. Settings are standard, not tuned to SOL.</li>
+      <li><b>Trend-follower:</b> a slow, textbook moving-average strategy. It trades rarely, holds for days and lets winners run until the trend turns. Settings are standard, not tuned to Market 1.</li>
       <li><b>Merged:</b> both strategies run side by side, each risking its normal 1R. They never block each other, so the merged result is exactly the two added together. Nothing is a new invention.</li>
       <li>Prices: Binance USDT-M futures, 4-hour candles, 2020 → 27 Oct 2026. Fees, slippage and real funding are included. Every decision uses only candles that had already closed (checked at 2,808 cut-off points: no look-ahead).</li>
       <li>A year counts when the trade <i>closes</i>. 2026 is a part-year.</li>
@@ -204,7 +204,7 @@ svg { width: 100%; height: auto; display: block; }
   <div class="card">
     <h2>10 · Limits — read before relying on this</h2>
     <div class="call warn">
-      <b>SOL only.</b> The merged strategy has not yet been run on ZEC, NEAR, ADA or GALA at full size. An earlier half-size test across all five coins was also positive (+599R vs +493R, smaller drop) but was not up in every year on every coin, so SOL alone looks better than it may be elsewhere.<br><br>
+      <b>Market 1 only.</b> The merged strategy has not yet been run on Market 2, Market 3, Market 4 or Market 5 at full size. An earlier half-size test across all five coins was also positive (+599R vs +493R, smaller drop) but was not up in every year on every coin, so Market 1 alone looks better than it may be elsewhere.<br><br>
       <b>The trend-follower is carried by a few huge trades.</b> One could not assume 2021 and 2024 repeat. Judge it on whether you can sit through long flat stretches.<br><br>
       <b>The live bot would need changes.</b> It handles one position per coin; a second strategy needs its own position slot (or a separate account) and clear rules on total risk.<br><br>
       <b>Simulation, not a record.</b> Real fills, outages and exchange limits can differ.

@@ -1,44 +1,43 @@
 [
   {
-    "slug": "bbcore-no-target-three-way",
-    "title": "Three Strategies Compared: BB-Core Fixed Target, BB-Core No Target, I-Core",
-    "summary": "Five coins, 2020 to Oct 2026. Per trade, ₱10,000 in each year at 2.5% risk, without the best years and trades, on seven coins never used to design the bots, the three pairs of two bots, and the new risk rule (steps down as the account grows, no cap). BB-Core with no target averages +0.45R per trade against +0.33R with the fixed target; I-Core +0.87R but 74% of its profit is ten trades. The no-target version is not live yet. A test on past prices, not a promise.",
+    "slug": "three-way-comparison",
+    "title": "Three Setups Compared: Fixed Target, No Target and the Second Bot",
+    "summary": "Five coins, 2020 to Oct 2026. Per trade, ₱10,000 in each year at 2.5% risk, without the best years and trades, on seven coins never used to design the bots, the three pairs of two bots, and the new risk rule (steps down as the account grows, no cap). The first bot with no target averages +0.45R per trade against +0.33R with the fixed target; the second bot +0.87R but 74% of its profit is ten trades. The no-target version is not live yet. A test on past prices, not a promise.",
     "updated": "Oct 29, 2026",
     "kind": "Data report",
-    "file": "/reports/bbcore-no-target-three-way.html"
+    "file": "/reports/three-way-comparison.html"
   },
   {
-    "slug": "bbcore-icore-trades-and-profit",
-    "title": "BB-Core and I-Core: Trades, Monthly Profit and ₱10,000 Results",
+    "slug": "two-bot-trades-and-profit",
+    "title": "The two bots: Trades, Monthly Profit and ₱10,000 Results",
     "summary": "Five coins, Jan 2020 to Oct 2026. How many trades each bot takes every month, the busiest months and days, how many months make or lose money at the bots' own settings, and what ₱10,000 becomes at the live 2.5% risk: fresh each January, compounding every trade or every month. Before any fee. A test on past prices, not a promise.",
     "updated": "Oct 28, 2026",
     "kind": "Data report",
-    "file": "/reports/bbcore-icore-trades-and-profit.html",
-    "pdf": "/reports/bbcore-icore-trades-and-profit.pdf"
+    "file": "/reports/two-bot-trades-and-profit.html"
   },
   {
-    "slug": "icore-10k-report",
-    "title": "I-Core at 2.5% and 5% Risk: ₱10,000 Report",
+    "slug": "bot-10k-report",
+    "title": "The second bot at 2.5% and 5% Risk: ₱10,000 Report",
     "summary": "Five coins, 2020–2026, 760 trades, starting with ₱10,000. Expectancy, statistics and odds, every year and month, fresh ₱10,000 each year vs compounding, max drawdowns, a quick 5% summary, per-coin results and limits. Before any fee. A test on past prices, not a promise.",
     "updated": "Oct 27, 2026",
     "kind": "Data report",
-    "file": "reports/icore-10k-report.html"
+    "file": "reports/bot-10k-report.html"
   },
   {
-    "slug": "icore-vs-current-bot",
-    "title": "I-Core vs the Current Bot",
-    "summary": "Research, five coins, 2020–2026: I-Core against the current bot. Every year and month, wins and losses, drops, per-coin results, stress tests, an independent re-check, and a merge-or-separate-account test. I-Core makes more R but depends on a few giant winners.",
+    "slug": "alt-bot-vs-current",
+    "title": "The second bot vs the Current Bot",
+    "summary": "Research, five coins, 2020–2026: the second bot against the current bot. Every year and month, wins and losses, drops, per-coin results, stress tests, an independent re-check, and a merge-or-separate-account test. The second bot makes more R but depends on a few giant winners.",
     "updated": "27 Oct 2026",
     "kind": "Research",
-    "file": "reports/icore-vs-current-bot.html"
+    "file": "reports/alt-bot-vs-current.html"
   },
   {
-    "slug": "merged-strategies-sol",
-    "title": "Merged Strategies on SOL — Current Bot + Trend-Follower",
-    "summary": "Research, SOL only, 7 years: the current bot, a slow trend-follower and the two run side by side, year by year. Charts of growth, yearly results, who earns what, drops from peak, and a fair equal-risk comparison.",
+    "slug": "merged-strategies-single-market",
+    "title": "Merged Strategies on Market 1 — Current Bot + Trend-Follower",
+    "summary": "Research, Market 1 only, 7 years: the current bot, a slow trend-follower and the two run side by side, year by year. Charts of growth, yearly results, who earns what, drops from peak, and a fair equal-risk comparison.",
     "updated": "27 Oct 2026",
     "kind": "Research",
-    "file": "reports/merged-strategies-sol.html"
+    "file": "reports/merged-strategies-single-market.html"
   },
   {
     "slug": "how-lucid-io-works-v2",
@@ -60,11 +59,10 @@
   {
     "slug": "four-coin-5pct",
     "title": "The Four-Coin System at 5% Risk: ₱5,000 Report",
-    "summary": "SOL, ZEC, NEAR and ADA tested on past prices from March 2020, starting with ₱5,000. A fresh ₱5,000 each year vs compounding, every year and month, best and worst calendar months, what happens depending on the month you start, per-coin results, a 2.5% vs 5% risk comparison, and a ₱30,000 worst-case-start test where each year's whole losing stretch comes first. Before the 20% fee. A test on past prices, not a promise.",
+    "summary": "Market 1, Market 2, Market 3 and Market 4 tested on past prices from March 2020, starting with ₱5,000. A fresh ₱5,000 each year vs compounding, every year and month, best and worst calendar months, what happens depending on the month you start, per-coin results, a 2.5% vs 5% risk comparison, and a ₱30,000 worst-case-start test where each year's whole losing stretch comes first. Before the 20% fee. A test on past prices, not a promise.",
     "updated": "Oct 26, 2026",
     "kind": "Data report",
-    "file": "four-coin-5pct.html",
-    "pdf": "four-coin-5pct.pdf"
+    "file": "four-coin-5pct.html"
   },
   {
     "slug": "backtest-data-usd",

@@ -65,5 +65,32 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/reports/bbcore-no-target-three-way.html",
+      "destination": "/reports/three-way-comparison.html",
+      "permanent": true
+    },
+    {
+      "source": "/reports/bbcore-icore-trades-and-profit.html",
+      "destination": "/reports/two-bot-trades-and-profit.html",
+      "permanent": true
+    },
+    {
+      "source": "/reports/icore-10k-report.html",
+      "destination": "/reports/bot-10k-report.html",
+      "permanent": true
+    },
+    {
+      "source": "/reports/icore-vs-current-bot.html",
+      "destination": "/reports/alt-bot-vs-current.html",
+      "permanent": true
+    },
+    {
+      "source": "/reports/merged-strategies-sol.html",
+      "destination": "/reports/merged-strategies-single-market.html",
+      "permanent": true
+    }
   ]
 }

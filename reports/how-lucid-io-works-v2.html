@@ -255,7 +255,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <section id="short" class="glass card reveal">
   <div class="kicker">In short</div>
   <h2>If you had put money in on 1 January</h2>
-  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from the pool's two trading bots, <b>BB-Core and I-Core</b> (half the money with each), replayed on <b>real past prices</b> of SOL, ZEC, NEAR, ADA and GALA, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade.</p>
+  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from the pool's two trading bots (half the money with each), replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade.</p>
   <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
   <div class="out" id="s-out"></div>
   <div class="tscroll">
@@ -333,7 +333,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="kicker">3 · The data</div>
   <h2>What ₱1,000 did in each past year</h2>
   <p><b>"Backtest"</b> is a simple idea: we replay the trading plan on old prices to see what would have happened. It is a test on the past, not a promise about the future.</p>
-  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses the pool's two bots (BB-Core and I-Core, half the money each) at <b>2.5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
+  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses the pool's two bots (half the money in each) at <b>2.5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ytab" style="min-width:640px"></table></div>
