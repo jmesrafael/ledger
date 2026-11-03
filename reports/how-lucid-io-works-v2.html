@@ -245,11 +245,25 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="facts">
     <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
     <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
-    <div class="fact glass"><b>5%</b><span>of the pool is put at risk on each trade</span></div>
+    <div class="fact glass"><b>2.5%</b><span>of a bot's money is put at risk on each trade</span></div>
     <div class="fact glass"><b>1 pool</b><span>everyone's slice moves by the same percent</span></div>
   </div>
   <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The results on this page are tests on past prices, not promises. <a href="#risks">Read the risks</a></div></div>
 </header>
+
+<!-- IN SHORT: what money put in on 1 January would be worth, from the two live bots' test on past prices -->
+<section id="short" class="glass card reveal">
+  <div class="kicker">In short</div>
+  <h2>If you had put money in on 1 January</h2>
+  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from the pool's two trading bots, <b>BB-Core and I-Core</b> (half the money with each), replayed on <b>real past prices</b> of SOL, ZEC, NEAR, ADA and GALA, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade.</p>
+  <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
+  <div class="out" id="s-out"></div>
+  <div class="tscroll">
+    <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
+    <div class="tscroll-in"><table class="ft" id="stab" style="min-width:640px"></table></div>
+  </div>
+  <p class="small muted" id="s-note"></p>
+</section>
 
 <!-- 1. HOW IT WORKS -->
 <section id="how" class="glass card reveal">
@@ -277,7 +291,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="kicker">2 · Examples</div>
   <h2><span class="yr">2026</span> Five investors, five different starts</h2>
   <p>Meet five example investors. Each put in a different amount in a different month of 2026. They are made-up people, but the prices are <b>real past prices</b>. Everyone gets the <b>same result per slice</b> from the day they join, so what changes the outcome is <b>when</b> they joined and <b>how much</b> they put in.</p>
-  <p class="small muted">The fee is 20% of new profit, settled at the end of February, April, June and August. Results are up to <b>Oct 21, 2026</b> and the pool puts <b>5%</b> at risk per trade. Shown in pesos at ₱58 per USDT (a digital dollar).</p>
+  <p class="small muted">The fee is 20% of new profit, settled at the end of February, April, June and August. Results are up to <b class="d-end"></b> and each trade puts <b>2.5%</b> of its bot's money at risk. Shown in pesos at ₱58 per USDT (a digital dollar).</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ftable"></table></div>
@@ -319,7 +333,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="kicker">3 · The data</div>
   <h2>What ₱1,000 did in each past year</h2>
   <p><b>"Backtest"</b> is a simple idea: we replay the trading plan on old prices to see what would have happened. It is a test on the past, not a promise about the future.</p>
-  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses <b>5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
+  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses the pool's two bots (BB-Core and I-Core, half the money each) at <b>2.5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ytab" style="min-width:640px"></table></div>
@@ -330,7 +344,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <ul>
       <li><b>Growth</b> is what the ₱1,000 earned in that one year. <b>Deepest dip</b> is the biggest fall from a high point inside that year: your money can look much worse than the final number on the way.</li>
       <li><b>After 20% fee</b> is about what you would keep once the fee on new profit is taken (settled every two months; the exact figure depends on the path).</li>
-      <li><b>2021 was exceptional</b> and will probably not repeat. 2022 and 2026 are closer to a normal, harder year.</li>
+      <li id="y-best"></li>
     </ul>
   </div>
 
@@ -345,7 +359,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div class="tscroll-in"><table class="ft cmp" id="cmp"></table></div>
   </div>
   <p class="small muted">Rates as of October 2026 and they change often, so check the bank's app. *Maya Savings can reach 15% a year, but only on the first ₱100,000 and only if you complete its monthly tasks. Lucid'io's last-12-months figure is approximate.</p>
-  <div class="note-box warn"><b style="color:var(--red)">Markets change, and the best years are behind us.</b> The biggest results came early: 2021 was extraordinary, and the most recent year earned far less. There is no promise the next year looks like any year above. It could earn less than a bank, and it could lose money: even in the test, the balance fell by more than half at one point. Banks and Pag-IBIG do not behave that way, and most of them are insured. Lucid'io is not.</div>
+  <div class="note-box warn"><b style="color:var(--red)">Markets change, and the best years are behind us.</b> The biggest results came early: 2021 was extraordinary, and the most recent year earned far less. There is no promise the next year looks like any year above. It could earn less than a bank, and it could lose money: even in the test, the balance fell by <span class="d-dd"></span> at one point. Banks and Pag-IBIG do not behave that way, and most of them are insured. Lucid'io is not.</div>
   <div class="datacta">
     <div><h3>Want every detail?</h3><p>Year by year, month by month: the best and worst months, the longest red streaks and the biggest drops.</p></div>
     <a class="btn" href="/backtest-data">See the full data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
@@ -399,7 +413,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div class="done"><i></i>Requested</div><div class="done"><i></i>Reviewed</div><div class="now"><i></i>Trades closed</div><div><i></i>Paid out</div><div><i></i>Received</div>
   </div>
   <div class="grid2" style="margin-top:16px">
-    <div><h3>Why a request can wait a little</h3><p class="small">Up to two trades can be open at once. A payout is worked out only when both trades are closed and the balance is checked, so nobody is paid at the price of a half-finished trade. The app tells you the reason while you wait.</p></div>
+    <div><h3>Why a request can wait a little</h3><p class="small">Several trades can be open at once. A payout is worked out only when both trades are closed and the balance is checked, so nobody is paid at the price of a half-finished trade. The app tells you the reason while you wait.</p></div>
     <div><h3>The 3-month lock-up</h3><p class="small">Your first deposit has a 3-month lock-up as a guideline: please plan to leave it in that long. If you need money earlier, ask; the fund manager decides, and any exception is written down.</p></div>
   </div>
   <div class="note-box">Withdrawal fee: none for now. A small one may be introduced later, lower the longer your account has been open. You will be told before it starts.</div>
@@ -440,15 +454,10 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     </ul>
   </div>
   <div class="glass card" style="margin:0 0 12px;border-color:rgba(255,181,71,0.35)">
-    <h3 style="color:var(--amber)">What "5% risk per trade" really means</h3>
-    <p class="small">Before every trade, the plan puts <b>5% of the current balance</b> at risk (about ₱500 when the pool is worth ₱10,000). Wins make the next trade bigger, losses make it smaller. That is why results swing so much.</p>
-    <div class="grid2" style="margin-top:10px">
-      <div><h3>The deepest fall</h3><p class="small">In the test, the balance dropped <b>65%</b> from a high point (May 2023). At 1% risk the worst fall was 14%. After a 65% fall you need about <b>+185%</b> just to get back to even.</p></div>
-      <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>28% and 57%</b> from its high along the way (see the table in section 3).</p></div>
-      <div><h3>Starting at a bad moment</h3><p class="small">Starting in any month and holding for 12 months (58 start dates), the typical result was about <b>+260%</b>, but <b>6 of 58</b> starts lost money, the worst by <b>31%</b>. Starting at a peak, ₱1,000 was worth about <b>₱520</b> three months later (Oct 2022) and about <b>₱670</b> (Sep 26, 2026).</p></div>
-      <div><h3>Recent years are weaker</h3><p class="small">In the last 12 months, 5% risk earned about <b>+23%</b> (1% earned about +13%). The extra risk bought much less than in 2021–2025, and the old totals are flattered because the markets were chosen after seeing how they did.</p></div>
-    </div>
-    <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to Oct 21, 2026. A lower risk setting is calmer; 5% is what the pool uses, so expect red months and the occasional deep red stretch.</p>
+    <h3 style="color:var(--amber)">What "2.5% risk per trade" really means</h3>
+    <p class="small">The pool's money is split between two trading bots. Before every trade, a bot puts <b>2.5% of its current balance</b> at risk (about ₱125 when it holds ₱5,000, half of a ₱10,000 pool). Wins make the next trade bigger, losses make it smaller, and the two bots can have up to ten trades open at once. That is why results swing.</p>
+    <div class="grid2" style="margin-top:10px" id="risk-facts"></div>
+    <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to <span class="d-end"></span>. A lower risk setting is calmer; 2.5% is what the bots use, so expect red months and the occasional deep red stretch.</p>
   </div>
   <div class="grid2">
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>You can lose money</h3><p class="small">The market moves fast. The pool can fall sharply and you can lose a large part or all of what you put in. Only use money you can afford to lose.</p></div>
@@ -462,7 +471,8 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 </div>
 
 <script>
-const YEARS = {"r":{"0.05":{"bal":2731289,"dd":0.6459,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":2301,"dd":0.2796},"2021":{"start":2301,"end":27752,"dd":0.3649},"2022":{"start":27752,"end":39381,"dd":0.5731},"2023":{"start":39381,"end":132947,"dd":0.4534},"2024":{"start":132947,"end":470467,"dd":0.3392},"2025":{"start":470467,"end":1622609,"dd":0.4429},"2026":{"start":1622609,"end":2731289,"dd":0.4466}}},"0.01":{"bal":8099,"dd":0.1441,"ddAt":"2023-05-06","years":{"2020":{"start":1000,"end":1233,"dd":0.0613},"2021":{"start":1233,"end":2275,"dd":0.0829},"2022":{"start":2275,"end":2624,"dd":0.1366},"2023":{"start":2624,"end":3604,"dd":0.1041},"2024":{"start":3604,"end":4968,"dd":0.0771},"2025":{"start":4968,"end":6815,"dd":0.107},"2026":{"start":6815,"end":8099,"dd":0.1048}}}}};
+const LANDING = {"risk":0.025,"low":0.01,"years":{"0.025":{"bal":10278491,"years":{"2020":{"start":1000,"end":1958,"dd":0.1826},"2021":{"start":1958,"end":27773,"dd":0.2602},"2022":{"start":27773,"end":84948,"dd":0.4615},"2023":{"start":84948,"end":217348,"dd":0.4712},"2024":{"start":217348,"end":755916,"dd":0.3176},"2025":{"start":755916,"end":2845618,"dd":0.267},"2026":{"start":2845618,"end":10278491,"dd":0.4536}},"dd":0.4712,"ddAt":"2023-05-07"},"0.01":{"bal":122404,"years":{"2020":{"start":1000,"end":1347,"dd":0.0757},"2021":{"start":1347,"end":5370,"dd":0.108},"2022":{"start":5370,"end":9227,"dd":0.1781},"2023":{"start":9227,"end":16575,"dd":0.2152},"2024":{"start":16575,"end":30930,"dd":0.1341},"2025":{"start":30930,"end":62324,"dd":0.0956},"2026":{"start":62324,"end":122404,"dd":0.2197}},"dd":0.2197,"ddAt":"2026-05-05"}},"short":[{"y":2020,"endY":1.9579,"now":10278.4909,"dd":0.4712,"ddAt":"2023-05-07","low":1},{"y":2021,"endY":14.1849,"now":5249.7412,"dd":0.4712,"ddAt":"2023-05-07","low":0.9839},{"y":2022,"endY":3.0587,"now":370.0933,"dd":0.4712,"ddAt":"2023-05-07","low":1},{"y":2023,"endY":2.5586,"now":120.9976,"dd":0.4712,"ddAt":"2023-05-07","low":0.7408},{"y":2024,"endY":3.4779,"now":47.2905,"dd":0.4536,"ddAt":"2026-05-05","low":0.8598},{"y":2025,"endY":3.7645,"now":13.5974,"dd":0.4536,"ddAt":"2026-05-05","low":0.8561},{"y":2026,"endY":3.612,"now":3.612,"dd":0.4536,"ddAt":"2026-05-05","low":0.7298}],"w26":[{"d":"2026-01-04","p":1.0135},{"d":"2026-01-11","p":1.0529},{"d":"2026-01-18","p":0.967},{"d":"2026-01-25","p":0.911},{"d":"2026-01-31","p":0.9533},{"d":"2026-02-01","p":0.9533},{"d":"2026-02-08","p":1.2993},{"d":"2026-02-15","p":1.2688},{"d":"2026-02-22","p":1.116},{"d":"2026-02-28","p":1.0329},{"d":"2026-03-01","p":0.9803},{"d":"2026-03-08","p":0.941},{"d":"2026-03-15","p":0.8771},{"d":"2026-03-22","p":0.974},{"d":"2026-03-29","p":0.9826},{"d":"2026-03-31","p":0.9782},{"d":"2026-04-05","p":1.0005},{"d":"2026-04-12","p":1.0024},{"d":"2026-04-19","p":1.0296},{"d":"2026-04-26","p":0.9556},{"d":"2026-04-30","p":0.8136},{"d":"2026-05-03","p":0.8104},{"d":"2026-05-10","p":0.9142},{"d":"2026-05-17","p":1.1122},{"d":"2026-05-24","p":1.1469},{"d":"2026-05-31","p":1.577},{"d":"2026-06-07","p":2.4975},{"d":"2026-06-14","p":2.4636},{"d":"2026-06-21","p":2.275},{"d":"2026-06-28","p":2.0606},{"d":"2026-06-30","p":2.0606},{"d":"2026-07-05","p":2.408},{"d":"2026-07-12","p":2.3919},{"d":"2026-07-19","p":2.2345},{"d":"2026-07-26","p":1.9506},{"d":"2026-07-31","p":1.8585},{"d":"2026-08-02","p":2.0882},{"d":"2026-08-09","p":2.1429},{"d":"2026-08-16","p":2.1631},{"d":"2026-08-23","p":2.3155},{"d":"2026-08-30","p":3.9507},{"d":"2026-08-31","p":3.9507},{"d":"2026-09-06","p":3.5022},{"d":"2026-09-13","p":3.73},{"d":"2026-09-20","p":3.3716},{"d":"2026-09-27","p":5.2892},{"d":"2026-09-30","p":5.3583},{"d":"2026-10-04","p":5.0183},{"d":"2026-10-11","p":4.6427},{"d":"2026-10-18","p":4.1764},{"d":"2026-10-20","p":3.7076}],"facts":{"end":"2026-10-20","first":"2020-03-08","trades":{"bb":1331,"ic":760},"dd":0.4712,"ddAt":"2023-05-07","dd1":0.2197,"dipMin":0.1826,"dipMax":0.4712,"rollN":67,"rollMed":2.7947,"rollLoss":1,"rollWorst":-0.0908,"rollWorstFrom":"2022-07-01","worst3":0.5617,"worst3From":"2026-02-07","worst3To":"2026-05-09","last12":4.1957,"last12low":1.7413,"allUp":true,"best":["2021",13.184371807967313],"weakest":["2023","2022"]}};   // generated by StrategyBacktester/scripts/landing-data.mjs — re-run it, do not edit by hand
+const YEARS = { r: LANDING.years };   // ₱1,000 from 1 Jan 2020 at the live risk and at 1%: per year start / end / deepest dip
 const FEE = 0.20;   // the fee on new profit; keep in step with ledger_settings.default_fee_rate
 const FEE_PCT = Math.round(FEE * 100);
 // fee tags: a pill above (or below) the dot, kept inside the chart and moved apart if two would overlap
@@ -698,11 +708,13 @@ hwmDraw('steady');
 
 
 // ---------- 2. 2026 friends: weekly unit prices from the test, run through today's rules
-const W26 = [{"d":"2026-01-04","p":1.0245},{"d":"2026-01-11","p":1.0957},{"d":"2026-01-18","p":1.0646},{"d":"2026-01-25","p":1.0895},{"d":"2026-01-31","p":1.2394},{"d":"2026-02-01","p":1.361},{"d":"2026-02-08","p":1.6028},{"d":"2026-02-15","p":1.4923},{"d":"2026-02-22","p":1.402},{"d":"2026-02-28","p":1.455},{"d":"2026-03-01","p":1.3138},{"d":"2026-03-08","p":1.1622},{"d":"2026-03-15","p":1.2251},{"d":"2026-03-22","p":1.2594},{"d":"2026-03-29","p":1.094},{"d":"2026-03-31","p":1.2231},{"d":"2026-04-05","p":1.1732},{"d":"2026-04-12","p":1.445},{"d":"2026-04-19","p":1.3713},{"d":"2026-04-26","p":1.3126},{"d":"2026-04-30","p":1.1327},{"d":"2026-05-03","p":1.1862},{"d":"2026-05-10","p":1.7598},{"d":"2026-05-17","p":1.6705},{"d":"2026-05-24","p":1.8576},{"d":"2026-05-31","p":1.7075},{"d":"2026-05-31","p":1.7075},{"d":"2026-06-07","p":1.9997},{"d":"2026-06-14","p":1.9862},{"d":"2026-06-21","p":1.8496},{"d":"2026-06-28","p":1.755},{"d":"2026-06-30","p":1.7695},{"d":"2026-07-05","p":1.8966},{"d":"2026-07-12","p":1.9709},{"d":"2026-07-19","p":1.8803},{"d":"2026-07-26","p":1.7239},{"d":"2026-07-31","p":1.7286},{"d":"2026-08-02","p":1.65},{"d":"2026-08-09","p":1.6322},{"d":"2026-08-16","p":1.3897},{"d":"2026-08-23","p":1.9013},{"d":"2026-08-30","p":1.9992},{"d":"2026-08-31","p":1.994},{"d":"2026-09-06","p":1.9837},{"d":"2026-09-13","p":1.9765},{"d":"2026-09-20","p":2.1207},{"d":"2026-09-27","p":2.3626},{"d":"2026-09-30","p":2.2815},{"d":"2026-10-04","p":2.2022},{"d":"2026-10-11","p":2.1185},{"d":"2026-10-18","p":1.9381},{"d":"2026-10-21","p":1.7858}];
+const W26 = LANDING.w26;   // the pool value every Sunday and month end of 2026 (1.0 on 1 January)
 const RATE = 58, SETTLE = ['02', '04', '06', '08'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const dl = (d) => MONTHS[+d.slice(5, 7) - 1] + ' ' + +d.slice(8, 10);
+const END_L = dl(LANDING.facts.end), END_Y = LANDING.facts.end.slice(0, 4);   // the last day of the test data
+document.querySelectorAll('.d-end').forEach((x) => { x.textContent = `${END_L}, ${END_Y}`; });
 // the last weekly valuation of each settlement month is the settlement point
 const settleIdx = new Set(SETTLE.map((m) => W26.map((x, i) => [x, i]).filter(([x]) => x.d.slice(5, 7) === m).pop()).filter(Boolean).map(([, i]) => i));
 function simulate(php, joinDate) {
@@ -746,7 +758,7 @@ function friendsTable() {
   document.getElementById('ftable').innerHTML = `<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Fees paid</th><th>Worth now*</th><th>Profit</th><th>%</th></tr>` +
     R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join.d)}</td>
       <td>${peso(x.r.fees)}</td><td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${(x.r.pct >= 0 ? '+' : '−') + Math.abs(x.r.pct).toFixed(1)}%</td></tr>`).join('') +
-    `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Worth now = after the fees already paid and the fee that would be due if settled on Oct 21. Based on past prices, not real accounts.</td></tr>`;
+    `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Worth now = after the fees already paid and the fee that would be due if settled on ${END_L}. Based on past prices, not real accounts.</td></tr>`;
 }
 function friendChart() {
   const x = R[pick], r = x.r, svg = document.getElementById('fchart'); svg.innerHTML = '';
@@ -774,7 +786,7 @@ function friendChart() {
   document.getElementById('fstory').innerHTML = `<b>${x.name}</b> hands over <b>${peso(x.amt)}</b> (${(x.amt / RATE).toFixed(2)} USDT). It joins at the check on <b>${dl(r.join.d)}</b>, when one slice (unit) costs ${r.join.p.toFixed(4)} USDT, so ${x.name} holds about <b>${unitsTxt} slices</b> after fees.
     Since then the lowest point was <b>${peso(r.low)}</b> and the highest <b>${peso(r.best)}</b>.
     ${r.fees > 0 ? `Fees paid so far: <b>${peso(r.fees)}</b>, only on profit above ${x.name}'s best level.` : 'No fee has been paid yet' + (r.pts.length > 1 ? ' (never above the best level at a settlement since joining).' : '.')}
-    ${r.owed > 0 ? ` A further <b>${peso(r.owed)}</b> would be due if the period were settled on Oct 21.` : ''}
+    ${r.owed > 0 ? ` A further <b>${peso(r.owed)}</b> would be due if the period were settled on ${END_L}.` : ''}
     Today ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}%)</span> after all fees.${r.fees > 0 && r.profit < 0 ? ` Why a fee and still down? The fee was taken when ${x.name} was above their best level; the market fell after that. A fee that was taken is not refunded, but ${x.name} now pays nothing more until their value climbs back above that best level.` : ''}${r.pts.length < 10 ? ` ${x.name} joined only recently, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
 }
 function friendsUI() {
@@ -790,7 +802,7 @@ friendsUI();
   const run = () => {
     const amt = +$('y-amt').value, m = +$('y-mon').value, date = `2026-${String(m + 1).padStart(2, '0')}-01`, r = simulate(amt, date);
     $('y-amt-o').textContent = peso(amt); $('y-mon-o').textContent = MONTHS[m] + ' 2026';
-    $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth on Oct 21, after fees</span></div>
+    $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth on ${END_L}, after fees</span></div>
       <div><b style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'}">${sp(r.profit)}</b><span>${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}% after fees</span></div>
       <div><b>${peso(r.low)}</b><span>lowest point along the way</span></div>`;
     $('y-note').textContent = `Joining at the first check on or after ${dl(date)} (${dl(r.join.d)}), with ${peso(r.fees + r.owed)} of fees paid or due. Based on actual past prices: an example, not a forecast.`;
@@ -799,16 +811,51 @@ friendsUI();
 })();
 
 // ---------- 3. the test on past prices: one year at a time, and growing since 2020
-const R5 = YEARS.r['0.05'], R1 = YEARS.r['0.01'], YS = Object.keys(R5.years).sort();
+const R5 = YEARS.r[LANDING.risk], R1 = YEARS.r[LANDING.low], YS = Object.keys(R5.years).sort();   // R5 = the live risk (2.5%), R1 = 1% for comparison
+const F = LANDING.facts, RISK_L = `${LANDING.risk * 100}%`;
 const yg = (r, y) => r.years[y].end / r.years[y].start;           // growth multiple of that year alone
 const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? '₱' + Math.round(v / 1e3) + 'k' : '₱' + Math.round(v).toLocaleString('en-PH');
 (function yearTable() {
   const t = document.getElementById('ytab'); if (!t) return;
   const row = (y) => { const g = yg(R5, y), end = 1000 * g, earned = end - 1000, net = end > 1000 ? 1000 + (1 - FEE) * earned : end, g1 = yg(R1, y);
-    return `<tr><td>${y}${y === '2026' ? ' <span class="muted">(to Oct 21)</span>' : ''}</td><td>₱1,000</td><td>${peso(end)}</td><td class="${earned >= 0 ? 'up' : 'down'}">${sp(earned)}</td>
+    return `<tr><td>${y}${y === END_Y ? ` <span class="muted">(to ${END_L})</span>` : ''}</td><td>₱1,000</td><td>${peso(end)}</td><td class="${earned >= 0 ? 'up' : 'down'}">${sp(earned)}</td>
       <td class="${earned >= 0 ? 'up' : 'down'}">${(g >= 1 ? '+' : '−') + Math.abs((g - 1) * 100).toLocaleString('en-PH', { maximumFractionDigits: 0 })}%</td><td class="down">−${Math.round(R5.years[y].dd * 100)}%</td><td>${peso(net)}</td><td class="muted">+${Math.round((g1 - 1) * 100)}%</td></tr>`; };
   t.innerHTML = `<tr><th>Year</th><th>Jan 1</th><th>Dec 31</th><th>Earned</th><th>Growth</th><th>Deepest dip</th><th>After ${FEE_PCT}% fee</th><th>Same year at 1% risk</th></tr>` + YS.map(row).join('');
-  document.getElementById('ytab-note').textContent = 'Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade). A test on the past, before real-world surprises.';
+  document.getElementById('ytab-note').textContent = `Each row starts from ₱1,000 on Jan 1. The last column shows the same year at 1% risk per trade, to see what the extra risk buys and costs. 2020 starts in March (first trade on ${dl(F.first)}). A test on the past, before real-world surprises.`;
+  const [by, bg] = F.best;
+  document.getElementById('y-best').innerHTML = `<b>${by} was exceptional</b> (${pc(bg * 100)}) and will probably not repeat. Years like ${F.weakest.filter((y) => y !== by).sort().join(' and ')} are closer to a normal, harder year.`;
+  document.querySelectorAll('.d-dd').forEach((x) => { x.textContent = `${Math.round(F.dd * 100)}%`; });
+})();
+// ---------- 7. the risk facts, from the same test
+(function riskFacts() {
+  const box = document.getElementById('risk-facts'); if (!box) return;
+  const mo = (d) => `${MONTHS_LONG[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`;
+  box.innerHTML = `
+    <div><h3>The deepest fall</h3><p class="small">In the test, the balance dropped <b>${Math.round(F.dd * 100)}%</b> from a high point (${mo(F.ddAt)}). At 1% risk the worst fall was ${Math.round(F.dd1 * 100)}%. After a ${Math.round(F.dd * 100)}% fall you need about <b>+${Math.round(F.dd / (1 - F.dd) * 100)}%</b> just to get back to even.</p></div>
+    <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>${Math.round(F.dipMin * 100)}% and ${Math.round(F.dipMax * 100)}%</b> from its high along the way (see the table in section 3).</p></div>
+    <div><h3>Starting at a bad moment</h3><p class="small">Starting in any month and holding for 12 months (${F.rollN} start dates), the typical result was about <b>${pc(F.rollMed * 100)}</b>, but <b>${F.rollLoss} of the ${F.rollN}</b> starts lost money, the worst by <b>${Math.round(-F.rollWorst * 100)}%</b> (from ${mo(F.rollWorstFrom)}). The worst three months: ₱1,000 put in on ${dl(F.worst3From)}, ${F.worst3From.slice(0, 4)} was worth about <b>${peso(1000 * F.worst3)}</b> on ${dl(F.worst3To)}.</p></div>
+    <div><h3>The last 12 months</h3><p class="small">At ${RISK_L} risk the test earned about <b>${pc(F.last12 * 100)}</b> in the last 12 months (1% earned about ${pc(F.last12low * 100)}). A strong stretch like this does not tell you the next one, and the totals are flattered because the markets were chosen after seeing how they did.</p></div>`;
+})();
+// ---------- In short: money put in on 1 January of each year (slices of the running pool), worth at year end and now, before and after the fee
+(function inShort() {
+  const $ = (id) => document.getElementById(id); if (!$('stab')) return;
+  const afterFee = (v, put) => (v > put ? put + (1 - FEE) * (v - put) : v);   // about: the fee is 20% of new profit, settled every two months
+  const run = () => {
+    const amt = +$('s-amt').value, rows = LANDING.short, last = rows[rows.length - 1], prev = rows[rows.length - 2];
+    $('s-amt-o').textContent = peso(amt);
+    const box = (v, put, lbl) => `<div><b>${peso(afterFee(v, put))}</b><span>${lbl}, after the ${FEE_PCT}% fee (${peso(v)} before)</span></div>`;
+    $('s-out').innerHTML = box(amt * last.now, amt, `${peso(amt)} put in on 1 Jan ${last.y}, worth on ${END_L}`)
+      + box(amt * prev.now, amt, `${peso(amt)} put in on 1 Jan ${prev.y}, worth on ${END_L}`)
+      + `<div><b style="color:var(--red)">${peso(amt * last.low)}</b><span>the lowest it went in ${last.y} before climbing back: dips are part of it</span></div>`;
+    $('stab').innerHTML = `<tr><th>Put in on 1 Jan</th><th>Amount</th><th>31 Dec that year</th><th>After ${FEE_PCT}% fee</th><th>Worth on ${END_L}, ${END_Y}</th><th>After ${FEE_PCT}% fee</th><th>Lowest point after joining</th></tr>`
+      + [...rows].reverse().map((r) => {
+        const e = amt * r.endY, n = amt * r.now, cur = r.y === last.y;
+        return `<tr><td>${r.y}</td><td>${peso(amt)}</td><td>${cur ? '<span class="muted">year not over</span>' : peso(e)}</td><td class="${e >= amt ? 'up' : 'down'}">${cur ? '–' : peso(afterFee(e, amt))}</td>
+          <td><b>${peso(n)}</b></td><td class="${n >= amt ? 'up' : 'down'}"><b>${peso(afterFee(n, amt))}</b></td>${r.low < 1 ? `<td class="down">${peso(amt * r.low)} (${pc((r.low - 1) * 100)})</td>` : '<td class="muted">never below it</td>'}</tr>`;
+      }).join('');
+    $('s-note').innerHTML = `"After fee" is about what you keep once the ${FEE_PCT}% fee on new profit is taken; it is settled every two months, so the exact amount depends on the path. Values count closed trades only. The big figures for the early years come from compounding on every trade for several years: real trading at that size would grow more slowly (large orders fill at worse prices, and the bots lower their risk as an account grows). Even along these lines the balance fell up to ${Math.round(F.dd * 100)}% from a high. A test on past prices, not a promise.`;
+  };
+  $('s-amt').addEventListener('input', run); run();
 })();
 // ---------- how it compares with saving elsewhere: what ₱100,000 becomes in a year (rates as of Oct 2026: update when they change)
 (function compare() {
@@ -816,7 +863,7 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
   const SAFE = [['GCash GSave (CIMB)', 'insured by PDIC', 2.30, 101840], ['GoTyme savings', 'insured by PDIC', 3.00, 102400], ['Maya Savings*', 'insured by PDIC', 3.00, 102400],
     ['MariBank', 'insured by PDIC', 3.25, 102600], ['Government retail bond', 'backed by the government', 6.875, 105500], ['Pag-IBIG MP2', 'government fund, tax-free', 7.12, 107120]];
   const net = (growth) => { const end = 1000 * growth, earned = end - 1000; return end > 1000 ? 1000 + (1 - FEE) * earned : end; };
-  const luc = YS.map((y) => [y + (y === '2026' ? ' (to Oct)' : ''), net(yg(R5, y))]).concat([['Last 12 months', 1000 + (1 - FEE) * 230]]);
+  const luc = YS.map((y) => [y + (y === END_Y ? ` (to ${MONTHS[+F.end.slice(5, 7) - 1]})` : ''), net(yg(R5, y))]).concat([['Last 12 months', net(1 + F.last12)]]);
   const row = (name, sub, pct, amt, cls) => `<tr class="${cls || ''}"><td>${name}<br><span class="muted" style="font-size:11.5px;font-weight:500">${sub}</span></td><td class="${cls ? 'up' : ''}">${pct}</td><td><b>${amt}</b></td></tr>`;
   t.innerHTML = '<tr><th>Where the money goes</th><th>Return per year</th><th>₱100,000 becomes</th></tr>'
     + SAFE.map(([n, s, p, a]) => row(n, s, (p === 6.875 ? '6.875' : p.toFixed(2)) + '%', peso(a))).join('')
@@ -824,9 +871,9 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
 })();
 (function years() {
   const svg = document.getElementById('years'); if (!svg) return;
-  const W = 640, H = 260, pl = 84, pr = 10, pt = 22, pb = 28, lo = 3, hi = 6.7, bw = (W - pl - pr) / YS.length;
+  const top = Math.max(...YS.map((y) => R5.years[y].end)), W = 640, H = 260, pl = 84, pr = 10, pt = 22, pb = 28, lo = 3, hi = Math.log10(top) + 0.25, bw = (W - pl - pr) / YS.length;
   const Y = (v) => pt + (1 - (Math.log10(v) - lo) / (hi - lo)) * (H - pt - pb);
-  [3, 4, 5, 6].forEach((p) => { const y = Y(Math.pow(10, p)); el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
+  [3, 4, 5, 6, 7, 8].filter((p) => p <= hi).forEach((p) => { const y = Y(Math.pow(10, p)); el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
     el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = '₱' + Math.pow(10, p).toLocaleString('en-PH'); });
   YS.forEach((y, k) => {
     const d = R5.years[y], x = pl + k * bw + bw * 0.18, w = bw * 0.64, top = Y(d.end), base = Y(1000);
