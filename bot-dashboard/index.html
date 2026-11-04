@@ -79,7 +79,6 @@
     <nav class="maintabs" id="mainTabs" role="tablist" aria-label="Dashboard sections">
       <button type="button" role="tab" data-tab="overview">Overview</button>
       <button type="button" role="tab" data-tab="performance">Performance</button>
-      <button type="button" role="tab" data-tab="trades">Trades <span class="tb-n" id="tbTrades"></span></button>
       <button type="button" role="tab" data-tab="verify"><span id="tbCheck" class="tb-dot" aria-hidden="true"></span>Verify</button>
       <button type="button" role="tab" data-tab="log">Log <span class="tb-n" id="tbLog"></span></button>
       <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
@@ -119,6 +118,23 @@
         <div class="pb"><div id="open" class="scroll"></div></div>
       </section>
 
+      <!-- ===== Trades ===== -->
+      <section class="panel c12" id="pTrades" data-tabs="overview">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+        <div class="pb">
+          <div class="filters">
+            <label>Coin <select id="fCoin"><option value="">All</option></select></label>
+            <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
+            <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>trail</option><option>time</option><option>abort</option></select></label>
+            <label>From <input id="fFrom" type="date"></label>
+            <label>To <input id="fTo" type="date"></label>
+          </div>
+          <p id="tradeSummary" class="summary"></p>
+          <div id="trades" class="scroll capped tall"></div>
+          <div id="tradesMore" class="more"></div>
+        </div>
+      </section>
+
       <!-- ===== Performance ===== -->
       <section class="panel c12" id="pPerf" data-tabs="performance">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / live vs expected</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
@@ -150,23 +166,6 @@
       <section class="panel c5" id="pRolling" data-tabs="performance">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>rolling / last trades</h2></div>
         <div class="pb"><div id="rolling" class="chart"></div><p id="rollingNote" class="muted note"></p></div>
-      </section>
-
-      <!-- ===== Trades ===== -->
-      <section class="panel c12" id="pTrades" data-tabs="trades">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
-        <div class="pb">
-          <div class="filters">
-            <label>Coin <select id="fCoin"><option value="">All</option></select></label>
-            <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
-            <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>trail</option><option>time</option><option>abort</option></select></label>
-            <label>From <input id="fFrom" type="date"></label>
-            <label>To <input id="fTo" type="date"></label>
-          </div>
-          <p id="tradeSummary" class="summary"></p>
-          <div id="trades" class="scroll capped tall"></div>
-          <div id="tradesMore" class="more"></div>
-        </div>
       </section>
 
       <!-- ===== Verify ===== -->

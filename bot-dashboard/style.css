@@ -394,3 +394,18 @@ tr.total td { font-weight: 800; border-top: 1px solid var(--line); }
 .more { display: flex; justify-content: center; }
 .more:empty { display: none; }
 .more button { margin-top: 10px; }
+
+/* chart hover */
+.chart .hov-l { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.chart .hov-d { fill: var(--accent-text); stroke: var(--surface, #fff); stroke-width: 2; pointer-events: none; }
+.chart-tip { position: absolute; pointer-events: none; white-space: nowrap; padding: 4px 8px; border-radius: 6px; font: 600 12px var(--mono); background: var(--ink); color: var(--surface, #fff); box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 2; }
+
+/* bots side by side: one card each */
+.botcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.botcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--variant); }
+.bc-h { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 15px; }
+.bc-state { margin-left: auto; font: 700 11px var(--mono); }
+.bc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
+.bc-s .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+.bc-s .v { font: 700 15px var(--mono); margin-top: 2px; }
+@media (max-width: 640px) { .botcards { grid-template-columns: 1fr; } }

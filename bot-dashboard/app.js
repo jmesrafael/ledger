@@ -78,7 +78,7 @@
   }
 
   // ---------------- charts (inline SVG) ----------------
-  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
+  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), fmtTip = null, empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
     clear(host);
     if (!pts.length) { host.append(el('div', { class: 'empty' }, empty)); return; }
     const W = 680, H = 250, L = 62, R = 14, T = 12, B = 26;
@@ -110,6 +110,28 @@
     });
     svg.append(t(L, H - 7, fmtDay(x0)), t(W - R, H - 7, fmtDay(x1), 'end'));
     host.append(svg);
+    // hover / touch: crosshair + dot on the nearest point, tooltip with its date and value
+    const cross = sv('line', { class: 'hov-l', y1: T, y2: H - B, style: 'display:none' }), hdot = sv('circle', { class: 'hov-d', r: 4.5, style: 'display:none' });
+    const hit = sv('rect', { x: L, y: T, width: W - L - R, height: H - T - B, fill: 'transparent', style: 'cursor:crosshair;touch-action:pan-y' });
+    svg.append(cross, hdot, hit);
+    const tip = el('div', { class: 'chart-tip', style: 'display:none' });
+    host.style.position = 'relative'; host.append(tip);
+    const tipFmt = fmtTip || fmtY;
+    const off = () => { cross.style.display = hdot.style.display = tip.style.display = 'none'; };
+    const move = (ev) => {
+      const r = svg.getBoundingClientRect(); if (!r.width) return;
+      const vx = ((ev.clientX - r.left) / r.width) * W, tx = x0 + ((vx - L) / (W - L - R)) * (x1 - x0);
+      let lo = 0, hi = pts.length - 1;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (pts[m].ts < tx) lo = m + 1; else hi = m; }
+      if (lo > 0 && Math.abs(pts[lo - 1].ts - tx) <= Math.abs(pts[lo].ts - tx)) lo--;
+      const p = pts[lo], cx = sx(p.ts), cy = sy(p.y);
+      cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); hdot.setAttribute('cx', cx); hdot.setAttribute('cy', cy);
+      cross.style.display = hdot.style.display = tip.style.display = '';
+      tip.textContent = `${fmtTime(p.ts)} · ${tipFmt(p.y)}`;
+      const px = (cx / W) * r.width, tw = tip.offsetWidth;
+      tip.style.left = `${Math.max(0, Math.min(r.width - tw, px - tw / 2))}px`; tip.style.top = `${Math.max(0, (cy / H) * r.height - 34)}px`;
+    };
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', off); hit.addEventListener('pointercancel', off);
   }
   // one bar per period: R gained (up, green) or lost (down, red); the label under every few bars
   function barChart(host, rows, empty) {
@@ -142,7 +164,7 @@
   const closeOf = (v) => v + CANDLE_MS;
 
   // ---------------- render: the header always, the open tab now, the other tabs when they are opened ----------------
-  const TABS = ['overview', 'performance', 'trades', 'verify', 'log', 'status'];
+  const TABS = ['overview', 'performance', 'verify', 'log', 'status'];
   const dirty = new Set();
   function render(d) {
     data = d;
@@ -166,9 +188,8 @@
     applyTab();
   }
   const RENDER = {
-    overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpen(data); },
+    overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpen(data); renderTrades(); },
     performance: () => { renderPerf(); renderCoins(); },
-    trades: () => renderTrades(),
     verify: () => { renderChecks(data); renderCompare(data); },
     log: () => { renderActivity(data); renderSkipped(data); },
     status: () => { renderStatus(data); renderUptime(data); loadVpsInline(); },
@@ -204,11 +225,11 @@
   const worst = (list) => list.reduce((w, l) => ({ stop: 2, warn: 1 }[l] > ({ stop: 2, warn: 1 }[w] || 0) ? l : w), 'ok');
   const verdicts = (d) => [d.perf && d.perf.bbcore, d.perf && d.perf.icore].filter(Boolean);
   function renderBadges(d) {
-    const s = d.status, waiting = s.last_heartbeat_ms == null, n = d.overall.trades + d.open.length;
+    const s = d.status, waiting = s.last_heartbeat_ms == null;
     $('#tbDot').className = `tb-dot ${waiting ? '' : s.alive ? 'ok' : 'bad'}`;
     const v = worst(verdicts(d).map((p) => p.verdict));
     $('#tbCheck').className = `tb-dot ${v === 'stop' ? 'bad' : v === 'warn' ? 'warnd' : 'ok'}`;
-    $('#tbTrades').textContent = n ? String(n) : ''; $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
+    $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
   }
   function renderBotSeg() {
     const show = hasIcore();
@@ -282,12 +303,12 @@
     p.classList.toggle('off', !b);
     if (!b) return;
     const rows = [b.bbcore, b.icore].filter(Boolean).map((v) => ({ ...v, hb: v.last_heartbeat_ms ?? (v === b.bbcore ? d.status.last_heartbeat_ms : null) }));
-    clear($('#bots')).append(table([
-      { h: 'Bot', left: true, f: (r) => el('strong', {}, r.label) }, { h: 'Mode', left: true, f: (r) => el('span', { class: `modeTag ${r.mode}` }, String(r.mode).toUpperCase()) },
-      { h: 'State', left: true, f: (r) => el('span', { class: r.alive ? 'good' : 'bad' }, r.alive ? 'ONLINE' : 'STALE') }, { h: 'Capital', f: (r) => (r.capital ? fmtUsd(r.capital.usd) : '—') },
-      { h: 'Closed', f: (r) => r.overall.trades }, { h: 'Total R', f: (r) => fmtR(r.overall.total_r), c: (r) => cls(r.overall.total_r) }, { h: 'Win', f: (r) => pct0(r.overall.win_rate) },
-      { h: 'Open', f: (r) => r.open }, { h: 'Last report', f: (r) => (r.hb ? ago(r.hb) : '—') },
-    ], rows, ''));
+    const stat = (k, v, c) => el('div', { class: 'bc-s' }, el('div', { class: 'k' }, k), el('div', { class: `v ${c || ''}` }, v));
+    clear($('#bots')).append(el('div', { class: 'botcards' }, rows.map((r) => el('div', { class: 'botcard' },
+      el('div', { class: 'bc-h' }, el('strong', {}, r.label), el('span', { class: `modeTag ${r.mode}` }, String(r.mode).toUpperCase()), el('span', { class: `bc-state ${r.alive ? 'good' : 'bad'}` }, r.alive ? 'ONLINE' : 'STALE')),
+      el('div', { class: 'bc-grid' },
+        stat('Capital', r.capital ? fmtUsd(r.capital.usd) : '—'), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
+        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Last report', r.hb ? ago(r.hb) : '—'))))));
   }
   function renderOpen(d) {
     const ic = d.bots && d.bots.icore ? (d.bots.icore.open_list || []).map((p) => ({ ...p, bot: 'I-Core' })) : null;
@@ -316,21 +337,21 @@
     const d = data, note = $('#chartNote');
     const wh = !d.capital && d.wallet_history && d.wallet_history.length ? d.wallet_history : null;   // live: the wallet reports (both accounts added) stand in for the bot's balance
     if (chartKind === 'capital' && wh) {
-      lineChart($('#chart'), inRange(wh.map((p) => ({ ts: p.ts, y: p.usd }))), { marks: d.capital_flows || [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}` });
+      lineChart($('#chart'), inRange(wh.map((p) => ({ ts: p.ts, y: p.usd }))), { marks: d.capital_flows || [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
       note.textContent = `Both trading accounts added together, from the bots' 5-minute wallet reports · ${fmtUsd(wh[wh.length - 1].usd)} at ${fmtTime(wh[wh.length - 1].ts)}. Deposits show as labelled steps, not as profit.`;
     } else if (chartKind === 'capital') {
       const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
-      lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
+      lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `BB-Core balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
     } else if (chartKind === 'perf') {
       const pts = inRange(d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
-      lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
+      lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `Balance with deposits and payouts taken out: only trading moves this line · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since start${d.capital.twr_pct != null ? ` · time-weighted return ${fmtPct(d.capital.twr_pct, true)}` : ''}` : '';
     } else if (chartKind === 'r') {
-      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.r_cum }))), { fmtY: (v) => `${v.toFixed(1)}R` });
+      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.r_cum }))), { fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
       note.textContent = d.equity.length ? `BB-Core cumulative R over ${d.overall.trades} closed trades: ${fmtR(d.overall.total_r)}` : '';
     } else {
-      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.dd_r }))), { dd: true, fmtY: (v) => `${v.toFixed(1)}R` });
+      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.dd_r }))), { dd: true, fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
       note.textContent = d.equity.length ? `Max drawdown ${Number(d.overall.max_dd_r).toFixed(1)}R · now ${Number(d.equity[d.equity.length - 1].dd_r).toFixed(1)}R · halt at ${d.status.halt_r != null ? Math.abs(d.status.halt_r) : '—'}R` : '';
     }
   }
@@ -359,7 +380,7 @@
     renderExec(p);
     const rl = p.rolling;
     if (rl) {
-      lineChart($('#rolling'), rl.points, { fmtY: (x) => `${x.toFixed(0)}R`, hline: rl.stop_r });
+      lineChart($('#rolling'), rl.points, { fmtY: (x) => `${x.toFixed(0)}R`, fmtTip: (x) => `${x.toFixed(2)}R`, hline: rl.stop_r });
       $('#rollingNote').textContent = `Sum of the last ${rl.n} trades after each trade. The dashed line is the stop-and-review line (${rl.stop_r}R).`;
     } else {
       clear($('#rolling')).append(el('div', { class: 'empty' }, p.bot === 'icore' ? 'I-Core is a trend follower with few, large winners: a rolling window says little, so it is judged on drawdown and streaks.' : `Shown from trade ${50} on (now ${o.trades}).`));
@@ -442,9 +463,18 @@
   }
 
   // ---------------- Trades ----------------
+  // Trades with no booked dollar result get an estimate: R times the dollars-per-R of the nearest trade (in time) that has a real figure. Marked "~" so it is never mistaken for a booked number.
+  function withUsd(list) {
+    const real = list.filter((t) => t.usd != null && t.r && Math.abs(t.r) > 0.2).map((t) => ({ ts: t.exit_ts, per: t.usd / t.r }));
+    return list.map((t) => {
+      if (t.usd != null || !real.length || t.r == null) return t;
+      const n = real.reduce((b, x) => (Math.abs(x.ts - t.exit_ts) < Math.abs(b.ts - t.exit_ts) ? x : b));
+      return { ...t, usd: Math.round(t.r * n.per * 100) / 100, est: true };
+    });
+  }
   function renderTrades() {
     if (!data) return;
-    const all = view().trades, f = filters;
+    const all = withUsd(view().trades), f = filters;
     const coinSel = $('#fCoin'), coins = [...new Set(all.map((t) => t.symbol))].sort();
     if ([...coinSel.options].slice(1).map((o) => o.value).join() !== coins.join()) { clear(coinSel).append(el('option', { value: '' }, 'All'), ...coins.map((c) => el('option', { value: c }, sym(c)))); coinSel.value = coins.includes(f.coin) ? f.coin : (f.coin = ''); }
     const rs = $('#fReason'), reasons = [...new Set(all.map((t) => t.reason).filter(Boolean))].sort();
@@ -457,7 +487,7 @@
     clear($('#trades')).append(table([
       { h: 'Exit time', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'SL', f: (r) => fmtPx(r.sl) }, { h: 'TP', f: (r) => fmtPx(r.tp) },
       { h: 'Exit', f: (r) => fmtPx(r.exit) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
-      ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { title: 'Estimated: R × dollars-per-R of the nearest trade with a booked result' }, '~', fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
     ], page, all.length ? 'No trades match.' : 'No closed trades yet.'));
     moreBtn($('#tradesMore'), 'trades', rows.length, renderTrades);
   }
@@ -619,7 +649,7 @@
   $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); renderPeriods(view().perf); });
   document.addEventListener('click', (e) => {
     const b = e.target.closest('.botseg button[data-bot]'); if (!b || !data) return;
-    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; dirty.add('performance'); dirty.add('trades'); drawTab();
+    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; dirty.add('performance'); dirty.add('overview'); drawTab();
   });
   $('#pChecks').addEventListener('click', () => setTab('verify'));
   for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
