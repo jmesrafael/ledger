@@ -454,18 +454,22 @@
       rows.push({ bot: k, coin: 'ALL', ...zero, ...p.overall, last: p.last_ts, open: null, openN: opens.length, _cls: 'total' });
     }
     $('#coinCount').textContent = rows.length ? `${rows.filter((r) => r.coin !== 'ALL').length} coin rows` : '';
-    const hasUsd = rows.some((r) => r.usd != null);
-    clear($('#coinRecord')).append(table([
-      { h: 'Strategy', left: true, f: (r) => (r.coin === 'ALL' ? el('strong', {}, `${STRATS[r.bot].name} total`) : el('span', {}, el('strong', {}, STRATS[r.bot].name), el('small', { class: 'strat-s' }, ` ${STRATS[r.bot].short}`))) },
-      { h: 'Coin', left: true, f: (r) => (r.coin === 'ALL' ? '' : sym(r.coin)) }, { h: 'Trades', f: (r) => r.trades }, { h: 'Wins', f: (r) => r.wins, c: (r) => (r.wins ? 'good' : '') }, { h: 'Losses', f: (r) => r.losses, c: (r) => (r.losses ? 'bad' : '') },
+    const hasUsd = rows.some((r) => r.usd != null), host = clear($('#coinRecord'));
+    const cols = [
+      { h: 'Coin', left: true, f: (r) => (r.coin === 'ALL' ? el('strong', {}, 'Total') : sym(r.coin)) }, { h: 'Trades', f: (r) => r.trades }, { h: 'Wins', f: (r) => r.wins, c: (r) => (r.wins ? 'good' : '') }, { h: 'Losses', f: (r) => r.losses, c: (r) => (r.losses ? 'bad' : '') },
       { h: 'Win', f: (r) => pct0(r.win_rate) }, { h: 'Avg R', f: (r) => fmtR(r.avg_r), c: (r) => cls(r.avg_r) }, { h: 'Total R', f: (r) => fmtR(r.total_r), c: (r) => cls(r.total_r) },
       ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []),
       { h: 'PF', f: (r) => (r.profit_factor == null ? '—' : r.profit_factor) }, { h: 'Best', f: (r) => fmtR(r.best_r) }, { h: 'Worst', f: (r) => fmtR(r.worst_r) }, { h: 'Max DD', f: (r) => (r.max_dd_r == null ? '—' : `${r.max_dd_r}R`) },
       { h: 'Last trade', f: (r) => (r.last ? fmtDay(r.last) : '—') },
       { h: 'Open now', f: (r) => (r.coin === 'ALL' ? (r.openN ? `${r.openN} open` : 'flat') : r.open ? el('span', {}, sideEl(r.open.side), ' ', el('span', { class: cls(r.open.current_r) }, r.open.current_r == null ? '' : fmtR(r.open.current_r))) : '—') },
-    ], rows, 'No coins yet.'));
-    clear($('#coinNote')).append(...['bbcore', 'icore'].filter((k) => d.perf && d.perf[k]).map((k) => el('p', {}, el('b', {}, `${STRATS[k].name} · ${STRATS[k].short}: `), STRATS[k].how)),
-      el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
+    ];
+    // one block per bot, so the two never run together
+    for (const k of ['bbcore', 'icore']) {
+      const part = rows.filter((r) => r.bot === k); if (!part.length) continue;
+      host.append(el('div', { class: `bot-block ${k}` }, el('div', { class: 'bot-block-h' }, STRATS[k].name), el('div', { class: 'scroll' }, table(cols, part, ''))));
+    }
+    if (!rows.length) host.append(el('div', { class: 'empty' }, 'No coins yet.'));
+    clear($('#coinNote')).append(el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
   }
 
   // ---------------- Trades ----------------
