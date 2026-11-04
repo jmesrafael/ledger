@@ -409,3 +409,14 @@ tr.total td { font-weight: 800; border-top: 1px solid var(--line); }
 .bc-s .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
 .bc-s .v { font: 700 15px var(--mono); margin-top: 2px; }
 @media (max-width: 640px) { .botcards { grid-template-columns: 1fr; } }
+
+.bc-wl { margin-top: 12px; }
+.bc-wlt { display: flex; justify-content: space-between; align-items: baseline; }
+.bc-wlt .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+.bc-wlt .v { font: 700 13px var(--mono); }
+.wlbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; gap: 2px; background: var(--line); }
+.wlbar i { display: block; } .wlbar .w { background: var(--up); } .wlbar .l { background: var(--down); } .wlbar .n { background: var(--line); }
+.upd-ago { color: var(--up); font-weight: 800; }
+.ask-msg { font-size: 12px; max-width: 220px; }
+#askBtn.spin .ico { animation: askspin 1s linear infinite; }
+@keyframes askspin { to { transform: rotate(360deg); } }

@@ -302,13 +302,17 @@
     const p = $('#pBots'), b = d.bots;
     p.classList.toggle('off', !b);
     if (!b) return;
+    const parts = (d.wallet_capital && d.wallet_capital.parts) || (d.total_capital && d.total_capital.parts) || [];
+    const capOf = (r) => { const w = parts.find((x) => String(x.label).toLowerCase().replace(/[^a-z]/g, '') === String(r.label).toLowerCase().replace(/[^a-z]/g, '')); return w ? fmtUsd(w.usd) : r.capital ? fmtUsd(r.capital.usd) : '—'; };
     const rows = [b.bbcore, b.icore].filter(Boolean).map((v) => ({ ...v, hb: v.last_heartbeat_ms ?? (v === b.bbcore ? d.status.last_heartbeat_ms : null) }));
     const stat = (k, v, c) => el('div', { class: 'bc-s' }, el('div', { class: 'k' }, k), el('div', { class: `v ${c || ''}` }, v));
     clear($('#bots')).append(el('div', { class: 'botcards' }, rows.map((r) => el('div', { class: 'botcard' },
       el('div', { class: 'bc-h' }, el('strong', {}, r.label), el('span', { class: `modeTag ${r.mode}` }, String(r.mode).toUpperCase()), el('span', { class: `bc-state ${r.alive ? 'good' : 'bad'}` }, r.alive ? 'ONLINE' : 'STALE')),
       el('div', { class: 'bc-grid' },
-        stat('Capital', r.capital ? fmtUsd(r.capital.usd) : '—'), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
-        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Last report', r.hb ? ago(r.hb) : '—'))))));
+        stat('Capital', capOf(r)), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
+        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Last report', r.hb ? ago(r.hb) : '—')),
+      el('div', { class: 'bc-wl' }, el('div', { class: 'bc-wlt' }, el('span', { class: 'k' }, 'W / L'), el('span', { class: 'v' }, el('span', { class: 'good' }, String(r.overall.wins)), ' / ', el('span', { class: 'bad' }, String(r.overall.trades - r.overall.wins)))),
+        el('div', { class: 'wlbar', title: `${r.overall.wins} won, ${r.overall.trades - r.overall.wins} lost` }, r.overall.trades ? [el('i', { class: 'w', style: `flex:${r.overall.wins}` }), el('i', { class: 'l', style: `flex:${r.overall.trades - r.overall.wins}` })] : el('i', { class: 'n', style: 'flex:1' })))))));
   }
   function renderOpen(d) {
     const ic = d.bots && d.bots.icore ? (d.bots.icore.open_list || []).map((p) => ({ ...p, bot: 'I-Core' })) : null;
@@ -463,13 +467,14 @@
   }
 
   // ---------------- Trades ----------------
-  // Trades with no booked dollar result get an estimate: R times the dollars-per-R of the nearest trade (in time) that has a real figure. Marked "~" so it is never mistaken for a booked number.
+  // Trades with no booked dollar result get an estimate from the nearest booked trade (in time) with the same outcome, win or loss: a stop within 0.1R of it takes its dollar figure as is, anything else is scaled by R.
   function withUsd(list) {
-    const real = list.filter((t) => t.usd != null && t.r && Math.abs(t.r) > 0.2).map((t) => ({ ts: t.exit_ts, per: t.usd / t.r }));
+    const real = list.filter((t) => t.usd != null && t.r && Math.abs(t.r) > 0.2);
     return list.map((t) => {
-      if (t.usd != null || !real.length || t.r == null) return t;
-      const n = real.reduce((b, x) => (Math.abs(x.ts - t.exit_ts) < Math.abs(b.ts - t.exit_ts) ? x : b));
-      return { ...t, usd: Math.round(t.r * n.per * 100) / 100, est: true };
+      if (t.usd != null || t.r == null || !real.length) return t;
+      const same = real.filter((x) => (x.r > 0) === (t.r > 0)), pool = same.length ? same : real;
+      const n = pool.reduce((b, x) => (Math.abs(x.exit_ts - t.exit_ts) < Math.abs(b.exit_ts - t.exit_ts) ? x : b));
+      return { ...t, usd: Math.abs(t.r - n.r) <= 0.1 ? n.usd : Math.round(t.r * (n.usd / n.r) * 100) / 100, est: true };
     });
   }
   function renderTrades() {
@@ -487,7 +492,7 @@
     clear($('#trades')).append(table([
       { h: 'Exit time', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'SL', f: (r) => fmtPx(r.sl) }, { h: 'TP', f: (r) => fmtPx(r.tp) },
       { h: 'Exit', f: (r) => fmtPx(r.exit) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
-      ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { title: 'Estimated: R × dollars-per-R of the nearest trade with a booked result' }, '~', fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { class: 'est', title: 'Estimated from the nearest booked trade with the same result' }, fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
     ], page, all.length ? 'No trades match.' : 'No closed trades yet.'));
     moreBtn($('#tradesMore'), 'trades', rows.length, renderTrades);
   }
@@ -555,7 +560,7 @@
     $('#hbDot').className = `live-dot ${waiting ? '' : s.alive ? 'ok' : 'bad'}`;
     const coinsOpen = d.open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ');
     const text = clear($('#nowText'));
-    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports on a regular schedule; press Ask bot now to get a report right away.');
+    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports on a regular schedule; press the refresh icon at the top to get a report right away.');
     else if (!s.alive) add(text, span('bad', 'The bot is not reporting. '), `Its last heartbeat was ${fmtDur(s.age_ms / 1000)} ago (the limit is ${fmtDur(s.stale_after_ms / 1000)}). Check the VPS.`);
     else add(text, 'BB-Core is ', el('b', { class: 'good' }, 'online'), ` in ${mode} mode. It last reported `, ago(s.last_heartbeat_ms),
       s.next_wake_ms ? [' and will look at the market again at ', el('b', {}, fmtShort(s.next_wake_ms) + tzTag()), ' (', until(s.next_wake_ms), ').'] : '.',
@@ -575,7 +580,7 @@
         kv('Build', `${s.commit || '?'} · v${s.version || '?'}`));
     }
     if (ic) sys.append(kv('I-Core', el('span', { class: ic.alive ? 'good' : 'bad' }, `${ic.alive ? 'ONLINE' : 'STALE'} · ${String(ic.mode).toUpperCase()}`), ic.last_heartbeat_ms ? ago(ic.last_heartbeat_ms) : el('small', {}, 'no heartbeat yet')));
-    $('#nowNote').textContent = 'The bot reports at every 4-hour candle close, so these numbers can be hours old. Ask bot now gets a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
+    $('#nowNote').textContent = 'The bot reports at every 4-hour candle close, so these numbers can be hours old. The refresh icon at the top gets a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
   }
   function renderUptime(d) {
     const u = d.uptime, bar = clear($('#upBar')), axis = clear($('#upAxis')), now = d.generated_at;
@@ -609,7 +614,7 @@
     if (document.hidden) return;
     const now = Date.now(), p = parts(now);
     $('#clock').textContent = `${fmtDay(now)} ${clock12(p, true)}${tz === 'utc' ? ' UTC' : ''}`;
-    const upd = $('#updated'); if (upd.dataset.ts) upd.textContent = `Updated ${fmtShort(Number(upd.dataset.ts))}${tzTag()} · ${fmtDur((now - Number(upd.dataset.ts)) / 1000)} ago`;
+    const upd = $('#updated'); if (upd.dataset.ts) clear(upd).append(`Updated ${fmtShort(Number(upd.dataset.ts))}${tzTag()} · `, el('b', { class: 'upd-ago' }, `${fmtDur((now - Number(upd.dataset.ts)) / 1000)} ago`));
     for (const n of document.querySelectorAll('#app [data-ago]')) n.textContent = `${fmtDur((now - Number(n.dataset.ago)) / 1000)} ago`;
     for (const n of document.querySelectorAll('#app [data-until]')) { const t = Number(n.dataset.until); n.textContent = t > now ? `in ${fmtDur((t - now) / 1000)}` : 'due now'; }
   }
@@ -732,7 +737,7 @@
   // "Ask bot now": leaves a request; the bot (which asks outbound about once a minute) answers with a heartbeat; we re-read every 5 s until it arrives (or give up after 3 minutes)
   let askWatch = null;
   async function askBot() {
-    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; msg.textContent = 'Asking…';
+    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; btn.classList.add('spin'); msg.hidden = false; msg.textContent = 'Asking…';
     try {
       const res = await fetch('/api/ask', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: data && data.mode }) });
       if (res.status === 401) return showLogin('');
@@ -744,12 +749,12 @@
       askWatch = setInterval(async () => {
         await load();
         const hb = data && data.status && data.status.last_heartbeat_ms;
-        if (hb != null && hb >= since) { clearInterval(askWatch); askWatch = null; btn.disabled = false; msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
-        else if (Date.now() > stop) { clearInterval(askWatch); askWatch = null; btn.disabled = false; msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
+        if (hb != null && hb >= since) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('spin'); msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
+        else if (Date.now() > stop) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('spin'); msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
       }, 5000);
-    } catch (e) { btn.disabled = false; msg.textContent = `Could not ask: ${e.message}`; }
+    } catch (e) { btn.disabled = false; btn.classList.remove('spin'); msg.textContent = `Could not ask: ${e.message}`; }
   }
-  $('#askBtn').addEventListener('click', askBot);
+  $('#askBtn').addEventListener('click', () => { load(true); askBot(); });
 
   tick();
   load(true);
