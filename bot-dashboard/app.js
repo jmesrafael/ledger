@@ -303,14 +303,16 @@
     p.classList.toggle('off', !b);
     if (!b) return;
     const parts = (d.wallet_capital && d.wallet_capital.parts) || (d.total_capital && d.total_capital.parts) || [];
-    const capOf = (r) => { const w = parts.find((x) => String(x.label).toLowerCase().replace(/[^a-z]/g, '') === String(r.label).toLowerCase().replace(/[^a-z]/g, '')); return w ? fmtUsd(w.usd) : r.capital ? fmtUsd(r.capital.usd) : '—'; };
+    const capOf = (r) => { const w = parts.find((x) => String(x.label).toLowerCase().replace(/[^a-z]/g, '') === String(r.label).toLowerCase().replace(/[^a-z]/g, '')); return w ? w.usd : r.capital ? r.capital.usd : null; };
+    // the risk set per trade: what the bot sized its newest entry at (a fraction of the balance), shown with that share of the capital
+    const riskOf = (r) => { const l = [...(r.trades || (r.label === 'BB-Core' ? d.trades : []) || []), ...((r.open_list || (r.label === 'BB-Core' ? d.open : [])) || [])].filter((t) => Number.isFinite(t.risk_pct)).sort((a, b) => b.entry_ts - a.entry_ts)[0]; return l ? l.risk_pct : null; };
     const rows = [b.bbcore, b.icore].filter(Boolean).map((v) => ({ ...v, hb: v.last_heartbeat_ms ?? (v === b.bbcore ? d.status.last_heartbeat_ms : null) }));
     const stat = (k, v, c) => el('div', { class: 'bc-s' }, el('div', { class: 'k' }, k), el('div', { class: `v ${c || ''}` }, v));
     clear($('#bots')).append(el('div', { class: 'botcards' }, rows.map((r) => el('div', { class: 'botcard' },
       el('div', { class: 'bc-h' }, el('strong', {}, r.label), el('span', { class: `modeTag ${r.mode}` }, String(r.mode).toUpperCase()), el('span', { class: `bc-state ${r.alive ? 'good' : 'bad'}` }, r.alive ? 'ONLINE' : 'STALE')),
       el('div', { class: 'bc-grid' },
-        stat('Capital', capOf(r)), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
-        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Last report', r.hb ? ago(r.hb) : '—')),
+        stat('Capital', capOf(r) == null ? '—' : fmtUsd(capOf(r))), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
+        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Risk / trade', riskOf(r) == null ? '—' : `${+(riskOf(r) * 100).toFixed(2)}%${capOf(r) == null ? '' : ` ≈ ${fmtUsd(riskOf(r) * capOf(r))}`}`)),
       el('div', { class: 'bc-wl' }, el('div', { class: 'bc-wlt' }, el('span', { class: 'k' }, 'W / L'), el('span', { class: 'v' }, el('span', { class: 'good' }, String(r.overall.wins)), ' / ', el('span', { class: 'bad' }, String(r.overall.trades - r.overall.wins)))),
         el('div', { class: 'wlbar', title: `${r.overall.wins} won, ${r.overall.trades - r.overall.wins} lost` }, r.overall.trades ? [el('i', { class: 'w', style: `flex:${r.overall.wins}` }), el('i', { class: 'l', style: `flex:${r.overall.trades - r.overall.wins}` })] : el('i', { class: 'n', style: 'flex:1' })))))));
   }
