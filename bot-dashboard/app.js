@@ -22,7 +22,7 @@
   let tz = store.get('bot.tz') === 'local' ? 'local' : 'utc', data = null, etag = null, modeSel = store.get('bot.mode') || '';
   let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
   let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
-  let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'month';
+  let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
   let bot = store.get('bot.view') === 'icore' ? 'icore' : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
   const PAGE = { trades: 100, skipped: 50 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
@@ -500,22 +500,29 @@
   }
 
   // ---------------- Verify ----------------
+  // one card per bot: BB-Core's in #checks, I-Core's in #checks2 (hidden until I-Core reports)
   function renderChecks(d) {
-    const box = clear($('#checks')), list = verdicts(d);
-    if (!list.length) { box.append(el('div', { class: 'empty' }, 'No data yet.')); return; }
-    for (const p of list) {
-      box.append(el('div', { class: 'sub-h first' }, `${p.label} · ${p.overall.trades} closed trades · `, lvlChip(p.verdict)));
+    const list = verdicts(d);
+    [['#checks', '#pCheckList'], ['#checks2', '#pCheckList2']].forEach(([sel, panel], i) => {
+      const box = clear($(sel)), p = list[i];
+      $(panel).classList.toggle('off', i > 0 && !p);
+      if (!p) { if (!i) box.append(el('div', { class: 'empty' }, 'No data yet.')); return; }
+      $(`${panel} h2`).textContent = `checks / ${p.label}`;
+      box.append(el('div', { class: 'sub-h first' }, `${p.label} · ${p.overall.trades} closed trades · `, lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict)));
       box.append(el('div', { class: 'checklist' }, p.checks.map((c) => el('div', { class: `ck ${c.level}` }, lvlChip(c.level),
         el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, c.title, el('span', { class: 'ck-v' }, c.value ?? '—')), el('div', { class: 'ck-n' }, `limit ${c.limit}${c.note ? ' · ' + c.note : ''}`))))));
-    }
+    });
   }
   // one block per strategy: BB-Core's result, then I-Core's when it reports. A refused order (and the trade that follows from it) is listed as INFO: a missed trade, not a logic difference.
   const KIND = { 'exchange-refused': 'MISSED · exchange refused the order', 'follows-refused': 'FOLLOWS the refused trade', 'backtest-only': 'BACKTEST-ONLY · the backtest took it, the bot did not', 'live-only': 'LIVE-ONLY · the bot took it, the backtest did not', differs: 'DIFFERS · both took it, the result differs' };
   function renderCompare(d) {
-    const c = clear($('#compare')), ic = d.bots && d.bots.icore, sets = [['BB-Core', d.compare]].concat(ic ? [['I-Core', ic.compare]] : []);
-    if (!sets.some(([, k]) => k)) { c.append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
+    const ic = d.bots && d.bots.icore, sets = [['BB-Core', d.compare]].concat(ic ? [['I-Core', ic.compare]] : []);
+    $('#pCompare2').classList.toggle('off', !ic);
+    clear($('#compare2'));
+    if (!sets.some(([, k]) => k)) { clear($('#compare')).append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
     sets.forEach(([name, k], i) => {
-      c.append(el('div', { class: i ? 'sub-h' : 'sub-h first' }, name));
+      const c = clear($(i ? '#compare2' : '#compare'));
+      c.append(el('div', { class: 'sub-h first' }, name));
       if (!k) { c.append(el('div', { class: 'empty' }, 'No comparison received yet.')); return; }
       const missed = k.refused || 0, explained = k.explained || 0;
       c.append(el('dl', { class: 'kvlist' },
