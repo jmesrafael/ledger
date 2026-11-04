@@ -702,7 +702,6 @@
   // ---------------- data + login ----------------
   // force = a person asked (R, Refresh, mode switch): ask without the fingerprint so the page is always redrawn
   async function load(force) {
-    $('#promptCmd').textContent = 'status --refresh';
     let kept = false;
     try {
       const headers = !force && etag && data ? { 'If-None-Match': etag } : {};
@@ -717,10 +716,10 @@
       render(await res.json());
     } catch (e) {
       console.error('bot dashboard: refresh failed', e);
-      if (data) { kept = true; $('#promptCmd').textContent = 'status --retrying (showing the last data)'; }   // a failed refresh never wipes the page: the last data stays until the next one arrives
+      if (data) { kept = true; }   // a failed refresh never wipes the page: the last data stays until the next one arrives
       else showLogin(`Could not load data: ${e.message}`);
     }
-    finally { if (!kept) $('#promptCmd').textContent = 'status --watch'; }
+    finally { /* nothing to reset */ }
   }
   function showLogin(msg) { data = null; etag = null; $('#boot').hidden = true; $('#app').hidden = true; $('#login').hidden = false; $('#logoutBtn').hidden = true; $('#statusPill').hidden = true; $('#loginMsg').textContent = msg; }
 
