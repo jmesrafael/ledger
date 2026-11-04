@@ -144,13 +144,18 @@
     const t = (x, y, s, anchor) => { const e = sv('text', { x, y, 'text-anchor': anchor || 'middle' }); e.textContent = s; return e; };
     svg.append(sv('line', { class: 'zero', x1: L, y1: sy(0), x2: W - R, y2: sy(0) }), t(L - 6, sy(hi) + 4, `${hi.toFixed(1)}R`, 'end'), t(L - 6, sy(lo) + 4, `${lo.toFixed(1)}R`, 'end'));
     const every = Math.max(1, Math.ceil(n / 8));
+    const tip = el('div', { class: 'chart-tip', style: 'display:none' }); host.style.position = 'relative';
     rows.forEach((r, i) => {
       const x = L + i * bw + gap / 2, y = sy(Math.max(0, r.r)), h = Math.max(1, Math.abs(sy(r.r) - sy(0)));
       const b = sv('rect', { class: r.r >= 0 ? 'bar up' : 'bar down', x: x.toFixed(1), y: y.toFixed(1), width: Math.max(1, bw - gap).toFixed(1), height: h.toFixed(1), rx: 2 });
-      const tt = sv('title'); tt.textContent = `${periodLabel(r.key)}: ${fmtR(r.r)} · ${r.trades} trade${r.trades === 1 ? '' : 's'}`; b.append(tt); svg.append(b);
+      const label = `${periodLabel(r.key)} · ${fmtR(r.r)}${r.usd != null ? ` · ${fmtUsd(r.usd, true)}` : ''} · ${r.trades} trade${r.trades === 1 ? '' : 's'}`;
+      const tt = sv('title'); tt.textContent = label; b.append(tt); svg.append(b);
+      b.style.cursor = 'crosshair';
+      const show = () => { const sr = svg.getBoundingClientRect(); tip.textContent = label; tip.style.display = ''; const tw = tip.offsetWidth, cx = ((x + (bw - gap) / 2) / W) * sr.width; tip.style.left = `${Math.max(0, Math.min(sr.width - tw, cx - tw / 2))}px`; tip.style.top = `${Math.max(0, (Math.min(sy(r.r), sy(0)) / H) * sr.height - 32)}px`; b.style.opacity = 1; };
+      b.addEventListener('pointerenter', show); b.addEventListener('pointerdown', show); b.addEventListener('pointerleave', () => { tip.style.display = 'none'; b.style.opacity = ''; });
       if (i % every === 0 || i === n - 1) svg.append(t(x + (bw - gap) / 2, H - 6, r.key.length === 7 ? periodLabel(r.key) : r.key.length === 10 ? r.key.slice(5) : r.key));
     });
-    host.append(svg);
+    host.append(svg, tip);
   }
   function spark(host, ys) {
     clear(host);
@@ -349,6 +354,18 @@
       const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
       note.textContent = d.capital ? `BB-Core balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
+    } else if (chartKind === 'perf' && !(d.capital && d.capital.perf_points && d.capital.perf_points.length)) {
+      // no balance to draw a curve from (live balance is not shared): show the result of each day instead
+      const byDay = new Map();
+      for (const k of ['bbcore', 'icore']) for (const r of (d.perf && d.perf[k] && d.perf[k].periods && d.perf[k].periods.day) || []) {
+        const a = byDay.get(r.key) || { key: r.key, trades: 0, wins: 0, r: 0, usd: null };
+        a.trades += r.trades; a.wins += r.wins; a.r += r.r; if (r.usd != null) a.usd = (a.usd || 0) + r.usd; byDay.set(r.key, a);
+      }
+      const cut = chartDays ? Date.now() - chartDays * 864e5 : 0;
+      const rows = [...byDay.values()].filter((r) => Date.parse(`${r.key}T00:00:00Z`) >= cut).sort((a, b) => (a.key < b.key ? -1 : 1)).map((r) => ({ ...r, r: Math.round(r.r * 100) / 100 }));
+      barChart($('#chart'), rows, 'No closed trades in this range.');
+      const tot = rows.reduce((a, r) => a + r.r, 0);
+      note.textContent = rows.length ? `Result of each day, both bots added together · ${fmtR(tot)} over ${rows.reduce((a, r) => a + r.trades, 0)} trades. Hover a bar for the day.` : '';
     } else if (chartKind === 'perf') {
       const pts = inRange(d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
