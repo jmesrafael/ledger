@@ -1,5 +1,29 @@
 [
   {
+    "slug": "ma-trend-split-5coins",
+    "title": "bb-core, I-Core and MA Trend: What If the Money Is Split?",
+    "summary": "SOL, ZEC, NEAR, ADA and GALA, 4h, 2020 to 5 Nov 2026. The two live bots against the new MA Trend, and ₱15,750 ($250 at ₱63) split equally across them or put all in one: whole period, since 2023, and 2026 month by month, with and without a ₱3,150 cap on the risk per trade. The equal split ends at ₱1,880,947 over the 7 years, between the bots and the MA, with a worst drop of -14%. A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/ma-trend-split-5coins.html"
+  },
+  {
+    "slug": "ma-trend-7coins-by-year",
+    "title": "MA Trend Systems on 7 Coins, Year by Year",
+    "summary": "The first 10 list indicators (SMA to ALMA), built like the bots (200 trend filter, 2 ATR stop, 14 ATR trail, long only), on SOL, ZEC, NEAR, ADA, GALA, BTC and ETH, 2019 to 5 Nov 2026. Result by year, best coins, fresh ₱10,000 per January at 2.5% risk, against bb-core and I-Core on the same candles. All ten beat both bots in total R, but 2022 loses for every one. Checked bar by bar in the StrategyBacktester replay (no repaint). A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/ma-trend-7coins-by-year.html"
+  },
+  {
+    "slug": "ma-trend-vs-bots",
+    "title": "Moving-Average Trend Systems vs bb-core and I-Core",
+    "summary": "Ten moving averages (SMA to ALMA) on BTC, ETH, SOL and ADA, 4h, Sep 2019 to Nov 2026, plain and rebuilt with a 200 trend filter, ATR stop and wide ATR trail. The tweaked version averages +2.37R per trade against +0.63R (I-Core) and +0.35R (bb-core) and 90% of its settings beat I-Core from 2023 on, but it wins only 20% of trades and earns most of its profit in two years. Per year ₱10,000 results at 2.5% risk. A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/ma-trend-vs-bots.html"
+  },
+  {
     "slug": "three-way-comparison",
     "title": "Three Setups Compared: Fixed Target, No Target and the Second Bot",
     "summary": "Five coins, 2020 to Oct 2026. Per trade, ₱10,000 in each year at 2.5% risk, without the best years and trades, on seven coins never used to design the bots, the three pairs of two bots, and the new risk rule (steps down as the account grows, no cap). The first bot with no target averages +0.45R per trade against +0.33R with the fixed target; the second bot +0.87R but 74% of its profit is ten trades. The no-target version is not live yet. A test on past prices, not a promise.",
