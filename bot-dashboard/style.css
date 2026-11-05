@@ -418,8 +418,13 @@ tr.total td { font-weight: 800; border-top: 1px solid var(--line); }
 .wlbar i { display: block; } .wlbar .w { background: var(--up); } .wlbar .l { background: var(--down); } .wlbar .n { background: var(--line); }
 .upd-ago { color: var(--up); font-weight: 800; }
 .ask-msg { font-size: 12px; max-width: 220px; }
-#askBtn.spin .ico { animation: askspin 1s linear infinite; }
+/* waiting for the bot: the button keeps its size; the icon turns and a ring orbits the button edge */
+#askBtn { position: relative; }
+#askBtn.asking { opacity: 1; }
+#askBtn.asking .ico { color: var(--accent-text); animation: askspin 1.1s cubic-bezier(.5,.1,.5,.9) infinite; }
+#askBtn.asking::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; border: 2px solid transparent; border-top-color: var(--accent-text); border-right-color: color-mix(in srgb, var(--accent-text) 35%, transparent); animation: askspin 1.1s linear infinite; pointer-events: none; }
 @keyframes askspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #askBtn.asking .ico, #askBtn.asking::after { animation-duration: 3s; } }
 
 /* coin record: a block per bot */
 .bot-block { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 14px; background: var(--variant); }

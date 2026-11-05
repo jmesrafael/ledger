@@ -766,7 +766,7 @@
   // "Ask bot now": leaves a request; the bot (which asks outbound about once a minute) answers with a heartbeat; we re-read every 5 s until it arrives (or give up after 3 minutes)
   let askWatch = null;
   async function askBot() {
-    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; btn.classList.add('spin'); msg.hidden = false; msg.textContent = 'Asking…';
+    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; btn.classList.add('asking'); msg.hidden = false; msg.textContent = 'Asking…';
     try {
       const res = await fetch('/api/ask', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: data && data.mode }) });
       if (res.status === 401) return showLogin('');
@@ -778,10 +778,10 @@
       askWatch = setInterval(async () => {
         await load();
         const hb = data && data.status && data.status.last_heartbeat_ms;
-        if (hb != null && hb >= since) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('spin'); msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
-        else if (Date.now() > stop) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('spin'); msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
+        if (hb != null && hb >= since) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('asking'); msg.textContent = `The bot answered at ${fmtHm(hb)}${tzTag()}.`; }
+        else if (Date.now() > stop) { clearInterval(askWatch); askWatch = null; btn.disabled = false; btn.classList.remove('asking'); msg.textContent = 'No answer yet. The bot may be busy, offline, or still on the old version (it needs the update that adds this). It answers when it next reports.'; }
       }, 5000);
-    } catch (e) { btn.disabled = false; btn.classList.remove('spin'); msg.textContent = `Could not ask: ${e.message}`; }
+    } catch (e) { btn.disabled = false; btn.classList.remove('asking'); msg.textContent = `Could not ask: ${e.message}`; }
   }
   $('#askBtn').addEventListener('click', () => { load(true); askBot(); });
 
