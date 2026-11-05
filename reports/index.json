@@ -1,5 +1,29 @@
 [
   {
+    "slug": "bbcore-4h-vs-1h",
+    "title": "bb-core 4h vs 1h: Side by Side",
+    "summary": "The same rules on the same 5 coins on 4-hour and 1-hour candles, with real funding. 1h makes +724R against +594R, but its drawdowns are deeper in most tests (−31.2R against −24.9R) and it has no live record. Includes MEXC candles, data before 2020, the paper test and what switching would take. Recommendation: keep 4h live and decide at the December 4 review. A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/bbcore-4h-vs-1h.html"
+  },
+  {
+    "slug": "bbcore-1h-search",
+    "title": "Finding a Profitable 1-Hour Strategy",
+    "summary": "684 variations of 16 indicators on the 1-hour chart over 7 years, and the best on the bots' 5 coins. The pick is bb-core's own logic on 1-hour candles: +724R on 1,585 trades, profitable in 7 of 7 years, ending at ₱1,909,674 from ₱15,750. The trend strategies show larger totals but deep drops and few winners. A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/bbcore-1h-search.html"
+  },
+  {
+    "slug": "bbcore-1h-1000-pesos",
+    "title": "bb-core 1h from ₱1,000: Every Year and Month",
+    "summary": "The 1-hour version of bb-core on SOL, ZEC, NEAR, ADA and GALA, starting with ₱1,000 on 1 January 2020. Ends at ₱1,377,148 on 5 November 2026 with a worst drop of −38%, against ₱939,025 for the 4-hour version. Every year and every month, with 2026 in detail. The early years are not realistic at this size. A test on past prices, not a promise.",
+    "updated": "Nov 5, 2026",
+    "kind": "Data report",
+    "file": "/reports/bbcore-1h-1000-pesos.html"
+  },
+  {
     "slug": "ma-trend-split-5coins",
     "title": "bb-core, I-Core and MA Trend: What If the Money Is Split?",
     "summary": "SOL, ZEC, NEAR, ADA and GALA, 4h, 2020 to 5 Nov 2026. The two live bots against the new MA Trend, and ₱15,750 ($250 at ₱63) split equally across them or put all in one: whole period, since 2023, and 2026 month by month, with and without a ₱3,150 cap on the risk per trade. The equal split ends at ₱1,880,947 over the 7 years, between the bots and the MA, with a worst drop of -14%. A test on past prices, not a promise.",

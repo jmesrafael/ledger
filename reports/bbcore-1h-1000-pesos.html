@@ -1,0 +1,93 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="robots" content="noindex, nofollow, noarchive">
+<title>bb-core 1h from ₱1,000: Every Year and Month · Lucid'io</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; height: 297mm; padding: 16mm 15mm 14mm; position: relative; page-break-after: always; overflow: hidden; }
+.page:last-child { page-break-after: auto; }
+.foot { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; }
+h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; }
+h2 { font-size: 21px; margin: 0 0 4px; }
+h3 { font-size: 14px; margin: 18px 0 6px; }
+.sub { color: #64748b; font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+p, li { font-size: 12px; line-height: 1.6; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+.kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.kpi .v { font-size: 22px; font-weight: 700; }
+.kpi .k { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; }
+.pos { color: #15803d; } .neg { color: #dc2626; } .flat { color: #64748b; }
+.ax { font-size: 10px; fill: #64748b; } .ax.b { font-weight: 700; fill: #0f172a; font-size: 11px; }
+.lbl { font-size: 11px; font-weight: 700; fill: #0f172a; } .tiny { font-size: 9px; fill: #0f172a; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { text-align: right; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #64748b; font-weight: 600; padding: 5px 6px; border-bottom: 1.5px solid #0f172a; }
+td { text-align: right; padding: 4.5px 6px; border-bottom: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: none; }
+.card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.yc { padding: 10px 14px 8px; margin-bottom: 10px; } .yc table td { padding: 2.6px 6px; font-size: 10.5px; } .yc table th { padding: 3px 6px; }
+.yhead { display: flex; justify-content: space-between; align-items: baseline; }
+.yhead .big { font-size: 20px; font-weight: 700; }
+.pill { display: inline-block; font-size: 10.5px; padding: 2px 8px; border-radius: 20px; background: #f1f5f9; color: #0f172a; margin-left: 6px; }
+.note { background: #f8fafc; border-left: 3px solid #1d4ed8; padding: 9px 12px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; margin: 10px 0; }
+.warn { background: #fef2f2; border-left: 3px solid #dc2626; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 4px; }
+.step { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.step b { font-size: 12.5px; } .step p { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #334155; }
+.cal { width: 100%; border-collapse: separate; border-spacing: 3px; }
+.cal td, .cal th { text-align: center; border: none; padding: 7px 0; font-size: 10px; border-radius: 4px; }
+.cal th { padding: 2px 0; border-bottom: none; }
+.cal td.yr { text-align: left; font-weight: 700; font-size: 11px; padding-left: 4px; }
+.cal td.tot { font-weight: 700; background: #f1f5f9; }
+.legend { display: flex; gap: 14px; font-size: 10px; color: #64748b; align-items: center; margin-top: 4px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.cover-band { background: linear-gradient(135deg, #0f172a, #1e3a8a); color: #fff; margin: -16mm -15mm 18px; padding: 22mm 15mm 16mm; }
+.cover-band .sub { color: #cbd5e1; }
+.cover-band .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #93c5fd; margin-bottom: 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+@media screen {
+  html { background: #e2e8f0; }
+  body { padding: 32px 0; }
+  .page { height: auto; min-height: 0; max-width: 210mm; width: auto; margin: 0 auto 24px; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(15,23,42,.12); padding-bottom: 54px; }
+  .foot { bottom: 14px; }
+  .cover-band { border-radius: 10px 10px 0 0; }
+}
+@media screen and (max-width: 760px) {
+  .page { padding: 16px 16px 54px; border-radius: 0; }
+  .cover-band { margin: -16px -16px 16px; padding: 32px 16px 20px; border-radius: 0; }
+  .kpis, .two, .steps, .page > div[style*="repeat(4"], .page > div[style*="repeat(3"] { grid-template-columns: 1fr 1fr !important; }
+  .steps { grid-template-columns: 1fr !important; }
+  table.cal td, table.cal th { font-size: 7.5px; padding: 5px 0; }
+  .foot { left: 16px; right: 16px; flex-direction: column; gap: 2px; }
+  h1 { font-size: 26px; }
+}
+
+/* bordered tables: grid lines, shaded header, striped rows, highlighted totals */
+table:not(.cal) { border: 1.5px solid #94a3b8; border-radius: 6px; }
+table:not(.cal) th { background: #f1f5f9; border: 1px solid #cbd5e1; border-bottom: 1.5px solid #64748b; color: #334155; }
+table:not(.cal) td { border: 1px solid #cbd5e1; }
+table:not(.cal) tr:nth-child(even) td { background: #f8fafc; }
+table:not(.cal) tr.tot td { background: #e2e8f0; border-top: 1.5px solid #64748b; }
+table:not(.cal) td:first-child { background-clip: padding-box; }
+@media print { table:not(.cal) th, table:not(.cal) tr.tot td, table:not(.cal) tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+.sw{display:inline-block}
+
+.cal td{font-variant-numeric:tabular-nums} .cal td.tot{background:#f1f5f9;font-weight:700} .cal td.tot.pos{color:#15803d} .cal td.tot.neg{color:#dc2626} table.cal{margin-bottom:6px} code{font-size:11px;background:#f1f5f9;padding:1px 4px;border-radius:4px}
+.cal td,.cal th{font-size:9px} @media screen and (max-width:760px){.cal td,.cal th{font-size:7px;padding:5px 0}}
+
+.cal td,.cal th{padding:3px 2px;font-size:8.6px;text-align:right}.cal td:first-child,.cal th:first-child{text-align:left}.grid td{padding:3px 1px;font-size:8.6px;line-height:1.25}.grid td small{font-size:7.6px;color:#64748b;display:block}.grid th{padding:3px 1px;font-size:8px}.win{font-weight:700}
+</style>
+</head>
+<body><div class="page" id="p1"><div class="cover-band"><div class="tag">Past-price test · 1-hour chart · ₱1,000 start</div><h1>bb-core 1h from ₱1,000: every year and month</h1><p class="sub" style="font-size:14px;margin:0">SOL, ZEC, NEAR, ADA and GALA only, from 1 January 2020 to 5 November 2026. No BTC or ETH. The live bot's risk steps, with a total cap of ₱3,150 per trade.</p></div>
+<div class="kpis"><div class="kpi"><div class="v pos">₱1,377,148</div><div class="k">ends, 1,585 trades</div></div><div class="kpi"><div class="v neg">−38%</div><div class="k">worst drop</div></div><div class="kpi"><div class="v">27 of 81</div><div class="k">months with a loss</div></div><div class="kpi"><div class="v">₱939,025</div><div class="k">bb-core 4h, same start</div></div></div>
+<h3>By year</h3><table><thead><tr><th>Year</th><th>Trades</th><th>Total R</th><th>Start</th><th>End</th><th>Gain</th><th>bb-core 4h ends</th></tr></thead><tbody><tr><td>2020</td><td>98</td><td class="pos">+54R</td><td>₱1,000</td><td>₱2,890</td><td class="pos">+189%</td><td>₱2,551</td></tr><tr><td>2021</td><td>226</td><td class="pos">+164R</td><td>₱2,890</td><td>₱43,161</td><td class="pos">+1393%</td><td>₱40,190</td></tr><tr><td>2022</td><td>244</td><td class="pos">+114R</td><td>₱43,161</td><td>₱188,859</td><td class="pos">+338%</td><td>₱113,988</td></tr><tr><td>2023</td><td>273</td><td class="pos">+87R</td><td>₱188,859</td><td>₱416,726</td><td class="pos">+121%</td><td>₱229,512</td></tr><tr><td>2024</td><td>271</td><td class="pos">+96R</td><td>₱416,726</td><td>₱717,910</td><td class="pos">+72%</td><td>₱448,238</td></tr><tr><td>2025</td><td>241</td><td class="pos">+88R</td><td>₱717,910</td><td>₱996,152</td><td class="pos">+39%</td><td>₱675,960</td></tr><tr><td>2026 (to Nov 5)</td><td>232</td><td class="pos">+121R</td><td>₱996,152</td><td>₱1,377,148</td><td class="pos">+38%</td><td>₱939,025</td></tr></tbody></table>
+<div class="note warn"><b>The early years are not realistic.</b> ₱1,000 is about $16. Exchange minimum order sizes would block or distort trades at that size, so the 2020 and 2021 gains are arithmetic on a tiny base. Most of the growth comes from those first years; later years show the more realistic pace. The ending balance is not a forecast.</div>
+<div class="note"><b>Why the pace slows.</b> As the balance grows, the risk per trade steps down and then reaches the ₱3,150 cap, so later gains are close to a fixed amount per R. Without a cap the numbers would be larger and unrealistic.</div><div class="foot"><span>Past-price test on the bots' 5 coins (SOL, ZEC, NEAR, ADA, GALA) to 5 Nov 2026, ₱63 per $1. Fees and slippage included, bb-core with real funding. Before the Lucid'io fee. Not live trading. Past performance does not guarantee future results.</span><span>Page 1 of 2</span></div></div>
+<div class="page" id="p2"><h2>Every month, 2020 to 2026</h2><p class="sub">Balance in pesos at the end of each month. Below it: total R and number of trades closed that month. A dash means no trade closed; the balance carries over. The first trades close in March 2020, after the indicators warm up.</p><table class="grid"><thead><tr><th></th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th></tr></thead><tbody><tr><td><b>2020</b></td><td class="flat">–</td><td class="flat">–</td><td>1,137<small class="pos">+6R · 6</small></td><td>1,241<small class="pos">+4R · 6</small></td><td>1,083<small class="neg">−5R · 8</small></td><td>1,352<small class="pos">+12R · 8</small></td><td>2,072<small class="pos">+19R · 6</small></td><td>2,260<small class="pos">+5R · 13</small></td><td>2,633<small class="pos">+7R · 6</small></td><td>2,724<small class="pos">+1R · 8</small></td><td>3,275<small class="pos">+10R · 20</small></td><td>2,890<small class="neg">−5R · 17</small></td></tr><tr><td><b>2021</b></td><td>3,867<small class="pos">+18R · 20</small></td><td>7,715<small class="pos">+35R · 17</small></td><td>6,362<small class="neg">−7R · 20</small></td><td>7,639<small class="pos">+8R · 15</small></td><td>6,880<small class="neg">−5R · 25</small></td><td>8,684<small class="pos">+12R · 12</small></td><td>8,738<small class="pos">+1R · 16</small></td><td>20,410<small class="pos">+43R · 14</small></td><td>21,092<small class="pos">+2R · 19</small></td><td>18,173<small class="neg">−4R · 25</small></td><td>48,457<small class="pos">+66R · 21</small></td><td>43,161<small class="neg">−6R · 22</small></td></tr><tr><td><b>2022</b></td><td>81,168<small class="pos">+41R · 19</small></td><td>87,997<small class="pos">+6R · 15</small></td><td>98,401<small class="pos">+8R · 19</small></td><td>113,510<small class="pos">+10R · 21</small></td><td>149,579<small class="pos">+20R · 20</small></td><td>186,047<small class="pos">+19R · 16</small></td><td>162,640<small class="neg">−9R · 22</small></td><td>165,495<small class="pos">+1R · 24</small></td><td>160,770<small class="neg">−1R · 24</small></td><td>181,767<small class="pos">+12R · 18</small></td><td>167,636<small class="neg">−4R · 29</small></td><td>188,859<small class="pos">+10R · 17</small></td></tr><tr><td><b>2023</b></td><td>233,770<small class="pos">+19R · 22</small></td><td>188,258<small class="neg">−15R · 19</small></td><td>189,685<small class="pos">+2R · 25</small></td><td>177,396<small class="neg">−3R · 30</small></td><td>200,211<small class="pos">+10R · 22</small></td><td>233,760<small class="pos">+13R · 19</small></td><td>210,579<small class="neg">−7R · 25</small></td><td>257,759<small class="pos">+17R · 23</small></td><td>235,149<small class="neg">−7R · 22</small></td><td>317,338<small class="pos">+26R · 23</small></td><td>303,106<small class="neg">−5R · 21</small></td><td>416,726<small class="pos">+36R · 22</small></td></tr><tr><td><b>2024</b></td><td>397,593<small class="neg">−6R · 25</small></td><td>429,330<small class="pos">+10R · 20</small></td><td>533,403<small class="pos">+33R · 21</small></td><td>567,850<small class="pos">+11R · 18</small></td><td>535,488<small class="neg">−10R · 29</small></td><td>560,865<small class="pos">+8R · 22</small></td><td>583,157<small class="pos">+7R · 23</small></td><td>596,934<small class="pos">+4R · 20</small></td><td>614,510<small class="pos">+6R · 23</small></td><td>569,411<small class="neg">−14R · 28</small></td><td>701,286<small class="pos">+42R · 16</small></td><td>717,910<small class="pos">+5R · 26</small></td></tr><tr><td><b>2025</b></td><td>703,545<small class="neg">−5R · 23</small></td><td>748,106<small class="pos">+14R · 16</small></td><td>719,379<small class="neg">−9R · 21</small></td><td>740,410<small class="pos">+7R · 20</small></td><td>766,361<small class="pos">+8R · 24</small></td><td>806,491<small class="pos">+13R · 17</small></td><td>839,609<small class="pos">+11R · 23</small></td><td>827,672<small class="neg">−4R · 19</small></td><td>872,784<small class="pos">+14R · 18</small></td><td>939,277<small class="pos">+21R · 23</small></td><td>1,024,083<small class="pos">+27R · 15</small></td><td>996,152<small class="neg">−9R · 22</small></td></tr><tr><td><b>2026</b></td><td>984,541<small class="neg">−4R · 21</small></td><td>1,046,526<small class="pos">+20R · 24</small></td><td>1,040,669<small class="neg">−2R · 20</small></td><td>1,024,291<small class="neg">−5R · 26</small></td><td>1,155,091<small class="pos">+42R · 17</small></td><td>1,198,642<small class="pos">+14R · 21</small></td><td>1,195,936<small class="neg">−1R · 24</small></td><td>1,351,152<small class="pos">+49R · 22</small></td><td>1,424,566<small class="pos">+23R · 25</small></td><td>1,384,973<small class="neg">−13R · 25</small></td><td>1,377,148<small class="neg">−2R · 7</small></td><td class="flat">–</td></tr></tbody></table>
+<h3>2026 month by month</h3><table><thead><tr><th>Month</th><th>Trades</th><th>Total R</th><th>Start</th><th>End</th><th>Change</th></tr></thead><tbody><tr><td>Jan</td><td>21</td><td class="neg">−3.7R</td><td>₱996,152</td><td>₱984,541</td><td class="neg">−1.2%</td></tr><tr><td>Feb</td><td>24</td><td class="pos">+19.7R</td><td>₱984,541</td><td>₱1,046,526</td><td class="pos">+6.3%</td></tr><tr><td>Mar</td><td>20</td><td class="neg">−1.9R</td><td>₱1,046,526</td><td>₱1,040,669</td><td class="neg">−0.6%</td></tr><tr><td>Apr</td><td>26</td><td class="neg">−5.2R</td><td>₱1,040,669</td><td>₱1,024,291</td><td class="neg">−1.6%</td></tr><tr><td>May</td><td>17</td><td class="pos">+41.5R</td><td>₱1,024,291</td><td>₱1,155,091</td><td class="pos">+12.8%</td></tr><tr><td>Jun</td><td>21</td><td class="pos">+13.8R</td><td>₱1,155,091</td><td>₱1,198,642</td><td class="pos">+3.8%</td></tr><tr><td>Jul</td><td>24</td><td class="neg">−0.9R</td><td>₱1,198,642</td><td>₱1,195,936</td><td class="neg">−0.2%</td></tr><tr><td>Aug</td><td>22</td><td class="pos">+49.3R</td><td>₱1,195,936</td><td>₱1,351,152</td><td class="pos">+13.0%</td></tr><tr><td>Sep</td><td>25</td><td class="pos">+23.3R</td><td>₱1,351,152</td><td>₱1,424,566</td><td class="pos">+5.4%</td></tr><tr><td>Oct</td><td>25</td><td class="neg">−12.6R</td><td>₱1,424,566</td><td>₱1,384,973</td><td class="neg">−2.8%</td></tr><tr><td>Nov (to the 5th)</td><td>7</td><td class="neg">−2.5R</td><td>₱1,384,973</td><td>₱1,377,148</td><td class="neg">−0.6%</td></tr></tbody></table>
+<h3>How it was made</h3><ul style="margin:4px 0 0;padding-left:18px"><li><b>Rules.</b> Signals use closed candles only and fill at the next candle's open. If a candle touches the stop, the stop counts first. One position at a time per coin; a signal while a coin is in a trade is ignored.</li><li><b>Costs.</b> bb-core: fees and 0.02% slippage each way, plus real Binance funding paid or received during each trade. I-Core and the trend strategies: 0.05% fee and 0.02% slippage each way, plus a flat funding estimate.</li><li><b>Pesos.</b> ₱63 per $1. Position size is set when the trade opens, from the closed balance. Risk is the live bot's steps (2.5%, 2% from ₱31,500, 1.5% from ₱63,000, by the highest balance so far), with a total cap of ₱3,150 per trade unless stated. Balances count closed trades only, on the day they close.</li><li><b>1h settings.</b> The 4h lengths multiplied by 4: Bollinger band 80, trend filter 800, time exit 192 candles. The ATR filter was left at 14, 0.3; changing it did not change any trade, because the stop distance is always above it.</li></ul><div class="foot"><span>Past-price test on the bots' 5 coins (SOL, ZEC, NEAR, ADA, GALA) to 5 Nov 2026, ₱63 per $1. Fees and slippage included, bb-core with real funding. Before the Lucid'io fee. Not live trading. Past performance does not guarantee future results.</span><span>Page 2 of 2</span></div></div>
+</body></html>
