@@ -23,7 +23,7 @@
   let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
   let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
-  let bot = ['icore', 'bb1h', 'bbtr'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
+  let bot = ['icore', 'tcore', 'bb1h', 'bbtr'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
   const PAGE = { trades: 100, skipped: 50, journal: 100 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped, journal: PAGE.journal };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
   const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
@@ -66,10 +66,12 @@
   const hasIcore = () => !!(data && data.perf && data.perf.icore);
   const hasLab = () => !!(data && data.perf && data.perf.bb1h && data.labs && data.labs.bb1h);   // the 1h BB-Core paper lab bot (reports as bb1h)
   const hasTrail = () => !!(data && data.perf && data.perf.bbtr && data.labs && data.labs.bbtr);   // the T-CORE paper lab bot (reports as bbtr)
-  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'bb1h' && hasLab()) || (k === 'bbtr' && hasTrail());
+  const hasTcore = () => !!(data && data.perf && data.perf.tcore && data.bots && data.bots.tcore);   // the T-CORE LIVE bot (reports as tcore)
+  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'tcore' && hasTcore()) || (k === 'bb1h' && hasLab()) || (k === 'bbtr' && hasTrail());
   const view = () => {
     const d = data, ic = bot === 'icore' && hasIcore();
     if (bot === 'bb1h' && hasLab()) return { key: 'bb1h', label: 'BB-1h lab', mode: d.labs.bb1h.mode, perf: d.perf.bb1h, trades: d.labs.bb1h.trades || [] };
+    if (bot === 'tcore' && hasTcore()) return { key: 'tcore', label: 'T-CORE', mode: d.bots.tcore.mode, perf: d.perf.tcore, trades: d.bots.tcore.trades || [] };
     if (bot === 'bbtr' && hasTrail()) return { key: 'bbtr', label: 'T-CORE lab', mode: d.labs.bbtr.mode, perf: d.perf.bbtr, trades: d.labs.bbtr.trades || [] };
     return ic ? { key: 'icore', label: 'I-Core', mode: d.bots.icore.mode, perf: d.perf.icore, trades: d.bots.icore.trades || [] }
       : { key: 'bbcore', label: 'BB-Core', mode: d.mode, perf: d.perf ? d.perf.bbcore : null, trades: d.trades };
@@ -248,7 +250,7 @@
     $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
   }
   function renderBotSeg() {
-    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['bb1h', 'BB-1h lab'], ['bbtr', 'T-CORE lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
+    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['tcore', 'T-CORE'], ['bb1h', 'BB-1h lab'], ['bbtr', 'T-CORE lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
     for (const host of $$('.botseg')) {
       host.hidden = !show; if (!show) continue;
       clear(host).append(...list.map(([k, l]) => el('button', { type: 'button', 'data-bot': k, class: k === bot ? 'on' : '' }, l)));
@@ -368,7 +370,7 @@
     } else if (chartKind === 'perf' && !(d.capital && d.capital.perf_points && d.capital.perf_points.length)) {
       // no balance to draw a curve from (live balance is not shared): show the result of each day instead
       const byDay = new Map();
-      for (const k of ['bbcore', 'icore']) for (const r of (d.perf && d.perf[k] && d.perf[k].periods && d.perf[k].periods.day) || []) {
+      for (const k of ['bbcore', 'icore', 'tcore']) for (const r of (d.perf && d.perf[k] && d.perf[k].periods && d.perf[k].periods.day) || []) {
         const a = byDay.get(r.key) || { key: r.key, trades: 0, wins: 0, r: 0, usd: null };
         a.trades += r.trades; a.wins += r.wins; a.r += r.r; if (r.usd != null) a.usd = (a.usd || 0) + r.usd; byDay.set(r.key, a);
       }
@@ -376,7 +378,7 @@
       const rows = [...byDay.values()].filter((r) => Date.parse(`${r.key}T00:00:00Z`) >= cut).sort((a, b) => (a.key < b.key ? -1 : 1)).map((r) => ({ ...r, r: Math.round(r.r * 100) / 100 }));
       barChart($('#chart'), rows, 'No closed trades in this range.');
       const tot = rows.reduce((a, r) => a + r.r, 0);
-      note.textContent = rows.length ? `Result of each day, both bots added together · ${fmtR(tot)} over ${rows.reduce((a, r) => a + r.trades, 0)} trades. Hover a bar for the day.` : '';
+      note.textContent = rows.length ? `Result of each day, the live bots added together · ${fmtR(tot)} over ${rows.reduce((a, r) => a + r.trades, 0)} trades. Hover a bar for the day.` : '';
     } else if (chartKind === 'perf') {
       const pts = inRange(d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
@@ -467,15 +469,16 @@
   // already has (per_coin of lib/perf.js), so it costs no extra request; a few rows at most. A coin with no trade yet still gets its row (zeros).
   const STRATS = {
     bbcore: { name: 'BB-Core', short: 'Bollinger breakout, no target', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, no profit target: the trade runs until the stop or about 8 days at most.' },
+    tcore: { name: 'T-CORE', short: 'Bollinger breakout, 14 ATR trail', how: 'Enters like BB-Core (a 4-hour close outside the Bollinger band, with the 200-period average). Stop 2 ATR away, then a trailing stop 14 ATR behind the best price; no profit target, so a winner runs until the trail catches it.' },
     icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
   };
   const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
   function renderCoins() {
     const d = data, rows = [];
-    for (const k of ['bbcore', 'icore']) {
-      const p = d.perf && d.perf[k]; if (!p) continue;
-      const ic = k === 'icore', trades = ic ? d.bots.icore.trades || [] : d.trades, opens = (ic ? d.bots.icore.open_list : d.open) || [];
-      const coins = [...new Set([...Object.keys(p.per_coin), ...((ic ? d.bots.icore.enabled_coins : d.status.enabled_coins) || []).map(full), ...opens.map((o) => o.symbol)])].sort();
+    for (const k of ['bbcore', 'icore', 'tcore']) {
+      const p = d.perf && d.perf[k]; if (!p || (k !== 'bbcore' && !(d.bots && d.bots[k]))) continue;
+      const ob = k !== 'bbcore' ? d.bots[k] : null, trades = ob ? ob.trades || [] : d.trades, opens = (ob ? ob.open_list : d.open) || [];
+      const coins = [...new Set([...Object.keys(p.per_coin), ...((ob ? ob.enabled_coins : d.status.enabled_coins) || []).map(full), ...opens.map((o) => o.symbol)])].sort();
       const last = new Map(); for (const t of trades) if (!last.has(t.symbol) || t.exit_ts > last.get(t.symbol)) last.set(t.symbol, t.exit_ts);
       const zero = { trades: 0, wins: 0, losses: 0, win_rate: null, avg_r: null, total_r: 0, profit_factor: null, best_r: null, worst_r: null, max_dd_r: null, usd: null };
       for (const c of coins) rows.push({ bot: k, coin: c, ...zero, ...(p.per_coin[c] || {}), last: last.get(c) || null, open: opens.find((o) => o.symbol === c) || null });
@@ -492,7 +495,7 @@
       { h: 'Open now', f: (r) => (r.coin === 'ALL' ? (r.openN ? `${r.openN} open` : 'flat') : r.open ? el('span', {}, sideEl(r.open.side), ' ', el('span', { class: cls(r.open.current_r) }, r.open.current_r == null ? '' : fmtR(r.open.current_r))) : '—') },
     ];
     // one block per bot, so the two never run together
-    for (const k of ['bbcore', 'icore']) {
+    for (const k of ['bbcore', 'icore', 'tcore']) {
       const part = rows.filter((r) => r.bot === k); if (!part.length) continue;
       host.append(el('div', { class: `bot-block ${k}` }, el('div', { class: 'bot-block-h' }, STRATS[k].name), el('div', { class: 'scroll' }, table(cols, part, ''))));
     }
@@ -628,7 +631,7 @@
   }
   function renderResearch() {
     if (!data) return;
-    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.key === 'icore' ? d.bots.icore : lab ? d.labs.bb1h : trail ? d.labs.bbtr : null, live = v.mode === 'live';
+    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.key === 'icore' ? d.bots.icore : v.key === 'tcore' ? d.bots.tcore : lab ? d.labs.bb1h : trail ? d.labs.bbtr : null, live = v.mode === 'live';
     const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
     const open = b ? b.open_list || [] : d.open, skipCounts = (b ? b.skip_counts : d.skip_counts) || {}, firstEvent = b ? b.first_event_ms : d.first_event_ms;
     const cmp = b ? b.compare : d.compare, ddR = b ? b.drawdown_r : d.status.drawdown_r, haltR = b ? b.halt_r : d.status.halt_r;
