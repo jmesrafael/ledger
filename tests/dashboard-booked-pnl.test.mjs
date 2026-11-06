@@ -25,3 +25,24 @@ test('a dollar figure the bot already shared is never overwritten, and paper tra
   const paper = pair('p', T, T + 3.6e6).map((e) => ({ ...e, mode: 'paper' }));
   assert.equal(aggregate({ events: paper, closedTrades: [{ symbol: 'SOL_USDT', closed_ms: T + 3.6e6, usd: -4 }], now: T + 3e7, mode: 'paper' }).trades[0].usd, null);
 });
+
+test('a stop MEXC filled inside the candle is matched although the bot books the exit at the candle close, hours later', () => {
+  // real case, Oct 29 2026: ADA SHORT stop filled on MEXC 14:36 UTC, the bot booked the exit at the 16:00 close; before the fix every such stop got another trade's figure
+  const short = (id, t, ex, symbol) => pair(id, t, ex, symbol).map((e) => ({ ...e, side: 'SHORT' }));
+  const events = [...short('ada', T, T + 12 * 3.6e6, 'ADA_USDT'), ...short('near', T, T + 12 * 3.6e6, 'NEAR_USDT')];
+  const closedTrades = [
+    { wallet: 'bbcore', symbol: 'ADA_USDT', side: 'SHORT', closed_ms: T + 12 * 3.6e6 - 84 * 60000, usd: -5.3419 },
+    { wallet: 'bbcore', symbol: 'NEAR_USDT', side: 'SHORT', closed_ms: T + 12 * 3.6e6 - 51 * 60000, usd: -5.122 },
+    { wallet: 'bbcore', symbol: 'ADA_USDT', side: 'SHORT', closed_ms: T - 3.6e6, usd: -99 },   // closed before this trade was opened: never used
+  ];
+  const d = aggregate({ events, closedTrades, now: T + 3e7, mode: 'live' });
+  assert.deepEqual(d.trades.map((t) => [t.symbol, t.usd]), [['ADA_USDT', -5.34], ['NEAR_USDT', -5.12]]);
+});
+
+test('booked P&L of one bot account is never shown on the other bot, and the side must agree', () => {
+  const events = pair('a', T, T + 3.6e6);
+  const icoreOnly = [{ wallet: 'icore', symbol: 'SOL_USDT', side: 'LONG', closed_ms: T + 3.6e6, usd: -1.11 }];
+  assert.equal(aggregate({ events, closedTrades: icoreOnly, now: T + 3e7, mode: 'live' }).trades[0].usd, null, 'BB-Core does not take I-Core\'s booked trade');
+  const wrongSide = [{ wallet: 'bbcore', symbol: 'SOL_USDT', side: 'SHORT', closed_ms: T + 3.6e6, usd: -2 }];
+  assert.equal(aggregate({ events, closedTrades: wrongSide, now: T + 3e7, mode: 'live' }).trades[0].usd, null, 'a SHORT booked close does not fill a LONG trade');
+});
