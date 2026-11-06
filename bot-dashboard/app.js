@@ -23,7 +23,7 @@
   let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
   let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
-  let bot = store.get('bot.view') === 'icore' ? 'icore' : 'bbcore';
+  let bot = ['icore', 'bb1h'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
   const PAGE = { trades: 100, skipped: 50, journal: 100 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped, journal: PAGE.journal };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
   const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
@@ -64,8 +64,11 @@
 
   // ---------------- the selected bot (Performance and Trades) ----------------
   const hasIcore = () => !!(data && data.perf && data.perf.icore);
+  const hasLab = () => !!(data && data.perf && data.perf.bb1h && data.labs && data.labs.bb1h);   // the 1h BB-Core paper lab bot (reports as bb1h)
+  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'bb1h' && hasLab());
   const view = () => {
     const d = data, ic = bot === 'icore' && hasIcore();
+    if (bot === 'bb1h' && hasLab()) return { key: 'bb1h', label: 'BB-1h lab', mode: d.labs.bb1h.mode, perf: d.perf.bb1h, trades: d.labs.bb1h.trades || [] };
     return ic ? { key: 'icore', label: 'I-Core', mode: d.bots.icore.mode, perf: d.perf.icore, trades: d.bots.icore.trades || [] }
       : { key: 'bbcore', label: 'BB-Core', mode: d.mode, perf: d.perf ? d.perf.bbcore : null, trades: d.trades };
   };
@@ -177,7 +180,7 @@
   const dirty = new Set();
   function render(d) {
     data = d;
-    if (!hasIcore()) bot = 'bbcore';
+    if (!hasBot(bot)) bot = 'bbcore';
     const mode = d.mode, s = d.status, waiting = s.last_heartbeat_ms == null;
     // mode switch in the settings menu (only when both paper and live data exist)
     $('#modeRow').hidden = d.modes_seen.length < 2;
@@ -243,10 +246,10 @@
     $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
   }
   function renderBotSeg() {
-    const show = hasIcore();
+    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['bb1h', 'BB-1h lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
     for (const host of $$('.botseg')) {
       host.hidden = !show; if (!show) continue;
-      clear(host).append(...[['bbcore', 'BB-Core'], ['icore', 'I-Core']].map(([k, l]) => el('button', { type: 'button', 'data-bot': k, class: k === bot ? 'on' : '' }, l)));
+      clear(host).append(...list.map(([k, l]) => el('button', { type: 'button', 'data-bot': k, class: k === bot ? 'on' : '' }, l)));
     }
   }
 
@@ -606,10 +609,10 @@
   // (coin / side / exit splits and the fills-vs-model table already live on the Performance tab; this tab adds what they do not show)
   function renderResearch() {
     if (!data) return;
-    const d = data, v = view(), tr = v.trades, ic = v.key === 'icore', b = ic ? d.bots.icore : null, live = v.mode === 'live';
+    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', b = v.key === 'icore' ? d.bots.icore : lab ? d.labs.bb1h : null, live = v.mode === 'live';
     const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
-    const open = ic ? b.open_list || [] : d.open, skipCounts = (ic ? b.skip_counts : d.skip_counts) || {}, firstEvent = ic ? b.first_event_ms : d.first_event_ms;
-    const cmp = ic ? b.compare : d.compare, ddR = ic ? b.drawdown_r : d.status.drawdown_r, haltR = ic ? b.halt_r : d.status.halt_r;
+    const open = b ? b.open_list || [] : d.open, skipCounts = (b ? b.skip_counts : d.skip_counts) || {}, firstEvent = b ? b.first_event_ms : d.first_event_ms;
+    const cmp = b ? b.compare : d.compare, ddR = b ? b.drawdown_r : d.status.drawdown_r, haltR = b ? b.halt_r : d.status.halt_r;
     $('#rHowTitle').textContent = `research / how ${v.label} ${live ? 'trades live' : 'paper trading works'}`;
 
     const first = tr.length ? Math.min(...tr.map((t) => t.entry_ts)) : null, skips = Object.values(skipCounts).reduce((a, x) => a + x, 0), running = firstEvent != null ? (Date.now() - firstEvent) / 1000 : null;
@@ -622,6 +625,16 @@
     clear($('#rHow')).append(...(live ? [
       el('p', {}, el('b', {}, 'This bot trades real money on MEXC. '), 'The same detail is kept as for a paper run, so the live record can be compared with what paper and the backtest showed.'),
       el('p', { class: 'muted' }, 'Fees, slippage and funding on live trades are what MEXC actually charged. Skipped signals are kept with the reason.'),
+    ] : lab ? [
+      el('p', {}, el('b', {}, 'A paper run with real-world costs. '), 'The 1h bot reads the real candles and takes the same decisions as the strategy, but no order is ever sent. The only simulated thing is the money; what each trade would cost is taken from MEXC itself:'),
+      el('ul', {},
+        el('li', {}, el('b', {}, 'Size: '), 'whole contracts, rounded exactly like the live bot. A coin whose single contract would risk too much is skipped, as live would.'),
+        el('li', {}, el('b', {}, 'Entry: '), 'a market order walks the real order book at that moment, so the fill is the volume-weighted price of the levels it would eat.'),
+        el('li', {}, el('b', {}, 'Fees: '), "the coin's own taker rate from MEXC's contract list (never below 0.02%, so a promotional 0% is not counted as free)."),
+        el('li', {}, el('b', {}, 'Stops: '), 'a stop is a market order in a fast market: its slippage is the bad case (90th percentile) measured by the data recorder, not the average.'),
+        el('li', {}, el('b', {}, 'Funding: '), "MEXC's real settled funding rate for every 8-hour settlement the trade was open through: paid by longs when positive, received by shorts."),
+        el('li', {}, el('b', {}, 'Skipped signals '), 'are kept with the reason, so nothing is hidden.')),
+      el('p', { class: 'muted' }, 'Any data MEXC fails to give falls back to a fixed assumption and says so on that trade. A paper run proves the bot executes the way the backtest assumes with these costs. It cannot prove the strategy makes money: that takes hundreds of trades, which is why the range around the average is shown.'),
     ] : [
       el('p', {}, el('b', {}, 'Paper means simulated money, real market. '), 'The bot reads the real candles and takes the same decisions as the live bot, but no order is ever sent. It starts with a pretend balance and sizes each trade on it.'),
       el('ul', {},
@@ -634,7 +647,7 @@
 
     // ready for live?
     const mark = { pass: '✓', fail: '✗', wait: '…', info: 'i' }, label = { pass: 'OK', fail: 'FAILING', wait: 'WAITING FOR DATA', info: '' };
-    const checks = BR.readiness(tr, { compare: cmp, drawdownR: ddR, haltR });
+    const checks = BR.readiness(tr, { compare: cmp, drawdownR: ddR, haltR, skipCompare: lab });
     const rd = clear($('#rReady'));
     rd.append(...checks.map((c) => el('div', { class: `chk ${c.status}` }, el('span', { class: 'mk', 'aria-hidden': 'true' }, mark[c.status]),
       el('div', {}, el('div', { class: 'ct' }, c.title, ' ', el('span', { class: 'cs' }, label[c.status])), el('div', { class: 'cn' }, `Needs: ${c.need}. Now: ${c.have}.`), el('div', { class: 'cn' }, c.note)))));
@@ -680,6 +693,66 @@
       { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
     ], rows.slice(0, shown.journal), 'No closed trades yet. They appear here as the bot closes them.', openTrade));
     moreBtn($('#rTradesMore'), 'journal', rows.length, renderResearch);
+    renderRegime(); renderRecorder(); loadRegimeHistory();
+  }
+
+
+  // ---------------- Research: the market now (regime), what trading costs here (measured slippage), and the data recorder's health. All from the recorder's heartbeat (d.recorder) ----------------
+  let regimeHist = null, regimeHistTried = false;
+  async function loadRegimeHistory() {   // the strategy's backtest by regime: a small static file next to the page, read once
+    if (regimeHistTried) return; regimeHistTried = true;
+    try { const res = await fetch('regime-history.json', { cache: 'no-cache' }); if (res.ok) { regimeHist = await res.json(); if (data && tab === 'research') renderRegime(); } } catch { /* the panel just shows no history */ }
+  }
+  const STATE_LABEL = { trending_up: 'Trending up', trending_down: 'Trending down', volatile: 'Volatile', quiet: 'Quiet (squeeze)', ranging: 'Ranging (chop)', choppy: 'Choppy', mixed: 'Mixed' };
+  const stateChip = (s) => (s ? el('span', { class: `rg ${s}` }, STATE_LABEL[s] || s) : '—');
+  const histOf = (key, group) => { const h = regimeHist && regimeHist[group] && regimeHist[group][key]; return h && h.n >= (regimeHist.min_trades || 30) ? h : null; };
+
+  function renderRegime() {
+    const rc = data && data.recorder, panel = $('#pRRegime'), slip = $('#pRSlip');
+    const slipOn = !!(rc && Object.keys(rc.slippage || {}).length);
+    panel.classList.toggle('off', !(rc && rc.market_state)); slip.classList.toggle('off', !slipOn);
+    $('#pRRec').classList.toggle('c7', !slipOn); $('#pRRec').classList.toggle('c5', slipOn);   // fills the row when the slippage table is not there yet
+    if (!rc) return;
+    const m = rc.market || {}, mh = histOf(rc.market_state, 'market_states');
+    clear($('#rgTiles')).append(
+      tile('The market now', stateChip(rc.market_state), mh ? `BB-Core there, historically: ${fmtR(mh.avg_r)} a trade (${mh.n} trades)` : null),
+      tile('Coins moving together', m.avg_corr_7d == null ? '—' : m.avg_corr_7d.toFixed(2), m.avg_corr_7d == null ? null : m.avg_corr_7d >= 0.7 ? 'close to one bet: five trades may be one trade' : m.avg_corr_7d >= 0.4 ? 'moderately alike' : 'moving independently'),
+      tile('Above their 800-hour average', m.breadth_up_pct == null ? '—' : `${m.breadth_up_pct}%`, m.n ? `of ${m.n} coins` : null),
+      tile('Trending · ranging · quiet · volatile', m.n ? `${m.trending_n} · ${m.ranging_n} · ${m.quiet_n} · ${m.volatile_n}` : '—', 'coins in each state'));
+    const rows = Object.entries(rc.regime || {}).map(([k, v]) => ({ coin: k, state: (rc.regime_state || {})[k], ...v }));
+    clear($('#rgTable')).append(table([
+      { h: 'Coin', left: true, f: (r) => sym(r.coin) }, { h: 'State', left: true, f: (r) => stateChip(r.state) },
+      { h: 'vs 800 avg', f: (r) => (r.trend_pct == null ? '—' : `${r.trend_pct > 0 ? '+' : ''}${r.trend_pct}%`), c: (r) => cls(r.trend_pct) },
+      { h: 'Trendiness', f: (r) => (r.er48 == null ? '—' : r.er48.toFixed(2)) }, { h: 'Band width', f: (r) => (r.bbw_pctile == null ? '—' : `${Math.round(r.bbw_pctile)}th pct`) },
+      { h: 'ATR', f: (r) => (r.atr_pct == null ? '—' : `${r.atr_pct}%`) }, { h: 'Day swing', f: (r) => (r.rv24 == null ? '—' : `${r.rv24}%`) },
+      { h: 'BB-Core in this state', f: (r) => { const h = histOf(r.state, 'states'); return h ? el('span', {}, el('span', { class: cls(h.avg_r) }, fmtR(h.avg_r)), el('small', { class: 'muted' }, ` · ${h.n} trades · ${pct0(h.win_rate)} won`)) : '—'; } },
+    ], rows, 'No coin has enough history yet.'));
+    const all = regimeHist && regimeHist.overall;
+    $('#rgNote').textContent = `How to read it: "trending" = the price is going somewhere (trendiness 0.3 or more: 1 is a straight line, 0 is going nowhere); "quiet" = the band is in its narrowest fifth of 90 days, which is where breakouts start; "volatile" = the widest fifth. ${all ? `The last column is this strategy's own backtest since 2020 on MEXC candles (${regimeHist.overall.n} trades, ${fmtR(all.avg_r)} on average, fees and slippage but no funding), grouped by the state its coin was in when the signal came. ` : ''}Differences between states are small next to the swing of single trades (a few hundred trades per state at best), so this is context to read, not a rule to trade by.`;
+
+    // what a market order costs here, measured
+    const sl = rc.slippage || {}, srows = Object.entries(sl).map(([k, v]) => ({ coin: k, ...v }));
+    const bp = (v) => (v == null ? '—' : `${Number(v).toFixed(2)}`);
+    clear($('#slipTable')).append(table([
+      { h: 'Coin', left: true, f: (r) => sym(r.coin) }, { h: 'Spread', f: (r) => bp(r.sp) }, { h: 'Buy $100', f: (r) => bp(r.b100) }, { h: 'Buy $1,000', f: (r) => bp(r.b1000) },
+      { h: 'Buy $5,000', f: (r) => bp(r.b5000) }, { h: 'Buy $20,000', f: (r) => bp(r.b20000) }, { h: 'Stop-out $1,000 (bad case)', f: (r) => bp(r.s1000p90) }, { h: 'Snapshots', f: (r) => r.n ?? '—' },
+    ], srows, 'No order-book snapshots yet.'));
+    $('#slipNote').textContent = 'Basis points (1 bp = 0.01% of the price) paid on top of the mid price by a market order, half the spread included; median of the last 7 days of order-book snapshots taken every 5 minutes. "Bad case" is the 90th percentile of a sell, the kind of fill a stop gets. The old paper model assumed a flat 2 bp per fill. A bigger order walks further down the book, which is how much size each coin can take.';
+  }
+  function renderRecorder() {
+    const rc = data && data.recorder, box = clear($('#recHealth')), pn = $('#pRRec');
+    if (!rc) { box.append(el('div', { class: 'empty' }, 'The data recorder is not reporting. It runs on the VPS (folder lucidio-recorder): once it is installed and has the dashboard address set, its regime, measured slippage and health appear here.')); $('#recNote').textContent = ''; return; }
+    const h = rc.health || {}, agoOf = (ms) => (ms ? ago(ms) : el('small', {}, 'never'));
+    box.append(el('dl', { class: 'kvlist' },
+      kv('Recorder', el('span', { class: rc.alive ? 'good' : 'bad' }, rc.alive ? 'ONLINE' : 'STALE'), ago(rc.ts)),
+      kv('Candles (1m, 1h, 4h)', agoOf(h.candles_ok_ms)), kv('Order books', agoOf(h.book_ok_ms)), kv('Funding rates', agoOf(h.funding_ok_ms)), kv('Regime', agoOf(h.regime_ok_ms)),
+      kv('Data since', h.first_ms ? fmtDay(h.first_ms) : '—', h.archive_mb != null ? el('small', {}, `${h.archive_mb} MB on the server`) : null),
+      kv('Gaps in the candles', el('span', { class: (h.holes_1h_7d || 0) + (h.holes_1m_24h || 0) ? 'warn' : 'good' }, `${h.holes_1h_7d ?? '?'} (1h, 7 days) · ${h.holes_1m_24h ?? '?'} (1m, 24 h)`)),
+      kv('Errors in the last hour', el('span', { class: (h.errors_1h || 0) > 5 ? 'warn' : '' }, String(h.errors_1h ?? '?'))),
+      kv('Server disk free', h.disk_free_gb == null ? '—' : el('span', { class: h.disk_low ? 'bad' : '' }, `${h.disk_free_gb} GB`), h.disk_low ? el('small', {}, 'recording is paused') : null),
+      kv('Copy off the server', h.upload_on ? (h.upload_ok_ms ? agoOf(h.upload_ok_ms) : el('span', { class: 'warn' }, 'set up, not done yet')) : el('span', { class: 'warn' }, 'not set up'))));
+    $('#recNote').textContent = h.upload_on ? '' : 'The recorded data is only on the VPS until a copy command is set (RECORDER_SYNC_CMD in /etc/lucidio-recorder.env): if the server were lost, so would the data.';
+    pn.classList.remove('off');
   }
 
   // one trade, every detail we have
@@ -699,7 +772,10 @@
         kv('Risked', t.risk_usd != null ? `${fmtUsd(t.risk_usd)}${t.risk_pct != null ? ` (${+(t.risk_pct * 100).toFixed(2)}% of the balance)` : ''}` : t.risk_pct != null ? `${+(t.risk_pct * 100).toFixed(2)}% of the balance` : '—'),
         kv('Balance before · after', t.balance_used != null || t.balance_after != null ? `${none(t.balance_used, (x) => fmtUsd(x))} · ${none(t.balance_after, (x) => fmtUsd(x))}` : '—'),
         kv('Signal margin', none(t.near_thr_pct, (x) => `${Number(x).toFixed(3)}% past the trigger`)),
-        kv('Estimated fees', none(t.fees_r, (x) => `${x.toFixed(3)}R`)), kv('Funding', t.costs_kind && /paper/.test(t.costs_kind) ? 'not charged in paper' : '—'), kv('Costs are', t.costs_kind || '—')));
+        kv('Fees (both sides)', t.fees_pct != null ? `${t.fees_pct.toFixed(3)}%${t.fees_r != null ? ` = ${t.fees_r.toFixed(3)}R` : ''}` : none(t.fees_r, (x) => `${x.toFixed(3)}R`)),
+        kv('Slippage (both sides)', none(t.slip_pct, (x) => `${x.toFixed(3)}%`)),
+        kv('Funding', t.costs_kind === 'estimate (paper)' ? 'not charged in this older paper model' : t.funding == null ? '—' : t.costs_kind === 'actual' ? fmtUsd(t.funding, true) : `${t.funding >= 0 ? '+' : ''}${Number(t.funding).toFixed(3)}R`),
+        kv('Costs are', t.costs_kind === 'modelled (paper)' ? 'modelled from the real order book, fee list and funding' : t.costs_kind || '—')));
     if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
   }
   const closeTrade = () => { const dl = $('#tradeDlg'); if (dl.close) dl.close(); else dl.removeAttribute('open'); };

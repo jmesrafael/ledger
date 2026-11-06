@@ -149,15 +149,15 @@
   // open (B1), mean fees + adverse slippage <= 0.07R per trade (B3). Plus the live-vs-backtest result and the drawdown against the halt.
   // These show the bot EXECUTES as the backtest assumes. They do not prove the strategy makes money (the audit says so too: that needs hundreds of trades).
   // status: 'pass' | 'fail' | 'wait' (not enough data yet) | 'info'
-  function readiness(trades, { compare = null, drawdownR = null, haltR = null } = {}) {
+  function readiness(trades, { compare = null, drawdownR = null, haltR = null, skipCompare = false } = {}) {
     const ex = execution(trades), n = trades.length, out = [];
     out.push({ id: 'sample', title: 'Enough trades to judge', need: '25 or more closed trades', have: `${n} closed`, status: n >= 25 ? 'pass' : 'wait',
       note: n >= 25 ? 'The sample is big enough for the execution checks below.' : `${25 - n} more trade${25 - n === 1 ? '' : 's'} before the checks below mean much.` });
     out.push({ id: 'timing', title: 'Entries on time', need: 'every entry within 15 minutes of the candle open', have: ex.delay_sec.n ? `slowest ${Math.round(ex.delay_sec.max)}s · median ${Math.round(ex.delay_sec.median)}s` : 'no entries yet',
       status: !ex.delay_sec.n ? 'wait' : ex.delay_sec.max <= 900 ? 'pass' : 'fail', note: 'Seconds between the candle open and the moment the bot filled.' });
     out.push({ id: 'costs', title: 'Costs inside the model', need: 'average fees + slippage 0.07R or less per trade', have: ex.cost_r.n ? `${ex.cost_r.avg.toFixed(3)}R average over ${ex.cost_r.n}` : 'no data yet',
-      status: !ex.cost_r.n ? 'wait' : n < 25 ? 'wait' : ex.cost_r.avg <= 0.07 ? 'pass' : 'fail', note: 'Paper fees are an estimate and paper has no funding, so real results run a little lower.' });
-    out.push({ id: 'compare', title: 'Matches the backtest', need: 'latest live-vs-backtest check says MATCH', have: compare ? `${compare.match ? 'MATCH' : 'NOT A MATCH'} · ${compare.matched ?? 0} matched` : 'no check received yet',
+      status: !ex.cost_r.n ? 'wait' : n < 25 ? 'wait' : ex.cost_r.avg <= 0.07 ? 'pass' : 'fail', note: 'What the run charged for fees and slippage on each trade (funding is counted separately in R).' });
+    if (!skipCompare) out.push({ id: 'compare', title: 'Matches the backtest', need: 'latest live-vs-backtest check says MATCH', have: compare ? `${compare.match ? 'MATCH' : 'NOT A MATCH'} · ${compare.matched ?? 0} matched` : 'no check received yet',
       status: !compare ? 'wait' : compare.match ? 'pass' : 'fail', note: 'Same candles run through the backtest: every trade should appear in both.' });
     if (drawdownR != null && haltR != null) {
       const halt = Math.abs(haltR);

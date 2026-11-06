@@ -1,0 +1,74 @@
+{
+ "generated": "2026-11-06",
+ "source": "1h BB-Core backtest on MEXC candles, five coins, since 2020; fixed fees + slippage, no funding",
+ "min_trades": 30,
+ "overall": {
+  "n": 1453,
+  "avg_r": 0.444,
+  "win_rate": 0.356,
+  "total_r": 645.8
+ },
+ "states": {
+  "trending_up": {
+   "n": 150,
+   "avg_r": 0.678,
+   "win_rate": 0.447,
+   "total_r": 101.7,
+   "time_share": 0.043
+  },
+  "trending_down": {
+   "n": 146,
+   "avg_r": 0.058,
+   "win_rate": 0.466,
+   "total_r": 8.5,
+   "time_share": 0.062
+  },
+  "volatile": {
+   "n": 43,
+   "avg_r": 0.409,
+   "win_rate": 0.395,
+   "total_r": 17.6,
+   "time_share": 0.153
+  },
+  "quiet": {
+   "n": 514,
+   "avg_r": 0.535,
+   "win_rate": 0.296,
+   "total_r": 274.8,
+   "time_share": 0.212
+  },
+  "ranging": {
+   "n": 600,
+   "avg_r": 0.405,
+   "win_rate": 0.355,
+   "total_r": 243.2,
+   "time_share": 0.529
+  }
+ },
+ "market_states": {
+  "trending_up": {
+   "n": 71,
+   "avg_r": 0.331,
+   "win_rate": 0.479,
+   "total_r": 23.5
+  },
+  "trending_down": {
+   "n": 126,
+   "avg_r": 0.051,
+   "win_rate": 0.373,
+   "total_r": 6.4
+  },
+  "choppy": {
+   "n": 1170,
+   "avg_r": 0.492,
+   "win_rate": 0.344,
+   "total_r": 575.9
+  },
+  "mixed": {
+   "n": 86,
+   "avg_r": 0.465,
+   "win_rate": 0.384,
+   "total_r": 40
+  }
+ }
+}
