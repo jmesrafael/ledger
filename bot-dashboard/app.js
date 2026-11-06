@@ -23,7 +23,7 @@
   let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
   let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
-  let bot = ['icore', 'bb1h'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
+  let bot = ['icore', 'bb1h', 'bbtr'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
   const PAGE = { trades: 100, skipped: 50, journal: 100 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped, journal: PAGE.journal };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
   const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
@@ -65,10 +65,12 @@
   // ---------------- the selected bot (Performance and Trades) ----------------
   const hasIcore = () => !!(data && data.perf && data.perf.icore);
   const hasLab = () => !!(data && data.perf && data.perf.bb1h && data.labs && data.labs.bb1h);   // the 1h BB-Core paper lab bot (reports as bb1h)
-  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'bb1h' && hasLab());
+  const hasTrail = () => !!(data && data.perf && data.perf.bbtr && data.labs && data.labs.bbtr);   // the T-CORE paper lab bot (reports as bbtr)
+  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'bb1h' && hasLab()) || (k === 'bbtr' && hasTrail());
   const view = () => {
     const d = data, ic = bot === 'icore' && hasIcore();
     if (bot === 'bb1h' && hasLab()) return { key: 'bb1h', label: 'BB-1h lab', mode: d.labs.bb1h.mode, perf: d.perf.bb1h, trades: d.labs.bb1h.trades || [] };
+    if (bot === 'bbtr' && hasTrail()) return { key: 'bbtr', label: 'T-CORE lab', mode: d.labs.bbtr.mode, perf: d.perf.bbtr, trades: d.labs.bbtr.trades || [] };
     return ic ? { key: 'icore', label: 'I-Core', mode: d.bots.icore.mode, perf: d.perf.icore, trades: d.bots.icore.trades || [] }
       : { key: 'bbcore', label: 'BB-Core', mode: d.mode, perf: d.perf ? d.perf.bbcore : null, trades: d.trades };
   };
@@ -246,7 +248,7 @@
     $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
   }
   function renderBotSeg() {
-    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['bb1h', 'BB-1h lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
+    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['bb1h', 'BB-1h lab'], ['bbtr', 'T-CORE lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
     for (const host of $$('.botseg')) {
       host.hidden = !show; if (!show) continue;
       clear(host).append(...list.map(([k, l]) => el('button', { type: 'button', 'data-bot': k, class: k === bot ? 'on' : '' }, l)));
@@ -607,9 +609,26 @@
 
   // ---------------- Research: how the run works and what it has done so far, in enough detail to decide whether the strategy is ready to go live ----------------
   // (coin / side / exit splits and the fills-vs-model table already live on the Performance tab; this tab adds what they do not show)
+  // T-CORE lab: how it works, how its trades run against its own backtest (trend capture), and the open trades with their CURRENT trailing stop
+  function trailHow(b) {
+    const t = (b && b.trend) || { trades: 0 }, e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
+    const row = (k, a, x) => el('tr', {}, el('td', {}, k), el('td', { class: 'num' }, a), el('td', { class: 'num muted' }, x));
+    const open = (b && b.open_list) || [];
+    return [
+      el('p', {}, el('b', {}, 'A paper trend-follower with real-world costs. '), "T-CORE enters exactly like BB-Core (a 4h close outside the Bollinger band, with the 200 average) but exits differently: a stop 2 ATR away that trails 14 ATR behind the best price, with no target and no time limit. Most trades lose about 1R; a few ride a trend for weeks. No order is ever sent."),
+      el('p', { class: 'muted' }, "It will not take the same trades as BB-Core: each bot holds one position per coin, and T-CORE stays in a trade much longer, so it skips signals BB-Core takes and the other way round. It is checked every day against its OWN backtest on the same candles (the comparison below), never against BB-Core's trades. Costs are real: whole contracts, the order book's fill, the coin's fee, MEXC's settled funding."),
+      el('h4', {}, `Trend capture: ${t.trades} closed trade${t.trades === 1 ? '' : 's'} vs its backtest (2020-2026, same rules)`),
+      el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, el('th', {}, ''), el('th', { class: 'num' }, 'lab'), el('th', { class: 'num' }, 'backtest'))), el('tbody', {},
+        row('Reached +1R', pc(t.reached_1r), pc(e.reached_1r)), row('Reached +3R', pc(t.reached_3r), pc(e.reached_3r)), row('Reached +5R', pc(t.reached_5r), pc(e.reached_5r)), row('Reached +10R', pc(t.reached_10r), pc(e.reached_10r)),
+        row('Best price, median', r(t.mfe_median), r(e.mfe_median)), row('Worst price, median', r(t.mae_median), r(e.mae_median)), row('Given back to the trail, median', r(t.gave_back_median), r(e.gave_back_median)),
+        row('Candles held, median', t.bars_median ?? '—', e.bars_median ?? '—'), row('Stop moves, median', t.trail_moves_median ?? '—', '—'), row('Funding per trade', t.funding_r_avg == null ? '—' : fmtR(t.funding_r_avg), 'flat estimate'), row('Slippage in+out', t.slip_bp_avg == null ? '—' : `${t.slip_bp_avg} bp`, '4 bp'))),
+      el('p', { class: 'muted' }, 'R here is the initial risk (entry to the first stop). With 21% winners, totals mean little before about 100 trades; how far trades run and how much the trail gives back show earlier whether it behaves like the backtest.'),
+      open.length ? el('ul', {}, ...open.map((p) => el('li', {}, el('b', {}, `${sym(p.symbol)} ${p.side}: `), p.trail_stop != null ? `stop now ${p.trail_stop} (locks ${fmtR(p.locked_r)}), best so far ${fmtR(p.best_r)}, moved ${p.trail_moves}×` : 'waiting for the first heartbeat with its stop'))) : el('p', { class: 'muted' }, 'No open trade right now.'),
+    ];
+  }
   function renderResearch() {
     if (!data) return;
-    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', b = v.key === 'icore' ? d.bots.icore : lab ? d.labs.bb1h : null, live = v.mode === 'live';
+    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.key === 'icore' ? d.bots.icore : lab ? d.labs.bb1h : trail ? d.labs.bbtr : null, live = v.mode === 'live';
     const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
     const open = b ? b.open_list || [] : d.open, skipCounts = (b ? b.skip_counts : d.skip_counts) || {}, firstEvent = b ? b.first_event_ms : d.first_event_ms;
     const cmp = b ? b.compare : d.compare, ddR = b ? b.drawdown_r : d.status.drawdown_r, haltR = b ? b.halt_r : d.status.halt_r;
@@ -625,7 +644,7 @@
     clear($('#rHow')).append(...(live ? [
       el('p', {}, el('b', {}, 'This bot trades real money on MEXC. '), 'The same detail is kept as for a paper run, so the live record can be compared with what paper and the backtest showed.'),
       el('p', { class: 'muted' }, 'Fees, slippage and funding on live trades are what MEXC actually charged. Skipped signals are kept with the reason.'),
-    ] : lab ? [
+    ] : trail ? trailHow(b) : lab ? [
       el('p', {}, el('b', {}, 'A paper run with real-world costs. '), 'The 1h bot reads the real candles and takes the same decisions as the strategy, but no order is ever sent. The only simulated thing is the money; what each trade would cost is taken from MEXC itself:'),
       el('ul', {},
         el('li', {}, el('b', {}, 'Size: '), 'whole contracts, rounded exactly like the live bot. A coin whose single contract would risk too much is skipped, as live would.'),

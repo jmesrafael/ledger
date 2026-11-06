@@ -458,6 +458,8 @@ tr.click { cursor: pointer; } tr.click:focus-visible { outline: 2px solid var(--
 /* ---- Research tab ---- */
 .howto { margin-top: 14px; line-height: 1.6; font-size: 13.5px; }
 .howto p { margin: 8px 0; } .howto ul { margin: 6px 0 10px; padding-left: 20px; } .howto li { margin: 4px 0; }
+/* T-CORE lab: trend capture next to its backtest */
+.howto h4 { margin: 14px 0 6px; font-size: 13px; color: var(--ink); } .howto table.mini { border-collapse: collapse; font-size: 12.5px; margin: 4px 0 6px; } .howto table.mini th, .howto table.mini td { padding: 3px 12px 3px 0; border-bottom: 1px solid var(--line); text-align: left; } .howto table.mini .num { text-align: right; font-variant-numeric: tabular-nums; } .howto table.mini th { color: var(--muted); font-weight: 600; }
 .chk { display: grid; grid-template-columns: 26px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--divider); }
 .chk:last-of-type { border-bottom: 0; }
 .chk .mk { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-weight: 800; font-size: 13px; background: var(--variant); color: var(--muted); }

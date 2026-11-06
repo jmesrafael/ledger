@@ -1,5 +1,13 @@
 [
   {
+    "slug": "live-pair-vs-three-bot",
+    "title": "Live Pair vs Three-Bot Mix",
+    "summary": "The two live bots (BB-CORE + I-CORE, ₱10,000 split 50/50) against 10 other mixes on SOL, ZEC, NEAR, ADA and GALA, 4h, 2020 to 5 Nov 2026, judged with the trading-math survival checks. The live pair made money in 7 of 7 years and 70% of months, about ₱33,500 a year on a fresh ₱10,000. Adding a third bot, T-CORE, with 25% of the money (TRI-CORE, 50/25/25) keeps the same score before and after 2023 (20.5), cuts the chance of a 30% drop from 55% to 39% and is positive in rising, sideways and falling months. It made less in 2022–2023. Paper-test T-CORE first. ₱60 per $1. A test on past prices, not a promise.",
+    "updated": "Nov 6, 2026",
+    "kind": "Data report",
+    "file": "/reports/live-pair-vs-three-bot.html"
+  },
+  {
     "slug": "bbcore-4h-vs-1h",
     "title": "bb-core 4h vs 1h: Side by Side",
     "summary": "The same rules on the same 5 coins on 4-hour and 1-hour candles, with real funding. 1h makes +724R against +594R, but its drawdowns are deeper in most tests (−31.2R against −24.9R) and it has no live record. Includes MEXC candles, data before 2020, the paper test and what switching would take. Recommendation: keep 4h live and decide at the December 4 review. A test on past prices, not a promise.",
