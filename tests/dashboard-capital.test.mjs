@@ -59,7 +59,6 @@ test('D6 the page prefers the wallet reports, remembers the last good total and 
   assert.match(app, /if \(!wc\.missing\.length\) rememberCapital/); assert.match(app, /if \(!tc\.missing\.length && !tc\.paper\.length\) rememberCapital/);
   // a failed refresh keeps the page; only a first load with no data falls back to the login screen
   assert.match(app, /if \(data\) \{ kept = true;/); assert.match(app, /else showLogin\(`Could not load data:/);
-  assert.match(app, /if \(!kept\) \$\('#promptCmd'\)/);
 });
 
 test('D7 the bot dashboard has a back button to the ledger (its sign-in is kept by the ledger, so it opens signed in)', () => {

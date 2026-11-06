@@ -25,7 +25,7 @@
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
   let bot = store.get('bot.view') === 'icore' ? 'icore' : 'bbcore';
   const filters = { coin: '', side: '', reason: '', from: '', to: '' };
-  const PAGE = { trades: 100, skipped: 50 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
+  const PAGE = { trades: 100, skipped: 50, journal: 100 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped, journal: PAGE.journal };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
   const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
 
   // ---------------- formatting ----------------
@@ -71,10 +71,14 @@
   };
 
   // ---------------- tables ----------------
-  function table(cols, rows, empty) {
+  function table(cols, rows, empty, onRow) {
     if (!rows.length) return el('div', { class: 'empty' }, empty);
     return el('table', {}, el('thead', {}, el('tr', {}, cols.map((c) => el('th', { class: c.left ? 'l' : '' }, c.h)))),
-      el('tbody', {}, rows.map((r) => el('tr', { class: r._cls || null }, cols.map((c) => el('td', { class: `${c.left ? 'l' : ''} ${c.c ? c.c(r) : ''}` }, c.f(r)))))));
+      el('tbody', {}, rows.map((r) => {
+        const tr = el('tr', { class: [r._cls, onRow ? 'click' : ''].filter(Boolean).join(' ') || null, tabindex: onRow ? 0 : null, role: onRow ? 'button' : null }, cols.map((c) => el('td', { class: `${c.left ? 'l' : ''} ${c.c ? c.c(r) : ''}` }, c.f(r))));
+        if (onRow) { tr.addEventListener('click', () => onRow(r)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRow(r); } }); }
+        return tr;
+      })));
   }
 
   // ---------------- charts (inline SVG) ----------------
@@ -169,7 +173,7 @@
   const closeOf = (v) => v + CANDLE_MS;
 
   // ---------------- render: the header always, the open tab now, the other tabs when they are opened ----------------
-  const TABS = ['overview', 'performance', 'verify', 'log', 'status'];
+  const TABS = ['overview', 'performance', 'calendar', 'research', 'verify', 'log', 'status'];
   const dirty = new Set();
   function render(d) {
     data = d;
@@ -195,6 +199,8 @@
   const RENDER = {
     overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpen(data); renderTrades(); },
     performance: () => { renderPerf(); renderCoins(); },
+    calendar: () => renderCalendar(),
+    research: () => renderResearch(),
     verify: () => { renderChecks(data); renderCompare(data); },
     log: () => { renderActivity(data); renderSkipped(data); },
     status: () => { renderStatus(data); renderUptime(data); loadVpsInline(); },
@@ -520,6 +526,186 @@
     moreBtn($('#tradesMore'), 'trades', rows.length, renderTrades);
   }
 
+  // ---------------- Calendar: the result of each day (the day a trade CLOSED) for the selected bot and mode, paper or live, in the zone chosen in the menu ----------------
+  const BR = window.BotResearch;
+  let calMonth = null, calDay = null, calMetric = store.get('bot.calmetric') === 'usd' ? 'usd' : 'r', calSeen = '';
+  const fmtCal = (v, metric) => (v == null ? '' : metric === 'usd' ? `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) >= 100 ? 0 : 2)}` : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}R`);
+  const tint = (host, v, max) => { if (!v || !max) return; const p = Math.round(14 + 52 * Math.min(1, Math.abs(v) / max)); host.style.setProperty('background', `color-mix(in srgb, var(${v > 0 ? '--up' : '--down'}) ${p}%, transparent)`); };
+  const nTrades = (n) => `${n} trade${n === 1 ? '' : 's'}`;
+
+  function renderCalendar() {
+    if (!data) return;
+    const v = view(), days = BR.dailyMap(v.trades, tz), months = BR.monthsWithData(days), now = BR.dayParts(Date.now(), tz);
+    // a different bot, mode or time zone starts at the latest month with trades (or this month when there are none)
+    const sig = `${v.key}|${v.mode}|${tz}`;
+    if (!calMonth || calSeen !== sig) {
+      calSeen = sig; const last = months.length ? months[months.length - 1] : null;
+      calMonth = last ? { y: +last.slice(0, 4), m: +last.slice(5) - 1 } : { y: now.y, m: now.m }; calDay = null;
+    }
+    const grid = BR.monthGrid(days, calMonth.y, calMonth.m), tot = grid.total;
+    const hasUsd = [...days.values()].some((d) => d.usd != null), metric = hasUsd ? calMetric : 'r';
+    for (const b of $$('#calMetric button')) { b.classList.toggle('on', b.dataset.metric === metric); b.disabled = b.dataset.metric === 'usd' && !hasUsd; b.title = b.disabled ? 'Money amounts are not shared for this data' : ''; }
+    $('#calTitle').textContent = `${MONTHS_LONG[calMonth.m]} ${calMonth.y}`;
+    // a day's or total's value in the chosen metric; a day with no money figure falls back to R
+    const pick = (x) => (metric === 'usd' && x.usd != null ? { v: x.usd, m: 'usd' } : { v: x.r, m: 'r' });
+    const show = (x) => { const p = pick(x); return fmtCal(p.v, p.m); };
+    const hasLoss = tot.worst && tot.worst.r < 0, hasWin = tot.best && tot.best.r > 0;
+    clear($('#calSummary')).append(
+      tile('Month result', tot.days ? show(tot) : '—', tot.days ? (pick(tot).m === 'usd' ? fmtR(tot.r) : tot.usd != null ? fmtUsd(tot.usd, true) : nTrades(tot.n)) : 'no closed trades', tot.days ? cls(tot.r) : ''),
+      tile('Trades', String(tot.n), tot.days ? `on ${tot.days} day${tot.days === 1 ? '' : 's'}` : null),
+      tile('Winning days', tot.days ? `${tot.win_days} of ${tot.days}` : '—', tot.days ? `${tot.loss_days} losing` : null),
+      tile('Best day', hasWin ? show(tot.best) : '—', hasWin ? periodLabel(tot.best.key) : null, hasWin ? 'good' : ''),
+      tile('Worst day', hasLoss ? show(tot.worst) : '—', hasLoss ? periodLabel(tot.worst.key) : null, hasLoss ? 'bad' : ''));
+
+    const max = Math.max(0, ...grid.weeks.flatMap((w) => w.cells).filter((c) => c.stat).map((c) => Math.abs(pick(c.stat).v)));
+    const todayKey = `${now.y}-${pad(now.m + 1)}-${pad(now.d)}`;
+    const head = el('div', { class: 'calrow calhead' }, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => el('div', {}, d)), el('div', { class: 'wk' }, 'Week'));
+    const body = grid.weeks.map((w) => el('div', { class: 'calrow' },
+      w.cells.map((c) => {
+        const sel = c.stat && calDay === c.key, val = c.stat ? pick(c.stat).v : null;
+        const cell = el(c.stat ? 'button' : 'div', { class: `cal ${c.inMonth ? '' : 'out'} ${c.stat ? 'has' : ''} ${sel ? 'sel' : ''} ${c.key === todayKey ? 'today' : ''}`, type: c.stat ? 'button' : null,
+          'aria-label': c.stat ? `${periodLabel(c.key)}: ${fmtR(c.stat.r)}, ${nTrades(c.stat.n)}` : null },
+          el('span', { class: 'dn' }, c.day),
+          c.stat ? [el('span', { class: `dv ${cls(val)}` }, show(c.stat)), el('span', { class: 'dt' }, nTrades(c.stat.n))] : null);
+        if (c.stat) { tint(cell, val, max); cell.addEventListener('click', () => { calDay = c.key; renderCalendar(); }); }
+        return cell;
+      }),
+      el('div', { class: `wk ${cls(w.total.r)}` }, w.total.n ? [el('b', {}, show(w.total)), el('small', {}, nTrades(w.total.n))] : el('span', { class: 'muted' }, '·'))));
+    clear($('#calGrid')).append(head, ...body);
+    $('#calNote').textContent = `Each trade counts on the day it closed (${tz === 'utc' ? 'UTC' : 'your local time'}). Green = net profit that day, red = net loss; a deeper colour means a bigger day. ${v.label} · ${v.mode === 'live' ? 'live data.' : 'paper data (simulated money).'}${!hasUsd ? ' Money amounts are not shared for this data, so the calendar shows R.' : ''}`;
+
+    // the selected day (default: the latest day with trades in this month)
+    const pre = `${calMonth.y}-${pad(calMonth.m + 1)}-`;
+    const inMonth = [...days.values()].filter((d) => d.key.startsWith(pre)).sort((a, b) => a.key.localeCompare(b.key));
+    if (!calDay || !days.has(calDay) || !calDay.startsWith(pre)) calDay = inMonth.length ? inMonth[inMonth.length - 1].key : null;
+    const dayBox = clear($('#calDay')), dd = calDay ? days.get(calDay) : null;
+    $('#calDayTitle').textContent = dd ? `day / ${periodLabel(calDay)}` : 'day / trades';
+    if (!dd) dayBox.append(el('div', { class: 'empty' }, 'No closed trades this month.'));
+    else dayBox.append(el('p', { class: 'summary' }, `${nTrades(dd.n)} · `, el('span', { class: cls(dd.r) }, fmtR(dd.r)), dd.usd != null ? el('span', { class: cls(dd.usd) }, ` (${fmtUsd(dd.usd, true)})`) : '', ` · ${dd.wins}W / ${dd.losses}L`),
+      table([{ h: 'Closed', left: true, f: (r) => fmtHm(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) },
+        { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) }, ...(dd.usd != null ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : [])], dd.trades, '', openTrade),
+      el('p', { class: 'muted note' }, 'Click a trade for its full card.'));
+
+    // the year, month by month
+    const ym = BR.yearMonths(days, calMonth.y), ymax = Math.max(0, ...ym.map((m) => Math.abs(m.r || 0)));
+    $('#calYearTitle').textContent = `year / ${calMonth.y} by month`;
+    clear($('#calYear')).append(table([
+      { h: 'Month', left: true, f: (m) => (m.month === calMonth.m ? el('b', {}, MONTHS_LONG[m.month]) : MONTHS_LONG[m.month]) },
+      { h: 'Trades', f: (m) => m.n || '·' }, { h: 'Win days', f: (m) => (m.days ? `${m.win_days}/${m.days}` : '·') },
+      { h: 'Net R', f: (m) => (m.days ? fmtR(m.r) : '·'), c: (m) => cls(m.r) }, ...(hasUsd ? [{ h: 'Net $', f: (m) => (m.usd == null ? '·' : fmtUsd(m.usd, true)), c: (m) => cls(m.usd) }] : []),
+      { h: '', f: (m) => { const b = el('i', { class: m.r < 0 ? 'neg' : '' }); b.style.setProperty('width', `${ymax && m.days ? Math.max(4, Math.round((Math.abs(m.r) / ymax) * 100)) : 0}%`); return el('span', { class: 'ytrack' }, b); } },
+    ], ym, '', (m) => { calMonth = { y: calMonth.y, m: m.month }; calDay = null; renderCalendar(); }));
+  }
+  function stepMonth(delta) { if (!calMonth) return; const d = new Date(Date.UTC(calMonth.y, calMonth.m + delta, 1)); calMonth = { y: d.getUTCFullYear(), m: d.getUTCMonth() }; calDay = null; renderCalendar(); }
+  $('#calPrev').addEventListener('click', () => stepMonth(-1));
+  $('#calNext').addEventListener('click', () => stepMonth(1));
+  $('#calToday').addEventListener('click', () => { calSeen = ''; renderCalendar(); });
+  $('#calMetric').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; calMetric = b.dataset.metric; store.set('bot.calmetric', calMetric); renderCalendar(); });
+
+  // ---------------- Research: how the run works and what it has done so far, in enough detail to decide whether the strategy is ready to go live ----------------
+  // (coin / side / exit splits and the fills-vs-model table already live on the Performance tab; this tab adds what they do not show)
+  function renderResearch() {
+    if (!data) return;
+    const d = data, v = view(), tr = v.trades, ic = v.key === 'icore', b = ic ? d.bots.icore : null, live = v.mode === 'live';
+    const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
+    const open = ic ? b.open_list || [] : d.open, skipCounts = (ic ? b.skip_counts : d.skip_counts) || {}, firstEvent = ic ? b.first_event_ms : d.first_event_ms;
+    const cmp = ic ? b.compare : d.compare, ddR = ic ? b.drawdown_r : d.status.drawdown_r, haltR = ic ? b.halt_r : d.status.halt_r;
+    $('#rHowTitle').textContent = `research / how ${v.label} ${live ? 'trades live' : 'paper trading works'}`;
+
+    const first = tr.length ? Math.min(...tr.map((t) => t.entry_ts)) : null, skips = Object.values(skipCounts).reduce((a, x) => a + x, 0), running = firstEvent != null ? (Date.now() - firstEvent) / 1000 : null;
+    clear($('#rRun')).append(
+      tile('Running for', running != null ? fmtDur(running) : '—', firstEvent != null ? `since ${fmtShort(firstEvent)}${tzTag()}` : 'no events yet'),
+      tile('Closed trades', String(o.n), first ? `first entry ${fmtShort(first)}` : 'none yet'),
+      tile('Open now', String(open.length), open.length ? open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ') : 'flat'),
+      tile('Signals skipped', String(skips), skips ? Object.entries(skipCounts).map(([k, x]) => `${k} ${x}`).join(' · ') : 'none'),
+      tile('Net result', fmtR(o.total_r), o.usd != null ? fmtUsd(o.usd, true) : nTrades(o.n), cls(o.total_r)));
+    clear($('#rHow')).append(...(live ? [
+      el('p', {}, el('b', {}, 'This bot trades real money on MEXC. '), 'The same detail is kept as for a paper run, so the live record can be compared with what paper and the backtest showed.'),
+      el('p', { class: 'muted' }, 'Fees, slippage and funding on live trades are what MEXC actually charged. Skipped signals are kept with the reason.'),
+    ] : [
+      el('p', {}, el('b', {}, 'Paper means simulated money, real market. '), 'The bot reads the real candles and takes the same decisions as the live bot, but no order is ever sent. It starts with a pretend balance and sizes each trade on it.'),
+      el('ul', {},
+        el('li', {}, el('b', {}, 'Entry: '), 'when a candle closes with a signal, the bot fills at the price it sees when it wakes up, a couple of seconds into the next candle. If it is late, the result shows it (price vs candle open and delay below).'),
+        el('li', {}, el('b', {}, 'Exit: '), 'at the stop, at the target if there is one, or at the time limit, checked against the real candles.'),
+        el('li', {}, el('b', {}, 'Costs: '), 'fees and slippage are an estimate. Paper has ', el('b', {}, 'no funding charge'), ', so real results run a little lower than paper.'),
+        el('li', {}, el('b', {}, 'Skipped signals '), 'are kept with the reason (too late, halted, kill switch), so nothing is hidden.')),
+      el('p', { class: 'muted' }, 'A paper run proves the bot executes the way the backtest assumes. It cannot prove the strategy makes money: that takes hundreds of trades, which is why the range around the average is shown.'),
+    ]));
+
+    // ready for live?
+    const mark = { pass: '✓', fail: '✗', wait: '…', info: 'i' }, label = { pass: 'OK', fail: 'FAILING', wait: 'WAITING FOR DATA', info: '' };
+    const checks = BR.readiness(tr, { compare: cmp, drawdownR: ddR, haltR });
+    const rd = clear($('#rReady'));
+    rd.append(...checks.map((c) => el('div', { class: `chk ${c.status}` }, el('span', { class: 'mk', 'aria-hidden': 'true' }, mark[c.status]),
+      el('div', {}, el('div', { class: 'ct' }, c.title, ' ', el('span', { class: 'cs' }, label[c.status])), el('div', { class: 'cn' }, `Needs: ${c.need}. Now: ${c.have}.`), el('div', { class: 'cn' }, c.note)))));
+    rd.append(el('p', { class: 'muted note' }, `${checks.filter((c) => c.status === 'pass').length} of ${checks.length} checks OK. These show the bot executes the way the backtest assumes; they do not prove the strategy makes money, and they are separate from the stop-and-review rules on the Verify tab. Going live also needs its own risk review.`));
+
+    // is there an edge yet?
+    const f3 = (x) => (x == null ? '—' : Number(x).toFixed(3)), edgeBox = clear($('#rEdge'));
+    edgeBox.append(el('dl', { class: 'kvlist' },
+      kv('Average per trade', eg.mean == null ? '—' : el('span', { class: cls(eg.mean) }, fmtR(eg.mean)), eg.half != null ? el('small', {}, `likely between ${fmtR(eg.lo)} and ${fmtR(eg.hi)} (95%)`) : null),
+      kv('Average win · loss', o.n ? `${o.avg_win_r != null ? fmtR(o.avg_win_r) : '—'} · ${o.avg_loss_r != null ? fmtR(o.avg_loss_r) : '—'}` : '—'),
+      kv('Price vs candle open', ex.slippage_r.n ? `${f3(ex.slippage_r.avg)}R avg` : '—', ex.slippage_r.n ? el('small', {}, `worst ${f3(ex.slippage_r.max)}R · best ${f3(ex.slippage_r.min)}R (+ means worse)`) : null),
+      kv('Delay after the open', ex.delay_sec.n ? `${Math.round(ex.delay_sec.median)}s median` : '—', ex.delay_sec.n ? el('small', {}, `90% within ${Math.round(ex.delay_sec.p90)}s · slowest ${Math.round(ex.delay_sec.max)}s`) : null),
+      kv('Fees + slippage', ex.cost_r.n ? `${f3(ex.cost_r.avg)}R avg` : '—', ex.cost_r.n ? el('small', {}, 'limit used in the checks: 0.07R') : null),
+      kv('Signal margin', ex.near_thr_pct.n ? `${Number(ex.near_thr_pct.median).toFixed(2)}% median` : '—', ex.near_thr_pct.n ? el('small', {}, 'how far past its trigger the price was; small = a marginal signal') : null)));
+    edgeBox.append(el('p', { class: 'muted note' }, eg.half == null ? 'Too few trades to estimate a range yet.'
+      : eg.excludes_zero ? `With ${eg.n} trades the range ${eg.mean > 0 ? 'stays above' : 'stays below'} zero, but trade results swing a lot: keep collecting before trusting it.`
+      : `With only ${eg.n} trades the range still includes zero (it is about ±${eg.half}R wide), so the average cannot yet tell a real edge from luck. That is normal this early.`));
+
+    // result per trade
+    const h = BR.histogram(tr), hmax = Math.max(1, ...h.map((x) => x.n)), hb = clear($('#rHist'));
+    if (!tr.length) hb.append(el('div', { class: 'empty' }, 'No closed trades yet.'));
+    else hb.append(...h.map((x) => { const bar = el('i'); bar.style.setProperty('height', `${(x.n / hmax) * 100}%`); return el('div', { class: `hcol ${x.hi <= 0 ? 'neg' : x.lo >= 0 ? 'pos' : ''}`, title: nTrades(x.n) }, el('span', { class: 'hn' }, x.n || ''), el('div', { class: 'hbar' }, bar), el('span', { class: 'hl' }, x.label.replace(' to ', '…'))); }));
+    $('#rHistNote').textContent = tr.length ? 'How many trades ended in each result band. Left of zero are losses; a few big wins usually carry a strategy like this.' : '';
+
+    // when it trades
+    const cols = (first) => [
+      { h: first, left: true, f: (r) => r.key }, { h: 'Trades', f: (r) => r.n }, { h: 'Win', f: (r) => pct0(r.win_rate) },
+      { h: 'Avg R', f: (r) => fmtR(r.avg_r), c: (r) => cls(r.avg_r) }, { h: 'Total R', f: (r) => fmtR(r.total_r), c: (r) => cls(r.total_r) }];
+    const split = (title, rows, first) => el('div', { class: 'split' }, el('div', { class: 'sub-h first' }, title), el('div', { class: 'scroll' }, table(cols(first), rows, 'No trades yet.')));
+    const skipRows = Object.entries(skipCounts).sort((a, c) => c[1] - a[1]).map(([k, x]) => ({ key: k, n: x }));
+    clear($('#rSplit')).append(
+      split(`Day of entry${tzTag()}`, BR.byWeekday(tr, tz), 'Day'), split(`Hour of entry${tzTag()}`, BR.byHourBlock(tr, tz), 'Hours'), split('Time in trade', BR.byHold(tr), 'Held'),
+      el('div', { class: 'split' }, el('div', { class: 'sub-h first' }, 'Signals not taken'), el('div', { class: 'scroll' }, table([{ h: 'Reason', left: true, f: (r) => r.key }, { h: 'Count', f: (r) => r.n }], skipRows, 'None skipped.'))));
+
+    // journal
+    const rows = [...tr].sort((a, c) => c.exit_ts - a.exit_ts), hasUsd = rows.some((t) => t.usd != null);
+    $('#rTradeCount').textContent = nTrades(rows.length);
+    clear($('#rTrades')).append(table([
+      { h: 'Closed', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
+      { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'Exit', f: (r) => fmtPx(r.exit) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) },
+      { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) }, ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []),
+      { h: 'Delay', f: (r) => (r.delay_sec == null ? '—' : `${Math.round(r.delay_sec)}s`) }, { h: 'Slip', f: (r) => (r.slippage_r == null ? '—' : `${r.slippage_r.toFixed(3)}R`) },
+      { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
+    ], rows.slice(0, shown.journal), 'No closed trades yet. They appear here as the bot closes them.', openTrade));
+    moreBtn($('#rTradesMore'), 'journal', rows.length, renderResearch);
+  }
+
+  // one trade, every detail we have
+  function openTrade(t) {
+    const dlg = $('#tradeDlg'), body = clear($('#tradeBody')), none = (x, f) => (x == null ? '—' : f(x));
+    $('#tradeDlgTitle').textContent = `${sym(t.symbol)} ${t.side} · ${fmtShort(t.entry_ts)}`;
+    body.append(el('p', { class: 'nowtext' }, BR.describe(t)),
+      el('div', { class: 'tiles' },
+        tile('Result', fmtR(t.r), t.usd != null ? fmtUsd(t.usd, true) : 'money not shared', cls(t.r)),
+        tile('Time in trade', fmtDur(t.hold_sec), `${fmtShort(t.entry_ts)} → ${fmtShort(t.exit_ts)}${tzTag()}`)),
+      el('dl', { class: 'kvlist tradekv' },
+        kv('Signal candle opened', t.signal_candle_open_ms != null ? fmtTime(t.signal_candle_open_ms) : '—'),
+        kv('Price the signal wanted', none(t.intended, fmtPx)), kv('Price it filled at', fmtPx(t.entry)),
+        kv('Delay after the open', none(t.delay_sec, (x) => `${Math.round(x)}s`)), kv('Price vs candle open', none(t.slippage_r, (x) => `${x.toFixed(3)}R`)),
+        kv('Stop', fmtPx(t.sl)), kv('Target', t.tp == null ? 'none' : fmtPx(t.tp)), kv('Exit price', fmtPx(t.exit)), kv('Closed by', t.reason || '—'),
+        kv('1R distance', none(t.one_r, fmtPx)), kv('Size', none(t.qty, (x) => `${fmtPx(x)} coins`)),
+        kv('Risked', t.risk_usd != null ? `${fmtUsd(t.risk_usd)}${t.risk_pct != null ? ` (${+(t.risk_pct * 100).toFixed(2)}% of the balance)` : ''}` : t.risk_pct != null ? `${+(t.risk_pct * 100).toFixed(2)}% of the balance` : '—'),
+        kv('Balance before · after', t.balance_used != null || t.balance_after != null ? `${none(t.balance_used, (x) => fmtUsd(x))} · ${none(t.balance_after, (x) => fmtUsd(x))}` : '—'),
+        kv('Signal margin', none(t.near_thr_pct, (x) => `${Number(x).toFixed(3)}% past the trigger`)),
+        kv('Estimated fees', none(t.fees_r, (x) => `${x.toFixed(3)}R`)), kv('Funding', t.costs_kind && /paper/.test(t.costs_kind) ? 'not charged in paper' : '—'), kv('Costs are', t.costs_kind || '—')));
+    if (!dlg.open) { if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+  }
+  const closeTrade = () => { const dl = $('#tradeDlg'); if (dl.close) dl.close(); else dl.removeAttribute('open'); };
+  $('#tradeClose').addEventListener('click', closeTrade);
+  $('#tradeDlg').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTrade(); });
+
   // ---------------- Verify ----------------
   // one card per bot: BB-Core's in #checks, I-Core's in #checks2 (hidden until I-Core reports)
   function renderChecks(d) {
@@ -664,7 +850,7 @@
     if (e.key === 'Escape' && !menu.hidden) { setMenu(false); menuBtn.focus(); }
     if (e.ctrlKey || e.metaKey || e.altKey || typing()) return;
     if (e.key === 'r' || e.key === 'R') load(true);
-    if (/^[1-6]$/.test(e.key)) setTab(TABS[+e.key - 1]);
+    if (/^[1-7]$/.test(e.key)) setTab(TABS[+e.key - 1]);
   });
   menu.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
@@ -684,7 +870,7 @@
   $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); renderPeriods(view().perf); });
   document.addEventListener('click', (e) => {
     const b = e.target.closest('.botseg button[data-bot]'); if (!b || !data) return;
-    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; dirty.add('performance'); dirty.add('overview'); drawTab();
+    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; shown.journal = PAGE.journal; for (const t of ['performance', 'overview', 'calendar', 'research']) dirty.add(t); drawTab();
   });
   $('#pChecks').addEventListener('click', () => setTab('verify'));
   for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });

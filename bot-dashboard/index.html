@@ -77,11 +77,13 @@
   <div id="app" hidden>
     <div id="alert" class="alert" role="alert" hidden></div>
 
-    <!-- one tab per question: how are we doing (Overview) · is the edge real (Performance) · what happened (Trades, Log) · is it behaving (Verify) · is it running (Status).
+    <!-- one tab per question: how are we doing (Overview) · is the edge real (Performance) · which days won and lost (Calendar) · how does the run look in detail, is it ready for live (Research) · what happened (Trades, Log) · is it behaving (Verify) · is it running (Status).
          Every panel says which tab it belongs to (data-tabs) and appears in exactly one tab. -->
     <nav class="maintabs" id="mainTabs" role="tablist" aria-label="Dashboard sections">
       <button type="button" role="tab" data-tab="overview">Overview</button>
       <button type="button" role="tab" data-tab="performance">Performance</button>
+      <button type="button" role="tab" data-tab="calendar">Calendar</button>
+      <button type="button" role="tab" data-tab="research">Research</button>
       <button type="button" role="tab" data-tab="verify"><span id="tbCheck" class="tb-dot" aria-hidden="true"></span>Verify</button>
       <button type="button" role="tab" data-tab="log">Log <span class="tb-n" id="tbLog"></span></button>
       <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
@@ -171,6 +173,59 @@
         <div class="pb"><div id="rolling" class="chart"></div><p id="rollingNote" class="muted note"></p></div>
       </section>
 
+      <!-- ===== Calendar: result of each day, for whichever bot and mode is selected (paper or live) ===== -->
+      <section class="panel c12" id="pCal" data-tabs="calendar">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / calendar</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+        <div class="pb">
+          <div class="calbar">
+            <div class="calnav">
+              <button type="button" class="ghost sm" id="calPrev" aria-label="Previous month">&lsaquo;</button>
+              <strong id="calTitle" aria-live="polite"></strong>
+              <button type="button" class="ghost sm" id="calNext" aria-label="Next month">&rsaquo;</button>
+              <button type="button" class="ghost sm" id="calToday">Latest</button>
+            </div>
+            <div class="tabs" id="calMetric" role="group" aria-label="Show"><button type="button" data-metric="r">R</button><button type="button" data-metric="usd">$</button></div>
+          </div>
+          <div id="calSummary" class="tiles calsum"></div>
+          <div id="calGrid" class="calwrap"></div>
+          <p class="muted note" id="calNote"></p>
+        </div>
+      </section>
+      <section class="panel c5" id="pCalDay" data-tabs="calendar">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="calDayTitle">day / trades</h2></div>
+        <div class="pb"><div id="calDay" class="scroll"></div></div>
+      </section>
+      <section class="panel c7" id="pCalYear" data-tabs="calendar">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="calYearTitle">year / by month</h2></div>
+        <div class="pb"><div id="calYear" class="scroll"></div></div>
+      </section>
+
+      <!-- ===== Research: how the run works and what it has done so far, to decide whether a strategy is ready to go live ===== -->
+      <section class="panel c12" id="pRHow" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="rHowTitle">research / how this run works</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+        <div class="pb"><div id="rRun" class="tiles"></div><div id="rHow" class="howto"></div></div>
+      </section>
+      <section class="panel c5" id="pRReady" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / ready for live?</h2></div>
+        <div class="pb"><div id="rReady"></div></div>
+      </section>
+      <section class="panel c7" id="pREdge" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / is there an edge yet?</h2></div>
+        <div class="pb"><div id="rEdge"></div></div>
+      </section>
+      <section class="panel c5" id="pRDist" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / result per trade (R)</h2></div>
+        <div class="pb"><div id="rHist" class="hist"></div><p class="muted note" id="rHistNote"></p></div>
+      </section>
+      <section class="panel c7" id="pRSplit" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / when it trades</h2></div>
+        <div class="pb"><div id="rSplit" class="splits"></div></div>
+      </section>
+      <section class="panel c12" id="pRTrades" data-tabs="research">
+        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / trade journal</h2><span class="count" id="rTradeCount"></span></div>
+        <div class="pb"><p class="muted note" style="margin-top:0">Every closed trade with its details. Click a row to open the full card.</p><div id="rTrades" class="scroll capped tall"></div><div id="rTradesMore" class="more"></div></div>
+      </section>
+
       <!-- ===== Verify ===== -->
       <section class="panel c7" id="pCheckList" data-tabs="verify">
         <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>checks / stop-and-review rules</h2></div>
@@ -234,6 +289,11 @@
     <p id="footer" class="footer"></p>
   </div>
 </div>
+<dialog id="tradeDlg" class="tradedlg" aria-label="Trade details">
+  <div class="dlghead"><h2 id="tradeDlgTitle">Trade</h2><button type="button" class="ghost sm" id="tradeClose">Close</button></div>
+  <div id="tradeBody"></div>
+</dialog>
+<script src="research.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

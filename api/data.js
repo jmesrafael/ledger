@@ -12,7 +12,7 @@ const { createSupabaseStore } = require('../lib/store.js');
 const { aggregate, STALE_MS } = require('../lib/aggregate.js');
 const { send } = require('../lib/http.js');
 
-const VERSION = 'perf-3';   // change it when aggregate() output changes shape, so every open page reloads once
+const VERSION = 'perf-4';   // change it when aggregate() output changes shape, so every open page reloads once
 let store = null;
 
 function fingerprint({ mode, events, equity, heartbeat, icoreHeartbeat, beats, flows, wallets, walletHist, closedTrades, now }) {
