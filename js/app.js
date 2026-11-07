@@ -814,15 +814,16 @@
 
   // ---------------------------------------------------------------- manager: activity log and backups
   const AUDIT_GROUPS = {
-    money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid'],
+    money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid', 'admission_spread_recorded', 'admission_spread_reallocated'],
     readings: ['equity_reading', 'quarter_closed'],
     accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'username_changed', 'payout_details_changed', 'terms_agreed'],
     security: ['password_changed', 'password_reset', 'viewed_as', 'setting_changed', 'backup_exported', 'backup_key_created', 'backup_keys_revoked'],
   };
   async function loadAdminExtras() {
     const soft = (p) => p.catch((e) => { if (e.message === 'Signed out') throw e; return null; });   // a failed read leaves that part empty
-    const [audit, backup] = await Promise.all([soft(call('admin_audit_log', { p_limit: 200 })), soft(call('admin_backup_status'))]);   // both at once
+    const [audit, backup, spreads] = await Promise.all([soft(call('admin_audit_log', { p_limit: 200 })), soft(call('admin_backup_status')), soft(call('admin_admission_spreads'))]);   // all at once
     S.audit = audit; if (audit) S.auditMore = audit.length >= 200; S.backup = backup;
+    S.spreads = spreads;   // null until 20261209000000_admission_spread.sql is run: the Admission spread card stays hidden
   }
   const auditTime = (ts) => dayTime(ts);
   function auditText(r) {
@@ -843,6 +844,9 @@
       case 'money_received': return `recorded money received from ${who}: ${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)}, waiting to join`;
       case 'money_handed_back': return `handed back ${who}'s waiting money (${usdt(d.usdt)})`;
       case 'money_in': return `${who}'s money joined the pool: ${usdt(d.usdt)}${d.php_amount ? ' (' + php(d.php_amount) + ' paid)' : ''}`;
+      case 'admission_spread_recorded': return `recorded an admission spread for ${who}: ${php(d.php_amount)} credited at ₱${f(d.admission_rate, 2)} (actual ₱${f(d.reference_rate, 2)}) = ${usdt(d.credited_usdt, 6)} of ${usdt(d.actual_usdt, 6)} allocated, ${usdt(d.surplus_usdt, 6)} is the manager's`;
+      case 'peso_topup': return `topped up ${who}'s pesos to the live rate ₱${f(d.rate, 2)}: ${usdt(d.usdt, 6)} · ${f(d.units, 4)} of the manager's units at ${f(d.unit_price, 4)}`;
+      case 'admission_spread_reallocated': return `moved units from the manager to ${who} (admission spread): ${php(d.php_amount)} credited at ₱${f(d.admission_rate, 2)} = ${usdt(d.credited_usdt, 6)} · ${f(d.units, 4)} units at ${f(d.unit_price, 4)}; the surplus ${usdt(d.surplus_usdt, 6)} stays the manager's`;
       case 'money_out': return `paid out ${u(d.usdt)} to ${who}`;
       case 'fee_charged': return `fee charged to ${who}: ${u(d.usdt)}`;
       case 'correction': return `recorded a correction${r.subject_name ? ' for ' + who : ''}${d.usdt != null ? ': ' + (Number(d.usdt) < 0 ? '−' : '') + usdt(Math.abs(Number(d.usdt))) : ''}${d.note ? ' · ' + esc(d.note) : ''}`;
@@ -1008,14 +1012,72 @@
   const BT = BotTotal;        // js/bottotal.js: "Read from the bots" fills an Exchange total field from the bots' latest wallet reports (admin_wallet_nav)
   const spFmt = { usdt: (n) => usdt(n), units: (n) => f(n, 4), day: (t) => day(t), pc: (r) => pc(r) };
   const icFmt = { money: (n) => money(n), units: (n) => f(n, 4), day: (t) => day(t) };
+  // ---------------------------------------------------------------- admission spread (docs/admission-spread.md)
+  // Pesos credited at an ADMISSION rate a little above the real one; the investor gets units for the CREDITED USDT only and the rest of what was really allocated is the
+  // fund manager's own: units of the manager (never the pool's, never a trading result). The database does every sum and refusal; the form shows its quote.
+  const SPREAD_PHP = 1;   // the agreed spread, ₱ per USDT (ledger setting admission_spread_php: the database refuses more than it allows)
+  const SPREAD_SRC = { p2p_purchase: 'new P2P purchase', manager_reallocation: 'from your capital' };
+  const SPREAD_STATUS = { waiting_for_exchange: 'not in the exchange yet', waiting: 'in the exchange, ready to admit', admitted: 'admitted', handed_back: 'handed back', done: 'done' };
+  const spreadLegs = () => { const m = new Map(); for (const s of S.spreads || []) { if (s.investor_pending_id) m.set(Number(s.investor_pending_id), s); if (s.manager_pending_id) m.set(Number(s.manager_pending_id), s); } return m; };
+  const spreadRow = (s) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(s.investor)}</b> · ${day(s.created_at)}<br><span class="note">${php(s.php_amount)} at ₱${f(s.admission_rate, 2)} (actual ₱${f(s.reference_rate, 2)}) · ${SPREAD_SRC[s.funding_source] || esc(s.funding_source)} · ${SPREAD_STATUS[s.status] || esc(s.status)}</span></span>
+    <span class="r">${usdt(s.credited_usdt, 6)} credited<br><span class="note">of ${usdt(s.actual_usdt, 6)} · yours ${usdt(s.surplus_usdt, 6)}${s.investor_units != null ? ` · ${f(s.investor_units, 4)} units` : ''}${s.manager_units != null ? ` + ${f(s.manager_units, 4)} yours` : ''}</span>
+    ${s.status === 'waiting' || s.status === 'waiting_for_exchange' ? `<div class="btns" style="margin-top:6px">${s.status === 'waiting' ? `<button class="sm" data-action="spreadadmit" data-id="${s.id}">Admit</button>` : ''}<button class="ghost sm" data-action="spreadcancel" data-id="${s.id}">Hand back</button></div>` : ''}</span></div>`;
+  // Peso top-ups (docs/php-contributions.md, section 9): a peso deposit counts at the live PHP/USD rate, not at what the exchange delivered. The difference comes
+  // from the fund manager's own units (admin_peso_topup, at the true-value price), so nobody else's value moves. Only once the deposit has joined the pool.
+  const topupsDue = () => S.all.filter((h) => h.active && h.role === 'investor' && !S.pend.some((d) => d.profile_id === h.id))
+    .map((h) => ({ h, t: Contribution.topupDue(contribOf(h), fxRef()) })).filter((x) => x.t);
+  function topupCard() {
+    const due = topupsDue();
+    if (!due.length) return '';
+    return `<div class="card" data-topups><h2>Peso top-ups (${due.length})</h2>
+      <p class="note">These pesos are credited at today's live PHP/USD rate. Less USDT arrived in the exchange, so the difference comes from <b>your</b> units at today's price. Nobody else's value changes.</p>
+      ${due.map(({ h, t }) => `<div class="row"><span class="l"><b style="color:var(--ink)">${esc(h.name || h.username)}</b> · ${php(t.php)} at ₱${f(t.rate, 2)} = ${usdt(t.credited)}<br><span class="note">${usdt(t.arrived)} arrived · top up <b>${usdt(t.gap)}</b> from your units</span></span>
+        <span class="r"><button class="sm" data-action="topup" data-id="${h.id}">Top up</button></span></div>`).join('')}</div>`;
+  }
+  function spreadCard() {
+    if (S.spreads == null) return '';
+    const inv = S.all.filter((h) => h.active && h.role === 'investor'), r = rate() ? Math.round(rate() * 100) / 100 : '';
+    return `<div class="card" data-spread><h2>Admission spread</h2>
+      <p class="note">Credit an investor's pesos at an <b>admission rate</b> up to ₱${SPREAD_PHP} above the real rate. They get units only for the <b>credited</b> USDT. What was really allocated beyond that is <b>yours</b>: your own units, never shared pool value and never a trading result.</p>
+      <form id="spreadForm"><label>Who</label><select name="who">${inv.length ? inv.map((h) => `<option value="${h.id}" ${h.id === S.recWho ? 'selected' : ''}>${esc(h.name || h.username)}</option>`).join('') : '<option value="">No investors</option>'}</select>
+        <div class="grid form2"><div><label>Pesos paid</label><input name="php" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
+          <div><label>Funded by</label><select name="src"><option value="p2p_purchase">New P2P purchase</option><option value="manager_reallocation">My own capital (no new money)</option></select></div></div>
+        <div class="grid form2"><div><label>Actual / reference rate (₱ per USDT)</label><input name="ref" type="number" step="any" inputmode="decimal" value="${r}" required></div>
+          <div><label>Admission rate (₱ per USDT)</label><input name="adm" type="number" step="any" inputmode="decimal" value="${r === '' ? '' : (r + SPREAD_PHP).toFixed(2)}" required></div></div>
+        <label>USDT actually allocated</label><input name="act" type="number" step="any" inputmode="decimal" placeholder="pesos ÷ actual rate" aria-describedby="spreadActHint">
+        <p class="note" id="spreadActHint" style="margin:4px 0 0">What the pesos really bought (or the part of your capital you set aside). Leave empty to use pesos ÷ actual rate.</p>
+        <label style="display:flex;gap:8px;align-items:flex-start" data-p2p><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in the exchange</span></label>
+        <div class="preview" id="spreadPrev">—</div><button class="full">Save</button></form>
+      ${S.spreads.length ? `<h3 class="subhead">Recorded</h3>${S.spreads.slice(0, 10).map(spreadRow).join('')}` : ''}</div>`;
+  }
+  const spreadArgs = (fm) => {
+    const php0 = num(fv(fm, 'php')), ref = num(fv(fm, 'ref')), adm = num(fv(fm, 'adm')), F = Contribution.spreadFigures(php0, ref, adm, num(fv(fm, 'act')));
+    return { fig: F, args: F && fv(fm, 'who') ? { p_profile: fv(fm, 'who'), p_php_amount: php0, p_reference_rate: ref, p_admission_rate: adm, p_actual_usdt: F.actual, p_source: fv(fm, 'src') } : null };
+  };
+  let spSeq = 0, spTimer = null;
+  function spreadPrev(fm) {
+    const p2p = fv(fm, 'src') === 'p2p_purchase', box = fm.querySelector('[data-p2p]'); if (box) box.hidden = !p2p;
+    const { fig, args } = spreadArgs(fm); spSeq++; clearTimeout(spTimer);
+    if (!fig || !args) return setPrev('spreadPrev', '—');
+    setPrev('spreadPrev', `${php(args.p_php_amount)} at ₱${f(args.p_admission_rate, 2)} = <b>${usdt(fig.credited, 6)}</b> credited · ${usdt(fig.actual, 6)} allocated · <b>${usdt(fig.surplus, 6)}</b> yours.<br><span class="note">Asking the database…</span>`);
+    const my = spSeq;
+    spTimer = setTimeout(async () => {
+      let r = null, err = null;
+      try { r = await call('admin_quote_admission_spread', args); } catch (e) { err = e.message; }
+      if (my !== spSeq || err === 'Signed out') return;
+      if (err) return setPrev('spreadPrev', `<span class="down">The database would refuse this: ${esc(/function|schema cache|does not exist/i.test(err) ? 'not available on this database yet (run 20261209000000_admission_spread.sql).' : err)}</span>`);
+      setPrev('spreadPrev', `${php(args.p_php_amount)} at ₱${f(args.p_admission_rate, 2)} = <b>${usdt(r.credited_usdt, 6)}</b> credited to the investor.<br>${usdt(r.actual_usdt, 6)} allocated · <b>${usdt(r.surplus_usdt, 6)} stays yours</b>${r.units != null ? `<br>They get <b>${f(r.units, 4)} units</b> at ${f(r.unit_price, 4)}; you give up the same units.` : '<br>It waits outside the pool until it is in the exchange; then the investor\'s part and your surplus are admitted together at the same price.'}
+        <br><span class="note">Quoted by the database; nothing is saved until you press Save.</span>`);
+    }, 350);
+  }
   function pendingCard() {
     if (!S.pend.length) return '';
-    const g = gateOn();
+    const g = gateOn(), legs = spreadLegs();
     return `<div class="card"><h2>Waiting to join (${S.pend.length}) · ${money(pendTotal())}</h2>
       <p class="note">${g ? Gate.TEXT.waiting
         : 'Received but not in the pool yet: no gains, no losses. A deposit joins only once it is marked <b>In the exchange</b>, at the next <b>Update equity</b> (or settlement), at that day\'s price. Mark it as soon as the money reaches Exchange.'}</p>
       ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in the exchange: admit it under Record → Balance' : 'in the exchange, joins at the next reading') : '<span class="warn">not in the exchange yet</span>'}</span></span>
-        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In the exchange</button> `}<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button></span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
+        <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In the exchange</button> `}${legs.has(Number(d.id)) ? `<span class="note">part of admission spread #${legs.get(Number(d.id)).id}: admitted or handed back together</span>` : `<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button>`}</span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
   }
   function viewRecord() {
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
@@ -1036,7 +1098,7 @@
             + '<label style="display:flex;gap:8px;align-items:flex-start"><input name="frommgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>They paid me directly: give them my units (nothing goes into the exchange)</span></label>'
             + '<div data-frommgr hidden><label>Exchange balance now (USDT, Spot + Futures, open trades included)</label><input name="eq" type="number" step="any" inputmode="decimal"></div>'}
         <details><summary>More options</summary><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local"></details>
-        <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}`)}
+        <div class="preview" id="depPrev">—</div><button class="full">Save</button></form></div>${pendingCard()}${spreadCard()}${topupCard()}`)}
       ${pick('wd', RH.button('wd') + (Gate.oldForm('withdrawal', S.queue) || `<div class="card"><h2>Money out</h2>
         <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
@@ -1499,7 +1561,7 @@
   const $f = (id) => document.getElementById(id);
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
-    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle], ['reqForm', reqPrev]]) {
+    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle], ['reqForm', reqPrev], ['spreadForm', spreadPrev]]) {
       const el = $f(id); if (el) { el.addEventListener('input', (e) => { el.dataset.last = e.target.name || ''; fn(el); }); fn(el); }
     }
   }
@@ -1540,7 +1602,9 @@
     depSeq++; clearTimeout(depTimer);
     if (!d) return setPrev('depPrev', inPhp && num(fv(fm, 'got')) != null ? 'Enter the pesos paid.' : '—');
     if (d.usdt == null) return setPrev('depPrev', 'Enter the USDT actually received for these pesos.');
-    const eff = d.php != null ? `<br><span class="note">Effective cash-in rate ₱${f(d.rate, 2)} per USDT (pesos ÷ USDT received), kept with the deposit; not today's reference rate. Units are bought with the ${usdt(d.usdt)} only.</span>${depRateWarn(d)}` : '';
+    const ref = rate(), live = d.php != null && ref ? Math.floor((d.php / ref) * 1e6 + 1e-7) / 1e6 : null;
+    const eff = d.php != null ? `<br><span class="note">Effective cash-in rate ₱${f(d.rate, 2)} per USDT (pesos ÷ USDT received), kept with the deposit; not today's reference rate. Units are bought with the ${usdt(d.usdt)} plus any peso top-up.</span>${depRateWarn(d)}`
+      + (live != null && live - d.usdt > 0.01 ? `<br>At today's live rate ₱${f(ref, 2)} these pesos are <b>${usdt(live)}</b>. Once it joins, <b>Peso top-ups</b> gives them the other ${usdt(live - d.usdt)} from your units.` : '') : '';
     if (mgr) {
       const eq = num(fv(fm, 'eq')), who = fv(fm, 'who');
       if (!(eq > 0)) return setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b> paid to you. Type the exchange balance now to see how many of your units they get.${eff}`);
@@ -1711,6 +1775,22 @@
       if (!(await confirmSheet('Is the money in the exchange?', 'Is this money in the exchange account now? It joins the pool at your next Update equity, and that total must include it.', 'Yes, continue', true))) return;
       await act(() => call('admin_mark_arrived', { p_pending: Number(id), p_transfer_id: null }), 'Marked as in the exchange');
     }
+    else if (a === 'spreadadmit') {
+      if (!(await confirmSheet('Admit this admission spread?', 'The investor\'s credited USDT and your surplus are admitted together at the true-value price: the investor gets units for the credited amount, you get units for the surplus, and nobody else\'s value changes.', 'Admit both', true))) return;
+      await act(() => call('admin_admit_admission_spread_tv', { p_spread: Number(id), p_as_of: null, p_idem: 'spread-admit-' + id }), 'Admitted: the investor\'s units and your surplus units joined together');
+    }
+    else if (a === 'topup') {
+      const x = topupsDue().find((y) => y.h.id === id); if (!x) return toast('Nothing to top up: no live rate, or already done.');
+      const { h, t } = x, nm = esc(h.name || h.username);
+      if (!(await confirmSheet(`Top up ${nm}?`, `${php(t.php)} at the live rate ₱${f(t.rate, 4)} = ${usdt(t.credited)}. ${usdt(t.arrived)} arrived, so ${usdt(t.gap)} of your units go to ${nm} at today's price. Nobody else's value changes. This is recorded immediately.`, 'Give the units', true))) return;
+      // priced at true value in the database (admin_peso_topup); one request id per deposit set, so a resend is a replay
+      await act(() => call('admin_peso_topup', { p_profile: h.id, p_usdt: t.gap, p_rate: t.rate, p_note: t.note, p_idem: 'topup-' + h.id + '-' + t.ids.join('-') }),
+        `Topped up: ${usdt(t.gap)} of your units went to ${nm}`);
+    }
+    else if (a === 'spreadcancel') {
+      if (!(await confirmSheet('Hand back this admission spread?', 'Both waiting deposits (the investor\'s and your surplus) are removed together. Nothing in the books changes.', 'Yes, hand back', true))) return;
+      await act(() => call('admin_cancel_admission_spread', { p_spread: Number(id) }), 'Handed back');
+    }
     else if (a === 'cancelpend') {
       if (!(await confirmSheet('Remove this waiting deposit?', 'Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.', 'Yes, continue', true))) return;
       await act(() => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
@@ -1849,6 +1929,11 @@
       } else if (id === 'eqForm') {
         const r = await moneyCall(fm, 'admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(Number(r.converted) ? `Equity saved. ${r.converted} waiting deposit${Number(r.converted) === 1 ? '' : 's'} joined at ${f(r.unit_price, 4)}.` : 'Equity saved');
+      } else if (id === 'spreadForm') {
+        const { fig, args } = spreadArgs(fm); if (!fig || !args) throw new Error('Enter the pesos paid, the actual rate and the admission rate.');
+        if (args.p_source === 'manager_reallocation' && !(await confirmSheet('Move units from your capital?', `${usdt(fig.credited, 6)} of your units go to the investor at the true-value price. No new money joins the pool; the surplus ${usdt(fig.surplus, 6)} stays yours. This is recorded immediately.`, 'Move the units', true))) { if (btn) btn.disabled = false; return; }
+        const r = await moneyCall(fm, 'admin_admission_spread', { ...args, p_note: null, p_in_mexc: !!(fm.elements.inmexc && fm.elements.inmexc.checked && args.p_source === 'p2p_purchase') });
+        await refresh(r.status === 'done' ? `Done: ${f(r.units, 4)} units moved from you to the investor; the surplus ${usdt(r.surplus_usdt, 6)} stays yours.` : `Recorded: ${usdt(r.credited_usdt, 6)} credited, ${usdt(r.surplus_usdt, 6)} is yours. It waits until it is in the exchange, then admit both parts together.`);
       } else if (id === 'depForm') {
         const d = depUsdt(fm); if (!d || !(d.usdt > 0)) throw new Error(fv(fm, 'ccy') === 'USDT' ? 'Enter the USDT received.' : 'Enter the pesos paid and the USDT actually received.');
         if (fm.elements.frommgr && fm.elements.frommgr.checked) {

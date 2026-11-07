@@ -43,7 +43,7 @@
     const s = state(t), now = t.as_of;
     const wallets = (t.wallets || []).map((w) => row(`${esc(w.label || w.wallet)} <span class="note">· ${esc(w.status)}</span>`,
       `${usd(w.equity_usdt)}<br><span class="note">open ${signed(w.unrealized_usdt)} · ${ago(w.received_at, now)}</span>`)).join('');
-    const cps = (t.checkpoints || []).slice(0, 10).map((c) => row(`${esc({ deposit: 'Deposit', withdrawal: 'Payout', settlement: 'Settlement' }[c.kind] || c.kind)} #${esc(c.subject_id)} <span class="note">· ${esc(String(c.created_at).slice(0, 16).replace('T', ' '))} UTC</span>`,
+    const cps = (t.checkpoints || []).slice(0, 10).map((c) => row(`${esc({ deposit: 'Deposit', withdrawal: 'Payout', settlement: 'Settlement', reallocation: 'Reallocation' }[c.kind] || c.kind)} #${esc(c.subject_id)} <span class="note">· ${esc(String(c.created_at).slice(0, 16).replace('T', ' '))} UTC</span>`,
       `${usd(c.amount_usdt)} at ${price(c.unit_price)}`, `book ${usd(c.book_before)} · open ${signed(c.open_pnl)} · gap ${signed(c.gap)}${Number(c.realized_since) ? ` · priced as of ${esc(String(c.priced_as_of).slice(0, 16).replace('T', ' '))} UTC` : ''} · ${(c.wallets || []).length} wallet reports kept`)).join('');
     return `<div class="card" data-tv="admin"><h2>True value</h2>
       <p class="${s.ok ? 'good' : s.off ? 'note' : 'warn'}">${esc(s.text)}</p>

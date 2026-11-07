@@ -103,7 +103,7 @@ test('CB7 the reference rate never changes units or value, and the USD equivalen
 test('CB8 the card: every required line, escaped source, nothing without deposits, the investor sheet leaves out units and value', () => {
   const s = C.summary([james, raf1], C.referenceRate({ ...live, src: '<b>x</b>' }, NOW), { units: 1, value_usdt: 2 });
   const h = C.card(s);
-  for (const l of ['Your contribution', 'Original PHP contribution', '₱5,000.00', 'Actual USDT received', '66.40 USDT', 'Effective conversion rate', '₱75.30 per USDT',
+  for (const l of ['Your contribution', 'Original PHP contribution', '₱5,000.00', 'USDT credited to you', '66.40 USDT', 'Effective conversion rate', '₱75.30 per USDT',
     'Current PHP/USD reference rate', '₱63.11 per USD', 'Current USD equivalent of the pesos paid', 'Put in directly in USDT', '52.31 USDT', 'Investment units owned', 'Current investment value'])
     assert.ok(h.includes(l), l);
   assert.ok(!h.includes('<b>x</b>') && h.includes('&lt;b&gt;x&lt;/b&gt;'));
@@ -210,7 +210,7 @@ test('CB17 the journey card at one look: paid -> arrived -> worth now, and where
   near(j.arrivedPhp, 66.4 * 63.08, 1e-9); near(j.conversionPhp, 5000 - 66.4 * 63.08, 1e-9); near(j.resultPhp, (64.37 - 66.4) * 63.08, 1e-9); near(j.nowPhp, 64.37 * 63.08, 1e-9);
   near(j.paidPhp - j.conversionPhp + j.resultPhp, j.nowPhp, 1e-9, 'the lines add up: paid − conversion + trading = worth now');
   const h = C.card(s);
-  for (const t of ['You paid', '₱5,000', 'in pesos', 'Arrived in the fund', '66.40 USDT', '₱75.30 paid per USDT', 'Worth now', '64.37 USDT', '≈ ₱4,060 today', '−2.03 USDT',
+  for (const t of ['You paid', '₱5,000', 'in pesos', 'Credited to you', '66.40 USDT', '₱75.30 paid per USDT', 'Worth now', '64.37 USDT', '≈ ₱4,060 today', '−2.03 USDT',
     'Lost converting pesos to USDT', '−₱811.49', "today's rate is ₱63.08 (12.86 USDT)", 'Trading so far', '−₱128.05', 'You own <b>73.31635568 units</b>', '<summary>All figures</summary>'])
     assert.ok(h.includes(t), t);
   assert.ok(h.indexOf('class="jflow"') < h.indexOf('class="wf"') && h.indexOf('class="wf"') < h.indexOf('All figures'), 'journey first, bars next, the full figures folded away');
@@ -249,4 +249,27 @@ test('CB12 database: the pesos recorded with a deposit never change its units, t
     near(x.raf, runs[0].raf, 1e-12); near(x.usdt, 66.4, 1e-12);
   }
   near(runs[0].units, 66.4 / runs[0].price, 1e-8, 'units = USDT received / the approved unit price');
+});
+
+test('CB17 peso top-up: pesos credited at the live rate, the difference from the manager\'s units, once per deposit, never at a stale rate', () => {
+  const ref = C.referenceRate(live, NOW), h = { units: '73.31635568', value_usdt: '64.3677' };
+  const t = C.topupDue(C.summary([james], ref, h), ref);
+  assert.deepEqual(t.ids, [3]);
+  assert.equal(t.credited, 79.226746, '5,000 / 63.11 rounded down to 6 decimals');
+  assert.equal(t.gap, 12.826746);
+  assert.match(t.note, /^peso top-up for deposit #3: /);
+  // stale or missing live rate: nothing is due (a stored or old rate is never used to credit pesos)
+  assert.equal(C.topupDue(C.summary([james], C.referenceRate({ ...live, t: NOW - 2 * 36e5 }, NOW), h), C.referenceRate({ ...live, t: NOW - 2 * 36e5 }, NOW)), null);
+  assert.equal(C.topupDue(C.summary([james], null, h), null), null);
+  // after the top-up: credited = pesos / live rate, the conversion loss is gone, it is not a USDT-only deposit, and nothing more is due even if the rate moves
+  const top = { id: 9, ts: '2026-11-07T12:10:00Z', kind: 'deposit', usdt: String(t.gap), units: '14.6', php_amount: null, php_rate: '63.11', note: t.note };
+  const s = C.summary([james, top], ref, h);
+  near(s.usdt, 79.226746); near(s.rate, 63.11, 1e-4); near(s.topup, 12.826746);
+  assert.equal(s.usdtOnlyCount, 0);
+  assert.ok(Math.abs(C.journey(s).conversionPhp) < 0.01);
+  const lower = C.referenceRate({ ...live, rate: 60 }, NOW);
+  assert.equal(C.topupDue(C.summary([james, top], lower, h), lower), null, 'each peso deposit is topped up once');
+  assert.match(C.rows(s), /Topped up by the fund manager/);
+  // a USDT-only deposit is never topped up
+  assert.equal(C.topupDue(C.summary([raf1, raf2], ref, h), ref), null);
 });

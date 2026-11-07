@@ -41,7 +41,7 @@ The card is on the investor's home screen. The same card ("My contribution") is 
 | Line | Calculation | James (live records) |
 |---|---|---|
 | Original PHP contribution | Σ `php_amount` of the deposits that have one | ₱5,000.00 |
-| Actual USDT received | Σ `usdt` of those deposits | 66.40 USDT |
+| USDT credited to you | Σ `usdt` of those deposits (what arrived, or what the pesos were credited as under an admission spread, docs/admission-spread.md) | 66.40 USDT |
 | Effective conversion rate | total pesos / total USDT | ₱75.30 per USDT |
 | Current PHP/USD reference rate | the live reference rate (section 4) | e.g. ₱63.11 per USD, with source and time |
 | Current USD equivalent of the pesos paid | total pesos / reference rate | 79.23 USD, **reference only** |
@@ -55,7 +55,7 @@ The card is on the investor's home screen. The same card ("My contribution") is 
 **Deposits and payouts that were undone.** A deposit undone with "Edit" (its negative twin) counts nowhere. It is matched by `reversed_of`, or by the exact negative where the investor's own rows don't carry that field. A payout that was undone cancels out.
 
 **The card at one look (redesign, 2026-11-07).** The card shows the money's journey, then where the difference went:
-- **Journey:** You paid ₱5,000 → Arrived in the fund 66.40 USDT (₱75.30 paid per USDT) → Worth now 64.37 USDT (≈ ₱4,061 today, −2.03 USDT).
+- **Journey:** You paid ₱5,000 → Credited to you 66.40 USDT (₱75.30 paid per USDT) → Worth now 64.37 USDT (≈ ₱4,061 today, −2.03 USDT).
 - **Bars** (pesos at today's reference rate, only when all of it was paid in pesos and a rate is known):
   - You paid ₱5,000;
   - Lost converting pesos to USDT −₱811 (12.86 USDT);
@@ -222,3 +222,21 @@ Cash-in rates (pesos ÷ USDT of a deposit) appear only on deposits and contribut
 Between steps 2 and 4, the ₱500 minimum is not checked, so small requests are allowed. Keep that window short.
 
 **Rollback.** Run `20261208000000_rollback_fx_reference_rate.sql`. To undo the website, publish the previous versions of the five files. The website rollback and the database rollback are independent.
+
+## 9. Peso top-up: pesos credited at the live rate (2026-11-07, live)
+
+**The owner's rule.** An investor's pesos count at the **live** PHP/USD reference rate, whatever the exchange delivered. When less USDT arrived than pesos ÷ live rate, the **fund manager** gives the difference from their own units. Nobody else pays for it.
+
+| | James (done 2026-11-07 16:15 UTC) |
+|---|---|
+| Pesos paid | ₱5,000 |
+| Live rate | ₱63.083992 (open.er-api.com) |
+| Credited at the live rate | 5,000 ÷ 63.083992 = **79.259410 USDT** (rounded down to 6 decimals) |
+| Arrived in the exchange | 66.40 USDT |
+| Top-up from Raf's units | **12.859410 USDT** = 14.07505444 units at the true-value price 0.91363128 |
+
+- **Database:** `supabase/migrations/20261210000000_peso_topup.sql` (applied live 2026-11-07), rollback `supabase/rollback/20261210000000_rollback_peso_topup.sql`. `admin_peso_topup` / `admin_quote_peso_topup`: priced at true value. One pool entry leaves equity and total units exactly as they were. The investor's row is a `deposit` with `php_amount` null (the pesos stay on the original deposit) and a note starting `peso top-up for deposit #…`. The manager's row is a `withdrawal`. The high-water mark rises by the top-up, so no fee is charged on it. It's audited as `peso_topup`, with a `reallocation` checkpoint.
+- **Refused:** a rate more than 2% from the stored reference; a note not starting with "peso top-up"; book pricing; not enough manager units; a non-investor; bad amounts. The old `admin_units_from_manager` is refused under true-value pricing, which is why this function exists.
+- **Card:** `Contribution.summary` counts top-up rows as part of the peso contribution, so *Credited to you* = 79.26 USDT at ₱63.08 per USDT, and *Lost converting* is about ₱0. A line *Topped up by the fund manager* shows the amount. `Contribution.topupDue` works out what is due: only with a fresh live rate, and each peso deposit is topped up once (a later rate move never re-credits it).
+- **App:** Record → Money in → **Peso top-ups** lists investors with a top-up due (once their deposit has joined the pool), with one **Top up** button. The Money in preview says how much the top-up will be.
+- **Tests:** `tests/peso-topup.test.mjs` (PT1–PT3), `tests/contribution.test.mjs` CB17.

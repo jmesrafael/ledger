@@ -8,6 +8,10 @@
 //    Without php_amount a stored php_rate is NOT a cash-in rate and is ignored here.
 //  * Reference rate: today's PHP per USD from an independent live source (open.er-api.com, frankfurter.dev). Never a deposit's or a pool entry's
 //    stored rate. Missing, invalid or older than MAX_AGE_MS -> no reference rate ("Rate unavailable"), no peso equivalent.
+//
+// Peso top-up (docs/php-contributions.md, section 9): a peso deposit is credited at the live reference rate, not at what the exchange delivered. When less USDT
+// arrived than pesos / live rate, the fund manager gives the investor the difference from the manager's own units (admin_peso_topup), recorded as a
+// deposit whose note starts with TOPUP and names the peso deposits it covers ("peso top-up for deposit #3: ..."). Each peso deposit is topped up at most once.
 (function (root, factory) {
   const C = factory();
   if (typeof module === 'object' && module.exports) module.exports = C; else root.Contribution = C;
@@ -16,6 +20,9 @@
   const MIN_RATE = 20, MAX_RATE = 200;             // PHP per USD outside this is a broken response, not a rate
   const n = (v) => (v == null || v === '' ? null : Number(v));
   const ok = (v) => typeof v === 'number' && Number.isFinite(v);
+  const TOPUP = 'peso top-up';
+  const isTopup = (l) => String(l.note || '').toLowerCase().startsWith(TOPUP);
+  const topupFor = (l) => (String(l.note || '').split(':')[0].match(/#\d+/g) || []).map((x) => x.slice(1));   // the peso deposit ids named before the first ':'
 
   // the PHP rate in a source's JSON ({ rates: { PHP } } for both sources), or null
   function parseFx(json) {
@@ -51,14 +58,16 @@
       const i = live.findIndex((l) => Math.abs(Number(l.usdt) + Number(r.usdt)) < 1e-9 && Math.abs(Number(l.units) + Number(r.units)) < 1e-9);
       if (i >= 0) live.splice(i, 1);
     }
-    const peso = live.filter((l) => n(l.php_amount) > 0);
-    const deposits = peso.map((l) => ({ id: l.id, ts: l.ts, php: Number(l.php_amount), usdt: Number(l.usdt), rate: effectiveRate(l.php_amount, l.usdt) }))
+    const peso = live.filter((l) => n(l.php_amount) > 0 && !isTopup(l)), tops = live.filter(isTopup);
+    const covered = new Set(tops.flatMap(topupFor));
+    const deposits = peso.map((l) => ({ id: l.id, ts: l.ts, php: Number(l.php_amount), usdt: Number(l.usdt), rate: effectiveRate(l.php_amount, l.usdt), toppedUp: covered.has(String(l.id)) }))
       .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
-    const php = deposits.reduce((t, d) => t + d.php, 0), usdt = deposits.reduce((t, d) => t + d.usdt, 0);
-    const usdtOnly = live.filter((l) => !(n(l.php_amount) > 0));
+    const topup = tops.reduce((t, l) => t + Number(l.usdt), 0);
+    const php = deposits.reduce((t, d) => t + d.php, 0), usdt = deposits.reduce((t, d) => t + d.usdt, 0) + topup;
+    const usdtOnly = live.filter((l) => !(n(l.php_amount) > 0) && !isTopup(l));
     const h = holding || {};
     return {
-      deposits, php, usdt,
+      deposits, php, usdt, topup,
       rate: effectiveRate(php, usdt),                                   // total pesos / total USDT: weighted, never an average of the rates
       usdtOnly: usdtOnly.reduce((t, l) => t + Number(l.usdt), 0), usdtOnlyCount: usdtOnly.length,
       withdrawnUsdt: 0 - (rows || []).filter((l) => l.kind === 'withdrawal').reduce((t, l) => t + Number(l.usdt), 0),   // a reversed payout's +row cancels it
@@ -66,6 +75,20 @@
       usdEquivalent: ref && php > 0 ? php / ref.rate : null,           // reference only: not a balance, not a claim
       units: n(h.units), value: n(h.value_usdt), netValue: n(h.net_value_usdt),
     };
+  }
+
+  // The peso top-up still due: the peso deposits not topped up yet, credited at the live reference rate (pesos / rate, rounded down to 6 decimals),
+  // minus the USDT that arrived for them. Null without a fresh live rate (never a stale or stored one) or when nothing is due (0.01 USDT or less).
+  function topupDue(s, ref) {
+    if (!s || !ref || ref.stale) return null;
+    const open = s.deposits.filter((d) => !d.toppedUp);
+    const php = open.reduce((t, d) => t + d.php, 0), arrived = open.reduce((t, d) => t + d.usdt, 0);
+    if (!(php > 0)) return null;
+    const credited = Math.floor((php / ref.rate) * 1e6 + 1e-7) / 1e6, gap = Math.round((credited - arrived) * 1e6) / 1e6;
+    if (!(gap > 0.01)) return null;
+    const ids = open.map((d) => '#' + d.id).join(', ');
+    return { ids: open.map((d) => d.id), php, arrived, credited, gap, rate: ref.rate,
+      note: `${TOPUP} for deposit ${ids}: ₱${f(php, 2)} credited at the live PHP/USD reference ₱${f(ref.rate, 4)} (${ref.src}, ${clock(ref.t)}) = ${f(credited, 6)} USDT; ${f(arrived, 6)} USDT arrived, ${f(gap, 6)} USDT from the fund manager's units` };
   }
 
   // "Put in", shown in pesos only when every peso of it was really paid (peso deposits only, nothing taken out); otherwise in USDT.
@@ -80,6 +103,17 @@
     if (!ok(a) || a <= 0 || !ok(p) || p <= 0) return null;
     const want = a / p;
     return ok(all) && all > 0 && Math.abs(want - all) <= 0.01 / p ? all : want;
+  }
+
+  // The figures of an admission spread (docs/admission-spread.md): pesos credited at an admission rate above the actual / reference rate.
+  //   credited = pesos / admission rate, rounded DOWN to 6 decimals; actual = the USDT really allocated (default pesos / reference rate); surplus = actual - credited (the manager's).
+  // The database does the same sums and every refusal (admin_quote_admission_spread); this only fills the form's defaults. Units never come from pesos or rates here.
+  function spreadFigures(php, ref, adm, actual) {
+    const p = n(php), r = n(ref), a = n(adm);
+    if (!ok(p) || !ok(r) || !ok(a) || p <= 0 || r <= 0 || a <= 0) return null;
+    const given = n(actual), act = ok(given) && given > 0 ? given : Math.round((p / r) * 1e6) / 1e6;
+    const credited = Math.floor((p / a) * 1e6 + 1e-7) / 1e6;
+    return { actual: act, credited, surplus: Math.round((act - credited) * 1e6) / 1e6, impliedRate: p / act, spread: Math.round((a - r) * 1e6) / 1e6 };
   }
 
   // ---------------------------------------------------------------- wording
@@ -107,7 +141,8 @@
     const out = [];
     if (s.deposits.length) {
       out.push(row('Original PHP contribution', php(s.php), s.deposits.length > 1 ? `${s.deposits.length} peso deposits` : 'pesos paid in'));
-      out.push(row('Actual USDT received', usd(s.usdt), 'what the pesos bought; only this buys units'));
+      out.push(row('USDT credited to you', usd(s.usdt), 'what your pesos were credited as; only this buys units'));
+      if (s.topup > 0) out.push(row('Topped up by the fund manager', usd(s.topup), 'so your pesos count at the live PHP/USD rate on the day; from the fund manager\'s own units, nobody else\'s'));
       out.push(row('Effective conversion rate', s.rate == null ? '—' : `₱${f(s.rate, 2)} per USDT`, s.deposits.length > 1 ? 'total pesos ÷ total USDT, at the time of each deposit' : 'pesos ÷ USDT, at the time of the deposit'));
       out.push(row('Current PHP/USD reference rate', refText(s.ref), refNote(s.ref)));
       out.push(row('Current USD equivalent of the pesos paid', s.usdEquivalent == null ? 'Rate unavailable' : usd(s.usdEquivalent, 'USD'), 'reference only: what those pesos would buy at today\'s rate. It is not a balance and does not change any units'));
@@ -148,7 +183,7 @@
     const paid = s.php > 0 ? (s.usdtOnly > 0 ? `${phpR(s.php)} + ${usd(s.usdtOnly)}` : phpR(s.php)) : usd(s.usdtOnly);
     const paidSub = s.php > 0 ? (s.usdtOnly > 0 ? 'pesos, plus USDT put in directly' : s.deposits.length > 1 ? `in pesos · ${s.deposits.length} deposits` : 'in pesos') : 'in USDT';
     const flow = `<div class="jflow">${step(s.php > 0 ? 'You paid' : 'You put in', paid, paidSub)}${arrow}
-      ${step('Arrived in the fund', usd(j.inUsdt), s.rate ? `₱${f(s.rate, 2)} paid per USDT` : 'what buys your units')}
+      ${step('Credited to you', usd(j.inUsdt), s.rate ? `₱${f(s.rate, 2)} paid per USDT` : 'what buys your units')}
       ${j.now != null ? arrow + step(j.outUsdt > 0.0049 ? 'Worth now (after payouts)' : 'Worth now', usd(j.now), `${j.inPesos ? `≈ ${phpR(j.nowPhp)} today · ` : ''}<span class="${tone(j.result)}">${sgn(j.result, usd)}</span>`, 'now') : ''}</div>`;
     // where the difference went: one bar per line, widths to scale
     let lines;
@@ -167,9 +202,9 @@
     const wf = lines ? `<div class="wf">${lines.map(([l, v, c, t, note]) => `<div class="wfrow"><div class="wfl">${l}${note ? `<span class="note">${note}</span>` : ''}</div>
       <div class="wfbar"><span class="${c}" style="width:${Math.max(1.5, (Math.abs(v) / max) * 100).toFixed(1)}%"></span></div><div class="wfv ${c === 'loss' || c === 'conv' ? 'down' : c === 'gain' ? 'up' : ''}">${t}</div></div>`).join('')}</div>` : '';
     return `<div class="card" data-contribution><h2>${esc(title)}</h2>${flow}${wf}
-      <p class="note">${s.units != null ? `You own <b>${f(s.units, 8)} units</b>, bought` : 'Units are bought'} with the USDT that actually arrived, at the unit price on the day your money joined. Changes in the peso rate never change your units or their value.</p>
+      <p class="note">${s.units != null ? `You own <b>${f(s.units, 8)} units</b>, bought` : 'Units are bought'} with the USDT credited to you, at the unit price on the day your money joined. Changes in the peso rate never change your units or their value.</p>
       <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, putInPesos, withdrawUnits, journey, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, TOPUP, putInPesos, withdrawUnits, spreadFigures, journey, rows, card };
 });
