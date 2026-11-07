@@ -507,8 +507,32 @@
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in.</p></div>` : '';
     const pos = S.pos;
-    return `${waiting}${pos && !pos.estimate.reliable ? Position.estimateCard(pos, fm) : ''}${growthCard('Your balance')}${glanceCard(m)}
-      ${Contribution.card(contribOf(m))}${pos ? Position.requestsCard(pos, fm) : ''}${pos && (pos.settlements || []).length ? Position.settlementsCard(pos, fm) : ''}${recentCard()}${DISC}`;
+    return `${waiting}${pos && !pos.estimate.reliable ? Position.estimateCard(pos, fm) : ''}${growthCard('Your balance')}${glanceCard(m)}${calendarCard()}
+      ${pos ? Position.requestsCard(pos, fm) : ''}${pos && (pos.settlements || []).length ? Position.settlementsCard(pos, fm) : ''}${recentCard()}${DISC}`;
+  }
+  // the investor's calendar: each day's gain or loss on their balance from the trading (Returns.daily: units held × the unit price's change, Philippine days),
+  // one month at a time. Money in or out (deposits, withdrawals, peso top-ups) never shows as a result.
+  function calendarCard() {
+    const D = Returns.daily(S.history), now = Date.now(), cur = new Date(now + 8 * 36e5);
+    const first = startOf(S.me.id), firstKey = first == null ? null : Returns.dayKey(first), today = Returns.dayKey(now);
+    const firstM = firstKey ? (Number(firstKey.slice(0, 4)) - cur.getUTCFullYear()) * 12 + Number(firstKey.slice(5, 7)) - 1 - cur.getUTCMonth() : 0;
+    const off = Math.min(0, Math.max(firstM, S.calM || 0)), base = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + off, 1));
+    const y = base.getUTCFullYear(), mo = base.getUTCMonth(), days = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
+    const key = (d) => `${y}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const cv = (v) => { const a = Math.abs(inPeso() ? v * rate() : v); return (v > 0 ? '+' : '−') + (inPeso() ? '₱' + f(a, a >= 100 ? 0 : 2) : f(a, 2)); };
+    let tot = 0, g = 1, n = 0;
+    const cells = Array.from({ length: base.getUTCDay() }, () => '<div class="cd pad"></div>');
+    for (let d = 1; d <= days; d++) {
+      const k = key(d), r = D[k];
+      if (r) { tot += r.pnl; g *= 1 + r.pct; n++; }
+      cells.push(`<div class="cd ${r ? cls(r.pnl) : ''}${k === today ? ' today' : ''}${k > today || (firstKey && k < firstKey) ? ' off' : ''}"${r ? ` title="${day(k)}: ${smoney(r.pnl)} (${pct(r.pct)})"` : ''}><span class="dn">${d}</span>${r ? `<span class="dv">${cv(r.pnl)}</span>` : ''}</div>`);
+    }
+    const label = base.toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return `<div class="card" data-calendar><div class="calhead"><button class="iconbtn" data-action="calmonth" data-id="-1" ${off <= firstM ? 'disabled' : ''} aria-label="Previous month">‹</button>
+      <h2>${label}</h2><button class="iconbtn" data-action="calmonth" data-id="1" ${off >= 0 ? 'disabled' : ''} aria-label="Next month">›</button></div>
+      <div class="caltot">${n ? `This month <b class="${cls(tot)}">${smoney(tot)}</b> <span class="${cls(tot)}">(${pct(g - 1)})</span>` : '<span class="note">No results this month yet</span>'}</div>
+      <div class="cal">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w) => `<div class="cw">${w}</div>`).join('')}${cells.join('')}</div>
+      <p class="note">Each day shows what the trading did to your balance. Money you put in or take out is not counted.</p></div>`;
   }
   // the key figures in one look: worth if every trade closed now, the result so far, what is in cash vs in open trades, and what is free to withdraw
   function glanceCard(m) {
@@ -663,7 +687,6 @@
         <div class="row"><span class="l">Unit price now</span><span class="r">${f(m.unit_price, 4)}</span></div>
         <p class="note">Total gain includes the fee below, because those units are part of what you hold. New money joins at the next equity reading, at that day's price, like everyone's.</p>
         <div class="btns"><button class="ghost" data-tab="record" data-rec="dep" data-who="me" data-goside="fund">Add money</button><button class="ghost" data-tab="record" data-rec="wd" data-who="me" data-goside="fund">Take money out</button></div></div>
-      ${Contribution.card(contribOf(m), 'My contribution')}
       ${myReturnsCard()}
       <div class="card"><h2>Fee received</h2>
         <div class="row"><span class="l">Received so far<br><span class="note">value when each fee arrived</span></span><span class="r">${money(feeTotal)}<br><span class="note">${alt(feeTotal)}</span></span></div>
@@ -1788,6 +1811,7 @@
       await act(() => call('admin_peso_topup', { p_profile: h.id, p_usdt: t.gap, p_rate: t.rate, p_note: t.note, p_idem: 'topup-' + h.id + '-' + t.ids.join('-') }),
         `Topped up: ${usdt(t.gap)} of your units went to ${nm}`);
     }
+    else if (a === 'calmonth') { S.calM = (S.calM || 0) + Number(id); render(); }
     else if (a === 'spreadcancel') {
       if (!(await confirmSheet('Hand back this admission spread?', 'Both waiting deposits (the investor\'s and your surplus) are removed together. Nothing in the books changes.', 'Yes, hand back', true))) return;
       await act(() => call('admin_cancel_admission_spread', { p_spread: Number(id) }), 'Handed back');

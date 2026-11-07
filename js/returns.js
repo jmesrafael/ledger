@@ -78,6 +78,25 @@
     return rows;
   }
 
+  // Day by day (Philippine time), for the investor's calendar: what the trading did to the person's balance each day.
+  //   H: the person's history points, oldest first: { ts, units, price }. Between two points the result is units held × the change in the unit price,
+  //   so money in or out (deposits, withdrawals, peso top-ups, fees) never shows as a gain or a loss. pct = the unit price's change that day.
+  // Returns { 'YYYY-MM-DD': { pnl, pct } } for the days with a valuation that moved the price.
+  const dayKey = (ms) => new Date(ms + PH).toISOString().slice(0, 10);
+  function daily(H) {
+    const pts = (H || []).map((p) => ({ t: typeof p.ts === 'number' ? p.ts : Date.parse(p.ts), u: Number(p.units), price: Number(p.price) }))
+      .filter((p) => Number.isFinite(p.t) && p.price > 0);
+    const out = {};
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (Math.abs(b.price - a.price) < 1e-12 || !(a.u > 0)) continue;
+      const k = dayKey(b.t), d = out[k] || (out[k] = { pnl: 0, g: 1 });
+      d.pnl += a.u * (b.price - a.price); d.g *= b.price / a.price;
+    }
+    for (const k of Object.keys(out)) { out[k].pct = out[k].g - 1; delete out[k].g; }
+    return out;
+  }
+
   // Worst fall from a previous high in a cumulative growth series g (1 = start), with the dates t. Based on the readings we have.
   function drawdown(g, t) {
     if (!g.length) return null;
@@ -118,5 +137,5 @@
     return best;
   }
 
-  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, drawdown, toCsv, fromStart, firstDeposit };
+  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, dayKey, daily, drawdown, toCsv, fromStart, firstDeposit };
 });

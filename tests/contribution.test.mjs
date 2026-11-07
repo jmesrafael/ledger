@@ -125,7 +125,7 @@ test('CB10 the calculations never change the rows they are given', () => {
   assert.equal(JSON.stringify(rows), before);
 });
 
-test('CB11 app wiring: the reference rate comes only from the live sources, the deposit form takes pesos + USDT received, the cards are on all three screens', () => {
+test('CB11 app wiring: the reference rate comes only from the live sources, the deposit form takes pesos + USDT received, the figures are on the manager\'s investor sheet', () => {
   const app = read('js/app.js'), html = read('login.html');
   assert.ok(!/S\.pool && S\.pool\.php_rate|S\.me && S\.me\.php_rate/.test(app), 'no fallback to a pool entry or profile rate');
   assert.match(app, /const rate = \(\) => \{ const r = fxRef\(\); return r \? r\.rate : null; \};/);
@@ -136,8 +136,7 @@ test('CB11 app wiring: the reference rate comes only from the live sources, the 
   assert.match(app, /<input name="got" type="number"/);
   assert.match(app, /const got = num\(fv\(fm, 'got'\)\), r = Contribution\.effectiveRate\(amt, got\);\r?\n    return r \? \{ usdt: got, php: amt, rate: r \} : \{ usdt: null, php: amt \};/);
   assert.match(app, /admin_receive_deposit', \{ p_profile: fv\(fm, 'who'\), p_usdt: d\.usdt, p_php_rate: d\.rate, p_php_amount: d\.php,/, 'the USDT received is what is recorded');
-  assert.match(grab(app, 'function viewHome()', '  function glanceCard(m)'), /\$\{Contribution\.card\(contribOf\(m\)\)\}/);
-  assert.match(app, /\$\{Contribution\.card\(contribOf\(m\), 'My contribution'\)\}/);
+  assert.ok(!app.includes('Contribution.card('), 'home and My account are kept simple: no contribution card (the investor sheet keeps the rows)');
   assert.match(app, /\$\{Contribution\.rows\(contribOf\(h\), \{ holdings: false \}\)\}/);
   assert.ok(html.indexOf('js/contribution.js') > 0 && html.indexOf('js/contribution.js') < html.indexOf('js/app.js'));
   const lib = read('js/contribution.js');

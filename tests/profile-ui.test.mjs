@@ -53,7 +53,7 @@ test('PU4 Home carries no forms and no "Good to know" or Withdrawals card: profi
   const home = grab('function viewHome()', '  function glanceCard(m)');
   for (const t of ['passwordCard()', 'contactCard(', 'payoutCard(', 'profileNudge', 'aboutTeaser', 'Good to know', 'id="reqForm"', '<h2>Withdrawals']) assert.ok(!home.includes(t), t);
   assert.match(home, /\$\{growthCard\('Your balance'\)\}\$\{glanceCard\(m\)\}/);
-  assert.match(home, /\$\{Contribution\.card\(contribOf\(m\)\)\}/);
+  assert.ok(!home.includes("Contribution.card("), "the home screen is kept simple: the balance card says it, no contribution card");
   assert.ok(!app.includes('profileNudge') && !app.includes('aboutTeaser'), 'the old home cards are gone');
   assert.ok(!app.includes('if (m.impersonated) return `${head}'), 'the contact and payout cards are the real forms in view-as too');
   const mine = grab('function viewMine()', 'const viewMyHistory');
