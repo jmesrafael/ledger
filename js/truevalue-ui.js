@@ -29,8 +29,8 @@
     const s = state(t), now = t.as_of;
     const wallets = (t.wallets || []).map((w) => row(`${esc(w.label || w.wallet)} <span class="note">· ${esc(w.status)}</span>`,
       `${usd(w.equity_usdt)}<br><span class="note">open ${signed(w.unrealized_usdt)} · ${ago(w.received_at, now)}</span>`)).join('');
-    const cps = (t.checkpoints || []).slice(0, 10).map((c) => row(`${esc(c.kind === 'deposit' ? 'Deposit' : 'Payout')} #${esc(c.subject_id)} <span class="note">· ${esc(String(c.created_at).slice(0, 16).replace('T', ' '))} UTC</span>`,
-      `${usd(c.amount_usdt)} at ${price(c.unit_price)}`, `book ${usd(c.book_before)} · open ${signed(c.open_pnl)} · gap ${signed(c.gap)} · ${(c.wallets || []).length} wallet reports kept`)).join('');
+    const cps = (t.checkpoints || []).slice(0, 10).map((c) => row(`${esc({ deposit: 'Deposit', withdrawal: 'Payout', settlement: 'Settlement' }[c.kind] || c.kind)} #${esc(c.subject_id)} <span class="note">· ${esc(String(c.created_at).slice(0, 16).replace('T', ' '))} UTC</span>`,
+      `${usd(c.amount_usdt)} at ${price(c.unit_price)}`, `book ${usd(c.book_before)} · open ${signed(c.open_pnl)} · gap ${signed(c.gap)}${Number(c.realized_since) ? ` · priced as of ${esc(String(c.priced_as_of).slice(0, 16).replace('T', ' '))} UTC` : ''} · ${(c.wallets || []).length} wallet reports kept`)).join('');
     const cor = (t.corrections || []).map((c) => row(`Correction #${esc(c.id)} <span class="note">· ${esc(c.status)}</span>`, signed(c.amount_usdt), esc(c.reason))).join('');
     return `<div class="card" data-tv="admin"><h2>True value</h2>
       <p class="${s.ok ? 'good' : s.off ? 'note' : 'warn'}">${esc(s.text)}</p>
@@ -41,7 +41,7 @@
       ${row('Exchange vs books + open trades', signed(t.gap_usdt), `allowed difference ${usd(t.tolerance_usdt)}`)}
       ${row('Cash that can leave the exchange now', usd(t.pool_cash_usdt), 'withdrawable, after money waiting and payouts not sent')}
       ${wallets ? `<h3>Wallet reports</h3>${wallets}` : ''}
-      ${cps ? `<h3>Checkpoints (every true-value deposit and payout)</h3>${cps}` : ''}
+      ${cps ? `<h3>Checkpoints (every true-value deposit, payout and settlement)</h3>${cps}` : ''}
       ${cor ? `<h3>Book corrections</h3>${cor}<p class="note">Prepared corrections change nothing until they are applied one by one.</p>` : ''}</div>`;
   }
 

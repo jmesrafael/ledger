@@ -73,16 +73,25 @@ begin
 end $$;
 
 revoke all on function public._pool_guard_pending(), public._auto_pool_value_trades(text) from public, anon, authenticated;
+drop trigger if exists tv_guard_pool_entry on public.pool_equity;
+drop function if exists public._tv_guard_pool_entry();
 drop function if exists public.admin_admit_deposit_tv(text, bigint, text);
+drop function if exists public.admin_admit_deposits_tv(text, bigint[], timestamptz, text);
 drop function if exists public.admin_execute_withdrawal_tv(text, bigint, numeric, text, text);
+drop function if exists public.admin_close_quarter_tv(text, numeric, text, text);
+drop function if exists public.admin_settlement_preview_tv(text);
 drop function if exists public.admin_apply_book_correction(text, bigint, text);
+drop function if exists public.admin_preview_book_corrections(text);
 drop function if exists public.admin_book_corrections(text);
 drop function if exists public.admin_true_value(text);
+drop function if exists public.admin_true_value_at(text, timestamptz);
 drop function if exists public.my_true_value(text);
-drop function if exists public._tv_require();
+drop function if exists public._tv_require(timestamptz);
+drop function if exists public._tv_checkpoint(text, uuid, bigint, uuid, bigint, bigint, jsonb, numeric, numeric, numeric);
 drop function if exists public._tv_wallets_used(jsonb);
-drop function if exists public._tv_book_entry(numeric, timestamptz, uuid, text);
-drop function if exists public._true_value();
+drop function if exists public._tv_set_book(numeric, timestamptz, uuid, text);
+drop function if exists public._true_value(timestamptz, numeric);
+drop function if exists public._wallet_nav_at(timestamptz);
 drop function if exists public._tv_unmatched_exits();
 drop function if exists public._tv_wallet_of_event(text);
 drop function if exists public._export_extra();

@@ -4,7 +4,7 @@ Status (Nov 7, 2026):
 - **Late-trade fix: APPLIED to the live ledger** (`20261206000000_auto_pool_late_trade.sql`, approved). It changed no data: all 12 existing closed trades were already booked.
 - **True-value pricing: built and tested, NOT applied** (`20261207000000_true_value_pricing.sql`, rollback in `supabase/rollback/`). Off by default (`flow_pricing = 'book'`).
 - **Two corrections: prepared, NOT applied** (`supabase/corrections/20261107_prepare_book_corrections.sql`; each is applied separately by the manager with `admin_apply_book_correction`).
-- Model `lib/truevalue.js` (TV1–TV12), database tests `tests/true-value-db.test.mjs` (TVD1–TVD11), page tests `tests/truevalue-ui.test.mjs` (TVU1–TVU5).
+- Model `lib/truevalue.js` (TV1–TV12), database tests `tests/true-value-db.test.mjs` (TVD1–TVD11), lifecycle tests `tests/true-value-lifecycle.test.mjs` (L1–L7), page tests `tests/truevalue-ui.test.mjs` (TVU1–TVU5).
 
 ## The rule
 
@@ -43,20 +43,43 @@ price is what `V` said: existing holders keep exactly their pre-flow value, the 
 
 ## What the migration adds (all inert while flow_pricing = 'book')
 
-- `_true_value()`: the reading (built on `_wallet_nav`: every wallet fresh, none suspect or outdated, within 10 minutes, the expected count) plus three more gates: no closed
-  trade waiting to be booked, no bot exit without a booked MEXC result (in trades mode exits are never "applied", so the old pending-exit guard would block every
-  deposit; this replaces it inside a true-value flow only), and nothing booked after the newest report. Then the gap check against books + open P&L.
-- `admin_admit_deposit_tv`, `admin_execute_withdrawal_tv`: the existing deposit and payout engines, given the verified exchange total (so units, lots, lock-up, minimum,
-  fees and payout records are the existing code), then the book entry that takes the open P&L back out, then the checkpoint. A sale to the manager stays on the normal path.
-- `flow_checkpoints` (append-only): every number and every wallet report used by each true-value flow. `book_corrections`: prepared / applied / cancelled, reason and evidence.
-- `admin_true_value` (manager), `my_true_value` (an investor's own value, withdrawable now, locked in trades), shown by `js/truevalue-ui.js`.
-- Two existing functions gain a branch that only acts on rows the new functions write: `_auto_pool_value_trades` (a correction is not an exchange valuation; a true-value
-  flow contains exactly the trades each wallet's report had seen) and `_pool_guard_pending` (skipped inside a true-value flow only).
-- The backup export carries both new tables.
+- `_true_value(as_of)`: the reading (built on `_wallet_nav`, or `_wallet_nav_at(as_of)` for an earlier moment: every wallet fresh, none suspect or outdated, within 10
+  minutes, the expected count) plus: no closed trade waiting to be booked, no bot exit without a booked MEXC result (in trades mode exits are never "applied", so the
+  old pending-exit guard blocks every normal deposit today; this replaces it inside a true-value flow only), nothing booked after the newest report (or, as of an
+  earlier moment, nothing but automatic trade bookings and corrections since). Then the gap check against books + open P&L.
+- `admin_admit_deposits_tv(ids, as_of)` (and `admin_admit_deposit_tv` for one, now): the existing deposit engine at the true price, then the book entry
+  (books now + gap + money in). With `as_of`, the price is that earlier complete reading; trades booked since are kept in the book, so the outcome equals "joined
+  then" (test L5).
+- `admin_execute_withdrawal_tv`: the existing payout engine (fee on the lot's gain, lock-up, minimum, payout record) at the true price, then the book entry.
+- `admin_close_quarter_tv`: the newest settlement body (20261127: confirmed-gain fee timing, settlement lines, the fund manager's figures, late / backdated windows,
+  the open-trades rule, pending money joining after the fees) with the verified wallet reports as the exchange evidence, the ledger's internal consistency and
+  transfer matching still required, then the book entry. With fee_timing 'immediate' (live) a settlement with open trades still needs a written open_positions
+  exception, as before; with 'confirmed' it runs with a warning.
+- A trigger refuses every person-written pool entry outside the true-value functions while flow_pricing = 'true_value' (the old typed-total deposit, payout,
+  valuation and settlement would put the open trades into the book). Automatic trade bookings, corrections and the very first deposit are not affected.
+- `flow_checkpoints` (append-only): every number and every wallet report used by each true-value deposit, payout and settlement. `book_corrections`: prepared /
+  applied / cancelled with reason and evidence; `admin_preview_book_corrections` shows the book and the reconciliation after each one, in order; they apply in order.
+- `admin_true_value`, `admin_true_value_at`, `admin_settlement_preview_tv` (manager), `my_true_value` (an investor's own value, withdrawable now, locked in trades),
+  shown by `js/truevalue-ui.js`.
+- Two existing functions gain a branch that only acts on rows the new functions write: `_auto_pool_value_trades` (a correction is not an exchange valuation; a
+  true-value flow contains exactly the trades each wallet's report had seen) and `_pool_guard_pending` (skipped inside a true-value flow only).
+- The backup export carries both new tables. Every function is one transaction and takes an idempotency key.
+
+## Evidence for the 158 USDT (Nov 7, 2026)
+
+| Wallet | MEXC transfer in | Last report before it | First report with it |
+|---|---|---|---|
+| BB-Core | 18.35 at 03:09:32 | 03:05:05 (#5578) | 03:10:06 (#5580), withdrawable +18.3500 |
+| T-CORE | 83.83 at 03:16:19 | none: this wallet first reported at 03:31:06 | 03:31:06 (#5589) |
+| I-Core | 55.8478 at 03:21:47 | 03:20:03 (#5583) | 03:25:04 (#5585, suspect as a >50 % jump, not accepted yet) |
+
+No complete set of reports exists before the arrivals (T-CORE was not reporting yet). The first complete, verified set with the money inside is 03:30:03 /
+03:30:03 / 03:31:06 (63 s apart); the 158.0278 is excluded there as waiting money. No trade was opened between the arrivals and that reading (the bots act on the
+04:00 candle). With both corrections: book then 217.3413, open P&L 14.0641, exchange value 231.5279, gap 0.1225, price 0.905664.
 
 ## Not done (each needs the owner's OK)
 
 1. Apply `20261207000000_true_value_pricing.sql` (inert until switched on).
-2. Prepare the corrections (the SQL file), then apply each one (manager, signed in): −4.9258 and +0.8582.
-3. Record the 158 USDT deposit (James 66.40, Raf 91.6278), then switch `flow_pricing` to `true_value` and admit both with `admin_admit_deposit_tv`.
-4. Quarter-end settlement is still on the typed-total path: with trades open it writes open P&L into the book (the Oct 28 pattern). A true-value settlement is the next piece.
+2. Run the corrections file (prepares), review `admin_preview_book_corrections`, then apply #1 and #2 in order.
+3. Accept snapshot #5585 (I-Core's +55.8478 arrival) with its reason, record the two deposits as waiting, then switch `flow_pricing` to `true_value` and admit both
+   with `admin_admit_deposits_tv([...], '2026-11-07T03:31:06Z')`.
