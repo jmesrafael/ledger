@@ -613,15 +613,15 @@
   // ---------------- Research: how the run works and what it has done so far, in enough detail to decide whether the strategy is ready to go live ----------------
   // (coin / side / exit splits and the fills-vs-model table already live on the Performance tab; this tab adds what they do not show)
   // T-CORE lab: how it works, how its trades run against its own backtest (trend capture), and the open trades with their CURRENT trailing stop
-  function trailHow(b) {
+  function trailHow(b, live) {
     const t = (b && b.trend) || { trades: 0 }, e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
     const row = (k, a, x) => el('tr', {}, el('td', {}, k), el('td', { class: 'num' }, a), el('td', { class: 'num muted' }, x));
     const open = (b && b.open_list) || [];
     return [
-      el('p', {}, el('b', {}, 'A paper trend-follower with real-world costs. '), "T-CORE enters exactly like BB-Core (a 4h close outside the Bollinger band, with the 200 average) but exits differently: a stop 2 ATR away that trails 14 ATR behind the best price, with no target and no time limit. Most trades lose about 1R; a few ride a trend for weeks. No order is ever sent."),
+      el('p', {}, el('b', {}, live ? 'A live trend-follower on its own MEXC account. ' : 'A paper trend-follower with real-world costs. '), "T-CORE enters exactly like BB-Core (a 4h close outside the Bollinger band, with the 200 average) but exits differently: a stop 2 ATR away that trails 14 ATR behind the best price, with no target and no time limit. Most trades lose about 1R; a few ride a trend for weeks. " + (live ? 'Orders are real; the stop lives on MEXC and the bot moves it.' : 'No order is ever sent.')),
       el('p', { class: 'muted' }, "It will not take the same trades as BB-Core: each bot holds one position per coin, and T-CORE stays in a trade much longer, so it skips signals BB-Core takes and the other way round. It is checked every day against its OWN backtest on the same candles (the comparison below), never against BB-Core's trades. Costs are real: whole contracts, the order book's fill, the coin's fee, MEXC's settled funding."),
       el('h4', {}, `Trend capture: ${t.trades} closed trade${t.trades === 1 ? '' : 's'} vs its backtest (2020-2026, same rules)`),
-      el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, el('th', {}, ''), el('th', { class: 'num' }, 'lab'), el('th', { class: 'num' }, 'backtest'))), el('tbody', {},
+      el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, el('th', {}, ''), el('th', { class: 'num' }, live ? 'live' : 'lab'), el('th', { class: 'num' }, 'backtest'))), el('tbody', {},
         row('Reached +1R', pc(t.reached_1r), pc(e.reached_1r)), row('Reached +3R', pc(t.reached_3r), pc(e.reached_3r)), row('Reached +5R', pc(t.reached_5r), pc(e.reached_5r)), row('Reached +10R', pc(t.reached_10r), pc(e.reached_10r)),
         row('Best price, median', r(t.mfe_median), r(e.mfe_median)), row('Worst price, median', r(t.mae_median), r(e.mae_median)), row('Given back to the trail, median', r(t.gave_back_median), r(e.gave_back_median)),
         row('Candles held, median', t.bars_median ?? '—', e.bars_median ?? '—'), row('Stop moves, median', t.trail_moves_median ?? '—', '—'), row('Funding per trade', t.funding_r_avg == null ? '—' : fmtR(t.funding_r_avg), 'flat estimate'), row('Slippage in+out', t.slip_bp_avg == null ? '—' : `${t.slip_bp_avg} bp`, '4 bp'))),
@@ -644,7 +644,7 @@
       tile('Open now', String(open.length), open.length ? open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ') : 'flat'),
       tile('Signals skipped', String(skips), skips ? Object.entries(skipCounts).map(([k, x]) => `${k} ${x}`).join(' · ') : 'none'),
       tile('Net result', fmtR(o.total_r), o.usd != null ? fmtUsd(o.usd, true) : nTrades(o.n), cls(o.total_r)));
-    clear($('#rHow')).append(...(live ? [
+    clear($('#rHow')).append(...(live && v.key === 'tcore' ? trailHow(b, true) : live ? [
       el('p', {}, el('b', {}, 'This bot trades real money on MEXC. '), 'The same detail is kept as for a paper run, so the live record can be compared with what paper and the backtest showed.'),
       el('p', { class: 'muted' }, 'Fees, slippage and funding on live trades are what MEXC actually charged. Skipped signals are kept with the reason.'),
     ] : trail ? trailHow(b) : lab ? [

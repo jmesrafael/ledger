@@ -51,3 +51,13 @@ test('without any tcore event the page is exactly as before (no empty T-CORE vie
   const d = aggregate({ events, now: ts + 9.5 * H, mode: 'live' });
   assert.equal(d.bots.tcore, undefined); assert.equal(d.perf.tcore, null);
 });
+
+test('the live T-CORE Research tab shows the strategy panel (trend capture, open trailing stops) with live wording, the lab keeps its own', async () => {
+  const { readFileSync } = await import('node:fs');
+  const app = readFileSync(new URL('../bot-dashboard/app.js', import.meta.url), 'utf8');
+  assert.match(app, /live && v\.key === 'tcore' \? trailHow\(b, true\)/);
+  assert.match(app, /function trailHow\(b, live\)/);
+  assert.match(app, /A live trend-follower on its own MEXC account/);
+  assert.match(app, /A paper trend-follower with real-world costs/);            // the lab text is still there
+  assert.match(app, /live \? 'live' : 'lab'/);                                   // the comparison column header
+});
