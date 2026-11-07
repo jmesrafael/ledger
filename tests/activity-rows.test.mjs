@@ -7,8 +7,13 @@ const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 
 test('AR1 a peso deposit shows the pesos paid and the rate it was bought at', () => {
   assert.match(app, /const paid = l\.kind === 'deposit' && Number\(l\.php_amount\) > 0;/);
-  assert.match(app, /const main = paid && inPeso\(\) \? '\+' \+ php\(Number\(l\.php_amount\)\) : smoney\(l\.usdt\);/);
+  assert.match(app, /const main = paid && inPeso\(\) \? '\+' \+ php\(Number\(l\.php_amount\)\) : cash \? \(Number\(l\.usdt\) < 0 \? '−' : '\+'\) \+ usdt\(Math\.abs\(l\.usdt\)\) : smoney\(l\.usdt\);/);
   assert.match(app, /\$\{usdt\(l\.usdt\)\} at ₱\$\{f\(Number\(l\.php_amount\) \/ Number\(l\.usdt\), 2\)\}\/USDT/);
+});
+
+test('AR3 a deposit or payout with no pesos recorded stays in USDT (today\'s pesos are a labelled estimate), so it never reads as pesos paid', () => {
+  assert.match(app, /const cash = !paid && \(l\.kind === 'deposit' \|\| l\.kind === 'withdrawal'\);/);
+  assert.match(app, /: cash \? \(rate\(\) \? `≈ \$\{php\(Math\.abs\(l\.usdt\) \* rate\(\)\)\} today` : ''\) : alt\(Math\.abs\(l\.usdt\)\);/);
 });
 
 test('AR2 the manager\'s notes are not shown to an investor (the manager still sees them)', () => {

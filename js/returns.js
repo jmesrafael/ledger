@@ -51,14 +51,14 @@
 
   // One row per calendar month since the person joined.
   //   H: the person's history points, oldest first: { ts, value, net_in, units, price }  (one per pool event; value only changes at events)
-  //   L: the person's own ledger rows: { ts, kind, usdt, units, php_amount, php_rate }
+  //   L: the person's own ledger rows: { ts, kind, usdt, units, php_amount }
   // opening + deposits - withdrawals + trading + profitShare = closing   (exactly; profitShare is negative for an investor, positive for the manager)
   // tradingPct = what the trading did (unit price only); yourPct = the same after the profit share. Money in or out never counts in either.
   function monthly(H, L, now = Date.now()) {
     const pts = (H || []).map((p) => ({ t: typeof p.ts === 'number' ? p.ts : Date.parse(p.ts), v: Number(p.value), n: Number(p.net_in), u: Number(p.units), price: Number(p.price) }));
     if (!pts.length) return [];
     const gy = yourGrowth(pts), gt = tradingGrowth(pts), rows = [];
-    const lg = (L || []).map((l) => ({ t: typeof l.ts === 'number' ? l.ts : Date.parse(l.ts), kind: l.kind, note: l.note || '', usdt: Number(l.usdt), pa: l.php_amount == null ? null : Number(l.php_amount), pr: l.php_rate == null ? null : Number(l.php_rate) }));
+    const lg = (L || []).map((l) => ({ t: typeof l.ts === 'number' ? l.ts : Date.parse(l.ts), kind: l.kind, note: l.note || '', usdt: Number(l.usdt), pa: l.php_amount == null ? null : Number(l.php_amount) }));
     const lastBefore = (limit) => { let k = -1; for (let i = 0; i < pts.length; i++) { if (pts[i].t < limit) k = i; else break; } return k; };
     for (let from = monthStart(pts[0].t); from <= now; from = nextMonth(from)) {
       const to = nextMonth(from), o = lastBefore(from), c = lastBefore(to);
@@ -71,8 +71,9 @@
       rows.push({ key: monthKey(from), from, to, partial: to > now, opening, deposits, withdrawals, withdrawalFee, profitShare, closing,
         trading: closing - opening - deposits + withdrawals - profitShare,
         tradingPct: gt[c] / gt[base] - 1, yourPct: gy[c] / gy[base] - 1, entries: inM.length,
-        phpIn: inM.filter((l) => l.kind === 'deposit').reduce((t, l) => t + (l.pa != null ? l.pa : l.usdt * (l.pr || 0)), 0),
-        phpOut: -inM.filter((l) => l.kind === 'withdrawal').reduce((t, l) => t + l.usdt * (l.pr || 0), 0) });
+        // pesos only where pesos were really recorded (php_amount); a stored rate alone is never turned into a peso amount (docs/php-contributions.md)
+        phpIn: inM.filter((l) => l.kind === 'deposit' && l.pa != null).reduce((t, l) => t + l.pa, 0),
+        phpOut: inM.filter((l) => l.kind === 'withdrawal' && l.pa != null).reduce((t, l) => t + Math.abs(l.pa), 0) });
     }
     return rows;
   }
@@ -85,19 +86,6 @@
     let rec = null; for (let i = wt + 1; i < g.length && worst < 0; i++) if (g[i] >= g[wp]) { rec = i; break; }
     return { worst, peakAt: worst < 0 ? t[wp] : null, troughAt: worst < 0 ? t[wt] : null, recoveredAt: rec == null ? null : t[rec],
              current: g[g.length - 1] / top - 1, highAt: t[topI] };
-  }
-
-  // Pesos the person really paid in and took out, and what the exchange rate did, vs. valuing everything at today's rate.
-  //   rows: own ledger rows. rateNow: pesos per USDT today.
-  //   fx = what the pesos paid in (net of pesos paid out) are worth today above or below what was paid, i.e. the part of the peso gain that is just the exchange rate.
-  function pesos(rows, rateNow) {
-    let inPhp = 0, outPhp = 0, dep = 0, wd = 0;
-    for (const l of rows || []) {
-      const usdt = Number(l.usdt), pr = l.php_rate == null ? rateNow : Number(l.php_rate);
-      if (l.kind === 'deposit') { inPhp += l.php_amount != null ? Number(l.php_amount) : usdt * pr; dep += usdt; }
-      else if (l.kind === 'withdrawal') { outPhp += -usdt * pr; wd += -usdt; }
-    }
-    return { inPhp, outPhp, net: inPhp - outPhp, netUsdt: dep - wd, fx: (dep * rateNow - inPhp) - (wd * rateNow - outPhp) };
   }
 
   // CSV (opens in Excel / Google Sheets): quotes only when needed; numbers are written plainly
@@ -130,5 +118,5 @@
     return best;
   }
 
-  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, drawdown, pesos, toCsv, fromStart, firstDeposit };
+  return { yourGrowth, tradingGrowth, managerGrowth, between, total, EPS, monthStart, nextMonth, monthKey, monthly, drawdown, toCsv, fromStart, firstDeposit };
 });

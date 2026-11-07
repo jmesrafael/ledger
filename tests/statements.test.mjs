@@ -9,6 +9,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const R = createRequire(import.meta.url)('../js/returns.js');
+const C = createRequire(import.meta.url)('../js/contribution.js');
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
 const FILES = [...readdirSync(appl).map((f) => new URL(f, appl)), ...readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => new URL(f, dir))]
   .sort((a, b) => a.pathname.split('/').pop().localeCompare(b.pathname.split('/').pop()));
@@ -113,23 +114,23 @@ test('profit share: the investor pays it in the month it is charged; the manager
   near(jm['2025-02'].opening, 0);
 });
 
-test('pesos: "put in" is what was actually paid, and the exchange-rate part of the peso gain is separated', async () => {
+test('pesos: "put in" is only the pesos really paid; a stored rate alone never becomes pesos (js/contribution.js, docs/php-contributions.md)', async () => {
   const { ids, data } = await story();
-  const rateNow = 63;
-  for (const who of ['raf', 'john']) {
-    const { L, S } = await data(ids[who]), p = R.pesos(L, rateNow);
-    const wantIn = who === 'raf' ? 5800 + 1160 : 2900;
-    near(p.inPhp, wantIn);                                                                    // exactly the pesos handed over
-    assert.ok(Math.abs(p.net - Number(S.net_in_usdt) * rateNow) > 1, 'would have shown the converted figure');
-    // peso gain = trading gain at today's rate + the exchange rate part
-    const pesoGain = Number(S.value_usdt) * rateNow + p.outPhp - p.inPhp, usdtGain = (Number(S.value_usdt) + Number(S.withdrawn_usdt) - Number(S.deposited_usdt)) * rateNow;
-    near(pesoGain, usdtGain + p.fx, 1e-6);
-  }
-  const j = R.pesos((await data(ids.john)).L, rateNow);
-  assert.ok(j.outPhp > 0 && Math.abs(j.net - (2900 - j.outPhp)) < 1e-9);                      // the withdrawal is counted at the rate it was paid
-  // an old entry without a peso amount falls back to usdt x its rate, and with no rate at all to today's
-  near(R.pesos([{ kind: 'deposit', usdt: 10, php_amount: null, php_rate: 50 }], 60).inPhp, 500);
-  near(R.pesos([{ kind: 'deposit', usdt: 10 }], 60).inPhp, 600);
+  const raf = await data(ids.raf), john = await data(ids.john);
+  const sr = C.summary(raf.L, null, raf.S), sj = C.summary(john.L, null, john.S);
+  near(sr.php, 5800 + 1160); near(sr.usdt, 120); near(sr.rate, 58, 1e-9);                    // exactly the pesos handed over, and what they bought
+  near(sj.php, 2900); near(sj.usdt, 50);
+  assert.equal(C.putInPesos(sr), 6960, 'all of it paid in pesos, nothing taken out: shown in pesos');
+  assert.ok(sj.withdrawnUsdt > 0); assert.equal(C.putInPesos(sj), null, 'John took money out at no recorded peso amount: shown in USDT, not made-up pesos');
+  // the statements count pesos only where they were recorded: John's withdrawal (stored rate 57, no peso amount) is not turned into pesos
+  const rm = Object.fromEntries(R.monthly(raf.H, raf.L, NOW).map((m) => [m.key, m])), jm = Object.fromEntries(R.monthly(john.H, john.L, NOW).map((m) => [m.key, m]));
+  near(rm['2025-01'].phpIn, 5800); near(rm['2025-03'].phpIn, 1160); near(jm['2025-02'].phpIn, 2900);
+  assert.ok(jm['2025-04'].withdrawals > 0); assert.equal(jm['2025-04'].phpOut, 0);
+  // an entry without a peso amount gives no pesos, whatever rate is stored on it
+  const old = [{ ts: '2025-01-05T00:00:00Z', kind: 'deposit', usdt: 10, units: 10, php_amount: null, php_rate: 50 }];
+  assert.equal(C.summary(old, null, null).php, 0); assert.equal(C.putInPesos(C.summary(old, null, null)), null);
+  assert.equal(R.monthly([{ ts: '2025-01-05T00:00:00Z', value: 10, net_in: 10, units: 10, price: 1 }], old, NOW)[0].phpIn, 0);
+  assert.equal(R.pesos, undefined, 'the old estimator (USDT x stored rate) is gone');
 });
 
 test('worst drop from peak, and CSV output', async () => {

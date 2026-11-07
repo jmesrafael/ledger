@@ -73,6 +73,7 @@ test('minimum withdrawal is 500 pesos, but everything can always be taken out', 
   const { db, A, ids, J } = await world();
   await deposit(db, A, ids);
   await call(db, 'set_my_payout', J, 'gcash', 'John', '09171234567');
+  await call(db, 'admin_record_fx_reference', A, 56, 'test', null);                      // the current PHP/USD reference rate (20261208000000_fx_reference_rate.sql)
   await assert.rejects(() => call(db, 'request_withdrawal', J, 5), /minimum withdrawal/);   // 5 units x 56 = 280 pesos
   await call(db, 'request_withdrawal', J, 10);                                              // 560 pesos
   await assert.rejects(() => call(db, 'admin_withdraw', A, ids.john, 5, 200, 56, null, false), /minimum withdrawal/);

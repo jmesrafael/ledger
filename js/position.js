@@ -5,7 +5,8 @@
   if (typeof module === 'object' && module.exports) module.exports = P; else root.Position = P;
 })(typeof self !== 'undefined' ? self : this, function () {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  // f = { money(usdt), day(ts) } supplied by the page
+  // f = { money(usdt), day(ts) } supplied by the page; optional f.cash(usdt) for the capital rows and f.paidNote (the pesos really paid), so a USDT
+  // amount is never shown converted at today's rate as if it were pesos paid (docs/php-contributions.md)
   const STATE = {
     awaiting_approval: 'Waiting for review', queued: 'Waiting', ready: 'Approved, being prepared', payout_awaiting: 'Redeemed, payout being prepared',
     payout_sent: 'Payout sent', payout_failed: 'Payout problem, being retried', completed: 'Paid', completed_legacy: 'Paid', rejected: 'Not approved', cancelled: 'Cancelled',
@@ -26,14 +27,16 @@
       ${lv ? `<div class="row"><span class="l">Last verified estimate<br><span class="note">${f.day(lv.as_of)}</span></span><span class="r" data-k="lastverified">${f.money(lv.value_after_fee_usdt)}</span></div>` : ''}</div>`;
   }
   function capitalCard(pos, f) {
-    const c = pos.capital, r = (l, v, k, note) => `<div class="row"><span class="l">${l}${note ? `<br><span class="note">${note}</span>` : ''}</span><span class="r" data-k="${k}">${v}</span></div>`;
+    // with f.cash every row is in USDT, so the rows add up (put in − taken out + result − fees = value) and no USDT amount reads as pesos paid;
+    // f.paidNote says what was really paid in pesos, beside the USDT it bought
+    const c = pos.capital, m = f.cash || f.money, r = (l, v, k, note) => `<div class="row"><span class="l">${l}${note ? `<br><span class="note">${note}</span>` : ''}</span><span class="r" data-k="${k}">${v}</span></div>`;
     return `<div class="card"><h2>Where your money stands</h2>
-      ${r('Money you put in', f.money(c.contributed_usdt), 'contributed', 'deposits only; never counted as profit')}
-      ${r('Money you took out', f.money(c.withdrawn_usdt), 'withdrawn', 'withdrawals only; never counted as a loss')}
-      ${r('Trading result before fees', f.money(c.trading_result_before_fees_usdt), 'gross')}
-      ${r('Performance fees already charged', f.money(c.fees_paid_usdt), 'feespaid', 'final')}
-      ${r('Performance fee still to be charged', f.money(c.fees_accrued_usdt), 'feesaccrued', 'estimate until the next settlement')}
-      ${r('Net result after fees', f.money(c.net_performance_usdt), 'net', 'estimate')}</div>`;
+      ${r('Money you put in', m(c.contributed_usdt), 'contributed', `deposits only; never counted as profit${f.paidNote ? ' · ' + f.paidNote : ''}`)}
+      ${r('Money you took out', m(c.withdrawn_usdt), 'withdrawn', 'withdrawals only; never counted as a loss')}
+      ${r('Trading result before fees', m(c.trading_result_before_fees_usdt), 'gross')}
+      ${r('Performance fees already charged', m(c.fees_paid_usdt), 'feespaid', 'final')}
+      ${r('Performance fee still to be charged', m(c.fees_accrued_usdt), 'feesaccrued', 'estimate until the next settlement')}
+      ${r('Net result after fees', m(c.net_performance_usdt), 'net', 'estimate')}</div>`;
   }
   function settlementsCard(pos, f) {
     const s = pos.settlements || [];

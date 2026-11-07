@@ -231,7 +231,23 @@
       group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; }),   // null until the withdrawal-fee migration is run
       group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); S.tvPrev = admin ? await call('admin_preview_book_corrections') : null; }, () => { S.tv = null; S.tvPrev = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
+    await syncFxReference(admin);
   }
+  // The PHP/USD reference rate the database checks the ₱500 minimum at (20261208000000_fx_reference_rate.sql). The fund manager's browser stores a fresh live
+  // reading (under an hour old; the database validates it and keeps at most one an hour); everyone reads the current one. Never a cash-in rate.
+  // Before that migration both calls fail quietly and S.fxDb stays null (the old wording is shown).
+  async function syncFxReference(admin) {
+    const r = fxRef();
+    try {
+      if (admin && r && !r.stale && S.fxSent !== r.t) { await call('admin_record_fx_reference', { p_rate: r.rate, p_source: r.src, p_fetched_at: new Date(r.t).toISOString() }); S.fxSent = r.t; }
+    } catch (e) { if (e.message === 'Signed out') throw e; }
+    try { S.fxDb = await call('fx_reference'); } catch (e) { if (e.message === 'Signed out') throw e; S.fxDb = null; }
+  }
+  const fxDbRate = () => (S.fxDb && Number(S.fxDb.usd_php) > 0 ? Number(S.fxDb.usd_php) : null);
+  // the minimum as the database applies it: ₱500 at the fund's stored reference rate, in USDT
+  const minNote = () => (!S.fxDb ? 'checked by the fund when you send a request; taking everything is always allowed'
+    : fxDbRate() ? `about ${usdt(S.fxDb.min_withdrawal_usdt)} at the fund's PHP/USD reference rate ₱${f(fxDbRate(), 2)} (${esc(S.fxDb.source)}, ${day(S.fxDb.fetched_at)}); taking everything is always allowed`
+    : 'not checked while the fund has no current PHP/USD reference rate; taking everything is always allowed');
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
   const exitInfo = (id) => (S.exit && (S.exit.people || []).find((x) => x.id === id)) || null;
   // The withdrawal fee is OFF for now (the database returns 0 as well). Set to true when it is switched back on: the previews, the
@@ -252,22 +268,25 @@
     try { const r = await fetch('reports/index.json', { cache: 'no-store' }); S.reports = r.ok ? await r.json() : []; }
     catch { S.reports = []; }
   }
-  // live USD -> PHP (USDT trades ~1:1 with USD). Two free sources, cached for an hour, falls back to the last rate the fund manager recorded.
+  // live USD -> PHP (USDT trades ~1:1 with USD). Two independent sources, cached for an hour; a cached reading up to 12 hours old is used (marked as such)
+  // when both fail. Never a rate stored on a deposit or a pool entry: with no usable reading the rate is unavailable and figures stay in USDT (js/contribution.js).
   const FX_KEY = 'ledger.fx', FX_SRC = [['https://open.er-api.com/v6/latest/USD', 'open.er-api.com'], ['https://api.frankfurter.dev/v1/latest?base=USD&symbols=PHP', 'frankfurter.dev']];
   async function loadFx() {
     let cached = null; try { cached = JSON.parse(localStorage.getItem(FX_KEY) || 'null'); } catch { /* none */ }
-    if (cached && Date.now() - cached.t < 36e5) { S.fx = cached; return; }
+    const c = Contribution.referenceRate(cached);
+    if (c && !c.stale) { S.fx = cached; return; }
     for (const [url, name] of FX_SRC) {
       try {
         const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 4000);
-        const v = Number((await (await fetch(url, { signal: ctl.signal })).json()).rates.PHP); clearTimeout(to);
-        if (v > 0) { S.fx = { rate: v, t: Date.now(), src: name }; try { localStorage.setItem(FX_KEY, JSON.stringify(S.fx)); } catch { /* not cached */ } return; }
+        const v = Contribution.parseFx(await (await fetch(url, { signal: ctl.signal })).json()); clearTimeout(to);
+        if (v) { S.fx = { rate: v, t: Date.now(), src: name }; try { localStorage.setItem(FX_KEY, JSON.stringify(S.fx)); } catch { /* not cached */ } return; }
       } catch { /* try the next source */ }
     }
-    if (!S.fx) S.fx = cached;   // stale beats nothing
+    S.fx = c ? cached : null;   // a recent reading beats nothing; an old or broken one is not used
   }
-  const rate = () => (S.fx && S.fx.rate) || (S.pool && S.pool.php_rate) || (S.me && S.me.php_rate) || null;
-  const rateNote = () => (S.fx ? `1 USDT ≈ ${php(S.fx.rate)} (live ${S.fx.src}, ${clock12(new Date(S.fx.t))})` : rate() ? `1 USDT ≈ ${php(rate())} (last rate the fund manager recorded)` : 'Peso rate unavailable');
+  const fxRef = () => Contribution.referenceRate(S.fx);
+  const rate = () => { const r = fxRef(); return r ? r.rate : null; };
+  const rateNote = () => { const r = fxRef(); return r ? `1 USDT ≈ ${php(r.rate)} (${r.stale ? 'last loaded' : 'live'} ${r.src}, ${clock12(new Date(r.t))})` : 'Peso rate unavailable'; };
   const settingsMenu = (account = false, viewOnly = false) => {
     const p = themePref(), tl = p === 'system' ? 'System' : p === 'light' ? 'Light' : 'Dark';
     return `<details class="settings"><summary class="iconbtn" aria-label="Settings" title="Settings">${ICON.gear}</summary><div class="menu">
@@ -330,7 +349,7 @@
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
-        <div class="stat"><div class="k">Put in by investors</div><div class="v">${inPeso() ? pesoText(inv.reduce((t, h) => t + pesosOf(h).net, 0)) : money(invIn)}</div></div>
+        <div class="stat"><div class="k">Put in by investors</div><div class="v">${invPutIn(inv, invIn)}</div></div>
         <div class="stat"><div class="k">Their fee due</div><div class="v">${money(due)}</div></div></div>
         ${S.pend.length ? `<div class="btns"><button class="ghost" data-tab="record" data-rec="dep">${S.pend.length} deposit${S.pend.length === 1 ? '' : 's'} waiting to join · ${money(pendTotal())}</button></div>` : ''}
         ${pend.length ? `<div class="btns"><button class="ghost" data-tab="log">${pend.length} withdrawal request${pend.length === 1 ? '' : 's'} · ${money(pendUsdt)}</button></div>` : '<p class="note" style="margin:12px 0 0">No withdrawal requests waiting.</p>'}</div>
@@ -353,9 +372,12 @@
       const sub = [day(l.ts), withName ? esc(l.name) : null, l.note && !investorView ? esc(l.note) : null].filter(Boolean).join(' · ');
       // a deposit made in pesos shows the pesos actually paid (and the USDT it bought at that rate), not the USDT re-converted at today's rate
       const paid = l.kind === 'deposit' && Number(l.php_amount) > 0;
-      const main = paid && inPeso() ? '+' + php(Number(l.php_amount)) : smoney(l.usdt);
+      // money moved in USDT (no pesos recorded) stays in USDT, so it never reads as pesos paid or received; today's pesos are an estimate beside it
+      const cash = !paid && (l.kind === 'deposit' || l.kind === 'withdrawal');
+      const main = paid && inPeso() ? '+' + php(Number(l.php_amount)) : cash ? (Number(l.usdt) < 0 ? '−' : '+') + usdt(Math.abs(l.usdt)) : smoney(l.usdt);
       const small = withName ? sgn(l.units, 2) + ' units'
-        : paid ? (inPeso() ? `${usdt(l.usdt)} at ₱${f(Number(l.php_amount) / Number(l.usdt), 2)}/USDT` : `${php(Number(l.php_amount))} paid`) : alt(Math.abs(l.usdt));
+        : paid ? (inPeso() ? `${usdt(l.usdt)} at ₱${f(Number(l.php_amount) / Number(l.usdt), 2)}/USDT` : `${php(Number(l.php_amount))} paid`)
+        : cash ? (rate() ? `≈ ${php(Math.abs(l.usdt) * rate())} today` : '') : alt(Math.abs(l.usdt));
       return `<div class="tx"><div class="ic ${kind}">${ICON[ic]}</div>
         <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
         <div class="amt ${l.kind === 'fee_out' ? 'share' : cls(l.usdt)}">${main}<small>${small}</small></div></div>`;
@@ -366,7 +388,7 @@
     <label>New password (at least 8 characters)</label>${pw('new', 'new-password', 8)}
     <button class="full ghost">Change password</button></form>
     <p class="note">Your other phones/browsers will be signed out.</p></div>`;
-  const DISC = `<p class="disc">This is a record of your share of a pooled trading account, shown in pesos at today's exchange rate. The balance grows or shrinks with the trading results. It is not a bank balance and is not insured. You can still lose money.</p>`;
+  const DISC = `<p class="disc">This is a record of your share of a pooled trading account, counted in USDT and shown in pesos at today's exchange rate when that rate is available. The balance grows or shrinks with the trading results. It is not a bank balance and is not insured. You can still lose money.</p>`;
 
   // ---------------------------------------------------------------- where each person wants to be paid (the QR image lives in Supabase Storage)
   // How someone is paid is free text they type (for example GCash, Bank transfer, GoTyme, Maya). Older saved rows hold 'gcash' or 'bank'.
@@ -473,14 +495,16 @@
     const waiting = investor && mine.length ? `<div class="card"><h2>Waiting to join the pool</h2>
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in.</p></div>` : '';
-    return `${waiting}${investor ? TVUI.investorCard(S.tv) : ''}${investor && S.pos ? Position.render(S.pos, { money, day }) : ''}${growthCard(investor ? 'Your balance' : 'Your holdings')}
+    return `${waiting}${investor ? TVUI.investorCard(S.tv) : ''}${investor && S.pos ? Position.render(S.pos, { money, day, cash: (u) => usdt(u), paidNote: paidNote(m) }) : ''}${growthCard(investor ? 'Your balance' : 'Your holdings')}
+      ${investor ? Contribution.card(contribOf(m)) : ''}
       ${investor ? `<div class="card"><h2>Withdrawals</h2>
         ${m.next_unlock ? `<div class="row"><span class="l">Lock-up on your first deposit</span><span class="r">until ${day(m.next_unlock)}</span></div>` : ''}
         ${EXIT_FEE_ON && exitInfo(m.id) ? `<div class="row"><span class="l">Withdrawal fee<br><span class="note">${exitNote(m.id)}</span></span><span class="r">${pc(xr)}%</span></div>` : ''}
-        ${minPhp() ? `<div class="row"><span class="l">Minimum withdrawal<br><span class="note">taking everything is always allowed</span></span><span class="r">${php(minPhp())}</span></div>` : ''}
+        ${minPhp() ? `<div class="row"><span class="l">Minimum withdrawal<br><span class="note">${minNote()}</span></span><span class="r">${php(minPhp())}</span></div>` : ''}
         <p class="note">Your first deposit has a ${C.LOCK_MONTHS}-month lock-up; top-ups have none. If you need money earlier, ask the fund manager. Requests are paid within ${C.WITHDRAW_BUSINESS_DAYS} business days, at the value on the day of payout. ${xr ? `The withdrawal fee (${pc(xr)}%) comes off the payout.` : `<b>Heads up:</b> ${FEE_SOON}`} You will be contacted to confirm your payout details before any money is sent.</p>
-        ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : !S.payout ? '<p class="note warn">Add where you want to be paid (below, under "Where to send my money") before you can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (${inPeso() ? '₱' : 'USDT'})</label>
+        ${m.impersonated ? '<p class="note">Read-only view: only the person can request a withdrawal.</p>' : !S.payout ? '<p class="note warn">Add where you want to be paid (below, under "Where to send my money") before you can request a withdrawal.</p>' : `<form id="reqForm"><label for="rq-u">Amount to withdraw (USDT)</label>
           <input id="rq-u" name="amount" type="number" step="any" min="0" inputmode="decimal" required>
+          <div class="preview" id="reqPrev">—</div>
           <div class="btns"><button type="button" class="ghost" data-action="maxunits">Everything available</button><button>Request withdrawal</button></div></form>`}
         ${pend.length ? '<h2 style="margin-top:14px">Pending requests</h2>' + pend.map((q) => `<div class="row"><span class="l">${day(q.requested_at)} · about ${money(q.units * m.unit_price)}<br><span class="note">Pay by ${day(q.pay_by)}</span></span><span class="r"><button class="ghost" data-action="cancelreq" data-id="${q.id}">Cancel</button></span></div>`).join('') : ''}</div>`
       : `<div class="card"><h2>Fee earned</h2>
@@ -577,7 +601,8 @@
       <p class="about">After a loss, nothing is charged until you are back above your best. The fee is worked out every two months inside the pool, so no cash moves.</p>
       <p class="about"><b>Your rate is ${rate}%</b>, as agreed with the fund manager. Rates are set per person and can change at any time, for example for people who join later as the fund grows.</p></div>
     <div class="card"><h2>Pesos</h2>
-      <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. Use Settings (the gear at the top) to switch the view.</p></div>
+      <p class="about">The pool trades in USDT (a dollar-linked coin). Your pesos are worked out with the live dollar-to-peso rate, so the peso number can move a little even when the trading did not. Use Settings (the gear at the top) to switch the view. If the live rate cannot be loaded, figures stay in USDT.</p>
+      <p class="about">Your units were bought with the USDT your pesos actually bought, at the unit price on the day your money joined. The peso rate moving later never changes your units or what they are worth in USDT.</p></div>
     <div class="card"><h2>Good to know</h2>
       <p class="about">This page is a record kept by the fund manager. It is not a bank account and is not covered by deposit insurance.</p></div>${glossCard()}${termsCard()}`;
   };
@@ -596,9 +621,9 @@
         <div class="stat"><div class="k">Share of the pool</div><div class="v">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</div></div></div>
         <div class="row"><span class="l">Units held</span><span class="r">${f(m.units, 4)}</span></div>
         <div class="row"><span class="l">Unit price now</span><span class="r">${f(m.unit_price, 4)}</span></div>
-        ${inPeso() ? fxRow(m) : ''}
         <p class="note">Total gain includes the fee below, because those units are part of what you hold. New money joins at the next equity reading, at that day's price, like everyone's.</p>
         <div class="btns"><button class="ghost" data-tab="record" data-rec="dep" data-who="me" data-goside="fund">Add money</button><button class="ghost" data-tab="record" data-rec="wd" data-who="me" data-goside="fund">Take money out</button></div></div>
+      ${Contribution.card(contribOf(m), 'My contribution')}
       ${myReturnsCard()}
       <div class="card"><h2>Fee received</h2>
         <div class="row"><span class="l">Received so far<br><span class="note">value when each fee arrived</span></span><span class="r">${money(feeTotal)}<br><span class="note">${alt(feeTotal)}</span></span></div>
@@ -652,15 +677,15 @@
       <p class="note"><b>Trading only</b> is what the trading did to your money, and it is exactly what investors see as "Fund manager's own money". Money you add or take out never counts. <b>With fee</b> adds the fees you received from investors, so it also moves with how much of your own money is in.</p></div>`;
   }
 
-  // ---------------------------------------------------------------- pesos: "put in" is what was really paid
-  // In pesos the old figure was dollars converted at TODAY's rate, so it drifted away from what the person handed over.
-  // Here it is the pesos on the deposit entries (and withdrawals at the rate they were paid), plus the exchange-rate part shown on its own.
-  const pesosOf = (h) => Returns.pesos(S.ledger.filter((l) => l.profile_id === h.id), rate() || 0);
-  const pesoText = (n) => (n < 0 ? '−' : '') + php(n);
-  const putIn = (h) => (inPeso() ? pesoText(pesosOf(h).net) : usdt(h.net_in_usdt));
-  const fxRow = (h) => {
-    const p = pesosOf(h);
-    return Math.abs(p.fx) < 0.5 ? '' : `<div class="row"><span class="l">Peso exchange rate<br><span class="note">the peso moved since the money went in, so the ₱ balance includes this</span></span><span class="r ${cls(p.fx)}">${p.fx > 0 ? '+' : '−'}${php(p.fx)}</span></div>`;
+  // ---------------------------------------------------------------- pesos: "put in" is what was really paid (docs/php-contributions.md)
+  // pesos paid, USDT received, effective and reference rates (js/contribution.js). Display only; S.ledger is only the person's own rows for an investor.
+  const contribOf = (h) => Contribution.summary(S.ledger.filter((l) => l.profile_id === h.id), fxRef(), h);
+  // in pesos only when all of it was really paid in pesos; otherwise the USDT, never USDT turned into pesos (the contribution lines show the split)
+  const putIn = (h) => { const p = inPeso() ? Contribution.putInPesos(contribOf(h)) : null; return p != null ? php(p) : usdt(h.net_in_usdt); };
+  const paidNote = (h) => { const s = contribOf(h); return s.php > 0 ? (s.usdtOnlyCount ? `${php(s.php)} of it paid in pesos` : `paid as ${php(s.php)}`) : null; };
+  const invPutIn = (inv, invIn) => {   // pesos only when every investor with money in paid all of it in pesos
+    const p = inPeso() ? inv.map(contribOf).filter((s) => s.deposits.length || s.usdtOnlyCount || s.withdrawnUsdt).map(Contribution.putInPesos) : [];
+    return p.length && p.every((x) => x != null) ? php(p.reduce((t, x) => t + x, 0)) : usdt(invIn);
   };
 
   // ---------------------------------------------------------------- statements, month by month, worst drop (maths in js/returns.js)
@@ -865,6 +890,7 @@
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
       ${line('Put in', putIn(h))}
+      ${Contribution.rows(contribOf(h), { holdings: false })}
       ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
         : line('Profit', gainOf(h.profit_usdt, h.return_pct))}
       ${line('Share of the pool', h.share_pct == null ? '—' : f(h.share_pct * 100, 1) + '%')}
@@ -909,7 +935,9 @@
     .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (fund manager)' : ''}</option>`).join('');
   const atOf = (fm) => (fv(fm, 'at') ? new Date(fv(fm, 'at')).toISOString() : null);   // optional "when" for late entries
   // optional extras. The peso rate defaults to the live rate; the deposit form shows the rate up front instead
-  const phpField = (withRate = true) => `<details><summary>More options: date${withRate ? ', peso rate' : ''}</summary><label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local">${withRate ? `<label>Peso rate (₱ per USDT, for the ₱ estimate only)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">` : ''}</details>`;
+  // the manager's forms say which rate their ₱ figures use: today's PHP/USD reference rate (sent with the entry), never a deposit's cash-in rate
+  const refFormNote = () => { const r = fxRef(); return `<p class="note">₱ figures here use today's PHP/USD reference rate${r ? ` ₱${f(r.rate, 2)} (${esc(r.src)})` : ': unavailable, so none are shown and the fund\'s stored reference rate is used for the ₱500 minimum'}. It is never a cash-in rate and changes no amount.</p>`; };
+  const phpField = (withRate = true) => `<details><summary>More options: date${withRate ? ', reference rate' : ''}</summary><label>When (leave empty for now; only for recording something late)</label><input name="at" type="datetime-local">${withRate ? `<label>Current PHP/USD reference rate (₱ per USD: peso display and the ₱500 minimum only, never a cash-in rate)</label><input name="rate" type="number" step="any" inputmode="decimal" value="${rate() || ''}">` : ''}</details>`;
 
   // the pool_equity timeline is the single source of truth for "what happened and when"; every deposit/withdrawal
   // also has matching ledger row(s) carrying the person and amounts, joined here by equity_id.
@@ -963,8 +991,9 @@
       ${pick('dep', `${RH.button('dep')}<div class="card"><h2>Money in</h2>
         <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached the exchange and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
-        <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
+        <div class="grid form2"><div><label data-amtlabel>Pesos paid</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="5000" required></div>
           <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
+        <div data-got><label>USDT actually received (as the exchange shows it)</label><input name="got" type="number" step="any" inputmode="decimal" placeholder="66.40"></div>
         <input type="hidden" name="rate" value="${rate() ? Number(rate()).toFixed(2) : ''}">
         ${gateOn() ? '<p class="note"><b>The workflow gate is on.</b> ' + Gate.TEXT.deposit + '</p><input type="hidden" name="inmexc">'
           : '<label style="display:flex;gap:8px;align-items:flex-start"><input name="inmexc" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>Already seen in the exchange</span></label>'
@@ -976,10 +1005,9 @@
         <p class="note">Requests from investors are handled under <b>Balance</b> (approve, redeem, pay). Use this form only for a payout you are recording by hand.${pendNote()}</p>
         <form id="wdForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
         <label>Exchange balance just before paying out (USDT)</label><input name="eq" type="number" step="any" inputmode="decimal" required>${BT.button('wdForm', 'eq')}
-        <div class="grid form2"><div><label>Amount</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="1000"></div>
-          <div><label>Currency</label><select name="ccy"><option value="PHP">₱ Pesos</option><option value="USDT">USDT</option></select></div></div>
+        <label>Amount (USDT)</label><input name="amt" type="number" step="any" inputmode="decimal" placeholder="100">
         <input type="hidden" name="units"><input type="hidden" name="reqid"><input type="hidden" name="rate" value="${rate() || ''}">
-        <div id="wdPay"></div>
+        <div id="wdPay"></div>${refFormNote()}
         <div class="btns"><button type="button" class="ghost" data-action="allunits">Everything they hold</button></div>
         <details><summary>More options</summary>
           <label style="display:flex;gap:8px;align-items:flex-start"><input name="tomgr" type="checkbox" style="width:auto;min-height:0;margin-top:3px"> <span>I pay from my own money (nothing leaves the exchange)</span></label>
@@ -989,7 +1017,7 @@
       ${pick('eq', RH.button('eq') + (empty ? noBal : `${viewCapital()}${gBal ? '' : `<div class="card"><details><summary><b>More options</b>: type a balance directly, without the checks</summary>
         <p class="note">The quick old way. The checked route above is safer.</p>
         <form id="eqForm"><label>Exchange total (USDT)</label><input name="equity" type="number" step="any" inputmode="decimal" required ${empty ? 'disabled placeholder="Record the first deposit first"' : ''}>
-        ${BT.button('eqForm', 'equity')}<input type="hidden" name="rate" value="${rate() || ''}"><label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
+        ${BT.button('eqForm', 'equity')}<input type="hidden" name="rate" value="${rate() || ''}">${refFormNote()}<label>Note</label><input name="note"><label>When (only for late entries)</label><input name="at" type="datetime-local">
         <div class="preview" id="eqPrev">—</div><button class="full ghost" ${empty ? 'disabled' : ''}>Save</button></form></details></div>`}${pendingCard()}`))}
       ${pick('hist', `<div class="card"><h2>History</h2>
         <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`)}`;
@@ -1435,7 +1463,7 @@
   const $f = (id) => document.getElementById(id);
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
-    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle]]) {
+    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle], ['reqForm', reqPrev]]) {
       const el = $f(id); if (el) { el.addEventListener('input', (e) => { el.dataset.last = e.target.name || ''; fn(el); }); fn(el); }
     }
   }
@@ -1448,24 +1476,38 @@
     const price = (eq - wait) / u, ch = price / Number(S.pool.unit_price) - 1;
     setPrev('eqPrev', `Unit price becomes <b>${f(price, 4)}</b> (<span class="${cls(ch)}">${pct(ch)}</span> vs last reading). Since start ${pct(price - 1)}.<br>Pool is ${money(eq)} ${alt(eq)}.${wait ? `<br>${usdt(wait)} waiting is taken out first, then buys <b>${f(wait / price, 4)} units</b> at ${f(price, 4)}.` : ''}`);
   }
-  // what a deposit form means in USDT: pesos / rate, or the USDT typed directly
+  // what a deposit form means: in pesos, the pesos paid and the USDT actually received, and the effective rate between them (pesos / USDT);
+  // in USDT, the USDT typed (with today's reference rate kept for the ₱ estimate, as before). Units are only ever bought with the USDT.
   function depUsdt(fm) {
-    const amt = num(fv(fm, 'amt')), r = num(fv(fm, 'rate'));
+    const amt = num(fv(fm, 'amt'));
     if (amt == null) return null;
-    if (fv(fm, 'ccy') === 'USDT') return { usdt: amt, php: null, rate: r };
-    return r > 0 ? { usdt: Math.round((amt / r) * 1e4) / 1e4, php: amt, rate: r } : { usdt: null };
+    if (fv(fm, 'ccy') === 'USDT') return { usdt: amt, php: null, rate: num(fv(fm, 'rate')) };
+    const got = num(fv(fm, 'got')), r = Contribution.effectiveRate(amt, got);
+    return r ? { usdt: got, php: amt, rate: r } : { usdt: null, php: amt };
   }
+  // a typo check on the effective rate against today's reference rate (a warning only; the cost of converting pesos is often well above the market rate)
+  const depRateWarn = (d) => {
+    const ref = rate();
+    if (d.php == null || !d.rate) return '';
+    if (ref ? d.rate < ref * 0.5 || d.rate > ref * 2 : d.rate < Contribution.MIN_RATE || d.rate > Contribution.MAX_RATE)
+      return `<br><span class="warn">Check the numbers: ₱${f(d.rate, 2)} per USDT is far from ${ref ? `today's reference ₱${f(ref, 2)}` : 'any normal rate'}.</span>`;
+    return '';
+  };
   // "They paid me directly": the investor gets the fund manager's units at today's price; the figures are the database's own quote (admin_quote_units_from_manager)
   let depSeq = 0, depTimer = null;
   function depPrev(fm) {
     const d = depUsdt(fm), mgr = !!(fm.elements.frommgr && fm.elements.frommgr.checked), box = fm.querySelector('[data-frommgr]');
+    const inPhp = fv(fm, 'ccy') !== 'USDT', got = fm.querySelector('[data-got]'), lab = fm.querySelector('[data-amtlabel]');
     if (box) box.hidden = !mgr;
+    if (got) got.hidden = !inPhp;
+    if (lab) lab.textContent = inPhp ? 'Pesos paid' : 'USDT received';
     depSeq++; clearTimeout(depTimer);
-    if (!d) return setPrev('depPrev', '—');
-    if (d.usdt == null) return setPrev('depPrev', 'Enter the peso rate to convert.');
+    if (!d) return setPrev('depPrev', inPhp && num(fv(fm, 'got')) != null ? 'Enter the pesos paid.' : '—');
+    if (d.usdt == null) return setPrev('depPrev', 'Enter the USDT actually received for these pesos.');
+    const eff = d.php != null ? `<br><span class="note">Effective cash-in rate ₱${f(d.rate, 2)} per USDT (pesos ÷ USDT received), kept with the deposit; not today's reference rate. Units are bought with the ${usdt(d.usdt)} only.</span>${depRateWarn(d)}` : '';
     if (mgr) {
       const eq = num(fv(fm, 'eq')), who = fv(fm, 'who');
-      if (!(eq > 0)) return setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b> paid to you. Type the exchange balance now to see how many of your units they get.`);
+      if (!(eq > 0)) return setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b> paid to you. Type the exchange balance now to see how many of your units they get.${eff}`);
       const my = depSeq, args = { p_profile: who, p_usdt: d.usdt, p_equity_before: eq, p_php_rate: d.rate, p_at: atOf(fm) };
       setPrev('depPrev', '<span class="note">Asking the database how many of your units this buys…</span>');
       depTimer = setTimeout(async () => {
@@ -1482,53 +1524,64 @@
       }, 350);
       return;
     }
-    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (${php(d.usdt * d.rate)})` : ''}. Waits until it is in the exchange and your next equity reading, then buys units at that price.${termsWarn(fv(fm, 'who'))}`);
+    setPrev('depPrev', `${d.php != null ? `${php(d.php)} = ` : ''}<b>${usdt(d.usdt)}</b>${d.php == null && d.rate ? ` (≈ ${php(d.usdt * d.rate)} at today's rate, no pesos recorded)` : ''}. Waits until it is in the exchange and your next equity reading, then buys units at that price.${eff}${termsWarn(fv(fm, 'who'))}`);
   }
   // after an "Edit" undoes the last entry, refill the matching form with its old values so the fund manager just fixes the typo and re-saves
   function prefillEdit(e, rows) {
     if (e.kind === 'update') {
       const fm = $f('eqForm'); if (!fm) return;
-      fm.elements.equity.value = e.equity_usdt; if (e.php_rate) fm.elements.rate.value = e.php_rate; fm.elements.note.value = e.note || ''; eqPrev(fm);
+      fm.elements.equity.value = e.equity_usdt; fm.elements.note.value = e.note || ''; eqPrev(fm);   // the rate field keeps today's reference rate, never an old entry's
     } else if (e.kind === 'deposit') {
       const dep = rows.find((r) => r.kind === 'deposit'); const fm = $f('depForm'); if (!fm || !dep) return;
       fm.elements.who.value = dep.profile_id; fm.elements.ccy.value = dep.php_amount ? 'PHP' : 'USDT';
-      fm.elements.amt.value = dep.php_amount || dep.usdt; if (dep.php_rate) fm.elements.rate.value = dep.php_rate;
+      fm.elements.amt.value = dep.php_amount || dep.usdt;
+      if (dep.php_amount) fm.elements.got.value = dep.usdt;   // the effective rate is worked out again from the two amounts
       if (fm.elements.eq) fm.elements.eq.value = Number(e.equity_usdt) - Number(dep.usdt);
       fm.elements.note.value = dep.note || ''; depPrev(fm);
     } else if (e.kind === 'withdrawal') {
       const wd = rows.find((r) => r.kind === 'withdrawal'); const fm = $f('wdForm'); if (!fm || !wd) return;
       fm.elements.who.value = wd.profile_id; fm.elements.units.value = Math.abs(wd.units);
-      fm.elements.eq.value = Number(e.equity_usdt) + Math.abs(Number(wd.usdt)); if (wd.php_rate) fm.elements.rate.value = wd.php_rate;
+      fm.elements.eq.value = Number(e.equity_usdt) + Math.abs(Number(wd.usdt));
       fm.elements.note.value = wd.note || ''; wdPrev(fm);
     }
     toast('Entry undone — adjust the values and save again.');
+  }
+  // investor request preview: the units the USDT asks for at today's price, and the pesos as a labelled estimate (never part of the request)
+  function reqPrev(fm) {
+    if (!fm) return;
+    const a = num(fv(fm, 'amount')), price = Number(S.me.unit_price), units = Contribution.withdrawUnits(a, price, S.me.unlocked_units);
+    const avail = Number(S.me.unlocked_units) * price;
+    if (units == null) return setPrev('reqPrev', `Up to <b>${usdt(Math.floor(avail * 100) / 100)}</b> can be requested now${rate() ? ` (≈ ${php(avail * rate())} at today's rate, an estimate)` : ''}.`);
+    setPrev('reqPrev', `<b>${usdt(a)}</b> = ${f(units, 4)} of your units at today's unit price ${f(price, 4)}.
+      <br><span class="note">${rate() ? `≈ ${php(a * rate())} at today's PHP/USD reference rate: an estimate only.` : 'Peso estimate: rate unavailable.'} What you receive is set by these units and the unit price on the payout day, in USDT.</span>${a > avail + 0.01 ? '<br><span class="warn">More than you can withdraw right now.</span>'
+        : minPhp() && fxDbRate() && units < Number(S.me.units) - 1e-8 && units * price * fxDbRate() < minPhp() ? `<br><span class="warn">Under the ${php(minPhp())} minimum (about ${usdt(S.fxDb.min_withdrawal_usdt)} at the fund's reference rate). Taking everything is always allowed.</span>` : ''}`);
   }
   const holder = (id) => S.all.find((h) => h.id === id);
   let wdSeq = 0, wdTimer = null;   // Money out preview: the newest quote request; older answers are dropped
   function wdPrev(fm) {
     const h = holder(fv(fm, 'who')), eq = num(fv(fm, 'eq')), u = Number(S.pool.total_units);
     const wp = $f('wdPay'); if (wp) wp.innerHTML = h && h.role === 'investor' ? `<details class="paydet" open><summary class="note">Where to send their money</summary>${payoutBlock(payOf(h.id))}</details>` : '';
-    // a typed value (pesos or USDT) becomes units at the price this payout will use; typing the units directly clears the value
+    // a typed USDT amount becomes units at the price this payout will use (no peso rate involved); typing the units directly clears the amount
     if (fm.dataset.last === 'units') fm.elements.amt.value = '';
     else if (num(fv(fm, 'amt')) > 0 && eq != null && u && eq - pendTotal() > 0) {
-      const price = (eq - pendTotal()) / u, r = num(fv(fm, 'rate')) || rate(), a = num(fv(fm, 'amt'));
-      const usd = fv(fm, 'ccy') === 'USDT' ? a : r > 0 ? a / r : null;
-      if (usd != null) fm.elements.units.value = Math.round((usd / price) * 1e8) / 1e8;
+      const price = (eq - pendTotal()) / u;
+      fm.elements.units.value = Math.round((num(fv(fm, 'amt')) / price) * 1e8) / 1e8;
     }
     const units = num(fv(fm, 'units'));
     wdSeq++; clearTimeout(wdTimer);
     if (!h || units == null || eq == null || !u) return setPrev('wdPrev', '—');
     if (eq - pendTotal() <= 0) return setPrev('wdPrev', `<span class="down">Must be more than the ${usdt(pendTotal())} still waiting.</span>`);
     const price = (eq - pendTotal()) / u;
+    // a hint only: the peso minimum is checked by the database (it refuses, with the reason, unless the lock-up/minimum override is ticked)
     const small = h.role === 'investor' && minPhp() && rate() && units < Number(h.units) - 1e-8 && units * price * rate() < minPhp() && !fm.elements.force.checked
-      ? `<br><span class="warn">Under the ${php(minPhp())} minimum. Tick override to allow.</span>` : '';
+      ? `<br><span class="warn">At today's rate this is about ${php(units * price * rate())}, possibly under the ${php(minPhp())} minimum: the database checks it.</span>` : '';
     const warn = small + (units > Number(h.units) + 1e-8 ? '<br><span class="down">More than they hold.</span>'
       : h.role === 'investor' && h.next_unlock ? `<br><span class="note">Inside their first-deposit lock-up (until ${day(h.next_unlock)}): your call.</span>` : '');
     const mgr = fm.elements.tomgr.checked, mgrWarn = mgr && h.role !== 'investor' ? '<br><span class="down">Only an investor\'s money can be moved to you.</span>' : '';
     // the fee, withdrawal fee and payout are the database's own answer (admin_quote_withdraw runs the real withdrawal and rolls it back), never a browser estimate;
     // only the answer for the inputs still on screen is shown
     const args = { p_profile: h.id, p_units: units, p_equity_before: eq, p_php_rate: num(fv(fm, 'rate')), p_force: fm.elements.force.checked, p_to_manager: mgr, p_at: atOf(fm) };
-    const my = wdSeq, xr = exitRate(h.id), r8 = num(fv(fm, 'rate')) || rate();
+    const my = wdSeq, xr = exitRate(h.id), est = (u) => (rate() ? ` (${peso(u, rate())} at today's rate, an estimate)` : '');
     setPrev('wdPrev', `<span class="note">Asking the database for the fee and payout…</span>${mgrWarn}${warn}`);
     wdTimer = setTimeout(async () => {
       let r = null, err = null, checked = false;
@@ -1540,7 +1593,7 @@
       if (my !== wdSeq || err === 'Signed out') return;
       if (err) return setPrev('wdPrev', `<span class="down">The database would refuse this: ${esc(/function|schema cache|does not exist/i.test(err) ? 'the quote is not available on this database yet (run 20261128000000_withdraw_quote.sql).' : err)}</span>${mgrWarn}${warn}`);
       const fee = Number(r.fee_units), net = Number(r.net_units), pay = Number(r.pay_usdt);
-      setPrev('wdPrev', `Price ${f(r.unit_price, 4)}. Fee <b>${f(fee, 4)} units</b>${Number(r.withdrawal_fee_units) > 0 ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}.${mgr ? `Moves <b>${usdt(pay)}</b> ${peso(pay, r8)} (${f(net, 4)} units) to your fund manager account. Nothing leaves the exchange: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b> ${peso(pay, r8)} for ${f(net, 4)} units.`}<br><span class="note">Quoted by the database for these exact figures; nothing is saved until you press the button.</span>${checked ? `<br><span class="warn">Saving will ask you to confirm: ${esc(checked)}</span>` : ''}${mgrWarn}${warn}`);
+      setPrev('wdPrev', `Price ${f(r.unit_price, 4)}. Fee <b>${f(fee, 4)} units</b>${Number(r.withdrawal_fee_units) > 0 ? ` (includes ${pc(xr)}% withdrawal fee)` : ''}. ${mgr ? `Moves <b>${usdt(pay)}</b>${est(pay)} (${f(net, 4)} units) to your fund manager account. Nothing leaves the exchange: you pay them yourself.` : `Pay out <b>${usdt(pay)}</b>${est(pay)} for ${f(net, 4)} units.`}<br><span class="note">Quoted by the database for these exact figures; nothing is saved until you press the button.</span>${checked ? `<br><span class="warn">Saving will ask you to confirm: ${esc(checked)}</span>` : ''}${mgrWarn}${warn}`);
     }, 350);
   }
 
@@ -1617,7 +1670,7 @@
     else if (a === 'theme') { const p = themePref(); applyTheme(THEMES[(THEMES.indexOf(p) + 1) % THEMES.length]); if (S.me) render(); else loginView(); }
     else if (a === 'cur') { S.cur = inPeso() ? 'USDT' : 'PHP'; try { localStorage.setItem('ledger.cur', S.cur); } catch { /* not saved */ } render(); }
     else if (a === 'adduser') { S.addUser = !S.addUser; render(); }
-    else if (a === 'maxunits') { const v = Number(S.me.units) * Number(S.me.unit_price) * (inPeso() ? rate() : 1); $f('rq-u').value = Math.floor(v * 100) / 100; }
+    else if (a === 'maxunits') { const v = Number(S.me.units) * Number(S.me.unit_price); $f('rq-u').value = Math.floor(v * 100) / 100; reqPrev($f('reqForm')); }
     else if (a === 'arrived') {
       if (!(await confirmSheet('Is the money in the exchange?', 'Is this money in the exchange account now? It joins the pool at your next Update equity, and that total must include it.', 'Yes, continue', true))) return;
       await act(() => call('admin_mark_arrived', { p_pending: Number(id), p_transfer_id: null }), 'Marked as in the exchange');
@@ -1749,10 +1802,9 @@
         await call('set_my_payout', { p_method: fv(fm, 'method'), p_name: fv(fm, 'pname'), p_number: fv(fm, 'pnum'), p_bank: null, p_qr: qr });
         await refresh('Payout details saved');
       } else if (id === 'reqForm') {
-        const want = num(fv(fm, 'amount')) / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // amount -> units
-        const tol = 0.01 / (inPeso() ? rate() : 1) / Number(S.me.unit_price);   // within a centavo of the maximum means "everything" (the Max button rounds down)
-        const units = Math.abs(want - Number(S.me.unlocked_units)) <= tol ? Number(S.me.unlocked_units) : want;   // more than that is left for the database to refuse
-        if (minPhp() && rate() && units < Number(S.me.units) - 1e-8 && units * Number(S.me.unit_price) * rate() < minPhp()) throw new Error(`The minimum withdrawal is ${php(minPhp())}. Taking everything you hold is always allowed.`);
+        // USDT -> units at today's unit price; no peso rate is involved. The peso minimum is the database's own check (request_withdrawal).
+        const units = Contribution.withdrawUnits(num(fv(fm, 'amount')), S.me.unit_price, S.me.unlocked_units);
+        if (units == null) throw new Error('Enter the amount to withdraw in USDT.');
         const r = await call('request_withdrawal', { p_units: units, p_note: null });
         await refresh(`Requested. You will be paid by ${day(r.pay_by)}.`);
       } else if (id === 'wfBal') {
@@ -1762,7 +1814,7 @@
         const r = await moneyCall(fm, 'admin_post_equity', { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm) });
         await refresh(Number(r.converted) ? `Equity saved. ${r.converted} waiting deposit${Number(r.converted) === 1 ? '' : 's'} joined at ${f(r.unit_price, 4)}.` : 'Equity saved');
       } else if (id === 'depForm') {
-        const d = depUsdt(fm); if (!d || !(d.usdt > 0)) throw new Error('Enter an amount and the peso rate.');
+        const d = depUsdt(fm); if (!d || !(d.usdt > 0)) throw new Error(fv(fm, 'ccy') === 'USDT' ? 'Enter the USDT received.' : 'Enter the pesos paid and the USDT actually received.');
         if (fm.elements.frommgr && fm.elements.frommgr.checked) {
           if (!(num(fv(fm, 'eq')) > 0)) throw new Error('Type the exchange balance now (Spot + Futures, open trades included).');
           const r = await moneyCall(fm, 'admin_units_from_manager', { p_profile: fv(fm, 'who'), p_usdt: d.usdt, p_equity_before: num(fv(fm, 'eq')), p_php_rate: d.rate, p_php_amount: d.php,
@@ -1777,8 +1829,9 @@
         const mgr = fm.elements.tomgr.checked;
         const r = await moneyCall(fm, mgr ? 'admin_withdraw_to_manager' : 'admin_withdraw', { p_profile: fv(fm, 'who'), p_units: num(fv(fm, 'units')), p_equity_before: num(fv(fm, 'eq')),
           p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), p_force: fm.elements.force.checked, p_request_id: num(fv(fm, 'reqid')) });
-        await refresh(mgr ? `Moved ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())} to your fund manager account. Nothing left Exchange.`
-          : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)} ${peso(r.pay_usdt, num(fv(fm, 'rate')) || rate())}`);
+        const est = rate() ? ` (${peso(r.pay_usdt, rate())} at today's rate, an estimate)` : '';
+        await refresh(mgr ? `Moved ${usdt(r.pay_usdt)}${est} to your fund manager account. Nothing left Exchange.`
+          : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)}${est}`);
       } else if (id === 'qForm') {
         if (!(await settleSheet(num(fv(fm, 'equity')), atOf(fm)))) { if (btn) btn.disabled = false; return; }
         const r = await settleWithExceptions(fm, { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), ...previewArg(num(fv(fm, 'equity')), atOf(fm)) });
