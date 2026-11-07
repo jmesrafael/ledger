@@ -7,19 +7,36 @@ const read = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const app = read('js/app.js');
 const grab = (start, end) => app.slice(app.indexOf(start), app.indexOf(end, app.indexOf(start)));
 
-test('PU1 Settings has Profile directly below Refresh, only for a real session (not while viewing as someone)', () => {
-  assert.match(app, /<button data-action="refresh">\$\{ICON\.refresh\}<span>Refresh<\/span><\/button>\r?\n\s+\$\{account \|\| viewOnly \? `<button data-action="profile">\$\{ICON\.user\}<span>Profile<\/span><\/button>` : ''\}/);
+test('PU1 the menu (☰, top right): Profile, How to reach me and Where to send my money first (a real session or view-as), then Refresh, Theme, Currency', () => {
+  const menu = grab('const settingsMenu = ', 'const curBtn');
+  assert.match(menu, /<summary class="iconbtn" aria-label="Menu\$\{any \? ': details still missing' : ''\}" title="Menu">\$\{ICON\.menu\}\$\{any \? RDOT : ''\}<\/summary>/, 'a hamburger, with a red dot when something is missing');
+  assert.match(menu, /\$\{account \|\| viewOnly \? `<button data-action="profile">\$\{ICON\.user\}<span>Profile<\/span><\/button>/);
+  assert.match(menu, /<button data-action="contact">\$\{ICON\.phone\}<span>How to reach me<\/span>\$\{need\.contact \? RDOT : ''\}<\/button>/);
+  assert.match(menu, /\$\{S\.me\.role === 'investor' \? `<button data-action="payout">\$\{ICON\.wallet\}<span>Where to send my money<\/span>\$\{need\.payout \? RDOT : ''\}<\/button>` : ''\}/, 'only investors are paid out');
+  assert.ok(menu.indexOf('data-action="payout"') < menu.indexOf('data-action="refresh"'), 'account items come first');
+  assert.ok(!app.includes('ICON.gear') && !/^\s+gear: svg\(/m.test(app), 'the gear is gone');
   assert.match(app, /settingsMenu\(!viewing, !!viewing\)/);
-  assert.match(app, /user: svg\(/);
+  for (const i of ['menu', 'phone', 'wallet', 'withdraw', 'user']) assert.match(app, new RegExp(`\\n\\s+${i}: svg\\(`), i);
 });
 
-test('PU2 the page: account (name, username with the current password), contact, payout (investors), password; it is routed outside the tab bar and has a Back button', () => {
+test('PU1b the red dot: only for an investor, only for what is missing (contact when the contact feature is on, payout details)', () => {
+  assert.match(app, /const missing = \(\) => \{ const m = S\.me; return m && m\.role === 'investor' \? \{ contact: !!S\.contactOn && !S\.contact, payout: !S\.payout \} : \{ contact: false, payout: false \}; \};/);
+  const css = read('login.html');
+  assert.match(css, /\.rdot \{[^}]*border-radius: 50%[^}]*background: #E5484D/);
+  assert.match(css, /\.settings > summary \.rdot \{ position: absolute;/);
+});
+
+test('PU2 the pages: Profile (account, contact, payout for investors, password), How to reach me, Where to send my money; routed outside the tab bar, each with a Back button', () => {
   const v = grab('function viewProfile()', '// ---------------------------------------------------------------- investor / shared views');
   for (const t of ['id="nameForm"', 'id="usernameForm"', "pw('pw', 'current-password')", 'contactCard(m)', 'payoutCard(m)', 'passwordCard()', 'data-tab="${home}">Back']) assert.ok(v.includes(t), t);
   assert.match(v, /\$\{investor \? payoutCard\(m\) : ''\}/, 'the fund manager has no payout card');
-  assert.match(app, /if \(S\.tab !== 'profile' && !tabs\.some\(\(\[k\]\) => k === S\.tab\)\) S\.tab = tabs\[0\]\[0\];/);
-  assert.match(app, /const VIEWS = \{ profile: viewProfile,/);
-  assert.match(app, /else if \(a === 'profile'\) \{ S\.tab = 'profile'; S\.modal = null; render\(\);/);
+  assert.match(app, /const PAGES = \['profile', 'contact', 'payout'\];/);
+  assert.match(app, /const viewContact = \(\) => `\$\{pageHead\('How to reach me'\)\}\$\{contactCard\(S\.me\)/);
+  assert.match(app, /const viewPayout = \(\) => `\$\{pageHead\('Where to send my money'\)\}\$\{S\.me\.role === 'investor' \? payoutCard\(S\.me\)/);
+  assert.match(app, /const pageHead = \(title\) => `<div class="sechead"><h2>\$\{title\}<\/h2><button class="sm ghost" data-tab="\$\{tabsFor\(\)\[0\]\[0\]\}">Back<\/button><\/div>`;/);
+  assert.match(app, /if \(!PAGES\.includes\(S\.tab\) && !tabs\.some\(\(\[k\]\) => k === S\.tab\)\) S\.tab = tabs\[0\]\[0\];/);
+  assert.match(app, /const VIEWS = \{ profile: viewProfile, contact: viewContact, payout: viewPayout, withdraw: viewWithdraw,/);
+  assert.match(app, /else if \(PAGES\.includes\(a\)\) \{ S\.tab = a; S\.modal = null; render\(\);/);
 });
 
 test('PU3 the forms call functions that exist with the arguments they take; the contact and payout forms are the ones already used', () => {
@@ -32,15 +49,19 @@ test('PU3 the forms call functions that exist with the arguments they take; the 
   assert.match(sql, /function public\.change_my_username\(p_token text, p_password text, p_username text\)/);
 });
 
-test('PU4 Home no longer carries the password form: a short card points to Profile and says what is missing, and a missing contact or payout form is right there; the manager acting as the person sees the same', () => {
-  const home = grab('function viewHome()', '  const recentCard');
-  assert.ok(!home.includes('passwordCard()'));
-  assert.match(home, /\$\{investor \? profileNudge\(m\) \+ \(S\.contactOn && !S\.contact \? contactCard\(m\) : ''\) \+ \(S\.payout \? '' : payoutCard\(m\)\) : ''\}/);
+test('PU4 Home carries no forms and no "Good to know" or Withdrawals card: profile, contact and payout are in the menu, withdrawals have their own tab; the manager acting as the person sees the same', () => {
+  const home = grab('function viewHome()', '  function glanceCard(m)');
+  for (const t of ['passwordCard()', 'contactCard(', 'payoutCard(', 'profileNudge', 'aboutTeaser', 'Good to know', 'id="reqForm"', '<h2>Withdrawals']) assert.ok(!home.includes(t), t);
+  assert.match(home, /\$\{growthCard\('Your balance'\)\}\$\{glanceCard\(m\)\}/);
+  assert.match(home, /\$\{Contribution\.card\(contribOf\(m\)\)\}/);
+  assert.ok(!app.includes('profileNudge') && !app.includes('aboutTeaser'), 'the old home cards are gone');
   assert.ok(!app.includes('if (m.impersonated) return `${head}'), 'the contact and payout cards are the real forms in view-as too');
   const mine = grab('function viewMine()', 'const viewMyHistory');
-  assert.ok(!mine.includes('passwordCard()') && mine.includes('profileNudge(S.me)'));
-  const n = grab('function profileNudge(m)', 'function viewProfile()');
-  assert.match(n, /contact number/); assert.match(n, /details of where to send your money/); assert.match(n, /data-action="profile">Open profile/);
+  assert.ok(!mine.includes('passwordCard()') && !mine.includes('profileNudge'));
+  assert.match(app, /investor: \[\['home', 'Home'\], \['withdraw', 'Withdraw'\], \['statements', 'Statements'\], \['activity', 'Activity'\], \['about', 'About'\]\]/);
+  const w = grab('function viewWithdraw()', '// ---------------------------------------------------------------- growth chart');
+  for (const t of ['id="reqForm"', 'Amount to withdraw (USDT)', 'data-action="maxunits"', 'data-action="cancelreq"', 'Read-only view: only the person can request a withdrawal.', 'data-action="payout">Add payout details', 'minNote()', 'FEE_SOON']) assert.ok(w.includes(t), t);
+  assert.match(app, /<div class="card"><h2>Good to know<\/h2>\r?\n\s+<p class="about">This page is a record kept by the fund manager\./, '"Good to know" lives on the About tab');
 });
 
 test('PU8 view-as: no banner on top; a round orange button at the end of the main nav goes back to the manager\'s ledger; name, contact and withdrawal details are editable, password and username are not offered', () => {

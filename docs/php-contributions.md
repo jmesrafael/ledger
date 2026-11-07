@@ -54,6 +54,29 @@ The card is on the investor's home screen. The same card ("My contribution") is 
 
 **Deposits and payouts that were undone.** A deposit undone with "Edit" (its negative twin) counts nowhere. It is matched by `reversed_of`, or by the exact negative where the investor's own rows don't carry that field. A payout that was undone cancels out.
 
+**The card at one look (redesign, 2026-11-07).** The card shows the money's journey, then where the difference went:
+- **Journey:** You paid ₱5,000 → Arrived in the fund 66.40 USDT (₱75.30 paid per USDT) → Worth now 64.37 USDT (≈ ₱4,061 today, −2.03 USDT).
+- **Bars** (pesos at today's reference rate, only when all of it was paid in pesos and a rate is known):
+  - You paid ₱5,000;
+  - Lost converting pesos to USDT −₱811 (12.86 USDT);
+  - Trading so far −₱128;
+  - Worth now ₱4,061.
+
+  The bars add up exactly: paid − conversion + trading = worth now. Otherwise the same bars are in USDT: put in, taken out, trading, worth now.
+- **All figures:** the formal lines in the table above, folded away under "All figures".
+- **Display only.** `Contribution.journey()` stores nothing and feeds nothing.
+
+**Where things are now.**
+
+| Where | What |
+|---|---|
+| Home | the balance and its chart; **At a glance** (if every trade closed now, result so far, in cash vs in open trades with a bar, free to withdraw); the contribution card; open requests; recent transactions |
+| **Withdraw** tab (new) | what can be requested now, the request form (USDT), pending requests, and the rules as tiles (minimum, lock-up, paid within, fee) |
+| **Menu** (☰, top right; replaces the gear) | Profile, How to reach me, Where to send my money, then Refresh, Theme, Currency, Welcome tour, Sign out |
+| About tab | "Good to know", unchanged |
+
+For an investor, a **red dot** marks the menu button, and each item that is still missing: contact, or payout details.
+
 ## 3. USDT-only and older deposits
 
 Raf's deposits #1 (52.3082) and #2 (200) were entered in USDT. They have no `php_amount`.

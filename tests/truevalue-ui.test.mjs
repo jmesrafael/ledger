@@ -51,6 +51,9 @@ test('TVU5 the app loads the right call per role (failing quietly before the mig
   assert.match(app, /S\.tv = await call\(admin \? 'admin_true_value' : 'my_true_value'\); S\.tvPrev = admin \? await call\('admin_preview_book_corrections'\) : null; \}, \(\) => \{ S\.tv = null; S\.tvPrev = null; \}\)/);
   assert.match(app, /\$\{TVUI\.adminCard\(S\.tv, S\.tvPrev\)\}/);
   assert.match(app, /call\('admin_apply_book_correction', \{ p_id: Number\(id\), p_idem: 'book-correction-' \+ id \}\)/, 'one idempotency key per correction');
-  assert.match(app, /confirmSheet\(`Apply correction #\$\{id\}\?`/); assert.match(app, /\$\{investor \? TVUI\.investorCard\(S\.tv\) : ''\}/);
+  assert.match(app, /confirmSheet\(`Apply correction #\$\{id\}\?`/);
+  // the investor's true-value figures are on Home's "At a glance" card (cash, open trades, worth if every trade closed, the join/leave line)
+  assert.match(app, /const tv = S\.tv && S\.tv\.enabled && S\.tv\.value_usdt != null \? S\.tv : null/);
+  assert.match(app, /\$\{tv \? `<p class="note">\$\{esc\(TVUI\.state\(tv\)\.text\)\}<\/p>` : ''\}/);
   assert.ok(html.indexOf('js/truevalue-ui.js') > 0 && html.indexOf('js/truevalue-ui.js') < html.indexOf('js/app.js'));
 });

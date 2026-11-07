@@ -181,6 +181,39 @@ p.about:last-child { margin-bottom: 0; }
 .note { font-size: 13px; color: var(--muted); line-height: 1.45; }
 .split { display: flex; height: 10px; border-radius: 99px; overflow: hidden; margin: 4px 0 10px; background: var(--variant); }
 .split i { display: block; height: 100%; }
+.stat .s { color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 2px; line-height: 1.35; }
+
+/* menu (top right): red dot when an investor still has to add details */
+.settings > summary { position: relative; }
+.rdot { width: 9px; height: 9px; border-radius: 50%; background: #E5484D; box-shadow: 0 0 0 2px var(--page); flex: none; }
+.settings > summary .rdot { position: absolute; top: 8px; right: 8px; }
+.settings .menu button .rdot { margin-left: auto; box-shadow: none; }
+.settings .menu .sep { height: 1px; background: var(--divider); margin: 4px 6px; }
+
+/* contribution: the money's journey (paid -> arrived -> worth now) and where the difference went */
+.jflow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 8px; }
+.fstep { background: var(--soft-bg); border: 1px solid var(--soft-border); border-radius: 16px; padding: 12px 14px; min-width: 0; }
+.fstep .k { color: var(--muted); font-size: 12px; font-weight: 600; }
+.fstep .v { font-weight: 800; font-size: 20px; letter-spacing: -0.3px; margin-top: 2px; overflow-wrap: anywhere; }
+.fstep .s { color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 2px; }
+.fstep.now { border-color: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-soft); }
+.farrow { align-self: center; color: var(--muted); font-size: 18px; font-weight: 800; }
+.wf { margin: 14px 0 4px; display: grid; gap: 10px; }
+.wfrow { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.wfl { font-size: 14px; font-weight: 600; color: var(--ink-2); min-width: 0; }
+.wfl .note { display: block; font-size: 12px; font-weight: 500; }
+.wfbar { height: 10px; border-radius: 99px; background: var(--variant); overflow: hidden; }
+.wfbar span { display: block; height: 100%; border-radius: 99px; }
+.wfbar .paid { background: var(--ink-2); opacity: .55; } .wfbar .conv { background: var(--warn); } .wfbar .loss { background: var(--down); }
+.wfbar .gain { background: var(--up); } .wfbar .now { background: var(--accent); }
+.wfv { font-weight: 800; font-size: 14px; text-align: right; white-space: nowrap; }
+details.more { margin-top: 6px; }
+@media (max-width: 560px) {
+  .jflow { grid-template-columns: 1fr; }
+  .farrow { justify-self: center; transform: rotate(90deg); line-height: 1; margin: -4px 0; }
+  .wfrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .wfbar { grid-column: 1 / -1; grid-row: 2; }
+}
 
 /* forms */
 label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin: 14px 0 6px; }

@@ -120,11 +120,56 @@
     return out.join('');
   }
 
+  // The money's journey, for one look: what was put in -> what arrived in the fund (USDT) -> what it is worth now, and where the difference went.
+  // In pesos (at today's reference rate) only when every peso of it was really paid in pesos and a reference rate is known; otherwise in USDT.
+  //   conversionPhp = pesos paid − (USDT that arrived × today's rate): what converting pesos to USDT cost, seen at today's rate
+  //   resultPhp     = (worth now − USDT that arrived) × today's rate: the fund's result since then (after fees charged)
+  // Display only: none of these figures is stored or used for units, NAV, fees or payouts.
+  function journey(s) {
+    if (!s || (!s.deposits.length && !s.usdtOnlyCount)) return null;
+    const inUsdt = s.usdt + s.usdtOnly, ref = s.ref ? s.ref.rate : null, now = s.value;
+    const j = { pesoOnly: putInPesos(s) != null, paidPhp: s.php, inUsdt, outUsdt: s.withdrawnUsdt, now, ref,
+      result: now == null ? null : now - inUsdt + s.withdrawnUsdt, inPesos: false };
+    if (j.pesoOnly && ref && now != null) {
+      const arrivedPhp = s.usdt * ref, nowPhp = now * ref;
+      Object.assign(j, { inPesos: true, arrivedPhp, nowPhp, conversionPhp: s.php - arrivedPhp, resultPhp: nowPhp - arrivedPhp });
+    }
+    return j;
+  }
+  const phpR = (v) => '₱' + Number(v).toLocaleString('en-US', { minimumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2, maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2 });
+  const sgn = (v, fmt) => (v > 0.0049 ? '+' : v < -0.0049 ? '−' : '') + fmt(Math.abs(v));
+  const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
+
   function card(s, title = 'Your contribution') {
-    if (!s || (!s.deposits.length && !s.usdtOnlyCount)) return '';
-    return `<div class="card" data-contribution><h2>${esc(title)}</h2>${rows(s)}
-      <p class="note">Your units were bought with the USDT actually received, at the unit price on the day your money joined. Changes in the peso rate never change your units or their value.</p></div>`;
+    const j = journey(s);
+    if (!j) return '';
+    const step = (k, v, sub, cls = '') => `<div class="fstep ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
+    const arrow = '<div class="farrow" aria-hidden="true">→</div>';
+    const paid = s.php > 0 ? (s.usdtOnly > 0 ? `${phpR(s.php)} + ${usd(s.usdtOnly)}` : phpR(s.php)) : usd(s.usdtOnly);
+    const paidSub = s.php > 0 ? (s.usdtOnly > 0 ? 'pesos, plus USDT put in directly' : s.deposits.length > 1 ? `in pesos · ${s.deposits.length} deposits` : 'in pesos') : 'in USDT';
+    const flow = `<div class="jflow">${step(s.php > 0 ? 'You paid' : 'You put in', paid, paidSub)}${arrow}
+      ${step('Arrived in the fund', usd(j.inUsdt), s.rate ? `₱${f(s.rate, 2)} paid per USDT` : 'what buys your units')}
+      ${j.now != null ? arrow + step(j.outUsdt > 0.0049 ? 'Worth now (after payouts)' : 'Worth now', usd(j.now), `${j.inPesos ? `≈ ${phpR(j.nowPhp)} today · ` : ''}<span class="${tone(j.result)}">${sgn(j.result, usd)}</span>`, 'now') : ''}</div>`;
+    // where the difference went: one bar per line, widths to scale
+    let lines;
+    if (j.inPesos) {
+      lines = [['You paid', j.paidPhp, 'paid', phpR(j.paidPhp), ''],
+        ['Lost converting pesos to USDT', -j.conversionPhp, 'conv', sgn(-j.conversionPhp, phpR), `you paid ₱${f(s.rate, 2)} per USDT; today's rate is ₱${f(j.ref, 2)} (${usd(j.paidPhp / j.ref - s.usdt)})`],
+        ['Trading so far', j.resultPhp, j.resultPhp >= 0 ? 'gain' : 'loss', sgn(j.resultPhp, phpR), `the fund's result since your money joined, after fees (${sgn(j.result, usd)})`],
+        ['Worth now', j.nowPhp, 'now', phpR(j.nowPhp), 'at today\'s rate']];
+    } else if (j.now != null) {
+      lines = [['Put in', j.inUsdt, 'paid', usd(j.inUsdt), s.php > 0 ? `including ${phpR(s.php)} paid in pesos` : ''],
+        ...(j.outUsdt > 0.0049 ? [['Taken out', -j.outUsdt, 'conv', sgn(-j.outUsdt, usd), 'withdrawals paid to you']] : []),
+        ['Trading so far', j.result, j.result >= 0 ? 'gain' : 'loss', sgn(j.result, usd), 'the fund\'s result since your money joined, after fees'],
+        ['Worth now', j.now, 'now', usd(j.now), j.pesoOnly && !j.ref ? 'peso figures: rate unavailable' : '']];
+    }
+    const max = lines ? Math.max(...lines.map((x) => Math.abs(x[1]))) || 1 : 1;
+    const wf = lines ? `<div class="wf">${lines.map(([l, v, c, t, note]) => `<div class="wfrow"><div class="wfl">${l}${note ? `<span class="note">${note}</span>` : ''}</div>
+      <div class="wfbar"><span class="${c}" style="width:${Math.max(1.5, (Math.abs(v) / max) * 100).toFixed(1)}%"></span></div><div class="wfv ${c === 'loss' || c === 'conv' ? 'down' : c === 'gain' ? 'up' : ''}">${t}</div></div>`).join('')}</div>` : '';
+    return `<div class="card" data-contribution><h2>${esc(title)}</h2>${flow}${wf}
+      <p class="note">${s.units != null ? `You own <b>${f(s.units, 8)} units</b>, bought` : 'Units are bought'} with the USDT that actually arrived, at the unit price on the day your money joined. Changes in the peso rate never change your units or their value.</p>
+      <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, putInPesos, withdrawUnits, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, putInPesos, withdrawUnits, journey, rows, card };
 });

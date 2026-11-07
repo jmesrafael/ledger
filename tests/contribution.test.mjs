@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { ready, near } from './_tvworld.mjs';
 const C = createRequire(import.meta.url)('../js/contribution.js');
 const read = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+const grab = (s, a, b) => s.slice(s.indexOf(a), s.indexOf(b, s.indexOf(a)));
 
 const NOW = Date.parse('2026-11-07T12:00:00Z');
 const live = { rate: 63.11, t: NOW - 5 * 60000, src: 'open.er-api.com' };
@@ -135,7 +136,7 @@ test('CB11 app wiring: the reference rate comes only from the live sources, the 
   assert.match(app, /<input name="got" type="number"/);
   assert.match(app, /const got = num\(fv\(fm, 'got'\)\), r = Contribution\.effectiveRate\(amt, got\);\r?\n    return r \? \{ usdt: got, php: amt, rate: r \} : \{ usdt: null, php: amt \};/);
   assert.match(app, /admin_receive_deposit', \{ p_profile: fv\(fm, 'who'\), p_usdt: d\.usdt, p_php_rate: d\.rate, p_php_amount: d\.php,/, 'the USDT received is what is recorded');
-  assert.match(app, /\$\{investor \? Contribution\.card\(contribOf\(m\)\) : ''\}/);
+  assert.match(grab(app, 'function viewHome()', '  function glanceCard(m)'), /\$\{Contribution\.card\(contribOf\(m\)\)\}/);
   assert.match(app, /\$\{Contribution\.card\(contribOf\(m\), 'My contribution'\)\}/);
   assert.match(app, /\$\{Contribution\.rows\(contribOf\(h\), \{ holdings: false \}\)\}/);
   assert.ok(html.indexOf('js/contribution.js') > 0 && html.indexOf('js/contribution.js') < html.indexOf('js/app.js'));
@@ -181,7 +182,10 @@ test('CB15 "Where your money stands" and the dashboard total never show USDT tur
   assert.ok(!h.includes('₱4190.50') && !/data-k="(contributed|gross|net)">₱/.test(h), 'no USDT amount turned into pesos in this card: the rows add up in USDT');
   assert.ok(P.render(pos, { money: toPhp, day: String }).includes('data-k="contributed">₱4190.50<'), 'without cash/paidNote the old behaviour is unchanged (other callers)');
   const app = read('js/app.js');
-  assert.match(app, /Position\.render\(S\.pos, \{ money, day, cash: \(u\) => usdt\(u\), paidNote: paidNote\(m\) \}\)/);
+  // Home no longer shows "Where your money stands" (the contribution card's journey replaces it) nor the duplicate estimate hero while the value is reliable
+  const home = grab(app, 'function viewHome()', '  function glanceCard(m)');
+  assert.ok(!home.includes('Position.render(') && !home.includes('capitalCard'));
+  assert.match(home, /\$\{pos && !pos\.estimate\.reliable \? Position\.estimateCard\(pos, fm\) : ''\}/);
   assert.match(app, /\.filter\(\(s\) => s\.deposits\.length \|\| s\.usdtOnlyCount \|\| s\.withdrawnUsdt\)\.map\(Contribution\.putInPesos\)/, 'investors with nothing in do not block the peso total');
 });
 
@@ -197,6 +201,31 @@ test('CB16 the reference rate in the app: stored only from the manager\'s fresh 
   assert.match(app, /Effective cash-in rate ₱\$\{f\(d\.rate, 2\)\} per USDT \(pesos ÷ USDT received\), kept with the deposit; not today's reference rate\./);
   assert.equal((app.match(/\$\{refFormNote\(\)\}/g) || []).length, 2, 'Money out and Balance forms');
   assert.ok(!/S\.(pool|me)\.php_rate/.test(app), 'no rate stored on a pool entry or profile is read as a current rate');
+});
+
+test('CB17 the journey card at one look: paid -> arrived -> worth now, and where the difference went (James, Raf, no rate, a payout)', () => {
+  const ref = C.referenceRate({ rate: 63.08, t: NOW - 60000, src: 'open.er-api.com' }, NOW);
+  const s = C.summary([james], ref, { units: '73.31635568', value_usdt: '64.37' }), j = C.journey(s);
+  assert.equal(j.inPesos, true); assert.equal(j.paidPhp, 5000); near(j.inUsdt, 66.4, 1e-12); near(j.now, 64.37, 1e-12);
+  near(j.arrivedPhp, 66.4 * 63.08, 1e-9); near(j.conversionPhp, 5000 - 66.4 * 63.08, 1e-9); near(j.resultPhp, (64.37 - 66.4) * 63.08, 1e-9); near(j.nowPhp, 64.37 * 63.08, 1e-9);
+  near(j.paidPhp - j.conversionPhp + j.resultPhp, j.nowPhp, 1e-9, 'the lines add up: paid − conversion + trading = worth now');
+  const h = C.card(s);
+  for (const t of ['You paid', '₱5,000', 'in pesos', 'Arrived in the fund', '66.40 USDT', '₱75.30 paid per USDT', 'Worth now', '64.37 USDT', '≈ ₱4,060 today', '−2.03 USDT',
+    'Lost converting pesos to USDT', '−₱811.49', "today's rate is ₱63.08 (12.86 USDT)", 'Trading so far', '−₱128.05', 'You own <b>73.31635568 units</b>', '<summary>All figures</summary>'])
+    assert.ok(h.includes(t), t);
+  assert.ok(h.indexOf('class="jflow"') < h.indexOf('class="wf"') && h.indexOf('class="wf"') < h.indexOf('All figures'), 'journey first, bars next, the full figures folded away');
+  // Raf: pesos and USDT, so the journey is in USDT and nothing is turned into pesos
+  const raf4 = { id: 4, ts: '2026-11-07T10:21:09Z', kind: 'deposit', usdt: '91.6278', units: '101.17193336', php_amount: '6897', php_rate: '75.27191529' };
+  const r = C.card(C.summary([raf4, raf1, raf2], ref, { units: '356.81618778', value_usdt: '313.27' }));
+  for (const t of ['₱6,897 + 252.31 USDT', 'pesos, plus USDT put in directly', '343.94 USDT', 'including ₱6,897 paid in pesos', 'Trading so far']) assert.ok(r.includes(t), t);
+  assert.ok(!r.includes('Lost converting'), 'no conversion line when part of it was USDT');
+  // no reference rate: the same journey in USDT, and it says so
+  const n = C.card(C.summary([james], null, { units: '73.31635568', value_usdt: '64.37' }));
+  assert.ok(n.includes('peso figures: rate unavailable') && !n.includes('Lost converting') && !n.includes('≈ ₱'));
+  // a payout: shown as taken out, and "worth now" says it is after payouts
+  const w = C.card(C.summary([james, { id: 9, ts: '2026-12-01T00:00:00Z', kind: 'withdrawal', usdt: -10, units: -11 }], ref, { units: '62', value_usdt: '54.4' }));
+  assert.ok(w.includes('Taken out') && w.includes('−10.00 USDT') && w.includes('Worth now (after payouts)'));
+  assert.equal(C.card(C.summary([], ref, null)), '');
 });
 
 test('CB12 database: the pesos recorded with a deposit never change its units, the pool value or anyone else; the row keeps them and stays append-only', async () => {
