@@ -348,10 +348,17 @@
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
       const [label, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'];
-      const sub = [day(l.ts), withName ? esc(l.name) : null, l.note ? esc(l.note) : null].filter(Boolean).join(' · ');
+      // the manager's notes are internal working notes (sources, transfer times): an investor sees the date only
+      const investorView = !withName && S.me && S.me.role === 'investor';
+      const sub = [day(l.ts), withName ? esc(l.name) : null, l.note && !investorView ? esc(l.note) : null].filter(Boolean).join(' · ');
+      // a deposit made in pesos shows the pesos actually paid (and the USDT it bought at that rate), not the USDT re-converted at today's rate
+      const paid = l.kind === 'deposit' && Number(l.php_amount) > 0;
+      const main = paid && inPeso() ? '+' + php(Number(l.php_amount)) : smoney(l.usdt);
+      const small = withName ? sgn(l.units, 2) + ' units'
+        : paid ? (inPeso() ? `${usdt(l.usdt)} at ₱${f(Number(l.php_amount) / Number(l.usdt), 2)}/USDT` : `${php(Number(l.php_amount))} paid`) : alt(Math.abs(l.usdt));
       return `<div class="tx"><div class="ic ${kind}">${ICON[ic]}</div>
         <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
-        <div class="amt ${l.kind === 'fee_out' ? 'share' : cls(l.usdt)}">${smoney(l.usdt)}<small>${withName ? sgn(l.units, 2) + ' units' : alt(Math.abs(l.usdt))}</small></div></div>`;
+        <div class="amt ${l.kind === 'fee_out' ? 'share' : cls(l.usdt)}">${main}<small>${small}</small></div></div>`;
     }).join('');
   }
   const passwordCard = () => `<div class="card"><h2>Change your password</h2>
