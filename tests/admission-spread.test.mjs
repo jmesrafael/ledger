@@ -306,13 +306,12 @@ test('AS14 the investor sees what was credited and the rate applied, never the m
   const s = C.summary([john], ref, { units: '72.15007182', value_usdt: '79.365079' });
   assert.equal(s.php, 5000); assert.equal(s.usdt, 79.365079); near(s.rate, 63.00000029, 1e-7, 'pesos / credited USDT: the admission rate the investor was credited at');
   const h = C.card(s);
-  for (const t of ['You paid', '₱5,000', 'Credited to you', '79.37 USDT', '₱63.00 paid per USDT', 'USDT credited to you']) assert.ok(h.includes(t), t);
+  for (const t of ['Invested', '₱5,000', '79.37 USDT at ₱63.00 per USDT', 'USDT credited to you']) assert.ok(h.includes(t), t);
   // nothing from the manager's side of the record: no surplus, no manager units, no spread or admission wording
   for (const t of ['surplus', 'manager', 'admission', 'spread', 'allocated', '80.645161']) assert.ok(!h.toLowerCase().includes(t.toLowerCase()), 'the investor card must not mention ' + t);
-  // the one place the cost of converting shows is the generic comparison with TODAY'S market rate: it moves with the market, not with the manager's records
-  const at = (rate) => C.card(C.summary([john], C.referenceRate({ rate, t: Date.now(), src: 'open.er-api.com' }), { units: '72.15007182', value_usdt: '79.365079' }));
-  assert.ok(at(62).includes('Lost converting pesos to USDT') && at(62).includes('(1.28 USDT)'));
-  assert.ok(at(60).includes('(3.97 USDT)') && !at(60).includes('(1.28 USDT)'), 'a different market rate gives a different figure');
+  // the cost of converting is only the generic comparison with TODAY'S market rate (journey): it moves with the market, not with the manager's records
+  const at = (rate) => C.journey(C.summary([john], C.referenceRate({ rate, t: Date.now(), src: 'open.er-api.com' }), { units: '72.15007182', value_usdt: '79.365079' })).conversionPhp;
+  near(at(62) / 62, 5000 / 62 - 79.365079, 1e-6); assert.ok(Math.abs(at(60) - at(62)) > 1, 'a different market rate gives a different figure');
   const j = C.journey(s); near(j.result, 0, 1e-9); near(j.paidPhp - j.conversionPhp + j.resultPhp, j.nowPhp, 1e-9);
 });
 

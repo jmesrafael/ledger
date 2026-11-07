@@ -21,7 +21,7 @@
   const n = (v) => (v == null || v === '' ? null : Number(v));
   const ok = (v) => typeof v === 'number' && Number.isFinite(v);
   const TOPUP = 'peso top-up';
-  const isTopup = (l) => String(l.note || '').toLowerCase().startsWith(TOPUP);
+  const isTopup = (l) => l.kind === 'deposit' && String(l.note || '').toLowerCase().startsWith(TOPUP);
   const topupFor = (l) => (String(l.note || '').split(':')[0].match(/#\d+/g) || []).map((x) => x.slice(1));   // the peso deposit ids named before the first ':'
 
   // the PHP rate in a source's JSON ({ rates: { PHP } } for both sources), or null
@@ -89,6 +89,19 @@
     const ids = open.map((d) => '#' + d.id).join(', ');
     return { ids: open.map((d) => d.id), php, arrived, credited, gap, rate: ref.rate,
       note: `${TOPUP} for deposit ${ids}: ₱${f(php, 2)} credited at the live PHP/USD reference ₱${f(ref.rate, 4)} (${ref.src}, ${clock(ref.t)}) = ${f(credited, 6)} USDT; ${f(arrived, 6)} USDT arrived, ${f(gap, 6)} USDT from the fund manager's units` };
+  }
+
+  // A transaction list for the investor: each top-up is folded into the peso deposit it tops up (one "Deposit +₱5,000 · 79.26 USDT" line, not two).
+  // A top-up whose deposit is not in the list stays as its own row. The rows themselves are never changed (copies); the manager's full log keeps both.
+  function foldTopups(rows) {
+    const out = (rows || []).map((l) => ({ ...l })), byId = new Map(out.map((l) => [String(l.id), l]));
+    return out.filter((l) => {
+      if (!isTopup(l)) return true;
+      const d = topupFor(l).map((id) => byId.get(id)).find((x) => x && !isTopup(x));
+      if (!d) return true;
+      d.usdt = Number(d.usdt) + Number(l.usdt); d.units = Number(d.units) + Number(l.units);
+      return false;
+    });
   }
 
   // "Put in", shown in pesos only when every peso of it was really paid (peso deposits only, nothing taken out); otherwise in USDT.
@@ -175,36 +188,22 @@
   const sgn = (v, fmt) => (v > 0.0049 ? '+' : v < -0.0049 ? '−' : '') + fmt(Math.abs(v));
   const tone = (v) => (v > 0.0049 ? 'up' : v < -0.0049 ? 'down' : '');
 
+  // The card, kept simple: what was invested -> what it is worth now, and the result so far. The full figures are folded away under "All figures".
   function card(s, title = 'Your contribution') {
     const j = journey(s);
     if (!j) return '';
     const step = (k, v, sub, cls = '') => `<div class="fstep ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
-    const arrow = '<div class="farrow" aria-hidden="true">→</div>';
-    const paid = s.php > 0 ? (s.usdtOnly > 0 ? `${phpR(s.php)} + ${usd(s.usdtOnly)}` : phpR(s.php)) : usd(s.usdtOnly);
-    const paidSub = s.php > 0 ? (s.usdtOnly > 0 ? 'pesos, plus USDT put in directly' : s.deposits.length > 1 ? `in pesos · ${s.deposits.length} deposits` : 'in pesos') : 'in USDT';
-    const flow = `<div class="jflow">${step(s.php > 0 ? 'You paid' : 'You put in', paid, paidSub)}${arrow}
-      ${step('Credited to you', usd(j.inUsdt), s.rate ? `₱${f(s.rate, 2)} paid per USDT` : 'what buys your units')}
-      ${j.now != null ? arrow + step(j.outUsdt > 0.0049 ? 'Worth now (after payouts)' : 'Worth now', usd(j.now), `${j.inPesos ? `≈ ${phpR(j.nowPhp)} today · ` : ''}<span class="${tone(j.result)}">${sgn(j.result, usd)}</span>`, 'now') : ''}</div>`;
-    // where the difference went: one bar per line, widths to scale
-    let lines;
-    if (j.inPesos) {
-      lines = [['You paid', j.paidPhp, 'paid', phpR(j.paidPhp), ''],
-        ['Lost converting pesos to USDT', -j.conversionPhp, 'conv', sgn(-j.conversionPhp, phpR), `you paid ₱${f(s.rate, 2)} per USDT; today's rate is ₱${f(j.ref, 2)} (${usd(j.paidPhp / j.ref - s.usdt)})`],
-        ['Trading so far', j.resultPhp, j.resultPhp >= 0 ? 'gain' : 'loss', sgn(j.resultPhp, phpR), `the fund's result since your money joined, after fees (${sgn(j.result, usd)})`],
-        ['Worth now', j.nowPhp, 'now', phpR(j.nowPhp), 'at today\'s rate']];
-    } else if (j.now != null) {
-      lines = [['Put in', j.inUsdt, 'paid', usd(j.inUsdt), s.php > 0 ? `including ${phpR(s.php)} paid in pesos` : ''],
-        ...(j.outUsdt > 0.0049 ? [['Taken out', -j.outUsdt, 'conv', sgn(-j.outUsdt, usd), 'withdrawals paid to you']] : []),
-        ['Trading so far', j.result, j.result >= 0 ? 'gain' : 'loss', sgn(j.result, usd), 'the fund\'s result since your money joined, after fees'],
-        ['Worth now', j.now, 'now', usd(j.now), j.pesoOnly && !j.ref ? 'peso figures: rate unavailable' : '']];
-    }
-    const max = lines ? Math.max(...lines.map((x) => Math.abs(x[1]))) || 1 : 1;
-    const wf = lines ? `<div class="wf">${lines.map(([l, v, c, t, note]) => `<div class="wfrow"><div class="wfl">${l}${note ? `<span class="note">${note}</span>` : ''}</div>
-      <div class="wfbar"><span class="${c}" style="width:${Math.max(1.5, (Math.abs(v) / max) * 100).toFixed(1)}%"></span></div><div class="wfv ${c === 'loss' || c === 'conv' ? 'down' : c === 'gain' ? 'up' : ''}">${t}</div></div>`).join('')}</div>` : '';
-    return `<div class="card" data-contribution><h2>${esc(title)}</h2>${flow}${wf}
-      <p class="note">${s.units != null ? `You own <b>${f(s.units, 8)} units</b>, bought` : 'Units are bought'} with the USDT credited to you, at the unit price on the day your money joined. Changes in the peso rate never change your units or their value.</p>
+    const invested = s.php > 0 ? (s.usdtOnly > 0 ? `${phpR(s.php)} + ${usd(s.usdtOnly)}` : phpR(s.php)) : usd(s.usdtOnly);
+    const investedSub = s.php > 0 && !(s.usdtOnly > 0) && s.rate ? `${usd(j.inUsdt)} at ₱${f(s.rate, 2)} per USDT` : usd(j.inUsdt);
+    const flow = `<div class="jflow">${step('Invested', invested, investedSub)}${j.now != null ? `<div class="farrow" aria-hidden="true">→</div>
+      ${step(j.outUsdt > 0.0049 ? 'Worth now (after payouts)' : 'Worth now', usd(j.now), j.ref ? `≈ ${phpR(j.now * j.ref)} today` : '', 'now')}` : ''}</div>`;
+    const pctTxt = j.inUsdt > 0 && j.result != null ? ` (${sgn((j.result / j.inUsdt) * 100, (v) => f(v, 2) + '%')})` : '';
+    const lines = (j.outUsdt > 0.0049 ? row('Taken out', '−' + usd(j.outUsdt), 'withdrawals paid to you') : '')
+      + (j.result != null ? row('Result so far', `<span class="${tone(j.result)}">${sgn(j.result, usd)}${pctTxt}</span>`, "from the fund's trading since your money joined, after fees") : '');
+    return `<div class="card" data-contribution><h2>${esc(title)}</h2>${flow}${lines}
+      <p class="note">${s.units != null ? `You own <b>${f(s.units, 8)} units</b>. ` : ''}Changes in the peso rate never change your units or their value.</p>
       <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, TOPUP, putInPesos, withdrawUnits, spreadFigures, journey, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, withdrawUnits, spreadFigures, journey, rows, card };
 });

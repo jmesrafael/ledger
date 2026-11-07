@@ -373,6 +373,7 @@
   };
   function activityRows(rows, withName) {
     if (!withName && S.me && S.me.role === 'investor') rows = rows.filter((l) => l.kind !== 'fee_out');   // investors never see fee lines: it is already taken out of their balance
+    if (!withName) rows = Contribution.foldTopups(rows);   // the person's own list: a peso top-up shows inside the deposit it tops up
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
       const [label, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'];
@@ -383,9 +384,9 @@
       const paid = l.kind === 'deposit' && Number(l.php_amount) > 0;
       // money moved in USDT (no pesos recorded) stays in USDT, so it never reads as pesos paid or received; today's pesos are an estimate beside it
       const cash = !paid && (l.kind === 'deposit' || l.kind === 'withdrawal');
-      const main = paid && inPeso() ? '+' + php(Number(l.php_amount)) : cash ? (Number(l.usdt) < 0 ? '−' : '+') + usdt(Math.abs(l.usdt)) : smoney(l.usdt);
+      const main = paid ? `+${php(Number(l.php_amount))} ($${f(Number(l.usdt), 2)})` : cash ? (Number(l.usdt) < 0 ? '−' : '+') + usdt(Math.abs(l.usdt)) : smoney(l.usdt);
       const small = withName ? sgn(l.units, 2) + ' units'
-        : paid ? (inPeso() ? `${usdt(l.usdt)} at ₱${f(Number(l.php_amount) / Number(l.usdt), 2)}/USDT` : `${php(Number(l.php_amount))} paid`)
+        : paid ? ''   // "+₱5,000 ($79.26)": the pesos paid and the USDT they count as, nothing more
         : cash ? (rate() ? `≈ ${php(Math.abs(l.usdt) * rate())} today` : '') : alt(Math.abs(l.usdt));
       return `<div class="tx"><div class="ic ${kind}">${ICON[ic]}</div>
         <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
@@ -554,7 +555,7 @@
       <p class="note">${xr ? `The withdrawal fee (${pc(xr)}%) comes off the payout. ` : `<b>Heads up:</b> ${FEE_SOON} `}You will be contacted to confirm your payout details before any money is sent.</p></div>${DISC}`;
   }
   function recentCard() {
-    const mine = S.ledger.filter((l) => l.profile_id === S.me.id);
+    const mine = Contribution.foldTopups(S.ledger.filter((l) => l.profile_id === S.me.id));   // a top-up shows inside its peso deposit
     return `<div class="card"><h2>Recent transactions</h2>${activityRows(mine.slice(0, 5), false)}
       ${mine.length > 5 ? `<div class="btns"><button class="ghost" data-tab="${isAdmin() ? 'log' : 'activity'}">See all ${mine.length}</button></div>` : ''}</div>`;
   }

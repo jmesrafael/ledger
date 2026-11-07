@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 
-test('AR1 a peso deposit shows the pesos paid and the rate it was bought at', () => {
+test('AR1 a peso deposit shows the pesos paid and the USDT they count as, on one line: +₱5,000 ($79.26)', () => {
   assert.match(app, /const paid = l\.kind === 'deposit' && Number\(l\.php_amount\) > 0;/);
-  assert.match(app, /const main = paid && inPeso\(\) \? '\+' \+ php\(Number\(l\.php_amount\)\) : cash \? \(Number\(l\.usdt\) < 0 \? '−' : '\+'\) \+ usdt\(Math\.abs\(l\.usdt\)\) : smoney\(l\.usdt\);/);
-  assert.match(app, /\$\{usdt\(l\.usdt\)\} at ₱\$\{f\(Number\(l\.php_amount\) \/ Number\(l\.usdt\), 2\)\}\/USDT/);
+  assert.match(app, /const main = paid \? `\+\$\{php\(Number\(l\.php_amount\)\)\} \(\$\$\{f\(Number\(l\.usdt\), 2\)\}\)` : cash/);
+  assert.match(app, /if \(!withName\) rows = Contribution\.foldTopups\(rows\);/, 'a peso top-up is folded into its deposit, so the line shows the full USDT');
 });
 
 test('AR3 a deposit or payout with no pesos recorded stays in USDT (today\'s pesos are a labelled estimate), so it never reads as pesos paid', () => {

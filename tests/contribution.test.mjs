@@ -203,25 +203,25 @@ test('CB16 the reference rate in the app: stored only from the manager\'s fresh 
   assert.ok(!/S\.(pool|me)\.php_rate/.test(app), 'no rate stored on a pool entry or profile is read as a current rate');
 });
 
-test('CB17 the journey card at one look: paid -> arrived -> worth now, and where the difference went (James, Raf, no rate, a payout)', () => {
+test('CB17 the card at one look: invested -> worth now, and the result so far (James, Raf, no rate, a payout)', () => {
   const ref = C.referenceRate({ rate: 63.08, t: NOW - 60000, src: 'open.er-api.com' }, NOW);
   const s = C.summary([james], ref, { units: '73.31635568', value_usdt: '64.37' }), j = C.journey(s);
   assert.equal(j.inPesos, true); assert.equal(j.paidPhp, 5000); near(j.inUsdt, 66.4, 1e-12); near(j.now, 64.37, 1e-12);
   near(j.arrivedPhp, 66.4 * 63.08, 1e-9); near(j.conversionPhp, 5000 - 66.4 * 63.08, 1e-9); near(j.resultPhp, (64.37 - 66.4) * 63.08, 1e-9); near(j.nowPhp, 64.37 * 63.08, 1e-9);
   near(j.paidPhp - j.conversionPhp + j.resultPhp, j.nowPhp, 1e-9, 'the lines add up: paid − conversion + trading = worth now');
   const h = C.card(s);
-  for (const t of ['You paid', '₱5,000', 'in pesos', 'Credited to you', '66.40 USDT', '₱75.30 paid per USDT', 'Worth now', '64.37 USDT', '≈ ₱4,060 today', '−2.03 USDT',
-    'Lost converting pesos to USDT', '−₱811.49', "today's rate is ₱63.08 (12.86 USDT)", 'Trading so far', '−₱128.05', 'You own <b>73.31635568 units</b>', '<summary>All figures</summary>'])
+  for (const t of ['Invested', '₱5,000', '66.40 USDT at ₱75.30 per USDT', 'Worth now', '64.37 USDT', '≈ ₱4,060 today', 'Result so far', '−2.03 USDT (−3.06%)',
+    'You own <b>73.31635568 units</b>', '<summary>All figures</summary>'])
     assert.ok(h.includes(t), t);
-  assert.ok(h.indexOf('class="jflow"') < h.indexOf('class="wf"') && h.indexOf('class="wf"') < h.indexOf('All figures'), 'journey first, bars next, the full figures folded away');
+  for (const t of ['You paid', 'Lost converting', 'Trading so far', 'class="wf"']) assert.ok(!h.includes(t), 'kept simple: no ' + t);
+  assert.ok(h.indexOf('class="jflow"') < h.indexOf('Result so far') && h.indexOf('Result so far') < h.indexOf('All figures'), 'invested and worth now first, the result, the full figures folded away');
   // Raf: pesos and USDT, so the journey is in USDT and nothing is turned into pesos
   const raf4 = { id: 4, ts: '2026-11-07T10:21:09Z', kind: 'deposit', usdt: '91.6278', units: '101.17193336', php_amount: '6897', php_rate: '75.27191529' };
   const r = C.card(C.summary([raf4, raf1, raf2], ref, { units: '356.81618778', value_usdt: '313.27' }));
-  for (const t of ['₱6,897 + 252.31 USDT', 'pesos, plus USDT put in directly', '343.94 USDT', 'including ₱6,897 paid in pesos', 'Trading so far']) assert.ok(r.includes(t), t);
-  assert.ok(!r.includes('Lost converting'), 'no conversion line when part of it was USDT');
+  for (const t of ['₱6,897 + 252.31 USDT', '343.94 USDT', 'Result so far']) assert.ok(r.includes(t), t);
   // no reference rate: the same journey in USDT, and it says so
   const n = C.card(C.summary([james], null, { units: '73.31635568', value_usdt: '64.37' }));
-  assert.ok(n.includes('peso figures: rate unavailable') && !n.includes('Lost converting') && !n.includes('≈ ₱'));
+  assert.ok(n.includes('Result so far') && !n.includes('≈ ₱'));
   // a payout: shown as taken out, and "worth now" says it is after payouts
   const w = C.card(C.summary([james, { id: 9, ts: '2026-12-01T00:00:00Z', kind: 'withdrawal', usdt: -10, units: -11 }], ref, { units: '62', value_usdt: '54.4' }));
   assert.ok(w.includes('Taken out') && w.includes('−10.00 USDT') && w.includes('Worth now (after payouts)'));
@@ -251,7 +251,7 @@ test('CB12 database: the pesos recorded with a deposit never change its units, t
   near(runs[0].units, 66.4 / runs[0].price, 1e-8, 'units = USDT received / the approved unit price');
 });
 
-test('CB17 peso top-up: pesos credited at the live rate, the difference from the manager\'s units, once per deposit, never at a stale rate', () => {
+test('CB18 peso top-up: pesos credited at the live rate, the difference from the manager\'s units, once per deposit, never at a stale rate', () => {
   const ref = C.referenceRate(live, NOW), h = { units: '73.31635568', value_usdt: '64.3677' };
   const t = C.topupDue(C.summary([james], ref, h), ref);
   assert.deepEqual(t.ids, [3]);
@@ -267,6 +267,11 @@ test('CB17 peso top-up: pesos credited at the live rate, the difference from the
   near(s.usdt, 79.226746); near(s.rate, 63.11, 1e-4); near(s.topup, 12.826746);
   assert.equal(s.usdtOnlyCount, 0);
   assert.ok(Math.abs(C.journey(s).conversionPhp) < 0.01);
+  // the investor's transaction list shows one deposit: ₱5,000 = 79.226746 USDT (the top-up folded in); the rows themselves are untouched
+  const list = C.foldTopups([top, james]);
+  assert.equal(list.length, 1); assert.equal(list[0].id, 3); near(list[0].usdt, 79.226746); assert.equal(Number(james.usdt), 66.4);
+  assert.equal(C.foldTopups([top]).length, 1, 'a top-up whose deposit is not in the list stays as its own row');
+  assert.ok(C.card(s).includes('79.23 USDT at ₱63.11 per USDT'));
   const lower = C.referenceRate({ ...live, rate: 60 }, NOW);
   assert.equal(C.topupDue(C.summary([james, top], lower, h), lower), null, 'each peso deposit is topped up once');
   assert.match(C.rows(s), /Topped up by the fund manager/);
