@@ -320,3 +320,18 @@ test('CT13 respread refuses when an investor entry points at the lump, and rolls
   assert.equal((await w.q(`select count(*)::int n from public.closed_trades where equity_id = $1`, [lump]))[0].n, 3);
   await assert.rejects(() => w.db.query(`delete from public.pool_equity where id = $1`, [lump]), /./, 'guard still on');
 });
+
+test('CT12 trades mode: a trade reported AFTER a later-closed trade of the other wallet is still added (the Nov 4, 2026 SOL case)', async () => {
+  const w = await rolling();   // the clock is the real time: the trades closed 80 and 62 minutes ago
+  const t1 = new Date(w.now - 80 * 60000).toISOString(), t2 = new Date(w.now - 62 * 60000).toISOString();   // SOL closed 14:48, GALA 15:05, both reported at 16:05
+  await trade(w, { wallet: 'icore', pos: 'gala', sym: 'GALA_USDT', side: 'SHORT', at: t2, pnl: -1.1111 });   // the later close arrives first
+  near((await w.pool()).e, 998.8889, 1e-6);
+  const s = await trade(w, { wallet: 'bbcore', pos: 'sol', sym: 'SOL_USDT', side: 'SHORT', at: t1, pnl: -4.9258 });
+  assert.equal(s.pool.ok, true, 'the earlier-closed trade is booked, not treated as already included');
+  near((await w.pool()).e, 1000 - 1.1111 - 4.9258, 1e-6);
+  assert.equal((await w.q(`select count(*)::int n from public.closed_trades where equity_id is null`))[0].n, 0);
+  const rows = await w.q(`select ts, note from public.pool_equity order by id`);
+  for (let i = 1; i < rows.length; i++) assert.ok(new Date(rows[i].ts) >= new Date(rows[i - 1].ts), 'entries stay in date order');
+  assert.match(rows.at(-1).note, /reported late/);
+  near(await w.units('john'), 1000, 1e-9, 'nobody\'s units change');
+});
