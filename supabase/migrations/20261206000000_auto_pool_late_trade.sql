@@ -4,8 +4,9 @@
 -- reports can arrive out of close order: on Nov 4 I-Core's GALA (closed 15:05:57) was booked 2 s before BB-Core's SOL (closed 14:48:03); SOL then looked older than the
 -- newest entry (which was GALA's own automatic entry), was marked "already included" and its -4.9258 USDT never reached the pool value.
 --
--- The rule now: a trade is already inside a value only if that value was taken from the exchange by a person (a manual valuation, deposit or payout entry), i.e. a pool entry
--- that this automatic routine did NOT write (it writes one auto_pool_runs row per entry). Automatic entries only ever contain the trades they name.
+-- The rule now: a trade is already inside a value only if a person entered that value (valuation, deposit, payout or quarter close: the pool entry kinds update,
+-- deposit, withdrawal, close), i.e. an entry this automatic routine did NOT write (it writes one auto_pool_runs row per entry). Automatic entries only ever contain
+-- the trades they name. Fee settlements move units only and write no pool entry.
 -- A late trade gets its own entry dated no earlier than the newest entry, so the entries stay in date order; its note keeps the real close time.
 -- The existing entries are not changed here: the missed SOL trade is corrected separately by the manager (admin_add_adjustment), with a reason, in the activity log.
 -- Rollback: re-apply the _auto_pool_value_trades() body from 20261205000000_auto_pool_trades_dated.sql.
@@ -25,7 +26,8 @@ begin
   select * into v_last from pool_equity order by id desc limit 1;
   if v_last.id is null then return _auto_skip(p_source, 'no_baseline', 'there is no booked pool value to roll forward from'); end if;
 
-  -- the newest value a PERSON took from the exchange (not one of this routine's own entries): only it can already contain a trade that closed before it
+  -- the newest value a PERSON entered (valuation, deposit, payout or quarter close: every pool entry kind except this routine's own): only it can already contain a
+  -- trade that closed before it
   select * into v_manual from pool_equity p where not exists (select 1 from auto_pool_runs a where a.equity_id = p.id) order by id desc limit 1;
   if v_manual.id is not null then
     with x as (update closed_trades set equity_id = v_manual.id, reflected_at = v_now where equity_id is null and closed_at <= v_manual.ts returning 1)

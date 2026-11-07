@@ -228,7 +228,8 @@
       group(async () => { const [c, cs] = await Promise.all([call('my_contact'), admin ? call('admin_contacts') : null]); S.contact = c; S.contacts = cs || []; S.contactOn = true; }, () => { S.contact = null; S.contacts = []; S.contactOn = false; }),   // hidden until the contact-details migration is run
       group(async () => { const [p, q, c] = await Promise.all([admin ? null : call('my_position'), admin ? call('admin_capital_queue') : null, admin ? call('admin_balance_checks') : null]); S.pos = p; S.queue = q; S.checks = c; }, () => { S.pos = null; S.queue = null; S.checks = null; }),   // empty until the capital-workflow migration is run
       group(async () => { S.pu = admin ? await call('admin_pool_status') : null; }, () => { S.pu = null; }),   // null until the pool-update migration is run
-      group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; })]);   // null until the withdrawal-fee migration is run
+      group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; }),   // null until the withdrawal-fee migration is run
+      group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); }, () => { S.tv = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
   }
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
@@ -325,6 +326,7 @@
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
         <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>
       <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
+      ${TVUI.adminCard(S.tv)}
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
@@ -464,7 +466,7 @@
     const waiting = investor && mine.length ? `<div class="card"><h2>Waiting to join the pool</h2>
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in.</p></div>` : '';
-    return `${waiting}${investor && S.pos ? Position.render(S.pos, { money, day }) : ''}${growthCard(investor ? 'Your balance' : 'Your holdings')}
+    return `${waiting}${investor ? TVUI.investorCard(S.tv) : ''}${investor && S.pos ? Position.render(S.pos, { money, day }) : ''}${growthCard(investor ? 'Your balance' : 'Your holdings')}
       ${investor ? `<div class="card"><h2>Withdrawals</h2>
         ${m.next_unlock ? `<div class="row"><span class="l">Lock-up on your first deposit</span><span class="r">until ${day(m.next_unlock)}</span></div>` : ''}
         ${EXIT_FEE_ON && exitInfo(m.id) ? `<div class="row"><span class="l">Withdrawal fee<br><span class="note">${exitNote(m.id)}</span></span><span class="r">${pc(xr)}%</span></div>` : ''}
@@ -931,6 +933,7 @@
   const gateOn = () => Gate.on(S.queue);   // js/gate.js: the wording and decisions for the old forms when workflow_gate is on
   const SP = SettlePreview;   // js/settlepreview.js: prints what admin_settlement_preview returned (no maths)
   const IC = InvestorCtx;     // js/investorctx.js: the investor's position and which actions apply (no maths)
+  const TVUI = TrueValueUI;   // js/truevalue-ui.js: true-value price, whether money can move now (and why not), checkpoints; investors see only their own numbers
   const BT = BotTotal;        // js/bottotal.js: "Read from the bots" fills an Exchange total field from the bots' latest wallet reports (admin_wallet_nav)
   const spFmt = { usdt: (n) => usdt(n), units: (n) => f(n, 4), day: (t) => day(t), pc: (r) => pc(r) };
   const icFmt = { money: (n) => money(n), units: (n) => f(n, 4), day: (t) => day(t) };

@@ -1,7 +1,10 @@
-# True-value pricing for deposits and withdrawals (proposal, simulation only)
+# True-value pricing for deposits and withdrawals
 
-Status (Nov 7, 2026): **simulated and tested, nothing applied to the live ledger.** Model: `lib/truevalue.js`. Tests: `tests/true-value.test.mjs` (TV1–TV12).
-Separate bug fix found on the way: `supabase/migrations/20261206000000_auto_pool_late_trade.sql` (test CT12), also **not applied**.
+Status (Nov 7, 2026):
+- **Late-trade fix: APPLIED to the live ledger** (`20261206000000_auto_pool_late_trade.sql`, approved). It changed no data: all 12 existing closed trades were already booked.
+- **True-value pricing: built and tested, NOT applied** (`20261207000000_true_value_pricing.sql`, rollback in `supabase/rollback/`). Off by default (`flow_pricing = 'book'`).
+- **Two corrections: prepared, NOT applied** (`supabase/corrections/20261107_prepare_book_corrections.sql`; each is applied separately by the manager with `admin_apply_book_correction`).
+- Model `lib/truevalue.js` (TV1–TV12), database tests `tests/true-value-db.test.mjs` (TVD1–TVD11), page tests `tests/truevalue-ui.test.mjs` (TVU1–TVU5).
 
 ## The rule
 
@@ -38,8 +41,22 @@ price is what `V` said: existing holders keep exactly their pre-flow value, the 
 5. **Fees** (TV11): per-lot high-water mark on the true price. Open profit is charged once (it is in the price); its later realization does not move the price, so no second
    fee; a reversal charges nothing until the mark is recovered; a deposit starts its own lot at the price it paid, other lots' marks are untouched.
 
-## Not done yet (each needs the owner's OK)
+## What the migration adds (all inert while flow_pricing = 'book')
 
-1. Apply the late-trade fix and book the two corrections (−4.9258, +0.8582) on the live ledger.
-2. Build true-value pricing into the database functions behind a setting (default off), tested on the in-memory database against this model.
-3. Dashboard: price indicator ("money can join/leave now at …", or why not), checkpoint per flow, value vs withdrawable.
+- `_true_value()`: the reading (built on `_wallet_nav`: every wallet fresh, none suspect or outdated, within 10 minutes, the expected count) plus three more gates: no closed
+  trade waiting to be booked, no bot exit without a booked MEXC result (in trades mode exits are never "applied", so the old pending-exit guard would block every
+  deposit; this replaces it inside a true-value flow only), and nothing booked after the newest report. Then the gap check against books + open P&L.
+- `admin_admit_deposit_tv`, `admin_execute_withdrawal_tv`: the existing deposit and payout engines, given the verified exchange total (so units, lots, lock-up, minimum,
+  fees and payout records are the existing code), then the book entry that takes the open P&L back out, then the checkpoint. A sale to the manager stays on the normal path.
+- `flow_checkpoints` (append-only): every number and every wallet report used by each true-value flow. `book_corrections`: prepared / applied / cancelled, reason and evidence.
+- `admin_true_value` (manager), `my_true_value` (an investor's own value, withdrawable now, locked in trades), shown by `js/truevalue-ui.js`.
+- Two existing functions gain a branch that only acts on rows the new functions write: `_auto_pool_value_trades` (a correction is not an exchange valuation; a true-value
+  flow contains exactly the trades each wallet's report had seen) and `_pool_guard_pending` (skipped inside a true-value flow only).
+- The backup export carries both new tables.
+
+## Not done (each needs the owner's OK)
+
+1. Apply `20261207000000_true_value_pricing.sql` (inert until switched on).
+2. Prepare the corrections (the SQL file), then apply each one (manager, signed in): −4.9258 and +0.8582.
+3. Record the 158 USDT deposit (James 66.40, Raf 91.6278), then switch `flow_pricing` to `true_value` and admit both with `admin_admit_deposit_tv`.
+4. Quarter-end settlement is still on the typed-total path: with trades open it writes open P&L into the book (the Oct 28 pattern). A true-value settlement is the next piece.
