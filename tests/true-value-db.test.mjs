@@ -161,15 +161,28 @@ test('TVD10 status pages: an investor sees only their own value, what can be wit
   await assert.rejects(w.call('admin_true_value', jt), /admin only/);
 });
 
-test('TVD11 the rollback (allowed only while no true-value flow exists) removes everything and trades mode keeps working with the previous rules', async () => {
+test('TVD11 the rollback: allowed until a true-value transaction exists (also after a correction, whose evidence is kept); trades mode keeps working', async () => {
   const w = await world(); await w.join('raf', 1000); await adv(w, 5);
   const RB = new URL('../supabase/rollback/20261207000000_rollback_true_value_pricing.sql', import.meta.url);
+  await w.db.exec(readFileSync(CORRECTIONS, 'utf8'));
+  const c = (await w.call('admin_book_corrections', w.A))[0];
+  const lateAt = new Date(w.now - 60000).toISOString();                         // closes before the correction, reaches the ledger after the rollback
+  await w.call('admin_apply_book_correction', w.A, c.id, 'rb-1');
+  const units0 = await w.units('raf'), pool0 = (await w.pool()).e;
   await w.db.exec(readFileSync(RB, 'utf8'));
   assert.equal((await w.q(`select to_regclass('public.flow_checkpoints') t`))[0].t, null);
   assert.equal((await w.q(`select to_regprocedure('public.admin_admit_deposit_tv(text,bigint,text)') f`))[0].f, null);
-  assert.ok((await w.q(`select public._export_extra() e`))[0].e.closed_trades !== undefined, 'the backup export works and still carries the earlier tables');
-  await w.trade({ pos: 'after-rollback', pnl: 3 });
-  near((await w.pool()).e, 1003, 1e-9, 'trades are still booked');
+  assert.equal((await w.q(`select count(*)::int n from pg_trigger where tgname = 'tv_guard_pool_entry'`))[0].n, 0);
+  const kept = await w.q(`select status, reason, evidence, applied_by, applied_at, equity_id from public.book_corrections order by id`);
+  assert.equal(kept.length, 2); assert.equal(kept[0].status, 'applied'); assert.ok(kept[0].applied_by && kept[0].applied_at && kept[0].evidence.closed_trade_id === 11, 'reason, evidence, who and when kept');
+  await assert.rejects(w.q(`update public.book_corrections set amount_usdt = 1 where id = $1`, [c.id]), /cannot/);
+  const ex = (await w.q(`select public._export_extra() e`))[0].e;
+  assert.ok(ex.book_corrections && ex.closed_trades !== undefined && ex.flow_checkpoints === undefined, 'the backup still carries the corrections and the earlier tables');
+  near(await w.units('raf'), units0, 1e-12); near((await w.pool()).e, pool0, 1e-9, 'nothing about the books changed');
+  await w.trade({ pos: 'late-after-rollback', pnl: -2, at: lateAt });
+  near((await w.pool()).e, pool0 - 2, 1e-9, 'a correction entry is still not treated as an exchange valuation');
+  await w.db.exec(readFileSync(new URL('../supabase/migrations/20261207000000_true_value_pricing.sql', import.meta.url), 'utf8'));   // and it can be applied again
+  assert.equal((await w.call('admin_book_corrections', w.A)).length, 2);
   const w2 = await ready(); const pid = await w2.receive('john', 100); await w2.report(1100, 0); await w2.call('admin_admit_deposit_tv', w2.A, pid, null);
-  await assert.rejects(w2.db.exec(readFileSync(RB, 'utf8')), /true-value flows or applied corrections exist/);
+  await assert.rejects(w2.db.exec(readFileSync(RB, 'utf8')), /true-value deposits, payouts or settlements are recorded/);
 });

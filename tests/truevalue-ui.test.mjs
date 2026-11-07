@@ -24,11 +24,20 @@ test('TVU2 the state line: allowed with the price; blocked with every reason; of
   assert.match(T.state({ ...blocked, enabled: false }).text, /off\. If it were on, money could not move now: wallet icore/);
 });
 
-test('TVU3 the manager card shows the price, both prices, the reading, the wallets and the corrections, escaped', () => {
-  const h = T.adminCard(base);
-  for (const s of ['True unit price', '0.9049', '0.8586', '231.33 USDT', '+11.78 USDT', '+0.07 USDT', 'BB-Core', 'Correction #1', '−4.93 USDT', 'change nothing until they are applied'])
+const prev = { units: 255.64, steps: [{ step: 'now', book_usdt: 223.5521, unit_price: 0.874466, gap_usdt: -4.0 },
+  { step: 'after correction #1', correction_id: 1, amount_usdt: -4.9258, book_usdt: 218.6263, unit_price: 0.855197, gap_usdt: 0.93 },
+  { step: 'after correction #2', correction_id: 2, amount_usdt: 0.8582, book_usdt: 219.4845, unit_price: 0.858554, gap_usdt: 0.07 }] };
+
+test('TVU3 the manager card shows the price, both prices, the reading, the wallets and the corrections with their live preview, escaped', () => {
+  const h = T.adminCard({ ...base, corrections: [base.corrections[0], { id: 2, amount_usdt: 0.8582, status: 'prepared', reason: 'Oct 28 valuation counted an open loss twice' }] }, prev);
+  for (const s of ['True unit price', '0.9049', '0.8586', '231.33 USDT', '+11.78 USDT', '+0.07 USDT', 'BB-Core', 'Correction #1', '−4.93 USDT', 'book 218.63 USDT', 'gap after +0.93 USDT', 'gap after +0.07 USDT', 'prepared ones change nothing'])
     assert.ok(h.includes(s), s);
   assert.ok(!h.includes('<b>skipped</b>') && h.includes('&lt;b&gt;skipped&lt;/b&gt;'), 'reasons and notes are escaped');
+  assert.equal((h.match(/data-action="tvcorrect"/g) || []).length, 1, 'only the next correction in order can be applied');
+  assert.match(h, /data-action="tvcorrect" data-id="1"/);
+  const after = T.adminCard({ ...base, corrections: [{ id: 1, amount_usdt: -4.9258, status: 'applied', applied_at: '2026-11-07T12:00:00Z', reason: 'r1' }, { id: 2, amount_usdt: 0.8582, status: 'prepared', reason: 'r2' }] },
+    { steps: [prev.steps[0], { ...prev.steps[2], step: 'after correction #2' }] });
+  assert.match(after, /applied 2026-11-07 12:00 UTC/); assert.match(after, /data-action="tvcorrect" data-id="2"/);
 });
 
 test('TVU4 the investor card shows value, withdrawable now and the part in open trades, nothing about the pool', () => {
@@ -39,7 +48,9 @@ test('TVU4 the investor card shows value, withdrawable now and the part in open 
 
 test('TVU5 the app loads the right call per role (failing quietly before the migration) and the page includes the script', () => {
   const app = read('js/app.js'), html = read('login.html');
-  assert.match(app, /group\(async \(\) => \{ S\.tv = await call\(admin \? 'admin_true_value' : 'my_true_value'\); \}, \(\) => \{ S\.tv = null; \}\)/);
-  assert.match(app, /\$\{TVUI\.adminCard\(S\.tv\)\}/); assert.match(app, /\$\{investor \? TVUI\.investorCard\(S\.tv\) : ''\}/);
+  assert.match(app, /S\.tv = await call\(admin \? 'admin_true_value' : 'my_true_value'\); S\.tvPrev = admin \? await call\('admin_preview_book_corrections'\) : null; \}, \(\) => \{ S\.tv = null; S\.tvPrev = null; \}\)/);
+  assert.match(app, /\$\{TVUI\.adminCard\(S\.tv, S\.tvPrev\)\}/);
+  assert.match(app, /call\('admin_apply_book_correction', \{ p_id: Number\(id\), p_idem: 'book-correction-' \+ id \}\)/, 'one idempotency key per correction');
+  assert.match(app, /confirmSheet\(`Apply correction #\$\{id\}\?`/); assert.match(app, /\$\{investor \? TVUI\.investorCard\(S\.tv\) : ''\}/);
   assert.ok(html.indexOf('js/truevalue-ui.js') > 0 && html.indexOf('js/truevalue-ui.js') < html.indexOf('js/app.js'));
 });

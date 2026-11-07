@@ -229,7 +229,7 @@
       group(async () => { const [p, q, c] = await Promise.all([admin ? null : call('my_position'), admin ? call('admin_capital_queue') : null, admin ? call('admin_balance_checks') : null]); S.pos = p; S.queue = q; S.checks = c; }, () => { S.pos = null; S.queue = null; S.checks = null; }),   // empty until the capital-workflow migration is run
       group(async () => { S.pu = admin ? await call('admin_pool_status') : null; }, () => { S.pu = null; }),   // null until the pool-update migration is run
       group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; }),   // null until the withdrawal-fee migration is run
-      group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); }, () => { S.tv = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
+      group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); S.tvPrev = admin ? await call('admin_preview_book_corrections') : null; }, () => { S.tv = null; S.tvPrev = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = led; S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
   }
   // withdrawal fee: young accounts pay more; the database decides, the app only shows it
@@ -326,7 +326,7 @@
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
         <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>
       <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
-      ${TVUI.adminCard(S.tv)}
+      ${TVUI.adminCard(S.tv, S.tvPrev)}
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
@@ -1569,6 +1569,14 @@
       b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); inp.focus();
     }
     else if (a === 'refresh') await refresh('Up to date');
+    else if (a === 'tvcorrect') {   // one book correction, in order, after the live preview (admin_preview_book_corrections); written once, with the reason and evidence
+      const st = ((S.tvPrev && S.tvPrev.steps) || []).find((x) => String(x.correction_id) === String(id)), c = ((S.tv && S.tv.corrections) || []).find((x) => String(x.id) === String(id));
+      if (!st || !c) return;
+      const n = (v, d = 4) => Number(v).toFixed(d);
+      if (!(await confirmSheet(`Apply correction #${id}?`, `${Number(c.amount_usdt) > 0 ? '+' : ''}${c.amount_usdt} USDT: ${c.reason}\n\nBook after: ${n(st.book_usdt)} USDT · unit price ${n(st.unit_price, 6)} · reconciliation gap after: ${st.gap_usdt == null ? 'not available' : n(st.gap_usdt)} USDT.\nThis writes one pool entry signed by you, with the reason and the evidence. It cannot be edited or applied twice.`, 'Apply correction', true))) return;
+      try { const r = await call('admin_apply_book_correction', { p_id: Number(id), p_idem: 'book-correction-' + id }); await refresh(`Correction #${id} applied: book ${n(r.equity_before)} → ${n(r.equity_after)} USDT`); }
+      catch (e) { if (e.message !== 'Signed out') toast(e.message, true); }
+    }
     else if (a === 'profile') { S.tab = 'profile'; S.modal = null; render(); window.scrollTo(0, 0); }
     else if (a === 'welcome') startTour();
     else if (a === 'stmtpick') { S.stmt = id; render(); const el = $f('stmt'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }

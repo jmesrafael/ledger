@@ -1,11 +1,14 @@
--- Rollback of 20261207000000_true_value_pricing.sql. Run only while flow_pricing = 'book'.
--- Refuses if any true-value flow or applied correction exists (their pool entries would lose their meaning): those are kept and need a person to decide.
+-- Rollback of 20261207000000_true_value_pricing.sql. Allowed while no true-value deposit, payout or settlement has been recorded (flow_checkpoints is empty);
+-- refused otherwise (their pool entries depend on it). Run it with flow_pricing = 'book'.
+-- Book corrections are NOT true-value transactions: the book_corrections table, its rows (reason, evidence, who applied it and when) and its append-only guard are
+-- KEPT, and stay in the backup export, so an applied correction remains fully traceable. Everything else the migration added is removed, and the two existing
+-- functions it changed get their previous bodies back (the late-trade rule keeps knowing that a correction entry is not an exchange valuation).
 do $$ begin
-  if exists (select 1 from public.flow_checkpoints) or exists (select 1 from public.book_corrections where status = 'applied') then
-    raise exception 'true-value flows or applied corrections exist: not rolled back';
+  if exists (select 1 from public.flow_checkpoints) then
+    raise exception 'true-value deposits, payouts or settlements are recorded: not rolled back';
   end if;
 end $$;
--- the two existing functions go back to their previous bodies first (they refer to the tables dropped below)
+update public.ledger_settings set value = 'book' where key = 'flow_pricing';
 create or replace function public._pool_guard_pending() returns void language plpgsql stable security definer set search_path = public as $$
 declare p jsonb;
 begin
@@ -34,7 +37,8 @@ begin
 
   -- the newest value a PERSON entered (valuation, deposit, payout or quarter close: every pool entry kind except this routine's own): only it can already contain a
   -- trade that closed before it
-  select * into v_manual from pool_equity p where not exists (select 1 from auto_pool_runs a where a.equity_id = p.id) order by id desc limit 1;
+  select * into v_manual from pool_equity p where not exists (select 1 from auto_pool_runs a where a.equity_id = p.id)
+    and not exists (select 1 from book_corrections b where b.equity_id = p.id) order by id desc limit 1;   -- a correction (kept after the rollback) is not an exchange valuation
   if v_manual.id is not null then
     with x as (update closed_trades set equity_id = v_manual.id, reflected_at = v_now where equity_id is null and closed_at <= v_manual.ts returning 1)
     select count(*) into v_old from x;
@@ -94,12 +98,11 @@ drop function if exists public._true_value(timestamptz, numeric);
 drop function if exists public._wallet_nav_at(timestamptz);
 drop function if exists public._tv_unmatched_exits();
 drop function if exists public._tv_wallet_of_event(text);
-drop function if exists public._export_extra();
-do $$ begin
-  if to_regprocedure('public._export_extra_pre_tv()') is not null then alter function public._export_extra_pre_tv() rename to _export_extra; end if;
-end $$;
+-- the backup export: back to the previous definition plus the kept book_corrections table
+create or replace function public._export_extra() returns jsonb language sql stable security definer set search_path = public as $$
+  select _export_extra_pre_tv() || jsonb_build_object('book_corrections', _dump_table('book_corrections'))
+$$;
+revoke all on function public._export_extra() from public, anon, authenticated;
 drop table if exists public.flow_checkpoints;
-drop table if exists public.book_corrections;
-drop function if exists public._tv_append_only();
 delete from public.ledger_settings where key in ('flow_pricing', 'tv_exit_match_hours');
 notify pgrst, 'reload schema';

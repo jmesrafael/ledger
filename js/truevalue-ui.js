@@ -24,14 +24,27 @@
   }
 
   // manager: price, the reading behind it, every wallet, the checkpoints and the prepared corrections
-  function adminCard(t) {
+  // prev = admin_preview_book_corrections: the book, price and reconciliation after each prepared correction, in order
+  function correctionsHtml(t, prev) {
+    const steps = ((prev && prev.steps) || []).filter((x) => x.correction_id != null), done = (t.corrections || []).filter((c) => c.status !== 'prepared');
+    if (!steps.length && !done.length) return '';
+    const doneRows = done.map((c) => row(`Correction #${esc(c.id)} <span class="note">· ${esc(c.status)}${c.applied_at ? ' ' + esc(String(c.applied_at).slice(0, 16).replace('T', ' ')) + ' UTC' : ''}</span>`, signed(c.amount_usdt), esc(c.reason))).join('');
+    const now = ((prev && prev.steps) || [])[0];
+    const prepRows = steps.map((x, i) => row(`Correction #${esc(x.correction_id)} <span class="note">· prepared</span>`,
+      `${signed(x.amount_usdt)}<br><span class="note">book ${usd(x.book_usdt)} · price ${price(x.unit_price)} · gap after ${signed(x.gap_usdt)}</span>`,
+      esc(((t.corrections || []).find((c) => String(c.id) === String(x.correction_id)) || {}).reason || '')) +
+      (i === 0 ? `<div class="btns"><button data-action="tvcorrect" data-id="${esc(x.correction_id)}">Apply correction #${esc(x.correction_id)}</button></div>` : '')).join('');
+    return `<h3>Book corrections</h3>${doneRows}${now && steps.length ? row('Now', `book ${usd(now.book_usdt)} · price ${price(now.unit_price)}`, `gap ${signed(now.gap_usdt)}`) : ''}${prepRows}
+      <p class="note">Each correction writes one pool entry with its reason and evidence, signed by you. They apply in order; prepared ones change nothing.</p>`;
+  }
+
+  function adminCard(t, prev) {
     if (!t) return '';
     const s = state(t), now = t.as_of;
     const wallets = (t.wallets || []).map((w) => row(`${esc(w.label || w.wallet)} <span class="note">· ${esc(w.status)}</span>`,
       `${usd(w.equity_usdt)}<br><span class="note">open ${signed(w.unrealized_usdt)} · ${ago(w.received_at, now)}</span>`)).join('');
     const cps = (t.checkpoints || []).slice(0, 10).map((c) => row(`${esc({ deposit: 'Deposit', withdrawal: 'Payout', settlement: 'Settlement' }[c.kind] || c.kind)} #${esc(c.subject_id)} <span class="note">· ${esc(String(c.created_at).slice(0, 16).replace('T', ' '))} UTC</span>`,
       `${usd(c.amount_usdt)} at ${price(c.unit_price)}`, `book ${usd(c.book_before)} · open ${signed(c.open_pnl)} · gap ${signed(c.gap)}${Number(c.realized_since) ? ` · priced as of ${esc(String(c.priced_as_of).slice(0, 16).replace('T', ' '))} UTC` : ''} · ${(c.wallets || []).length} wallet reports kept`)).join('');
-    const cor = (t.corrections || []).map((c) => row(`Correction #${esc(c.id)} <span class="note">· ${esc(c.status)}</span>`, signed(c.amount_usdt), esc(c.reason))).join('');
     return `<div class="card" data-tv="admin"><h2>True value</h2>
       <p class="${s.ok ? 'good' : s.off ? 'note' : 'warn'}">${esc(s.text)}</p>
       ${row('True unit price', price(t.unit_price), 'what a unit is worth if every open trade closed now')}
@@ -42,7 +55,7 @@
       ${row('Cash that can leave the exchange now', usd(t.pool_cash_usdt), 'withdrawable, after money waiting and payouts not sent')}
       ${wallets ? `<h3>Wallet reports</h3>${wallets}` : ''}
       ${cps ? `<h3>Checkpoints (every true-value deposit, payout and settlement)</h3>${cps}` : ''}
-      ${cor ? `<h3>Book corrections</h3>${cor}<p class="note">Prepared corrections change nothing until they are applied one by one.</p>` : ''}</div>`;
+      ${correctionsHtml(t, prev)}</div>`;
   }
 
   // investor: only their own numbers, and only when true-value pricing is on
@@ -56,5 +69,5 @@
       <p class="note">${esc(s.text)}</p></div>`;
   }
 
-  return { state, adminCard, investorCard };
+  return { state, adminCard, investorCard, correctionsHtml };
 });
