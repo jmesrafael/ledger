@@ -35,7 +35,7 @@ test('PU2 the pages: Profile (account, contact, payout for investors, password),
   assert.match(app, /const viewPayout = \(\) => `\$\{pageHead\('Where to send my money'\)\}\$\{S\.me\.role === 'investor' \? payoutCard\(S\.me\)/);
   assert.match(app, /const pageHead = \(title\) => `<div class="sechead"><h2>\$\{title\}<\/h2><button class="sm ghost" data-tab="\$\{tabsFor\(\)\[0\]\[0\]\}">Back<\/button><\/div>`;/);
   assert.match(app, /if \(!PAGES\.includes\(S\.tab\) && !tabs\.some\(\(\[k\]\) => k === S\.tab\)\) S\.tab = tabs\[0\]\[0\];/);
-  assert.match(app, /const VIEWS = \{ profile: viewProfile, contact: viewContact, payout: viewPayout, withdraw: viewWithdraw,/);
+  assert.match(app, /const VIEWS = \{ calendar: viewCalendar, profile: viewProfile, contact: viewContact, payout: viewPayout, withdraw: viewWithdraw,/);
   assert.match(app, /else if \(PAGES\.includes\(a\)\) \{ S\.tab = a; S\.modal = null; render\(\);/);
 });
 
@@ -58,7 +58,7 @@ test('PU4 Home carries no forms and no "Good to know" or Withdrawals card: profi
   assert.ok(!app.includes('if (m.impersonated) return `${head}'), 'the contact and payout cards are the real forms in view-as too');
   const mine = grab('function viewMine()', 'const viewMyHistory');
   assert.ok(!mine.includes('passwordCard()') && !mine.includes('profileNudge'));
-  assert.match(app, /investor: \[\['home', 'Home'\], \['withdraw', 'Withdraw'\], \['statements', 'Statements'\], \['activity', 'Activity'\], \['about', 'About'\]\]/);
+  assert.match(app, /investor: \[\['home', 'Home'\], \['calendar', 'Calendar'\], \['withdraw', 'Withdraw'\], \['statements', 'Statements'\], \['activity', 'Activity'\], \['about', 'About'\]\]/);
   const w = grab('function viewWithdraw()', '// ---------------------------------------------------------------- growth chart');
   for (const t of ['id="reqForm"', 'Amount to withdraw (USDT)', 'data-action="maxunits"', 'data-action="cancelreq"', 'Read-only view: only the person can request a withdrawal.', 'data-action="payout">Add payout details', 'minNote()', 'FEE_SOON']) assert.ok(w.includes(t), t);
   assert.match(app, /<div class="card"><h2>Good to know<\/h2>\r?\n\s+<p class="about">This page is a record kept by the fund manager\./, '"Good to know" lives on the About tab');

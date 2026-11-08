@@ -108,19 +108,19 @@
   // A USDT-only deposit is never turned into pesos, so it never looks as if it was paid in pesos.
   const putInPesos = (s) => (s && s.php > 0 && !s.usdtOnlyCount && !(Math.abs(s.withdrawnUsdt) > 1e-9) ? s.php : null);
 
-  // "Put in", ALWAYS written the same way: the pesos really paid, then the USDT they count as in brackets:  ₱6,897 ($91.63)
-  // Money put in directly in USDT (no pesos) is added as $252.31 and never turned into pesos. The total and anything taken out go on a second line.
-  // s: a summary(), or any { php, usdt, usdtOnly, withdrawnUsdt } (the sum over several people). Display only.
-  function putIn(s) {
-    const o = { php: Number((s && s.php) || 0), usdt: Number((s && s.usdt) || 0), only: Number((s && s.usdtOnly) || 0), out: Math.max(0, Number((s && s.withdrawnUsdt) || 0)) };
-    const peso = (v) => '₱' + f(v, Number.isInteger(v) ? 0 : 2), dollar = (v) => '$' + f(v, 2);
-    const parts = [];
-    if (o.php > 0) parts.push(`${peso(o.php)} (${dollar(o.usdt)})`);
-    if (o.only > 0) parts.push(dollar(o.only));
-    const total = o.usdt + o.only, sub = [];
-    if (o.php > 0 && o.only > 0) sub.push(`${dollar(total)} in total`);
-    if (o.out > 0.0049) sub.push(`${dollar(o.out)} taken out`);
-    return { main: parts.length ? parts.join(' + ') : '—', sub: sub.join(' · '), total, takenOut: o.out };
+  // "Put in" and "Withdrawn": two simple figures in PESOS, nothing else (the app shows them as two cards, green and red).
+  //   put   = the pesos really paid in (php_amount of the peso deposits). Money put in directly in USDT has no pesos, so it is never turned into pesos: it is said once in
+  //           a small note, and an account with no peso deposit at all shows that USDT amount instead.
+  //   out   = what was withdrawn, only when something was: no pesos are recorded for a payout, so it is today's reference rate x the USDT withdrawn, marked "≈"; without a
+  //           usable reference rate it is the USDT amount.
+  // s: a summary(), or any { php, usdtOnly, withdrawnUsdt } (the sums over several people); ref: referenceRate() or null. Display only.
+  function putIn(s, ref) {
+    const php0 = Number((s && s.php) || 0), only = Number((s && s.usdtOnly) || 0), out = Math.max(0, Number((s && s.withdrawnUsdt) || 0));
+    const peso = (v) => '₱' + f(v, Number.isInteger(v) ? 0 : 2);
+    const put = php0 > 0 ? { main: peso(php0), note: only > 0 ? `plus ${f(only, 2)} USDT put in directly` : '' }
+      : only > 0 ? { main: `${f(only, 2)} USDT`, note: 'put in directly, no pesos' } : { main: '—', note: '' };
+    const w = out > 0.0049 ? (ref && ref.rate > 0 ? { main: '≈ ' + peso(Math.round(out * ref.rate)), note: "at today's rate" } : { main: `${f(out, 2)} USDT`, note: '' }) : null;
+    return { put, out: w, pesos: php0 > 0, takenOutUsdt: out };
   }
   const sumPutIn = (list) => list.reduce((t, s) => ({ php: t.php + s.php, usdt: t.usdt + s.usdt, usdtOnly: t.usdtOnly + s.usdtOnly, withdrawnUsdt: t.withdrawnUsdt + s.withdrawnUsdt }), { php: 0, usdt: 0, usdtOnly: 0, withdrawnUsdt: 0 });
 

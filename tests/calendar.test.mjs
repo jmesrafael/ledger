@@ -27,8 +27,10 @@ test('CAL2 days are Philippine days; several readings in a day add up; a deposit
   assert.deepEqual(R.daily([]), {}); assert.deepEqual(R.daily(null), {});
 });
 
-test('CAL3 the calendar is on the investor home under the balance, with month navigation that cannot go before the first deposit or past this month', () => {
-  assert.match(app, /\$\{growthCard\('Your balance'\)\}\$\{glanceCard\(m\)\}\$\{calendarCard\(\)\}/);
+test('CAL3 the calendar is its own investor page (not on the home), with month navigation that cannot go before the first deposit or past this month', () => {
+  assert.match(app, /investor: \[\['home', 'Home'\], \['calendar', 'Calendar'\]/);
+  assert.match(app, /const viewCalendar = \(\) => `<div class="sechead"><h2>Calendar<\/h2><\/div>\$\{calendarCard\(\)\}`;/);
+  assert.ok(!/\$\{glanceCard\(m\)\}\$\{calendarCard\(\)\}/.test(app), 'the home stays simple');
   assert.match(app, /const D = Returns\.daily\(S\.history\)/);
   assert.match(app, /else if \(a === 'calmonth'\) \{ S\.calM = \(S\.calM \|\| 0\) \+ Number\(id\); render\(\); \}/);
   assert.match(app, /const off = Math\.min\(0, Math\.max\(firstM, S\.calM \|\| 0\)\)/);

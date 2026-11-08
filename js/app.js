@@ -13,6 +13,7 @@
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const ICON = {
     home: svg('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'),
+    calendar: svg('<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/>'),
     pool: svg('<path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>'),
     activity: svg('<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>'),
     people: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>'),
@@ -218,7 +219,7 @@
   async function load() {
     S.me = await call('my_summary');
     if (!S.me) { signedOut(); throw new Error('Signed out'); }
-    if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; }   // a different person signed in: start on their first tab
+    if (S.uid !== S.me.id) { S.uid = S.me.id; S.tab = null; applyHash(); }   // a different person signed in: the page in the address, else their first tab
     const admin = S.me.role === 'admin';   // only the fund manager sees the pool; investors get just their own money
     // Everything below is independent of the rest, so it all goes out at once. It used to run one after another (about nine round trips in a row for the fund manager).
     // A "group" keeps the meaning of the old try/catch: when its call fails (a migration that is not applied yet) its own fields fall back to empty; "Signed out" still stops everything.
@@ -358,7 +359,7 @@
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
-        <div class="stat"><div class="k">Put in by investors</div>${putInBox(invPutInOf(inv))}</div>
+        ${putTile(invPutInOf(inv), 'Put in by investors')}
         <div class="stat"><div class="k">Their fee due</div><div class="v">${money(due)}</div></div></div>
         ${S.pend.length ? `<div class="btns"><button class="ghost" data-tab="record" data-rec="dep">${S.pend.length} deposit${S.pend.length === 1 ? '' : 's'} waiting to join · ${money(pendTotal())}</button></div>` : ''}
         ${pend.length ? `<div class="btns"><button class="ghost" data-tab="log">${pend.length} withdrawal request${pend.length === 1 ? '' : 's'} · ${money(pendUsdt)}</button></div>` : '<p class="note" style="margin:12px 0 0">No withdrawal requests waiting.</p>'}</div>
@@ -507,7 +508,7 @@
       ${mine.map((d) => `<div class="row"><span class="l">Received ${day(d.received_at)}</span><span class="r">${d.php_amount ? php(d.php_amount) : money(d.usdt)}<br><span class="note">${usdt(d.usdt)}</span></span></div>`).join('')}
       <p class="note">New money joins at the next valuation, at that day's price. Until then it is set aside: it does not share in gains or losses made before it was in.</p></div>` : '';
     const pos = S.pos;
-    return `${waiting}${pos && !pos.estimate.reliable ? Position.estimateCard(pos, fm) : ''}${growthCard('Your balance')}${glanceCard(m)}${calendarCard()}
+    return `${waiting}${pos && !pos.estimate.reliable ? Position.estimateCard(pos, fm) : ''}${growthCard('Your balance')}${glanceCard(m)}
       ${pos ? Position.requestsCard(pos, fm) : ''}${pos && (pos.settlements || []).length ? Position.settlementsCard(pos, fm) : ''}${recentCard()}${DISC}`;
   }
   // the investor's calendar: each day's gain or loss on their balance from the trading (Returns.daily: units held × the unit price's change, Philippine days),
@@ -542,6 +543,7 @@
     const free = Number(m.unlocked_units) * price, pc0 = total > 0 ? Math.max(0, Math.min(100, (cash / total) * 100)) : 100;
     const tile = (k, v, s, c = '') => `<div class="stat"><div class="k">${k}</div><div class="v ${c}">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
     return `<div class="card" data-glance><h2>At a glance</h2>
+      ${putInCards(putInOf(m))}
       <div class="grid">
         ${tile(tv ? 'If every trade closed now' : 'Worth now', money(total), alt(total))}
         ${tile('Result so far', smoney(res), put > 0 ? `${pct(res / put, 2)} on what you put in · after fees` : 'after fees', cls(res))}
@@ -549,7 +551,6 @@
       </div>
       ${tv ? `<div class="split" style="margin-top:12px" role="img" aria-label="${f(pc0, 0)}% in cash, ${f(100 - pc0, 0)}% in open trades"><i style="width:${pc0.toFixed(1)}%;background:var(--accent)"></i><i style="width:${(100 - pc0).toFixed(1)}%;background:var(--info)"></i></div>
         <div class="legend"><span><b style="background:var(--accent)"></b>In cash ${f(pc0, 0)}%</span><span><b style="background:var(--info)"></b>In open trades ${f(100 - pc0, 0)}%</span></div>` : ''}
-      <div class="row"><span class="l">You put in<br><span class="note">pesos paid, and what they count as</span></span><span class="r">${putInLine(putInOf(m))}</span></div>
       <div class="row"><span class="l">Free to withdraw now<br><span class="note">${m.next_unlock ? `your first deposit is locked until ${day(m.next_unlock)}` : 'no lock-up'}</span></span><span class="r"><b>${money(free)}</b><br><span class="note">${alt(free)}</span></span></div>
       ${tv ? `<p class="note">${esc(TVUI.state(tv).text)}</p>` : ''}
       <div class="btns"><button data-tab="withdraw">Withdraw</button><button class="ghost" data-tab="statements">Statements</button></div></div>`;
@@ -679,11 +680,10 @@
   function viewMine() {
     const m = S.me, mine = myRows(), fees = myRows(['fee_in']), feeTotal = fees.reduce((t, l) => t + Number(l.usdt), 0);
     return `${growthCard('My capital')}
-      <div class="card"><h2>My money in the fund</h2><div class="grid">
-        <div class="stat"><div class="k">Put in</div>${putInBox(putInOf(m))}</div>
+      <div class="card"><h2>My money in the fund</h2>${putInCards(putInOf(m))}<div class="grid">
         <div class="stat"><div class="k">Worth now</div><div class="v">${money(m.value_usdt)}</div></div>
-        <div class="stat"><div class="k">Total gain</div><div class="v ${cls(m.profit_usdt)}">${smoney(m.profit_usdt)}</div></div>
-        <div class="stat"><div class="k">Share of the pool</div><div class="v">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</div></div></div>
+        <div class="stat"><div class="k">Total gain</div><div class="v ${cls(m.profit_usdt)}">${smoney(m.profit_usdt)}</div></div></div>
+        <div class="row"><span class="l">Share of the pool</span><span class="r">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</span></div>
         <div class="row"><span class="l">Units held</span><span class="r">${f(m.units, 4)}</span></div>
         <div class="row"><span class="l">Unit price now</span><span class="r">${f(m.unit_price, 4)}</span></div>
         <p class="note">Total gain includes the fee below, because those units are part of what you hold. New money joins at the next equity reading, at that day's price, like everyone's.</p>
@@ -743,12 +743,13 @@
   // ---------------------------------------------------------------- pesos: "put in" is what was really paid (docs/php-contributions.md)
   // pesos paid, USDT received, effective and reference rates (js/contribution.js). Display only; S.ledger is only the person's own rows for an investor.
   const contribOf = (h) => Contribution.summary(S.ledger.filter((l) => l.profile_id === h.id), fxRef(), h);
-  // "Put in" is ALWAYS written ₱6,897 ($91.63): the pesos really paid and the USDT they count as. Money put in directly in USDT is added as $252.31 and never
-  // turned into pesos; the total and anything taken out go on a second line (js/contribution.js putIn).
-  const putInOf = (h) => Contribution.putIn(contribOf(h));
-  const invPutInOf = (inv) => Contribution.putIn(Contribution.sumPutIn(inv.map(contribOf)));
-  const putInBox = (p) => `<div class="v">${esc(p.main)}</div>${p.sub ? `<div class="s">${esc(p.sub)}</div>` : ''}`;
-  const putInLine = (p) => `${esc(p.main)}${p.sub ? `<br><span class="note">${esc(p.sub)}</span>` : ''}`;
+  // "Put in" and "Withdrawn": two plain cards in PESOS (js/contribution.js putIn): Put in in green, and Withdrawn in red only when something was withdrawn.
+  const putInOf = (h) => Contribution.putIn(contribOf(h), fxRef());
+  const invPutInOf = (inv) => Contribution.putIn(Contribution.sumPutIn(inv.map(contribOf)), fxRef());
+  const noteOf = (x) => (x.note ? `<div class="s">${esc(x.note)}</div>` : '');
+  const putTile = (p, k = 'Put in') => `<div class="stat"><div class="k">${k}</div><div class="v up">${esc(p.put.main)}</div>${noteOf(p.put)}</div>`;
+  const outTile = (p) => (p.out ? `<div class="stat"><div class="k">Withdrawn</div><div class="v down">${esc(p.out.main)}</div>${noteOf(p.out)}</div>` : '');
+  const putInCards = (p) => `<div class="grid pcards">${putTile(p)}${outTile(p)}</div>`;
 
   // ---------------------------------------------------------------- statements, month by month, worst drop (maths in js/returns.js)
   const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -955,7 +956,7 @@
         <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
-      ${line('Put in', putInLine(putInOf(h)))}
+      ${putInCards(putInOf(h))}
       ${Contribution.rows(contribOf(h), { holdings: false })}
       ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
         : line('Profit', gainOf(h.profit_usdt, h.return_pct))}
@@ -1339,11 +1340,12 @@
   }
   // ---------------------------------------------------------------- shell
   const TABS = {
-    investor: [['home', 'Home'], ['withdraw', 'Withdraw'], ['statements', 'Statements'], ['activity', 'Activity'], ['about', 'About']],
+    investor: [['home', 'Home'], ['calendar', 'Calendar'], ['withdraw', 'Withdraw'], ['statements', 'Statements'], ['activity', 'Activity'], ['about', 'About']],
     admin: [['dashboard', 'Dashboard'], ['users', 'Users'], ['record', 'Record'], ['quarter', 'Settle'], ['reports', 'Reports'], ['log', 'Log']],   // side "Fund": the pool, everyone, reports
     adminMe: [['mine', 'My account'], ['statements', 'Statements'], ['myhistory', 'History']],                                                                              // side "My account": only the fund manager's own money
   };
-  const VIEWS = { profile: viewProfile, contact: viewContact, payout: viewPayout, withdraw: viewWithdraw, home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, capital: viewCapital, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
+  const viewCalendar = () => `<div class="sechead"><h2>Calendar</h2></div>${calendarCard()}`;
+  const VIEWS = { calendar: viewCalendar, profile: viewProfile, contact: viewContact, payout: viewPayout, withdraw: viewWithdraw, home: viewHome, activity: viewActivity, about: viewAbout, dashboard: viewDashboard, users: viewUsers, capital: viewCapital, record: viewRecord, quarter: viewQuarter, log: viewLog, reports: viewReports, mine: viewMine, myhistory: viewMyHistory, statements: viewStatements };
   const TABICON = { users: 'people', capital: 'pool', dashboard: 'dash', myhistory: 'activity', statements: 'reports' };
   const tabsFor = () => (isAdmin() ? TABS[S.side === 'me' ? 'adminMe' : 'admin'] : TABS.investor);
 
@@ -1545,18 +1547,41 @@
   // Every screen the person moves to (tab, side, an open user sheet, "view as") is a history entry, so Back steps through the app instead of leaving it.
   // Re-rendering for fresh data changes nothing here; the sign-in and the terms/tour screens replace the entry instead of adding one.
   const NAV_KEYS = ['uid', 'tab', 'side', 'rec', 'modal', 'vw', 'gate'];
+  // Every page has its own address (login#/calendar, login#/fund/users, login#/me/statements, login#/fund/record/wd), so it can be bookmarked, shared and reloaded.
+  // The investor's Home is "dashboard". The address is only ever a way back to a page: it never changes what a person may see (a page not in their own tabs is ignored).
+  const RECS = ['dep', 'wd', 'eq', 'hist'];
+  function routeOf(s) {
+    const t = s.tab === 'home' && S.me && S.me.role === 'investor' ? 'dashboard' : s.tab, sd = S.me && S.me.role === 'admin' && !PAGES.includes(t) ? (s.side === 'me' ? 'me/' : 'fund/') : '';
+    return '#/' + sd + t + (t === 'record' && s.rec ? '/' + s.rec : '');
+  }
+  function fromHash() {
+    const m = S.me; if (!m || m.impersonated) return null;
+    const seg = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/').filter(Boolean), admin = m.role === 'admin';
+    let side = 'fund';
+    if (admin && (seg[0] === 'fund' || seg[0] === 'me')) side = seg.shift();
+    let tab = seg[0] === 'dashboard' && !admin ? 'home' : seg[0];
+    const tabs = admin ? TABS[side === 'me' ? 'adminMe' : 'admin'] : TABS.investor;
+    if (!tab || !(PAGES.includes(tab) || tabs.some(([k]) => k === tab))) return null;
+    return { tab, side: PAGES.includes(tab) ? null : side, rec: tab === 'record' && RECS.includes(seg[1]) ? seg[1] : null };   // profile, contact and payout open on whichever side the manager is on
+  }
+  function applyHash() {
+    const r = fromHash(); if (!r) return false;
+    S.tab = r.tab; if (S.me.role === 'admin' && r.side) S.side = r.side; if (r.rec) S.rec = r.rec;
+    return true;
+  }
   function syncNav() {
     try {
       document.body.style.overflow = S.modal ? 'hidden' : '';
       const p = history.state;
-      if (!S.me) { if (!(p && p.out)) history.replaceState({ app: 1, out: 1 }, ''); return; }
+      if (!S.me) { if (!(p && p.out)) history.replaceState({ app: 1, out: 1 }, ''); return; }   // signed out: the address stays, so signing in lands on that page
       const s = { app: 1, uid: S.me.id, tab: S.tab, side: S.side === 'me' ? 'me' : 'fund', rec: S.rec, modal: S.modal || null, vw: !!S.adminToken, gate: !!S.gate };
       const live = p && p.app && !p.out && !p.gate && !s.gate && !S.navReplace;
       const move = live && (p.uid === s.uid ? (p.tab !== s.tab || p.side !== s.side || p.modal !== s.modal) : p.vw !== s.vw);
       s.vd = s.vw ? (move ? (p.vw ? p.vd + 1 : 0) : (p && p.vw ? p.vd : 0)) : 0;               // entries added since "view as" opened
       s.ve = s.vw ? (move ? (p.vw ? p.ve : true) : !!(p && p.vw && p.ve)) : false;             // true when "view as" opened on its own entry
-      if (p && p.app && NAV_KEYS.every((k) => p[k] === s[k])) { S.nav = p; return; }
-      S.nav = s; move ? history.pushState(s, '') : history.replaceState(s, '');
+      const url = S.gate || S.adminToken ? null : routeOf(s);   // the terms / tour screens and "view as" keep the address they have
+      if (p && p.app && NAV_KEYS.every((k) => p[k] === s[k])) { S.nav = p; if (url && location.hash !== url) history.replaceState(p, '', url); return; }
+      S.nav = s; move ? history.pushState(s, '', url || location.href) : history.replaceState(s, '', url || location.href);
     } catch { /* no history access: Back simply leaves the page */ }
   }
   const stay = () => { try { history.pushState(S.nav || { app: 1, out: 1 }, ''); } catch { /* ignore */ } };   // undo a Back that must not leave the current screen
@@ -1564,6 +1589,11 @@
     const st = ev.state;
     if (!S.me) return loginView();
     if (S.gate && !S.me.impersonated) return stay();                       // the terms must be agreed to; the tour has its own Back button
+    if (!st && !S.adminToken) {                                              // an address typed or pasted in: open that page, or put the real address of this one back
+      if (applyHash()) { S.modal = null; S.navReplace = true; try { render(); } finally { S.navReplace = false; } window.scrollTo(0, 0); }
+      else if (S.nav) { try { history.replaceState(S.nav, '', routeOf(S.nav)); } catch { /* ignore */ } }
+      return;
+    }
     if (S.adminToken && !(st && st.vw)) {                                   // Back out of "view as": return to the fund manager where they were
       S.navReplace = true;
       try { await backToManager(); if (st && st.app && st.uid === S.me.id) { S.tab = st.tab; S.side = st.side; S.rec = st.rec; S.modal = st.modal; render(); } } finally { S.navReplace = false; }

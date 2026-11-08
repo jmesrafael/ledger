@@ -185,7 +185,7 @@ test('CB15 "Where your money stands" and the dashboard total never show USDT tur
   const home = grab(app, 'function viewHome()', '  function glanceCard(m)');
   assert.ok(!home.includes('Position.render(') && !home.includes('capitalCard'));
   assert.match(home, /\$\{pos && !pos\.estimate\.reliable \? Position\.estimateCard\(pos, fm\) : ''\}/);
-  assert.match(app, /const invPutInOf = \(inv\) => Contribution\.putIn\(Contribution\.sumPutIn\(inv\.map\(contribOf\)\)\);/, 'the dashboard total uses the same format');
+  assert.match(app, /const invPutInOf = \(inv\) => Contribution\.putIn\(Contribution\.sumPutIn\(inv\.map\(contribOf\)\), fxRef\(\)\);/, 'the dashboard total uses the same figures');
 });
 
 test('CB16 the reference rate in the app: stored only from the manager\'s fresh live reading, the minimum shown as the database applies it, forms say which rate they use', () => {
@@ -227,32 +227,39 @@ test('CB17 the card at one look: invested -> worth now, and the result so far (J
   assert.equal(C.card(C.summary([], ref, null)), '');
 });
 
-test('CB19 "Put in" is always written ₱6,897 ($91.63): pesos paid, the USDT they count as in brackets; direct USDT is added, never turned into pesos', () => {
+test('CB19 "Put in" and "Withdrawn": two plain cards in pesos (green and red), no USDT; Withdrawn only when something was withdrawn; direct USDT never turned into pesos', () => {
   const raf4 = { id: 4, ts: '2026-11-07T10:21:09Z', kind: 'deposit', usdt: '91.6278', units: '101.17193336', php_amount: '6897', php_rate: '75.27191529' };
-  const put = (rows) => C.putIn(C.summary(rows, null, null));
-  assert.equal(put([raf4]).main, '₱6,897 ($91.63)'); assert.equal(put([raf4]).sub, '', 'nothing else to say');
-  assert.equal(put([james]).main, '₱5,000 ($66.40)');
-  // a peso top-up (the pesos credited at the live rate) is part of the same deposit: ₱5,000 ($79.26)
+  const ref = C.referenceRate({ rate: 63.08, t: Date.now(), src: 'open.er-api.com' });
+  const put = (rows, r = ref) => C.putIn(C.summary(rows, r, null), r);
+  assert.equal(put([raf4]).put.main, '₱6,897'); assert.equal(put([raf4]).put.note, ''); assert.equal(put([raf4]).out, null, 'no Withdrawn card without a withdrawal');
+  assert.equal(put([james]).put.main, '₱5,000');
+  // a peso top-up changes the USDT credited, never the pesos paid
   const top = { id: 9, ts: '2026-11-07T11:00:00Z', kind: 'deposit', usdt: '12.86', units: '14.1', php_amount: null, note: 'peso top-up for deposit #3: ₱5,000 credited at the live rate' };
-  assert.equal(put([james, top]).main, '₱5,000 ($79.26)');
-  // pesos and direct USDT: each part in its own place, the total on the second line; the USDT part is never turned into pesos
-  const mixed = put([raf4, raf1, raf2]); assert.equal(mixed.main, '₱6,897 ($91.63) + $252.31'); assert.equal(mixed.sub, '$343.94 in total'); near(mixed.total, 343.9360, 1e-3);
-  assert.ok(!mixed.main.includes('63.53') && !mixed.main.includes('64.01'), 'the stored 63.53 / 64.01 rates of the USDT-only deposits are not used');
-  assert.equal(put([raf1, raf2]).main, '$252.31', 'USDT only: no pesos made up');
-  // money taken out is said, not subtracted from what was put in
+  assert.equal(put([james, top]).put.main, '₱5,000');
+  // several peso deposits are added up
+  const two = { ...james, id: 5, php_amount: '2500.50' }; assert.equal(put([james, two]).put.main, '₱7,500.50');
+  // Raf: pesos paid, and a single small note for the money he put in directly in USDT (no pesos exist for it, so none are made up)
+  const mixed = put([raf4, raf1, raf2]); assert.equal(mixed.put.main, '₱6,897'); assert.equal(mixed.put.note, 'plus 252.31 USDT put in directly');
+  assert.ok(!/63\.53|64\.01/.test(JSON.stringify(mixed)), 'the stored rates of the USDT-only deposits are not used');
+  assert.deepEqual(put([raf1, raf2]).put, { main: '252.31 USDT', note: 'put in directly, no pesos' }, 'no pesos at all: the USDT, never a made-up peso figure');
+  // withdrawn: pesos at today's reference rate marked "≈" (no pesos are recorded for a payout), or the USDT when there is no rate
   const out = { id: 20, ts: '2026-11-08T00:00:00Z', kind: 'withdrawal', usdt: -12.86, units: -14.1, php_amount: null };
-  assert.equal(put([raf4, raf1, raf2, out]).sub, '$343.94 in total · $12.86 taken out');
-  assert.equal(put([]).main, '—'); assert.equal(C.putIn(null).main, '—');
-  assert.equal(put([{ ...james, php_amount: '5000.5', usdt: '66.4' }]).main, '₱5,000.50 ($66.40)', 'cents of pesos are kept');
-  // several people (the dashboard total): the sums, in the same format
-  const tot = C.putIn(C.sumPutIn([C.summary([james], null, null), C.summary([raf4], null, null), C.summary([raf1], null, null)]));
-  assert.equal(tot.main, '₱11,897 ($158.03) + $52.31'); assert.equal(tot.sub, '$210.34 in total');
-  // wired into the three manager screens and the investor's Home
+  assert.deepEqual(put([raf4, out]).out, { main: '≈ ₱811', note: "at today's rate" });
+  assert.deepEqual(put([raf4, out], null).out, { main: '12.86 USDT', note: '' }, 'no usable reference rate: the USDT amount');
+  const back = { id: 21, ts: '2026-11-08T01:00:00Z', kind: 'withdrawal', usdt: 12.86, units: 14.1, php_amount: null }; assert.equal(put([raf4, out, back]).out, null, 'an undone payout cancels');
+  assert.equal(put([]).put.main, '—'); assert.equal(C.putIn(null, null).put.main, '—');
+  // several people (the dashboard total)
+  const tot = C.putIn(C.sumPutIn([C.summary([james], null, null), C.summary([raf4], null, null)]), ref); assert.equal(tot.put.main, '₱11,897');
+  // the screens: green Put in, red Withdrawn, each its own card; no dollars or USDT in the figures
   const app = read('js/app.js');
-  assert.match(app, /<div class="k">Put in<\/div>\$\{putInBox\(putInOf\(m\)\)\}/); assert.match(app, /\$\{line\('Put in', putInLine\(putInOf\(h\)\)\)\}/);
-  assert.match(app, /<div class="k">Put in by investors<\/div>\$\{putInBox\(invPutInOf\(inv\)\)\}/);
-  assert.match(grab(app, 'function glanceCard(m)', 'function viewWithdraw()'), /<span class="l">You put in<br>[\s\S]*\$\{putInLine\(putInOf\(m\)\)\}/);
-  assert.ok(!/const putIn = \(h\)|invPutIn\(/.test(app), 'the old pesos-or-USDT switch is gone: it no longer depends on the currency button');
+  assert.match(app, /const putTile = \(p, k = 'Put in'\) => `<div class="stat"><div class="k">\$\{k\}<\/div><div class="v up">\$\{esc\(p\.put\.main\)\}<\/div>/);
+  assert.match(app, /const outTile = \(p\) => \(p\.out \? `<div class="stat"><div class="k">Withdrawn<\/div><div class="v down">\$\{esc\(p\.out\.main\)\}<\/div>/);
+  assert.match(app, /const putInCards = \(p\) => `<div class="grid pcards">\$\{putTile\(p\)\}\$\{outTile\(p\)\}<\/div>`;/);
+  assert.match(app, /<h2>My money in the fund<\/h2>\$\{putInCards\(putInOf\(m\)\)\}/); assert.match(app, /\$\{putInCards\(putInOf\(h\)\)\}/);
+  assert.match(app, /\$\{putTile\(invPutInOf\(inv\), 'Put in by investors'\)\}/);
+  assert.match(grab(app, 'function glanceCard(m)', 'function viewWithdraw()'), /<h2>At a glance<\/h2>\r?\n\s+\$\{putInCards\(putInOf\(m\)\)\}/);
+  assert.ok(!/putInBox|putInLine|invPutIn\(/.test(app), 'the earlier ₱ ($) format is gone');
+  const css = read('login.html'); assert.match(css, /\.pcards \.stat:only-child \{ grid-column: 1 \/ -1; \}/); assert.match(css, /\.up \{ color: var\(--up\); \} \.down \{ color: var\(--down\); \}/);
 });
 
 test('CB12 database: the pesos recorded with a deposit never change its units, the pool value or anyone else; the row keeps them and stays append-only', async () => {

@@ -83,7 +83,12 @@ Raf's deposits #1 (52.3082) and #2 (200) were entered in USDT. They have no `php
 
 - **They are not peso contributions.** They are listed as "Put in directly in USDT" and are never turned into pesos.
 - **Stored rates on such rows are ignored.** Those rows do carry a `php_rate` (63.53, 64.01), but that's the market rate the manager typed then, not a cash-in rate.
-- **"Put in" is shown in pesos only when every peso of it was really paid.** That means peso deposits only, with nothing taken out. Otherwise it's shown in USDT. James: ₱5,000. Raf: 343.94 USDT, with "₱6,897 of it paid in pesos" beside it.
+- **"Put in" and "Withdrawn" are two plain cards in pesos, nothing else** (no USDT or dollars on them).
+  - **Put in** (green): the pesos really paid in. James: `₱5,000`. A peso top-up changes the USDT credited, never this.
+  - **Withdrawn** (red): only when something was withdrawn. No pesos are recorded for a payout, so it is today's reference rate × the USDT withdrawn, marked `≈ ₱619 · at today's rate`; with no usable reference rate it shows the USDT amount.
+  - Money put in **directly in USDT** has no pesos and is never turned into pesos. Raf: `₱6,897`, with one small line `plus 252.31 USDT put in directly`. An account with no peso deposit at all shows that USDT amount.
+  - Where: the manager's My account, the investor sheet, **Put in by investors** on the dashboard (summed), and the investor's own Home, at the top of **At a glance**. It does not depend on the ₱/$ button.
+  - Code: `Contribution.putIn` / `sumPutIn`; test CB19.
 - **"Where your money stands" stays in USDT.** All its rows are in USDT, so they add up (put in − taken out + result − fees = value). The pesos really paid are noted next to the USDT they bought.
 - **Recent transactions.** A deposit or payout with no recorded pesos is shown in USDT, with "≈ ₱… today" as an estimate.
 - **Statements and CSV.** "Pesos paid in / out" count only recorded `php_amount`.
