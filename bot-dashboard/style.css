@@ -266,8 +266,6 @@ td.wrap { white-space: normal; min-width: 180px; }
 /* charts (inline SVG) */
 .chart svg { width: 100%; height: auto; display: block; }
 .chart .grid-l { stroke: var(--divider); stroke-width: 1; }
-.chart circle.pt { fill: var(--muted); stroke: var(--surface, var(--card, #fff)); stroke-width: 1; }
-.chart circle.pt.up { fill: var(--up); } .chart circle.pt.down { fill: var(--down); }
 #eqRange { margin: 0 0 8px; }
 .chart .zero { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1; opacity: .6; }
 .chart .line { fill: none; stroke: var(--accent-text); stroke-width: 2; stroke-linejoin: round; }

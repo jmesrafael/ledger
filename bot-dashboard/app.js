@@ -171,7 +171,7 @@
   }
 
   // ---------------- charts (inline SVG) ----------------
-  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), fmtTip = null, tipOf = null, dots = false, empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
+  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), fmtTip = null, tipOf = null, empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
     clear(host);
     if (!pts.length) { host.append(el('div', { class: 'empty' }, empty)); return; }
     const W = 680, H = 250, L = 62, R = 14, T = 12, B = 26;
@@ -197,8 +197,6 @@
     const base = (dd ? sy(0) : H - B).toFixed(1), last = pts[pts.length - 1];
     svg.append(sv('path', { class: dd ? 'dd' : 'area', d: `${path} L${sx(last.ts).toFixed(1)},${base} L${sx(pts[0].ts).toFixed(1)},${base} Z` }));
     if (!dd) svg.append(sv('path', { class: 'line', d: path }), sv('circle', { class: 'dot', cx: sx(last.ts), cy: sy(last.y), r: 3.5 }));
-    // one small dot per point (each closed trade of an equity curve), green where the line went up into it, red where it went down
-    if (dots && pts.length <= 250) pts.forEach((p, i) => { if (p.start || i === pts.length - 1) return; svg.append(sv('circle', { class: `pt ${p.y > pts[i - 1].y ? 'up' : p.y < pts[i - 1].y ? 'down' : ''}`, cx: sx(p.ts).toFixed(1), cy: sy(p.y).toFixed(1), r: 2.6 })); });
     // capital added or removed: a labeled step, never part of the line's gain. Steps close together on the chart share one label (their sum).
     const steps = [];
     for (const m of marks.filter((q) => q.ts >= x0 && q.ts <= x1).sort((a, b) => a.ts - b.ts)) {
@@ -589,7 +587,12 @@
     for (const x of $$('#bRangeTabs button')) { const on = +x.dataset.range === chartDays; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); }
     for (const x of $$('#bChartTabs button')) { const on = x.dataset.bchart === bchartKind; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); }
     const noBal = `Unavailable: ${b.label} has not shared a balance series${b.live ? ' (the combined live capital is on the Overview)' : ''}.`;
-    if (bchartKind === 'balance') {
+    const noSeries = !(cap && cap.points && cap.points.length), tr = eqTrades(b.trades);
+    if ((bchartKind === 'balance' || bchartKind === 'perf') && noSeries && tr.length) {
+      // this bot shares no balance series: its curve is the running total of its closed trades (by P&L where the trades carry dollars, else R)
+      const usd = tr.some((t) => t.usd != null);
+      drawEquity(host, note, b.trades, usd, chartDays, `No balance series from ${b.label}: its closed trades instead, ${usd ? 'by P&L' : 'by R'}. `);
+    } else if (bchartKind === 'balance') {
       lineChart(host, inRange(cap ? cap.points.map((p) => ({ ts: p.ts, y: p.usd })) : []), { marks: cap ? cap.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: usdTip, empty: noBal });
       note.textContent = cap ? `${b.label} balance ${fmtUsd(cap.usd)} as of ${fmtTime(cap.as_of)} · ${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)}) since ${fmtUsd(cap.start_usd)}${cap.net_flows_usd ? ` · capital added or paid out (${fmtUsd(cap.net_flows_usd, true)}) is not counted as profit` : ''}${b.live ? '' : ' · paper money'}` : '';
     } else if (bchartKind === 'perf') {
@@ -738,29 +741,30 @@
     }
   }
   // The strategy's equity curve: the running total of its closed trades, one step per trade at the time it closed, by R or by P&L (dollars, where the trades carry them).
-  // A range starts the curve at 0 at its first day, so the line shows what that period did. Trading results only: capital moves never enter it.
+  // A range starts the curve at 0 at its first day, so the line shows what that period did. Trading results only: capital moves never enter it. The same plain line
+  // as the Overview's capital curve. Used by the Performance card and, for a bot that shares no balance series, by the Dashboard chart.
+  const eqTrades = (list) => (list || []).filter((t) => t && t.exit_ts != null && Number.isFinite(+t.r)).slice().sort((a, b) => a.exit_ts - b.exit_ts);
+  function drawEquity(host, note, list, usd, days, lead = '') {
+    const trades = eqTrades(list), val = (t) => (usd ? Number(t.usd) || 0 : Number(t.r));
+    const start = days ? Date.now() - days * 864e5 : -Infinity, inside = trades.filter((t) => t.exit_ts >= start);
+    if (!inside.length) { clear(host).append(el('div', { class: 'empty' }, trades.length ? 'No closed trades in this range.' : 'No closed trades yet.')); note.textContent = ''; return; }
+    const first = inside[0], from = days ? Math.min(start, first.exit_ts) : (first.entry_ts != null ? Math.min(first.entry_ts, first.exit_ts) : first.exit_ts - 36e5);
+    let cum = 0;
+    const pts = [{ ts: from, y: 0 }, ...inside.map((t) => { cum += val(t); return { ts: t.exit_ts, y: Math.round(cum * 1e4) / 1e4, t }; })];
+    const num = (x) => Math.abs(Math.round(x * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const fmtV = usd ? (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}$${num(x)}` : (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}${num(x)}R`;
+    lineChart(host, pts, { fmtY: fmtV, tipOf: (p) => (p.t
+      ? `${fmtTime(p.ts)} · ${sym(p.t.symbol)} ${p.t.side || ''} · ${p.t.reason || 'closed'} · ${usd ? fmtV(Number(p.t.usd) || 0) : fmtV(Number(p.t.r))} → total ${fmtV(p.y)}`
+      : `${fmtTime(p.ts)} · start of the range · 0`) });
+    const wins = inside.filter((t) => Number(t.r) > 0).length, peak = pts.reduce((m, p) => Math.max(m, p.y), 0);
+    clear(note).append(lead, el('strong', { class: cls(cum) }, fmtV(cum)), ` over ${inside.length} closed trade${inside.length === 1 ? '' : 's'}${days ? ` in the last ${({ 1: 'day', 7: 'week', 30: 'month', 91: '3 months' })[days] || days + ' days'}` : ' since the first'} · ${wins} win${wins === 1 ? '' : 's'}, ${inside.length - wins} not · ${cum < peak - 1e-9 ? `${fmtV(cum - peak)} below its high` : 'at its high'}. Hover the line for each trade.`);
+  }
   function renderEquity(v) {
-    const trades = (v.trades || []).filter((t) => t && t.exit_ts != null && Number.isFinite(+t.r)).slice().sort((a, b) => a.exit_ts - b.exit_ts);
-    const hasUsd = trades.some((t) => t.usd != null);
+    const hasUsd = eqTrades(v.trades).some((t) => t.usd != null);
     if (eqMetric === 'usd' && !hasUsd) eqMetric = 'r';
     for (const b of $$('#eqMetric button')) { const on = b.dataset.eqm === eqMetric; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); b.hidden = b.dataset.eqm === 'usd' && !hasUsd; }
     for (const b of $$('#eqRange button')) { const on = +b.dataset.eqr === eqDays; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
-    const usd = eqMetric === 'usd', val = (t) => (usd ? Number(t.usd) || 0 : Number(t.r)), host = $('#eqChart'), note = $('#eqNote');
-    const start = eqDays ? Date.now() - eqDays * 864e5 : -Infinity;
-    const before = trades.filter((t) => t.exit_ts < start), inside = trades.filter((t) => t.exit_ts >= start);
-    if (!inside.length) { clear(host).append(el('div', { class: 'empty' }, trades.length ? 'No closed trades in this range.' : 'No closed trades yet.')); note.textContent = ''; return; }
-    const base = before.reduce((a, t) => a + val(t), 0);
-    const first = inside[0], from = eqDays ? Math.min(start, first.exit_ts) : (first.entry_ts != null ? Math.min(first.entry_ts, first.exit_ts) : first.exit_ts - 36e5);
-    let cum = 0;
-    const pts = [{ ts: from, y: 0, start: true }, ...inside.map((t) => { cum += val(t); return { ts: t.exit_ts, y: Math.round(cum * 1e4) / 1e4, t }; })];
-    const num = (x) => Math.abs(Math.round(x * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
-    const fmtV = usd ? (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}$${num(x)}` : (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}${num(x)}R`;
-    lineChart(host, pts, { dots: true, fmtY: fmtV, tipOf: (p) => (p.t
-      ? `${fmtTime(p.ts)} · ${sym(p.t.symbol)} ${p.t.side || ''} · ${p.t.reason || 'closed'} · ${usd ? fmtV(Number(p.t.usd) || 0) : fmtV(Number(p.t.r))} → total ${fmtV(p.y)}`
-      : `${fmtTime(p.ts)} · start of the range · 0`) });
-    const wins = inside.filter((t) => Number(t.r) > 0).length, total = cum;
-    const peak = pts.reduce((m, p) => Math.max(m, p.y), 0);
-    clear(note).append(el('strong', { class: cls(total) }, fmtV(total)), ` over ${inside.length} closed trade${inside.length === 1 ? '' : 's'}${eqDays ? ` in the last ${({ 7: 'week', 30: 'month', 91: '3 months' })[eqDays]}` : ' since the first'} · ${wins} win${wins === 1 ? '' : 's'}, ${inside.length - wins} not · ${total < peak - 1e-9 ? `${fmtV(total - peak)} below its high` : 'at its high'}. Each dot is a closed trade, at the time it closed.`);
+    drawEquity($('#eqChart'), $('#eqNote'), v.trades, eqMetric === 'usd', eqDays);
   }
   function renderPeriods(p) {
     for (const b of $$('#periodTabs button')) { const on = b.dataset.period === period; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
