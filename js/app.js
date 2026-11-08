@@ -379,7 +379,8 @@
     if (!withName) rows = Contribution.foldTopups(rows);   // the person's own list: a peso top-up shows inside the deposit it tops up
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
-      const [label, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'];
+      const passed = l.kind === 'withdrawal' && /^peso top-up/i.test(l.note || '');   // the manager's units passed on as an investor's peso top-up: part of a cash-in's split, not a payout
+      const [label0, kind, ic] = KIND[l.kind] || [l.kind, '', 'share'], label = passed ? 'Passed to investor' : label0;
       // the manager's notes are internal working notes (sources, transfer times): an investor sees the date only
       const investorView = !withName && S.me && S.me.role === 'investor';
       const sub = [day(l.ts), withName ? esc(l.name) : null, l.note && !investorView ? esc(l.note) : null].filter(Boolean).join(' · ');

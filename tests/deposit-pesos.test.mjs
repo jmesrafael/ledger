@@ -120,6 +120,30 @@ test('DP5 the screens: a deposit shows its pesos and the USDT they bought; the p
   assert.match(app, /\$\{putInCards\(putInOf\(m\)\)\}\$\{depositRecords\(m\.id\)\}/); assert.match(app, /\$\{putInCards\(putInOf\(h\)\)\}\$\{depositRecords\(h\.id\)\}/);
   assert.match(app, /if \(!isAdmin\(\) \|\| S\.me\.impersonated \|\| S\.dpesos == null\) return '';/, 'only the fund manager, and only once the migration is run');
   assert.match(app, /case 'deposit_pesos_recorded':/); assert.match(app, /case 'deposit_pesos_corrected':/);
+  assert.match(app, /const passed = l\.kind === 'withdrawal' && \/\^peso top-up\/i\.test\(l\.note \|\| ''\);/); assert.match(app, /label = passed \? 'Passed to investor' : label0;/);
+});
+
+test('DP7 the live case: the earlier draft of this file was run first (no usdt_bought, one entry per deposit, two entries made); running the final file repairs it, keeping both', async () => {
+  const w = await live();
+  await w.db.exec(RB); await w.db.exec('drop table public.deposit_pesos cascade');
+  // the draft, exactly as it was run on the live database
+  await w.db.exec(`create table public.deposit_pesos (id bigserial primary key, created_at timestamptz not null default now(), created_by uuid not null references public.profiles(id),
+      ledger_id bigint not null unique references public.ledger(id), php_amount numeric not null check (php_amount > 0), note text not null check (length(btrim(note)) >= 5));
+    create function public.admin_record_deposit_pesos(p_token text, p_ledger bigint, p_php_amount numeric, p_note text, p_idem text default null) returns jsonb language sql as $$ select '{}'::jsonb $$;
+    create trigger deposit_pesos_append_only before update or delete on public.deposit_pesos for each row execute function public._deposit_pesos_append_only();`);
+  await w.q(`insert into public.deposit_pesos(created_by, ledger_id, php_amount, note) values ($1, $2, 12830, 'PSE to MEXC'), ($1, $3, 3296.79, 'Leftover MEXC Futures')`, [w.ids.raf, w.raf[1].id, w.raf[0].id]);
+  // the draft's state is what the live site saw: the final reading function fails on the missing column
+  await w.db.exec(`create or replace function public.admin_deposit_pesos(p_token text) returns jsonb language plpgsql stable security definer set search_path = public as $$
+    begin return (select jsonb_agg(jsonb_build_object('u', d.usdt_bought)) from deposit_pesos d); end $$;`).catch(() => {});
+  await w.db.exec(MIG); await w.db.exec(MIG);                                   // run the final file again: it repairs the table
+  const all = await w.call('admin_deposit_pesos', w.A);
+  assert.deepEqual(all.map((d) => [Number(d.ledger_id), Number(d.php_amount), d.usdt_bought]), [[Number(w.raf[1].id), 12830, null], [Number(w.raf[0].id), 3296.79, null]], 'both entries kept');
+  assert.equal((await w.q(`select to_regprocedure('public.admin_record_deposit_pesos(text,bigint,numeric,text,text)') f`))[0].f, null, 'the draft function is gone');
+  await rec(w, w.raf[2].id, 5000, HALF, NOTE);                                   // the correction of #4 works
+  await rec(w, w.raf[0].id, 3323, null, 'a second entry for the same deposit is allowed now');
+  const rows = C.withDepositPesos(await w.call('admin_ledger', w.A), await w.call('admin_deposit_pesos', w.A)).filter((l) => l.profile_id === w.ids.raf);
+  assert.equal(C.putIn(C.summary(rows, null, null), null).put.main, '₱21,153');
+  await assert.rejects(w.q(`update public.deposit_pesos set php_amount = 1`), /append-only/);
 });
 
 test('DP6 the load still sets everything: no assignment of the loaded data sits inside a comment (a regression found in the browser check)', () => {

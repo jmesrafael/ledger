@@ -15,6 +15,16 @@ create table if not exists public.deposit_pesos (
   usdt_bought numeric check (usdt_bought is null or usdt_bought > 0),   -- the USDT those pesos bought, when known (not what was credited)
   note text not null check (length(btrim(note)) >= 5)               -- where the amount comes from (GCash, bank, receipt ...)
 );
+-- an earlier draft of this file (run on the live database on 2026-11-08) made the table without usdt_bought and with one entry per deposit:
+-- bring that table up to date in place, keeping its rows (adding a column and dropping a constraint touch no row)
+alter table public.deposit_pesos add column if not exists usdt_bought numeric;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.deposit_pesos'::regclass and conname = 'deposit_pesos_usdt_bought_check') then
+    alter table public.deposit_pesos add constraint deposit_pesos_usdt_bought_check check (usdt_bought is null or usdt_bought > 0);
+  end if;
+end $$;
+alter table public.deposit_pesos drop constraint if exists deposit_pesos_ledger_id_key;   -- corrections are new entries of the same deposit
+drop function if exists public.admin_record_deposit_pesos(text, bigint, numeric, text, text);   -- the draft's version (no USDT bought)
 create index if not exists deposit_pesos_ledger on public.deposit_pesos(ledger_id, id);
 alter table public.deposit_pesos enable row level security;
 revoke all on table public.deposit_pesos from public, anon, authenticated;
