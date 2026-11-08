@@ -389,7 +389,7 @@
       const cash = !paid && (l.kind === 'deposit' || l.kind === 'withdrawal');
       const main = paid ? `+${php(Number(l.php_amount))}` : cash ? (Number(l.usdt) < 0 ? '−' : '+') + usdt(Math.abs(l.usdt)) : smoney(l.usdt);
       const small = withName ? sgn(l.units, 2) + ' units'
-        : paid ? ''   // "+₱5,000": the pesos put in, nothing more (conversion only shows where today's value is)
+        : paid ? (l.usdt_bought != null ? `= ${f(l.usdt_bought, 4)} USDT` : '')   // "+₱5,000" and, when recorded, the USDT those pesos bought: no conversion at today's rate
         : cash ? (rate() ? `≈ ${php(Math.abs(l.usdt) * rate())} today` : '') : alt(Math.abs(l.usdt));
       return `<div class="tx"><div class="ic ${kind}">${ICON[ic]}</div>
         <div class="mid"><div class="t1">${label}</div><div class="t2">${sub}</div></div>
@@ -682,7 +682,7 @@
   function viewMine() {
     const m = S.me, mine = myRows(), fees = myRows(['fee_in']), feeTotal = fees.reduce((t, l) => t + Number(l.usdt), 0);
     return `${growthCard('My capital')}
-      <div class="card"><h2>My money in the fund</h2>${putInCards(putInOf(m))}${missingPesosRows(m.id)}<div class="grid">
+      <div class="card"><h2>My money in the fund</h2>${putInCards(putInOf(m))}${depositRecords(m.id)}<div class="grid">
         <div class="stat"><div class="k">Worth now</div><div class="v">${money(m.value_usdt)}</div></div>
         <div class="stat"><div class="k">Total gain</div><div class="v ${cls(m.profit_usdt)}">${smoney(m.profit_usdt)}</div></div></div>
         <div class="row"><span class="l">Share of the pool</span><span class="r">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</span></div>
@@ -753,11 +753,16 @@
   const outTile = (p) => (p.out ? `<div class="stat"><div class="k">Withdrawn</div><div class="v down">${esc(p.out.main)}</div>${noteOf(p.out)}</div>` : '');
   const putInCards = (p) => `<div class="grid pcards">${putTile(p)}${outTile(p)}</div>`;
   // older deposits saved before the pesos were: the fund manager adds the pesos actually paid, once each (20261210000000_deposit_pesos.sql). Units never change.
-  const missingPesosRows = (pid) => {
+  // every deposit as recorded in pesos (and the USDT those pesos bought, when known); the fund manager adds the pesos of an older deposit, or corrects them.
+  // Corrections are new entries (deposit_pesos keeps the history). Folded away unless a deposit still has no pesos. Units never change.
+  const depositRecords = (pid) => {
     if (!isAdmin() || S.me.impersonated || S.dpesos == null) return '';
-    const list = Contribution.missingPesos(S.ledger.filter((l) => l.profile_id === pid)).sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));   // oldest first
-    return list.length ? `<h3 class="subhead">Deposits without pesos</h3><p class="note">Saved in USDT before the pesos were. Add the pesos actually paid, once each, so "Put in" is the full peso total. The USDT and units do not change.</p>
-      ${list.map((l) => `<div class="row"><span class="l">${day(l.ts)}<br><span class="note">${usdt(l.usdt)}</span></span><span class="r"><button class="sm" data-action="addpesos" data-id="${l.id}">Add pesos</button></span></div>`).join('')}` : '';
+    const list = Contribution.depositList(S.ledger.filter((l) => l.profile_id === pid));
+    if (!list.length) return '';
+    const missing = list.filter((l) => l.php_amount == null).length;
+    return `<details class="more" ${missing ? 'open' : ''}><summary>Deposit records (${list.length})${missing ? ` · ${missing} without pesos` : ''}</summary>
+      ${list.map((l) => `<div class="row"><span class="l">${day(l.ts)}<br><span class="note">${l.usdt_bought != null ? `bought ${f(l.usdt_bought, 4)} USDT` : `booked ${usdt(l.usdt, 4)}`}</span></span>
+        <span class="r">${l.php_amount != null ? php(Number(l.php_amount)) : '<span class="warn">no pesos yet</span>'}<br><button class="sm ${l.php_amount != null ? 'ghost' : ''}" data-action="addpesos" data-id="${l.id}">${l.php_amount != null ? 'Correct' : 'Add pesos'}</button></span></div>`).join('')}</details>`;
   };
 
   // ---------------------------------------------------------------- statements, month by month, worst drop (maths in js/returns.js)
@@ -850,7 +855,7 @@
 
   // ---------------------------------------------------------------- manager: activity log and backups
   const AUDIT_GROUPS = {
-    money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid', 'admission_spread_recorded', 'admission_spread_reallocated', 'deposit_pesos_recorded'],
+    money: ['money_received', 'money_handed_back', 'money_in', 'money_out', 'fee_charged', 'correction', 'withdrawal_requested', 'withdrawal_cancelled', 'withdrawal_paid', 'admission_spread_recorded', 'admission_spread_reallocated', 'deposit_pesos_recorded', 'deposit_pesos_corrected'],
     readings: ['equity_reading', 'quarter_closed'],
     accounts: ['user_created', 'rate_changed', 'rate_scheduled', 'deactivated', 'reactivated', 'name_changed', 'username_changed', 'payout_details_changed', 'terms_agreed'],
     security: ['password_changed', 'password_reset', 'viewed_as', 'setting_changed', 'backup_exported', 'backup_key_created', 'backup_keys_revoked'],
@@ -883,6 +888,7 @@
       case 'admission_spread_recorded': return `recorded an admission spread for ${who}: ${php(d.php_amount)} credited at ₱${f(d.admission_rate, 2)} (actual ₱${f(d.reference_rate, 2)}) = ${usdt(d.credited_usdt, 6)} of ${usdt(d.actual_usdt, 6)} allocated, ${usdt(d.surplus_usdt, 6)} is the manager's`;
       case 'peso_topup': return `topped up ${who}'s pesos to the live rate ₱${f(d.rate, 2)}: ${usdt(d.usdt, 6)} · ${f(d.units, 4)} of the manager's units at ${f(d.unit_price, 4)}`;
       case 'admission_spread_reallocated': return `moved units from the manager to ${who} (admission spread): ${php(d.php_amount)} credited at ₱${f(d.admission_rate, 2)} = ${usdt(d.credited_usdt, 6)} · ${f(d.units, 4)} units at ${f(d.unit_price, 4)}; the surplus ${usdt(d.surplus_usdt, 6)} stays the manager's`;
+      case 'deposit_pesos_corrected': return `corrected the pesos of ${own} deposit: ${php(d.from_php)} → ${php(d.php_amount)}${d.usdt_bought ? ' = ' + f(d.usdt_bought, 4) + ' USDT' : ''} (${esc(d.note || '')})`;
       case 'deposit_pesos_recorded': return `recorded the pesos paid for ${own} ${usdt(d.usdt)} deposit: ${php(d.php_amount)} (${esc(d.note || '')})`;
       case 'money_out': return `paid out ${u(d.usdt)} to ${who}`;
       case 'fee_charged': return `fee charged to ${who}: ${u(d.usdt)}`;
@@ -966,7 +972,7 @@
         <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
-      ${putInCards(putInOf(h))}${missingPesosRows(h.id)}
+      ${putInCards(putInOf(h))}${depositRecords(h.id)}
       ${Contribution.rows(contribOf(h), { holdings: false })}
       ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
         : line('Profit', gainOf(h.profit_usdt, h.return_pct))}
@@ -1854,10 +1860,15 @@
     }
     else if (a === 'addpesos') {
       const l = S.ledger.find((x) => String(x.id) === String(id)); if (!l) return;
-      const r = await askSheet({ title: `Pesos paid for the ${day(l.ts)} deposit`, text: `This deposit was saved as ${usdt(l.usdt)}. Enter the pesos that were actually paid for it. It is recorded once and cannot be changed; the USDT and units stay as they are.`,
-        confirmLabel: 'Record pesos', fields: [{ name: 'php', label: 'Pesos paid', type: 'number', required: true, min: 1 }, { name: 'note', label: 'Where this amount comes from', type: 'text', required: true, minLength: 5, hint: 'For example: GCash record, Oct 23' }] });
+      const has = l.php_amount != null;
+      const r = await askSheet({ title: `${has ? 'Correct the' : 'Pesos for the'} ${day(l.ts)} deposit`,
+        text: `${has ? `Recorded now: ${php(Number(l.php_amount))}${l.usdt_bought != null ? ` = ${f(l.usdt_bought, 4)} USDT` : ''}. ` : ''}Enter the pesos put in and, if you know it, the USDT they bought. The earlier entry is kept; the USDT credited and the units do not change.`,
+        confirmLabel: has ? 'Save correction' : 'Record pesos', fields: [{ name: 'php', label: 'Pesos put in', type: 'number', required: true, min: 1, value: has ? String(l.php_amount) : '' },
+          { name: 'usdt', label: 'USDT those pesos bought (optional)', type: 'number', min: 0, value: l.usdt_bought != null ? String(l.usdt_bought) : '' },
+          { name: 'note', label: 'Where this comes from', type: 'text', required: true, minLength: 5, hint: 'For example: bulk cash-in ₱10,000 = 158.0278 USDT, split in half' }] });
       if (!r) return;
-      await act(() => call('admin_record_deposit_pesos', { p_ledger: Number(id), p_php_amount: Number(r.php), p_note: r.note, p_idem: 'deposit-pesos-' + id }), `Recorded: ${php(Number(r.php))} for that deposit`);
+      await act(() => call('admin_record_deposit_pesos', { p_ledger: Number(id), p_php_amount: Number(r.php), p_usdt_bought: r.usdt === '' || r.usdt == null ? null : Number(r.usdt), p_note: r.note,
+        p_idem: 'deposit-pesos-' + id + '-' + Date.now() }), `Recorded: ${php(Number(r.php))} for that deposit`);
     }
     else if (a === 'spreadadmit') {
       if (!(await confirmSheet('Admit this admission spread?', 'The investor\'s credited USDT and your surplus are admitted together at the true-value price: the investor gets units for the credited amount, you get units for the surplus, and nobody else\'s value changes.', 'Admit both', true))) return;

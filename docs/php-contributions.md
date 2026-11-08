@@ -248,17 +248,32 @@ Between steps 2 and 4, the ₱500 minimum is not checked, so small requests are 
 
 ## Deposits are shown as the pesos put in
 
-A deposit is shown everywhere (transactions, Put in, statements) as the pesos put in, e.g. `+₱10,000`, with no conversion. Conversion only appears where today's value is shown.
+A deposit is shown everywhere (transactions, Put in, statements) as the pesos put in, e.g. `+₱5,000`. When it is known, the USDT those pesos bought appears underneath: `= 79.0139 USDT`. Nothing is converted at today's rate; that only appears where today's value is shown.
 
-**Older deposits saved without their pesos.** Raf's #1 (52.3082 USDT, Oct 23) and #2 (200 USDT, Oct 28) were saved before the pesos were.
-- The fund manager adds the pesos actually paid, **once each**, with **Add pesos** under "Deposits without pesos" on My account, or on the investor's sheet.
-- Migration `20261210000000_deposit_pesos.sql` keeps them in the append-only table `deposit_pesos`, with who, when and the source, logged as `deposit_pesos_recorded`.
-- The deposit's USDT, units, the pool and every other figure are untouched. Ledger rows stay unchanged.
+**Deposit records (manager).** My account and each investor sheet have a folded **Deposit records** list. It opens by itself when a deposit has no pesos yet.
+- **Add pesos** for an old deposit saved in USDT only, or **Correct** a recorded amount.
+- Each entry gives the pesos, optionally the USDT they bought, and the source.
+- Migration `20261210000000_deposit_pesos.sql` keeps every entry in the append-only table `deposit_pesos`. **The newest entry is shown, and earlier ones are kept**, logged as `deposit_pesos_recorded` or `deposit_pesos_corrected` (with the old amount).
+- The deposit's ledger row, the USDT credited, units and the pool never change.
 - Refused:
-  - a deposit that already has pesos (e.g. #4 keeps its ₱6,897);
-  - a second try;
+  - a rate below ₱20 or above ₱200 per USDT (typo check);
+  - no source;
   - a top-up or an undone deposit;
-  - no source given;
-  - an amount implying less than ₱20 or more than ₱200 per USDT (typo check).
-- Raf after adding ₱3,323 and ₱12,830: Put in = **₱23,050**; transactions `+₱3,323`, `+₱12,830`, `+₱6,897`.
-- Code: `Contribution.withDepositPesos`, `missingPesos`; tests `tests/deposit-pesos.test.mjs` (DP1–DP5).
+  - not the manager;
+  - the same amount again.
+
+**What was recorded for Raf and James**
+
+| Deposit | Recorded |
+|---|---|
+| Raf #1, Oct 23 (52.3082 USDT) | ₱3,323 |
+| Raf #2, Oct 28 (200 USDT) | ₱12,830 |
+| Nov 7 bulk cash-in | ₱10,000 bought 158.0278 USDT, split in half |
+| Raf #4 | ₱5,000 = 79.0139 USDT (corrected from ₱6,897) |
+| James | ₱5,000 = 79.0139 USDT |
+| **Raf's Put in** | **₱21,153** |
+| **James's Put in** | **₱5,000** |
+
+- **The units were not changed.** James is credited 79.2594 USDT: 66.40 plus the 12.8594 top-up at the live rate. Raf keeps 91.6278 − 12.8594 = 78.7684 USDT. Each is 0.2455 USDT away from the exact half, as the owner decided.
+- **The top-up is not shown as "Withdrawn" on Raf's card.** The 12.8594 USDT of Raf's units passed to James is part of how that cash-in was split, not money taken out. A real payout still shows.
+- Code: `Contribution.withDepositPesos`, `depositList`, `missingPesos`. Tests: `tests/deposit-pesos.test.mjs` (DP1–DP6).

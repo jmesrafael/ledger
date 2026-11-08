@@ -70,7 +70,8 @@
       deposits, php, usdt, topup,
       rate: effectiveRate(php, usdt),                                   // total pesos / total USDT: weighted, never an average of the rates
       usdtOnly: usdtOnly.reduce((t, l) => t + Number(l.usdt), 0), usdtOnlyCount: usdtOnly.length,
-      withdrawnUsdt: 0 - (rows || []).filter((l) => l.kind === 'withdrawal').reduce((t, l) => t + Number(l.usdt), 0),   // a reversed payout's +row cancels it
+      // money taken out; a peso top-up passed to an investor from the manager's units is part of how a cash-in was split, not money taken out
+      withdrawnUsdt: 0 - (rows || []).filter((l) => l.kind === 'withdrawal' && !String(l.note || '').toLowerCase().startsWith(TOPUP)).reduce((t, l) => t + Number(l.usdt), 0),   // a reversed payout's +row cancels it
       ref: ref || null,
       usdEquivalent: ref && php > 0 ? php / ref.rate : null,           // reference only: not a balance, not a claim
       units: n(h.units), value: n(h.value_usdt), netValue: n(h.net_value_usdt),
@@ -110,15 +111,25 @@
 
   // A deposit is shown as the pesos put in. Older deposits saved before the pesos were (php_amount empty) get the pesos recorded later in deposit_pesos
   // (20261210000000_deposit_pesos.sql) filled in here, on copies, so every screen (transactions, Put in, statements) shows the same pesos. Display only.
+  // The NEWEST entry of a deposit wins (a correction is a new entry; deposit_pesos keeps them all), and also gives the USDT those pesos bought when it is known.
   function withDepositPesos(rows, recorded) {
-    const m = new Map((recorded || []).map((d) => [String(d.ledger_id), Number(d.php_amount)]));
-    return (rows || []).map((l) => (l.kind === 'deposit' && l.php_amount == null && m.has(String(l.id)) ? { ...l, php_amount: m.get(String(l.id)), php_later: true } : l));
+    const m = new Map();
+    for (const d of [...(recorded || [])].sort((a, b) => Number(a.id || 0) - Number(b.id || 0))) m.set(String(d.ledger_id), d);
+    return (rows || []).map((l) => {
+      const d = l.kind === 'deposit' && m.get(String(l.id));
+      if (!d) return l;
+      const php0 = Number(d.php_amount), was = l.php_amount == null ? null : Number(l.php_amount);
+      return { ...l, php_amount: php0, php_later: true, php_original: was != null && was !== php0 ? was : undefined, usdt_bought: d.usdt_bought == null ? undefined : Number(d.usdt_bought) };
+    });
   }
   // the deposits that still have no pesos (not a top-up, not undone): the manager can add the pesos actually paid, once each
-  function missingPesos(rows) {
+  // a person's deposits that can carry pesos (not a top-up, not undone), oldest first; missingPesos = those that have none yet
+  function depositList(rows) {
     const undone = new Set((rows || []).filter((l) => l.reversed_of != null).map((l) => String(l.reversed_of)));
-    return (rows || []).filter((l) => l.kind === 'deposit' && Number(l.usdt) > 0 && l.php_amount == null && l.reversed_of == null && !undone.has(String(l.id)) && !isTopup(l));
+    return (rows || []).filter((l) => l.kind === 'deposit' && Number(l.usdt) > 0 && l.reversed_of == null && !undone.has(String(l.id)) && !isTopup(l))
+      .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts) || Number(a.id) - Number(b.id));
   }
+  const missingPesos = (rows) => depositList(rows).filter((l) => l.php_amount == null);
 
   // "Put in" and "Withdrawn": two simple figures in PESOS, nothing else (the app shows them as two cards, green and red).
   //   put   = the pesos really paid in (php_amount of the peso deposits). Money put in directly in USDT has no pesos, so it is never turned into pesos: it is said once in
@@ -233,5 +244,5 @@
       <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, putIn, sumPutIn, withDepositPesos, missingPesos, withdrawUnits, spreadFigures, journey, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, putIn, sumPutIn, withDepositPesos, depositList, missingPesos, withdrawUnits, spreadFigures, journey, rows, card };
 });
