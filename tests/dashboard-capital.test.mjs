@@ -52,11 +52,13 @@ test('D5 the API asks the store for the wallets, tolerates a failure, and passes
 
 test('D6 the page prefers the wallet reports, remembers the last good total and keeps it when a report has none or a refresh fails', () => {
   const app = read('bot-dashboard/app.js');
-  assert.match(app, /wc = d\.wallet_capital/); assert.match(app, /if \(wc\) \{/);
+  assert.match(app, /wc = d\.wallet_capital/); assert.match(app, /if \(wc\) return \{ usd: wc\.usd/);
   assert.match(app, /MEXC reports/); assert.match(app, /has not reported, not counted/); assert.match(app, /the VPS has not reported for a while/);
   assert.match(app, /const LAST_CAP = 'bot\.lastCapital'/); assert.match(app, /rememberCapital\(wc\.usd/); assert.match(app, /else if \(lastCapital\(\)\)/); assert.match(app, /last known, /);
   // a partial or paper total is never remembered as if it were the whole
-  assert.match(app, /if \(!wc\.missing\.length\) rememberCapital/); assert.match(app, /if \(!tc\.missing\.length && !tc\.paper\.length\) rememberCapital/);
+  assert.match(app, /if \(wc\.source === 'wallet' && !wc\.missing\.length\) rememberCapital/);
+  // paper balances are never added to live capital: without wallet reports only bots in LIVE mode count, and the rest are listed as excluded
+  assert.match(app, /const live = tc\.parts\.filter\(\(p\) => p\.mode === 'live'\)/); assert.match(app, /paper balances excluded/);
   // a failed refresh keeps the page; only a first load with no data falls back to the login screen
   assert.match(app, /if \(data\) \{ kept = true;/); assert.match(app, /else showLogin\(`Could not load data:/);
 });
@@ -79,8 +81,8 @@ test('D8 the page can render: every list of elements it loops over is looked up 
 
 test('D9 every visit opens on Overview; candle times are shown at the close; restarts are grouped per day and never styled by the loading screen', () => {
   const app = read('bot-dashboard/app.js'), css = read('bot-dashboard/style.css');
-  assert.match(app, /const h = location\.hash\.slice\(1\), r = TABS\.includes\(h\) \? h : 'overview';/);
-  assert.match(app, /const closeOf = \(v\) => v \+ CANDLE_MS;/); assert.match(app, /`closed \$\{fmtHm\(Math\.max\(\.\.\.candles\.map\(\(\[, v\]\) => closeOf\(v\)\)\)\)\}`/);
+  assert.match(app, /const route = \{ page: 'overview'/); assert.match(app, /readHash\(location\.hash\);/);
+  assert.match(app, /const closeOf = \(v\) => v \+ CANDLE_MS;/); assert.match(app, /const candleClose = \(b, v\) => v \+ \(b\.key === 'bb1h' \? 36e5 : CANDLE_MS\);/); assert.match(app, /`closed \$\{fmtHm\(newest\)\}`/);
   assert.match(app, /restarts that day/); assert.ok(!/tag: 'boot'/.test(app));
   assert.match(css, /#boot\.boot \{/); assert.ok(!/^\.boot \{/m.test(css), 'the loading-screen style is scoped to its own element');
   assert.match(css, /\.log\.short \.ln \{ grid-template-columns: auto auto 1fr;/);

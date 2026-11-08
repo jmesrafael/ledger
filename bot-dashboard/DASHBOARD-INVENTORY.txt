@@ -1,0 +1,167 @@
+BOT DASHBOARD - COMPLETE INVENTORY OF THE CURRENT PAGE (before the revamp)
+Written Nov 8, 2026 from the source: bot-dashboard/index.html, app.js, research.js, lib/perf.js, lib/aggregate.js, api/data.js.
+Not read line by line: style.css (looks only), regime-history.json, api/vps.js (only referenced where noted).
+
+==========================================================================================
+0. HOW THE PAGE WORKS (applies to every tab)
+==========================================================================================
+Files
+  bot-dashboard/index.html        page shell, 7 tabs, login panel, trade dialog
+  bot-dashboard/app.js            all rendering (1105 lines)
+  bot-dashboard/research.js       pure stat helpers for the Research tab (BotResearch)
+  bot-dashboard/style.css         look
+  bot-dashboard/regime-history.json   past market regimes (Research tab)
+  api/data.js                     GET /api/data (password cookie, ETag / 304, 10 s response cache, VERSION 'perf-7')
+  lib/aggregate.js, perf.js, store.js, ingest.js, schema.js, commands.js   backend
+
+Data feed (one JSON, /api/data), built by aggregate():
+  status, open, trades, equity, per_coin, overall, skipped, compare (all BB-Core, in the chosen Data mode)
+  bots.bbcore | bots.icore | bots.tcore      short view of each LIVE bot (T-CORE only if it has reported)
+  total_capital                              the three live bots' balances added together
+  labs.bb1h | labs.bbtr                      paper lab bots (BB-1h lab, T-CORE lab)
+  recorder                                   data recorder heartbeat (regime, market, slippage, health)
+  wallet_capital, wallet_history             real MEXC balances per account, every 5 minutes
+  capital, capital_flows                     BB-Core balance, deposits/payouts
+  uptime, activity                           BB-Core heartbeat gaps, newest 80 log lines
+  perf.bbcore | icore | bb1h | bbtr | tcore  per-bot analysis (lib/perf.js)
+
+Bots on the page
+  BB-Core      live   4h, key "bbcore"   (the main bot; its data is the "default" page data)
+  I-Core       live   key "icore"
+  T-CORE       live   key "tcore", own MEXC wallet "tcore"
+  BB-1h lab    paper  key "bb1h"   (lab: 1h BB-Core, five coins)
+  T-CORE lab   paper  key "bbtr"   (lab: same strategy as T-CORE, paper)
+  Recorder     data only, no trades
+
+Controls shared by the whole page
+  Header: title, last-update time / alive dot, menu button
+  Menu:   Data mode (Paper / Live), Times (UTC / Local), Theme (auto / light / dark), Refresh, Log out
+  Login panel (password) and a boot spinner on first load
+  Tab bar (#mainTabs): Overview, Performance, Calendar, Research, Verify, Log, Status
+  Bot selector (bot): BB-Core / I-Core / T-CORE / BB-1h lab / T-CORE lab. It decides which bot the
+     Performance, Calendar, Research and Log tabs show. It is NOT used by Overview or Status.
+  Range selector (bot.range) for Overview chart and tables
+  Chart mode (bot.chart), period (bot.period), calendar metric (bot.calmetric)
+  Trade dialog (#tradeDlg): opens when you click a trade row; full trade card
+  Remembered in the browser (localStorage): bot.tz, bot.mode, bot.range, bot.chart, bot.period,
+     bot.view, bot.tab, bot.lastCapital, bot.calmetric, bot.theme
+  Each tab renders only when opened (RENDER map), then re-renders on refresh.
+
+Strategy descriptions held in app.js (STRATS): BB-Core, T-CORE, I-Core. trailHow() holds the T-CORE
+trailing-stop explanation text.
+
+Pass/fail rules (lib/perf.js PROFILES, "stop-and-review"): BB-Core, I-Core, BB-1h lab, T-CORE lab and
+T-CORE (T-CORE uses the T-CORE lab's numbers). BB-Core and I-Core have their own expectations; the
+labs and T-CORE judge themselves against their own backtest (win 21%, average +1.286R, 7.7 trades a
+month, worst drop 29.7R, longest losing streak 26; warn 30R, halt 45R; judged after 100 trades).
+BB-1h lab: avg +0.457R, win 35.2%, 19.8 a month, worst drop 31.2R, streak 21, warn 26R, halt 39R, after 150 trades.
+
+==========================================================================================
+1. OVERVIEW tab   (panels pKpis, pChecks, pBots, pChart, pOpen, pTrades)
+==========================================================================================
+1.1 KPI row (pKpis)
+    - total capital (all live bots added together, from total_capital / wallets) with its change and %,
+      "paper" tag where a part is a paper balance, "missing" note when a bot has no balance yet
+    - change since start (capital that was added or removed is NOT counted), time-weighted return %
+    - closed trades, win rate, total R, profit factor, max drawdown (R) of the bot shown
+    - open positions count, mode, last update
+1.2 Check bar (pChecks): one-line verdicts of the stop-and-review checks per bot (verdicts(d)).
+    Today it covers BB-Core and I-Core only. T-CORE is not in it.
+1.3 Bot cards (pBots): renderBots shows [BB-Core, I-Core] only. Per card: label, mode, alive/stale,
+    balance, closed trades, win rate, total R, open count, kill switch, drawdown vs halt.
+    T-CORE live has NO card. Labs have no card.
+1.4 Chart (pChart): cumulative performance / balance chart. Modes: wallet balances of all accounts added
+    together over time (wallet_history), BB-Core balance, performance without capital movements, cumulative R
+    and drawdown. Capital steps (deposits / payouts) drawn as labelled markers.
+1.5 Open positions (pOpen): BB-Core and I-Core only: coin, side, entry, stop, target, current price, current R,
+    price note ("last closed 4h candle"). T-CORE open trades (with trailing stop, locked R, best R, trail moves)
+    are not listed here.
+1.6 Latest trades (pTrades): newest closed trades of the selected view, click opens the trade dialog.
+
+==========================================================================================
+2. PERFORMANCE tab   (pPerf, pCoins, pPeriods, pBreak, pExec, pRolling)   works for ANY bot in the selector
+==========================================================================================
+2.1 pPerf   headline numbers: trades, wins, win rate, profit factor, average R, total R, max drawdown R,
+            longest losing streak, versus the bot's expectation (backtest) with a pass/watch/stop mark
+2.2 pCoins  per coin table: trades, win rate, profit factor, average R, max drawdown, longest losing streak
+2.3 pPeriods results by day / month / year (R and trades)
+2.4 pBreak  breakdown by side (long/short) and by exit reason (stop, target, trail, time ...)
+2.5 pExec   execution quality: slippage (R and %), delay, fees (R), costs kind, versus expected
+2.6 pRolling rolling window result (BB-Core / I-Core rules: roll_n, roll_stop_r)
+            Also: the checks list (drawdown warn/stop, rolling, target, streak, slippage, compare, edge)
+            and the verdict.
+Trend capture for T-CORE and T-CORE lab (trend block): trades with MFE, reached 1R / 3R / 5R / 10R,
+            median MFE, median MAE, median give-back, median bars, trail moves, funding R, slippage bp, vs the
+            backtest's own rates (only expectation set for "bbtr": 55% reach 1R, 31% 3R, 22% 5R, 9% 10R,
+            median MFE 1.33, MAE -1.09, give-back 2.23, 32 bars).
+
+==========================================================================================
+3. CALENDAR tab   (pCal, pCalDay, pCalYear)   any bot
+==========================================================================================
+3.1 pCal      month grid, each day coloured by R (or trades / dollars via bot.calmetric), month total
+3.2 pCalDay   click a day: that day's trades
+3.3 pCalYear  year overview: months with data, month totals, year total
+
+==========================================================================================
+4. RESEARCH tab   (pRHow, pRRegime, pRSlip, pRRec, pRReady, pREdge, pRDist, pRSplit, pRTrades)   any bot
+==========================================================================================
+4.1 pRHow    how this strategy trades (STRATS text, T-CORE trailHow text)
+4.2 pRRegime market regime of each coin and of the market now (recorder.regime, market, market_state) and
+             regime history (regime-history.json)
+4.3 pRSlip   measured slippage per coin (recorder.slippage)
+4.4 pRRec    recorder health: alive/stale (30 min), what it records
+4.5 pRReady  live-readiness checklist: sample >= 25 trades, timing <= 15 min, costs <= 0.07R,
+             compare match, drawdown under the halt
+4.6 pREdge   edge with a 95% confidence interval (average R)
+4.7 pRDist   histogram of R (edges -2, -1, -0.5, 0, 0.5, 1, 2, 3)
+4.8 pRSplit  splits: by weekday, by hour block (00-06, 06-12, 12-18, 18-24), by holding time
+             (<4h, 4-12h, 12-24h, 1-3 days, 3+ days), by coin, by side
+4.9 pRTrades per-trade research cards: signal candle, intended price vs fill, slippage R, delay, fees,
+             near-threshold %, size, qty, risk $, balance used/after, funding
+
+==========================================================================================
+5. VERIFY tab   (pCheckList, pCompare, pCheckList2, pCompare2)
+==========================================================================================
+5.1 pCheckList / pCheckList2  stop-and-review checks (both lists exist; the second repeats for I-Core)
+5.2 pCompare / pCompare2      live-vs-backtest comparison result: match / mismatches, matched count,
+                              live-only, backtest-only, refused orders (explained mismatches), last 5 runs
+Only BB-Core and I-Core are covered (no compare/check entry for T-CORE live). Panels are duplicated.
+
+==========================================================================================
+6. LOG tab   (pActivity, pSkipped)
+==========================================================================================
+6.1 pActivity  newest 80 events, newest first: entry, exit (reason, R, $), skip, candle check
+               (total R, balance), compare, capital flow
+6.2 pSkipped   skipped signals (newest 200) with reason and detail, plus counts by reason
+
+==========================================================================================
+7. STATUS tab   (pNow, pSystem, pServer)
+==========================================================================================
+7.1 pNow     "now" strip: alive/stale, last heartbeat, next wake, mode, kill switch, drawdown vs halt,
+             enabled coins, last candle per coin (BB-Core)
+7.2 pSystem  version, commit, uptime, 7-day uptime % with downtime list (gaps over 4h20m) and restarts
+7.3 pServer  VPS status loaded inline (loadVpsInline, api/vps.js): services, disk/memory, commands (ask bot now)
+Bot health is BB-Core centred; I-Core, T-CORE and the labs are not shown with the same detail.
+
+==========================================================================================
+8. GAPS FOUND (what the revamp should fix)
+==========================================================================================
+ 1. T-CORE live is missing from: Overview bot cards, Open positions, check bar, Verify, Status.
+ 2. Labs (BB-1h, T-CORE lab) and the recorder are reachable only through the bot selector.
+ 3. The bot selector hides which tabs it affects (Overview/Status ignore it).
+ 4. Verify has duplicate panels (pCheckList/pCheckList2, pCompare/pCompare2).
+ 5. Per-bot pages are spread across Performance, Calendar, Research, Log; no single page per bot.
+ 6. Labs and live bots are mixed in the same selector.
+ 7. Only BB-Core has uptime / status detail; I-Core and T-CORE health is a flag.
+
+==========================================================================================
+9. PROPOSED NEW STRUCTURE (for your approval, nothing built yet)
+==========================================================================================
+ Overview            all basic info: total capital + chart, one card per live bot (BB-Core, I-Core, T-CORE) with
+                     status / balance / trades / win / R / open, all open positions in one table, stop-and-review
+                     verdict bar for all 3, latest trades, system health strip
+ BB-Core page        sub-tabs: Performance, Trades & Calendar, Open & Log, Verify (checks + compare), Status
+ I-Core page         same sub-tabs
+ T-CORE page         same sub-tabs + trend capture (MFE, trail, give-back)
+ Research Lab        BB-1h lab, T-CORE lab, recorder / regime / slippage, readiness and edge analysis
+ Status / System     server, uptime and recorder for everything

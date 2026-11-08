@@ -19,12 +19,36 @@
   const SVG = 'http://www.w3.org/2000/svg';
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
+  // The five pages: Overview (the three live bots), Live Bots (a workspace per bot), Research Lab (paper bots + market recorder), System Monitor, Settings.
+  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h', 'bbtr'];
+  const BOTS = {
+    bbcore: { label: 'BB-Core', live: true, role: 'Live' }, icore: { label: 'I-Core', live: true, role: 'Live' }, tcore: { label: 'T-CORE', live: true, role: 'Live' },
+    bb1h: { label: 'BB-1h lab', live: false, role: 'Paper lab' }, bbtr: { label: 'T-CORE lab', live: false, role: 'Paper lab' },
+  };
+  const BOT_SUBS = [['dashboard', 'Dashboard'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['positions', 'Positions & Activity'], ['verification', 'Verification'], ['health', 'Health']];
+  const LAB_SUBS = [['overview', 'Labs'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['research', 'Research'], ['market', 'Market & Costs']];
+  const PAGES = ['overview', 'bots', 'lab', 'system', 'settings'];
+
   let tz = store.get('bot.tz') === 'local' ? 'local' : 'utc', data = null, etag = null, modeSel = store.get('bot.mode') || '';
   let chartDays = [0, 1, 7, 30, 91].includes(+store.get('bot.range')) ? +store.get('bot.range') : 0;   // chart range in days: 1 day, 1 week ... ; 0 = everything
-  let chartKind = ['capital', 'perf', 'r', 'dd'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';
+  let chartKind = ['capital', 'perf', 'daily'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';   // Overview chart
+  let bchartKind = ['balance', 'perf', 'r', 'dd'].includes(store.get('bot.bchart')) ? store.get('bot.bchart') : 'r';   // a bot's own chart
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
-  let bot = ['icore', 'tcore', 'bb1h', 'bbtr'].includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore';
-  const filters = { coin: '', side: '', reason: '', from: '', to: '' };
+  // where we are: a page, the chosen live bot and lab, and the sub-page of each. Every visit opens on Overview; a link like #bots/tcore/health opens that page.
+  const route = { page: 'overview', bot: LIVE.includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore', lab: LABS.includes(store.get('bot.lab')) ? store.get('bot.lab') : 'bb1h', bsub: 'dashboard', lsub: 'overview' };
+  const LEGACY = { performance: ['bots', 'performance'], calendar: ['bots', 'trades'], verify: ['bots', 'verification'], log: ['bots', 'positions'], status: ['system'], research: ['lab', 'research'] };   // the old seven tabs
+  function readHash(h) {
+    const [p, a, b] = String(h || '').replace(/^#/, '').split('/');
+    if (LEGACY[p]) { route.page = LEGACY[p][0]; if (LEGACY[p][1]) route[route.page === 'bots' ? 'bsub' : 'lsub'] = LEGACY[p][1]; return; }
+    if (!PAGES.includes(p)) return;
+    route.page = p;
+    if (p === 'bots') { if (LIVE.includes(a)) route.bot = a; if (BOT_SUBS.some(([k]) => k === b)) route.bsub = b; }
+    if (p === 'lab') { if (LABS.includes(a)) route.lab = a; if (LAB_SUBS.some(([k]) => k === b)) route.lsub = b; }
+  }
+  const hashOf = () => (route.page === 'bots' ? `bots/${route.bot}/${route.bsub}` : route.page === 'lab' ? `lab/${route.lab}/${route.lsub}` : route.page);
+  const viewKey = () => (route.page === 'bots' ? `bots:${route.bsub}` : route.page === 'lab' ? `lab:${route.lsub}` : route.page);
+  readHash(location.hash);
+  const filters = { q: '', coin: '', side: '', reason: '', from: '', to: '' };
   const PAGE = { trades: 100, skipped: 50, journal: 100 }, shown = { trades: PAGE.trades, skipped: PAGE.skipped, journal: PAGE.journal };   // long tables show their first rows; "Show more" adds the next ones (a thousand rows at once is what makes a phone slow)
   const moreBtn = (host, key, total, rerender) => { const h = clear(host); if (total <= shown[key]) return; h.append(el('button', { type: 'button', class: 'ghost sm' }, `Show ${Math.min(PAGE[key], total - shown[key])} more · showing ${shown[key]} of ${total}`)); h.firstChild.addEventListener('click', () => { shown[key] += PAGE[key]; rerender(); }); };
 
@@ -62,20 +86,77 @@
   const LVL = { ok: 'OK', info: 'INFO', wait: 'WAIT', warn: 'WATCH', stop: 'STOP' };
   const lvlChip = (l) => el('span', { class: `lvl ${l}` }, LVL[l] || l);
 
-  // ---------------- the selected bot (Performance and Trades) ----------------
-  const hasIcore = () => !!(data && data.perf && data.perf.icore);
-  const hasLab = () => !!(data && data.perf && data.perf.bb1h && data.labs && data.labs.bb1h);   // the 1h BB-Core paper lab bot (reports as bb1h)
-  const hasTrail = () => !!(data && data.perf && data.perf.bbtr && data.labs && data.labs.bbtr);   // the T-CORE paper lab bot (reports as bbtr)
-  const hasTcore = () => !!(data && data.perf && data.perf.tcore && data.bots && data.bots.tcore);   // the T-CORE LIVE bot (reports as tcore)
-  const hasBot = (k) => k === 'bbcore' || (k === 'icore' && hasIcore()) || (k === 'tcore' && hasTcore()) || (k === 'bb1h' && hasLab()) || (k === 'bbtr' && hasTrail());
-  const view = () => {
-    const d = data, ic = bot === 'icore' && hasIcore();
-    if (bot === 'bb1h' && hasLab()) return { key: 'bb1h', label: 'BB-1h lab', mode: d.labs.bb1h.mode, perf: d.perf.bb1h, trades: d.labs.bb1h.trades || [] };
-    if (bot === 'tcore' && hasTcore()) return { key: 'tcore', label: 'T-CORE', mode: d.bots.tcore.mode, perf: d.perf.tcore, trades: d.bots.tcore.trades || [] };
-    if (bot === 'bbtr' && hasTrail()) return { key: 'bbtr', label: 'T-CORE lab', mode: d.labs.bbtr.mode, perf: d.perf.bbtr, trades: d.labs.bbtr.trades || [] };
-    return ic ? { key: 'icore', label: 'I-Core', mode: d.bots.icore.mode, perf: d.perf.icore, trades: d.bots.icore.trades || [] }
-      : { key: 'bbcore', label: 'BB-Core', mode: d.mode, perf: d.perf ? d.perf.bbcore : null, trades: d.trades };
-  };
+  // ---------------- one bot's data: every page reads a bot through bd(), so each bot shows ITS OWN trades, positions, log, checks and uptime ----------------
+  const lastOf = (list, k) => (list.length ? list.reduce((m, x) => Math.max(m, x[k] || 0), 0) || null : null);
+  const ZERO = () => ({ trades: 0, wins: 0, losses: 0, win_rate: null, profit_factor: null, avg_r: null, total_r: 0, max_dd_r: 0, longest_losing_streak: 0 });
+  function bd(k) {
+    const d = data; if (!d) return null;
+    const meta = BOTS[k], perf = d.perf ? d.perf[k] : null;
+    if (k === 'bbcore') {
+      const s = d.status, bb = (d.bots && d.bots.bbcore) || {};
+      return { key: k, ...meta, present: true, mode: d.mode, hb: s.last_heartbeat_ms, alive: !!s.alive, status: s, trades: d.trades, open_list: d.open, capital: d.capital, overall: d.overall, perf, compare: d.compare, compares: d.compares || [],
+        skipped: d.skipped, skip_counts: d.skip_counts || {}, activity: (d.activity || []).filter((a) => a.kind !== 'capital'), uptime: d.uptime, coins: s.enabled_coins || [], kill: !!s.kill_switch, dd: s.drawdown_r, halt: s.halt_r,
+        first_ms: d.first_event_ms, last_exit_ms: bb.last_exit_ms ?? lastOf(d.trades, 'exit_ts'), last_entry_ms: bb.last_entry_ms ?? lastOf(d.trades, 'entry_ts'), trend: null };
+    }
+    const b = (d.bots && d.bots[k]) || (d.labs && d.labs[k]);
+    if (!b) return { key: k, ...meta, present: false, mode: meta.live ? 'live' : 'paper', hb: null, alive: false, status: {}, trades: [], open_list: [], capital: null, overall: ZERO(), perf, compare: null, compares: [], skipped: [], skip_counts: {},
+      activity: [], uptime: null, coins: [], kill: false, dd: null, halt: null, first_ms: null, last_exit_ms: null, last_entry_ms: null, trend: null };
+    return { key: k, ...meta, present: true, mode: b.mode, hb: b.last_heartbeat_ms, alive: !!b.alive, status: b.status || {}, trades: b.trades || [], open_list: b.open_list || [], capital: b.capital, overall: b.overall, perf, compare: b.compare, compares: b.compares || [],
+      skipped: b.skipped || [], skip_counts: b.skip_counts || {}, activity: b.activity || [], uptime: b.uptime || null, coins: b.enabled_coins || [], kill: !!b.kill_switch, dd: b.drawdown_r, halt: b.halt_r,
+      first_ms: b.first_event_ms, last_exit_ms: b.last_exit_ms ?? null, last_entry_ms: b.last_entry_ms ?? null, trend: b.trend || null };
+  }
+  const curKey = () => (route.page === 'lab' ? route.lab : route.bot);
+  const view = () => { const b = bd(curKey()); return { key: b.key, label: b.label, mode: b.mode, perf: b.perf, trades: b.trades, b }; };
+  const livePresent = () => LIVE.map(bd).filter((b) => b.present && b.mode === 'live');   // bots whose numbers are live money: a paper bot never counts here
+
+  // ---------------- state of a bot, said plainly: healthy / stale / offline / missing; a figure the dashboard is not sent is "Unavailable", never zero ----------------
+  const OFFLINE_MS = 864e5;
+  function health(b) {
+    if (!b.present) return { state: 'missing', label: 'MISSING', note: 'has not reported to the dashboard yet' };
+    if (b.hb == null) return { state: 'missing', label: 'MISSING', note: 'no heartbeat received yet' };
+    if (b.alive) return { state: 'healthy', label: 'HEALTHY', note: '' };
+    const age = Date.now() - b.hb;
+    return age > OFFLINE_MS ? { state: 'offline', label: 'OFFLINE', note: `no heartbeat for ${fmtDur(age / 1000)}` } : { state: 'stale', label: 'STALE', note: `no heartbeat for ${fmtDur(age / 1000)}` };
+  }
+  const hchip = (h) => el('span', { class: `hchip ${h.state}`, title: h.note || null }, h.label);
+  const na = (why) => el('span', { class: 'na', title: why || 'The dashboard is not sent this figure' }, 'Unavailable');
+  const worstHealth = (list) => (list.some((h) => h.state === 'stale' || h.state === 'offline') ? 'bad' : list.some((h) => h.state === 'missing') ? 'warnd' : 'ok');
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+  const walletOf = (b) => { const wc = data && data.wallet_capital; return wc ? wc.parts.find((p) => norm(p.label) === norm(b.label)) || null : null; };
+  const modeTag = (m) => el('span', { class: `modeTag ${m}` }, String(m).toUpperCase());
+
+  // Live capital: the real MEXC balances from the wallet reports, every trading account added together. Without them, only bots that are in LIVE mode count (from their own balance);
+  // a paper balance is listed as excluded and never added.
+  function liveCapital(d) {
+    const wc = d.wallet_capital;
+    if (wc) return { usd: wc.usd, parts: wc.parts, missing: wc.missing, as_of: wc.as_of, source: 'wallet', paper: [] };
+    const tc = d.total_capital; if (!tc) return null;
+    const live = tc.parts.filter((p) => p.mode === 'live');
+    return { usd: live.length ? Math.round(live.reduce((a, p) => a + p.usd, 0) * 100) / 100 : null, parts: live, missing: tc.missing, as_of: live.length ? Math.max(...live.map((p) => p.as_of)) : null, source: 'bots', paper: tc.paper };
+  }
+  // The wallet-report history with deposits and payouts taken out (a deposit is recorded a little before or after the balances show it, so it is taken out at the jump it made: the biggest
+  // step its way within 2 hours of it). The time-weighted return chains each interval's growth with its flow removed, exactly like lib/aggregate.js capital().
+  function walletSeries(d) {
+    const wh = d.wallet_history || []; if (wh.length < 2) return null;
+    const at = new Array(wh.length).fill(0);
+    for (const f of d.capital_flows || []) {
+      let best = -1, big = -Infinity;
+      for (let i = 1; i < wh.length; i++) if (Math.abs(wh[i].ts - f.ts) <= 72e5) { const st = (wh[i].usd - wh[i - 1].usd) * Math.sign(f.usd); if (st > big) { big = st; best = i; } }
+      if (best < 0) { best = wh.findIndex((p) => p.ts >= f.ts); if (best < 0) best = wh.length - 1; }   // no report near it: from when it was recorded
+      at[best] += f.usd;
+    }
+    let cum = 0, twr = 1;
+    const adj = wh.map((p, i) => ({ ts: p.ts, y: p.usd - (cum += at[i]) }));
+    for (let i = 1; i < wh.length; i++) if (wh[i - 1].usd > 0) twr *= (wh[i].usd - at[i]) / wh[i - 1].usd;
+    return { wh, adj, twr: (twr - 1) * 100 };
+  }
+  // cumulative R and drawdown of closed trades in exit order (the same sums as lib/aggregate.js, for any bot)
+  function rCurve(trades) {
+    let cum = 0, peak = 0;
+    return [...trades].sort((a, b) => a.exit_ts - b.exit_ts).map((t) => { cum += t.r; peak = Math.max(peak, cum); return { ts: t.exit_ts, r_cum: Math.round(cum * 1000) / 1000, dd_r: Math.round((peak - cum) * 1000) / 1000 }; });
+  }
+  const riskOf = (b) => { const l = [...b.trades, ...b.open_list].filter((t) => Number.isFinite(t.risk_pct)).sort((a, c) => c.entry_ts - a.entry_ts)[0]; return l ? l.risk_pct : null; };   // what the bot sized its newest entry at (a fraction of the balance)
+  const capOf = (b) => { const w = walletOf(b); if (w) return w.usd; return b.capital && b.mode === 'live' ? b.capital.usd : null; };   // live bots: the MEXC wallet; a paper balance is never passed off as wallet money
 
   // ---------------- tables ----------------
   function table(cols, rows, empty, onRow) {
@@ -188,170 +269,183 @@
   const CANDLE_MS = 4 * 3600e3;   // last_candle_ms holds each coin's candle OPEN time; the bot checks that candle when it closes, 4 hours later
   const closeOf = (v) => v + CANDLE_MS;
 
-  // ---------------- render: the header always, the open tab now, the other tabs when they are opened ----------------
-  const TABS = ['overview', 'performance', 'calendar', 'research', 'verify', 'log', 'status'];
-  const dirty = new Set();
+  // ---------------- render: the header always, the open page now; a page is drawn when it is opened and again after new data ----------------
+  let drawn = null;
+  const RENDER = {
+    overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpenAll(); renderLatest(); renderHealthStrip(); },
+    'bots:dashboard': () => renderBotDash(),
+    'bots:performance': () => renderBotPerf(),
+    'bots:trades': () => { renderTrades(); renderCalendar(); },
+    'bots:positions': () => renderPositions(),
+    'bots:verification': () => { renderChecks(); renderCompare(); renderCompareDetail(); },
+    'bots:health': () => renderHealth(),
+    'lab:overview': () => renderLabOverview(),
+    'lab:performance': () => renderBotPerf(),
+    'lab:trades': () => { renderTrades(); renderCalendar(); },
+    'lab:research': () => renderResearch(),
+    'lab:market': () => renderMarket(),
+    system: () => renderSystem(),
+    settings: () => renderSettings(),
+  };
   function render(d) {
     data = d;
-    if (!hasBot(bot)) bot = 'bbcore';
-    const mode = d.mode, s = d.status, waiting = s.last_heartbeat_ms == null;
-    // mode switch in the settings menu (only when both paper and live data exist)
-    $('#modeRow').hidden = d.modes_seen.length < 2;
-    clear($('#modeSeg')).append(...d.modes_seen.map((m) => el('button', { type: 'button', 'data-mode': m, class: m === mode ? 'on' : '' }, m)));
-    // status pill + alert strip
+    const lives = LIVE.map((k) => { const b = bd(k); return { b, h: health(b) }; });
+    const count = (s) => lives.filter((x) => x.h.state === s).length, bad = count('stale') + count('offline'), missing = count('missing');
+    // the pill speaks for all three live bots, not for BB-Core alone
     const pill = $('#statusPill'); pill.hidden = false;
-    pill.className = `pill ${waiting ? '' : s.alive ? 'ok' : 'bad'}`;
-    pill.textContent = `${mode.toUpperCase()} · ${waiting ? 'WAITING' : s.alive ? 'ONLINE' : 'STALE'}`;
+    pill.className = `pill ${bad ? 'bad' : missing ? '' : 'ok'}`;
+    pill.textContent = `LIVE BOTS · ${count('healthy')}/${lives.length} ONLINE${missing ? ` · ${missing} MISSING` : ''}`;
+    const probs = [], notes = [];
+    for (const { b, h } of lives) {
+      if (h.state === 'stale' || h.state === 'offline') probs.push(`${b.label}: ${h.note} (limit ${fmtDur(d.status.stale_after_ms / 1000)}). Check the VPS.`);
+      if (b.present && b.kill) notes.push(`${b.label}: kill switch is ON, no new entries.`);
+    }
+    for (const p of (d.wallet_capital ? d.wallet_capital.parts : [])) if (p.suspect) notes.push(`${p.label}: a wallet report is waiting for your approval.`);
     const alert = $('#alert');
-    if (!waiting && !s.alive) { alert.hidden = false; alert.className = 'alert'; alert.textContent = `Bot is not reporting: no heartbeat for ${fmtDur(s.age_ms / 1000)} (limit ${fmtDur(s.stale_after_ms / 1000)}). Check the VPS.`; }
-    else if (s.kill_switch) { alert.hidden = false; alert.className = 'alert warn'; alert.textContent = 'Kill switch is ON: the bot takes no new entries.'; }
+    if (probs.length) { alert.hidden = false; alert.className = 'alert'; alert.textContent = probs.join(' · '); }
+    else if (notes.length) { alert.hidden = false; alert.className = 'alert warn'; alert.textContent = notes.join(' · '); }
     else alert.hidden = true;
-    const upd = $('#updated'); upd.hidden = d.last_update_ms == null; upd.dataset.ts = d.last_update_ms ?? '';
-    $('#footer').textContent = `data generated ${fmtTime(d.generated_at)} · checks for news every 60s · times in ${tz === 'utc' ? 'UTC' : 'your local time'} · ${mode} mode`;
-    renderBadges(d);
-    for (const t of TABS) dirty.add(t);
-    applyTab();
+    const seen = Math.max(d.last_update_ms || 0, ...LIVE.concat(LABS).map((k) => bd(k).hb || 0)) || null;   // the newest thing any bot has told us
+    const upd = $('#updated'); upd.hidden = seen == null; upd.dataset.ts = seen ?? '';
+    $('#footer').textContent = `data generated ${fmtTime(d.generated_at)} · checks for news every 60s · times in ${tz === 'utc' ? 'UTC' : 'your local time'} · BB-Core data mode: ${d.mode}`;
+    const sysH = lives.map((x) => x.h).concat(LABS.map((k) => health(bd(k))).filter((h) => h.state !== 'missing'), d.recorder ? [{ state: d.recorder.alive ? 'healthy' : 'stale' }] : []);
+    $('#tbBots').className = `tb-dot ${worstHealth(lives.map((x) => x.h))}`;
+    $('#tbSys').className = `tb-dot ${worstHealth(sysH)}`;
+    drawn = null;
+    applyRoute();
   }
-  const RENDER = {
-    overview: () => { renderKpis(data); renderCheckbar(data); renderBots(data); renderChart(); renderOpen(data); renderTrades(); },
-    performance: () => { renderPerf(); renderCoins(); },
-    calendar: () => renderCalendar(),
-    research: () => renderResearch(),
-    verify: () => { renderChecks(data); renderCompare(data); },
-    log: () => { renderActivity(data); renderSkipped(data); },
-    status: () => { renderStatus(data); renderUptime(data); loadVpsInline(); },
-  };
-  function drawTab() {
-    if (!data || !dirty.has(tab)) return;
-    dirty.delete(tab);
-    for (const n of $$('.modeTag')) { const m = n.hasAttribute('data-botmode') ? view().mode : data.mode; n.textContent = String(m).toUpperCase(); n.className = `modeTag ${m}`; }
-    renderBotSeg();
-    RENDER[tab]();
+  function drawView() {
+    if (!data) return;
+    const key = viewKey(), sig = `${key}|${route.page === 'bots' ? route.bot : route.page === 'lab' ? route.lab : ''}`;
+    if (sig === drawn) return;
+    drawn = sig;
+    const m = view().mode;
+    for (const n of $$('.modeTag[data-botmode]')) { n.textContent = String(m).toUpperCase(); n.className = `modeTag ${m}`; }
+    RENDER[key]();
     tick();
   }
-
-  // ---------------- sections (tabs) ----------------
-  let tab = (() => { const h = location.hash.slice(1), r = TABS.includes(h) ? h : 'overview'; store.set('bot.tab', r); return r; })();   // every visit opens on Overview; a link like #status opens that tab
-  function applyTab() {
-    $('#app').dataset.tab = tab;
-    for (const e of $$('[data-tabs]')) e.hidden = !e.dataset.tabs.split(' ').includes(tab);
-    for (const b of $$('#mainTabs button')) { const on = b.dataset.tab === tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; }
-    drawTab();
+  function applyRoute() {
+    if (!data) return;
+    const key = viewKey(), ws = route.page === 'bots' || route.page === 'lab';
+    $('#app').dataset.page = route.page; $('#app').dataset.bot = ws ? curKey() : '';
+    for (const e of $$('[data-v]')) e.hidden = !e.dataset.v.split(' ').includes(key);
+    for (const b of $$('#mainTabs button')) { const on = b.dataset.page === route.page; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; }
+    renderSubnav();
+    try { history.replaceState(null, '', '#' + hashOf()); } catch {}
+    drawView();
   }
-  function setTab(t) { if (!TABS.includes(t)) return; tab = t; store.set('bot.tab', t); try { history.replaceState(null, '', '#' + t); } catch {} applyTab(); }
-  let vpsInlineDone = false;
-  async function loadVpsInline() {   // the server specs, read once when the Status tab is first opened
-    if (vpsInlineDone) return; const host = $('#vpsInline');
-    try {
-      const res = await fetch('/api/vps', { credentials: 'same-origin', cache: 'no-store' });
-      if (res.status === 401) return;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      renderVps(await res.json(), host); vpsInlineDone = true;
-    } catch (e) { clear(host).append(el('div', { class: 'empty' }, `Could not load the specs: ${e.message}`)); }
-  }
-  const worst = (list) => list.reduce((w, l) => ({ stop: 2, warn: 1 }[l] > ({ stop: 2, warn: 1 }[w] || 0) ? l : w), 'ok');
-  const verdicts = (d) => [d.perf && d.perf.bbcore, d.perf && d.perf.icore].filter(Boolean);
-  function renderBadges(d) {
-    const s = d.status, waiting = s.last_heartbeat_ms == null;
-    $('#tbDot').className = `tb-dot ${waiting ? '' : s.alive ? 'ok' : 'bad'}`;
-    const v = worst(verdicts(d).map((p) => p.verdict));
-    $('#tbCheck').className = `tb-dot ${v === 'stop' ? 'bad' : v === 'warn' ? 'warnd' : 'ok'}`;
-    $('#tbLog').textContent = (d.activity || []).length ? String((d.activity || []).length) : '';
-  }
-  function renderBotSeg() {
-    const list = [['bbcore', 'BB-Core'], ['icore', 'I-Core'], ['tcore', 'T-CORE'], ['bb1h', 'BB-1h lab'], ['bbtr', 'T-CORE lab']].filter(([k]) => hasBot(k)), show = list.length > 1;
-    for (const host of $$('.botseg')) {
-      host.hidden = !show; if (!show) continue;
-      clear(host).append(...list.map(([k, l]) => el('button', { type: 'button', 'data-bot': k, class: k === bot ? 'on' : '' }, l)));
+  // the bot chooser (live bots, or the two labs) and the sub-pages of the open workspace
+  function renderSubnav() {
+    const sub = $('#subTabs'), sel = $('#botSel'), p = route.page, subs = p === 'bots' ? BOT_SUBS : p === 'lab' ? LAB_SUBS : null;
+    sub.hidden = !subs;
+    if (subs) {
+      const cur = p === 'bots' ? route.bsub : route.lsub, b = bd(curKey());
+      clear(sub).append(...subs.map(([k, l]) => {
+        let badge = null;
+        if (p === 'bots' && k === 'verification' && b.perf) badge = el('span', { class: `tb-dot ${b.perf.verdict === 'stop' ? 'bad' : b.perf.verdict === 'warn' ? 'warnd' : 'ok'}`, 'aria-hidden': 'true' });
+        if (p === 'bots' && k === 'positions' && b.open_list.length) badge = el('span', { class: 'tb-n' }, String(b.open_list.length));
+        return el('button', { type: 'button', role: 'tab', 'data-sub': k, class: k === cur ? 'on' : '', 'aria-selected': k === cur, tabindex: k === cur ? 0 : -1 }, badge, l);
+      }));
+    }
+    const showSel = p === 'bots' || (p === 'lab' && route.lsub !== 'overview');
+    sel.hidden = !showSel;
+    if (showSel) {
+      const cur = curKey();
+      clear(sel).append(...(p === 'bots' ? LIVE : LABS).map((k) => { const b = bd(k), h = health(b); return el('button', { type: 'button', 'data-selbot': k, 'data-bot': k, class: `bsel ${k === cur ? 'on' : ''}`, 'aria-pressed': k === cur }, el('i', { class: `dot ${h.state}` }), b.label, el('small', {}, b.present ? String(b.mode).toUpperCase() : 'MISSING')); }));
     }
   }
+  function setPage(p) { if (!PAGES.includes(p)) return; route.page = p; applyRoute(); }
+  function setSub(s) { route[route.page === 'bots' ? 'bsub' : 'lsub'] = s; applyRoute(); }
+  function goBot(k, sub) {   // open a bot's workspace (a live bot's pages, or a lab's)
+    if (LIVE.includes(k)) { route.page = 'bots'; route.bot = k; store.set('bot.view', k); if (sub) route.bsub = sub; } else { route.page = 'lab'; route.lab = k; store.set('bot.lab', k); route.lsub = sub || 'performance'; }
+    shown.trades = PAGE.trades; shown.journal = PAGE.journal; drawn = null; applyRoute(); window.scrollTo(0, 0);
+  }
+  const selectBot = (k) => goBot(k, LIVE.includes(k) ? null : route.lsub);   // keeps the sub-page you are on
 
-  // ---------------- Overview ----------------
-  // Total capital is remembered in this browser, so a report that carries no balance (or a refresh that fails) never blanks the overview: the last known figure stays, labelled with its age.
+  // ---------------- Overview: the three live bots together. Paper bots and paper balances never appear here (they live in the Research Lab). ----------------
+  // Live capital is remembered in this browser, so a report that carries no balance (or a refresh that fails) never blanks the overview: the last known figure stays, labelled with its age.
   const LAST_CAP = 'bot.lastCapital';
   const rememberCapital = (usd, text, asOf) => { if (Number.isFinite(usd)) store.set(LAST_CAP, JSON.stringify({ usd, text, as_of: asOf || Date.now() })); };
   const lastCapital = () => { try { const c = JSON.parse(store.get(LAST_CAP)); return c && Number.isFinite(c.usd) ? c : null; } catch { return null; } };
+  const kpiCard = (label, value, sub, c) => el('div', { class: 'kpi' }, el('div', { class: 'k' }, label), el('div', { class: `mid ${c || ''}` }, value), el('div', { class: 'sub' }, sub));
   function renderKpis(d) {
-    const cap = d.capital, o = d.overall, s = d.status, tc = d.bots && d.bots.icore ? d.total_capital : null, wc = d.wallet_capital;
-    if (wc) {   // the real balances from the bots' 5-minute wallet reports: Total capital is every trading account added together
-      const txt = wc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}`).join(' + ');
+    const lc = liveCapital(d), lives = livePresent(), ws = walletSeries(d), sub = clear($('#kCapitalSub'));
+    if (lc && lc.usd != null) {   // the real balances from the bots' 5-minute wallet reports: every trading account added together
+      const wc = lc, txt = wc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}`).join(' + ');
       $('#kCapital').textContent = fmtUsd(wc.usd);
-      const sub = $('#kCapitalSub'); clear(sub).append(txt, ' · MEXC reports ', ago(wc.as_of));
+      add(sub, txt, wc.source === 'wallet' ? [' · MEXC reports ', ago(wc.as_of)] : ' · each bot\'s own balance');
       if (wc.missing.length) sub.append(el('span', { class: 'bad' }, ` · ${wc.missing.join(', ')} has not reported, not counted`));
-      if (Date.now() - wc.as_of > 30 * 60000) sub.append(el('span', { class: 'bad' }, ' · old: the VPS has not reported for a while'));
-      if (!wc.missing.length) rememberCapital(wc.usd, txt, wc.as_of);
-      spark($('#kSpark'), cap ? cap.points.map((p) => p.usd) : d.equity.map((p) => p.r_cum));
-    } else if (tc) {   // both bots report: Total capital is BB-Core + I-Core added together, with each part shown (a paper balance is labelled as such)
-      $('#kCapital').textContent = fmtUsd(tc.usd);
-      const sub = $('#kCapitalSub'); clear(sub).append(tc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}${p.mode === 'live' ? '' : ' (paper)'}`).join(' + '));
-      if (tc.missing.length) sub.append(el('span', { class: 'bad' }, ` · ${tc.missing.join(', ')} balance not shared, not counted`));
-      else if (tc.paper.length) sub.append(` · includes paper balance (${tc.paper.join(', ')})`);
-      if (!tc.missing.length && !tc.paper.length) rememberCapital(tc.usd, tc.parts.map((p) => `${p.label} ${fmtUsd(p.usd)}`).join(' + '), tc.as_of);
-      spark($('#kSpark'), cap ? cap.points.map((p) => p.usd) : d.equity.map((p) => p.r_cum));
-    } else if (cap) {
-      $('#kCapital').textContent = fmtUsd(cap.usd);
-      const sub = $('#kCapitalSub'); clear(sub).append(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`, cap.net_flows_usd ? ` · excl. ${fmtUsd(cap.net_flows_usd, true)} capital` : '');
-      if (d.mode === 'live') rememberCapital(cap.usd, 'Balance', cap.as_of);
-      spark($('#kSpark'), cap.points.map((p) => p.usd));
+      if (wc.parts.some((p) => p.suspect)) sub.append(el('span', { class: 'warn' }, ' · a wallet report is waiting for approval'));
+      if (wc.paper && wc.paper.length) sub.append(el('span', { class: 'muted' }, ` · paper balances excluded (${wc.paper.join(', ')})`));
+      if (wc.source === 'wallet' && Date.now() - wc.as_of > 30 * 60000) sub.append(el('span', { class: 'bad' }, ' · old: the VPS has not reported for a while'));
+      if (wc.source === 'wallet' && !wc.missing.length) rememberCapital(wc.usd, txt, wc.as_of);
     } else if (lastCapital()) {   // nothing came with this report: keep the last known total instead of a blank
       const c = lastCapital();
       $('#kCapital').textContent = fmtUsd(c.usd);
-      const sub = $('#kCapitalSub'); clear(sub).append(c.text ? c.text + ' · ' : '', 'last known, ', ago(c.as_of));
-      spark($('#kSpark'), d.equity.map((p) => p.r_cum));
+      sub.append(c.text ? c.text + ' · ' : '', 'last known, ', ago(c.as_of));
     } else {
       $('#kCapital').textContent = '—';
-      $('#kCapitalSub').textContent = d.mode === 'live' ? 'Live balance is not shared with the dashboard.' : 'No balance received yet (arrives with each report).';
-      spark($('#kSpark'), d.equity.map((p) => p.r_cum));
+      sub.append(na('No live balance has reached the dashboard'), ' no live wallet report yet.');
     }
-    const net = $('#kNet'); net.textContent = fmtR(o.total_r); net.className = `mid ${cls(o.total_r)}`;
-    $('#kNetSub').textContent = `BB-Core · ${o.trades} closed trade${o.trades === 1 ? '' : 's'}${cap && cap.realized_usd != null ? ` · ${fmtUsd(cap.realized_usd, true)} realized` : ''} · ${d.open.length} open`;
-    $('#kWin').textContent = o.trades ? `${(o.win_rate * 100).toFixed(0)}% · ${o.profit_factor ?? '—'}` : '—';
-    $('#kWinSub').textContent = o.trades ? `${o.wins}W / ${o.trades - o.wins}L · avg ${fmtR(o.avg_r)}` : 'No closed trades yet.';
-    const dd = s.drawdown_r, halt = s.halt_r != null ? Math.abs(s.halt_r) : null, pct = dd != null && halt ? Math.min(100, (dd / halt) * 100) : 0;
-    $('#kDd').textContent = dd == null ? '—' : `${Number(dd).toFixed(1)}R / ${halt ?? '—'}R`;
-    $('#kDdBar').style.setProperty('width', `${pct}%`);
-    $('#kDdBar').parentElement.classList.toggle('hot', pct >= 60);
-    $('#kDdSub').textContent = dd == null ? 'No heartbeat yet.' : `${pct.toFixed(0)}% of the halt · max ${Number(o.max_dd_r ?? 0).toFixed(1)}R`;
+    spark($('#kSpark'), (d.wallet_history || []).slice(-120).map((p) => p.usd));
+    // time-weighted return: trading only, deposits and payouts removed
+    const tw = $('#kTwr');
+    if (ws) { tw.textContent = fmtPct(ws.twr, true); tw.className = `mid ${cls(ws.twr)}`; $('#kTwrSub').textContent = `since the first wallet report, ${fmtDay(ws.wh[0].ts)}; capital added or paid out is not counted`; }
+    else { clear(tw).append(na('Needs at least two wallet reports')); tw.className = 'mid'; $('#kTwrSub').textContent = 'Needs the wallet-report history.'; }
+    // realized P&L: the dollars MEXC booked, live bots only
+    let usd = 0, booked = 0, total = 0, w = 0;
+    for (const b of lives) for (const t of b.trades) { total++; if (t.r > 0) w++; if (t.usd != null) { usd += t.usd; booked++; } }
+    const net = clear($('#kNet'));
+    if (booked) { net.textContent = fmtUsd(usd, true); net.className = `mid ${cls(usd)}`; $('#kNetSub').textContent = `${booked} of ${total} closed trades have a booked $ figure · ${w}W / ${total - w}L`; }
+    else if (total) { net.append(na('The closed trades carry no dollar figure')); net.className = 'mid'; $('#kNetSub').textContent = `${total} closed trades, no $ figures shared`; }
+    else { net.textContent = '—'; net.className = 'mid'; $('#kNetSub').textContent = 'No closed live trade yet.'; }
+    // open positions across the live bots
+    const openN = lives.reduce((a, b) => a + b.open_list.length, 0), miss = LIVE.map(bd).filter((b) => !b.present);
+    $('#kOpenN').textContent = String(openN);
+    $('#kOpenSub').textContent = LIVE.map(bd).map((b) => `${b.label} ${b.present ? (b.mode === 'live' ? b.open_list.length : 'paper') : 'missing'}`).join(' · ');
+    // the bot closest to its halt
+    let worst = null;
+    for (const b of lives) if (b.dd != null && b.halt) { const ratio = b.dd / Math.abs(b.halt); if (!worst || ratio > worst.ratio) worst = { b, ratio }; }
+    const dd = $('#kDd'), bar = $('#kDdBar');
+    if (worst) {
+      const pct = Math.min(100, worst.ratio * 100);
+      dd.textContent = `${Number(worst.b.dd).toFixed(1)}R / ${Math.abs(worst.b.halt)}R`; bar.style.setProperty('width', `${pct}%`); bar.parentElement.classList.toggle('hot', pct >= 60);
+      $('#kDdSub').textContent = `${worst.b.label} · ${pct.toFixed(0)}% of its halt${miss.length ? ` · ${miss.map((b) => b.label).join(', ')} not reporting` : ''}`;
+    } else { clear(dd).append(na('No drawdown figure has been reported yet')); bar.style.setProperty('width', '0%'); $('#kDdSub').textContent = 'No heartbeat with a drawdown yet.'; }
   }
-  // one line: is everything inside the rules? (the detail is on the Verify tab)
+  // one line: is everything inside the rules? (the detail is on each bot's Verification page)
   function renderCheckbar(d) {
-    const box = clear($('#pChecks')), list = verdicts(d);
+    const box = clear($('#pChecks')), bots = LIVE.map(bd), list = bots.filter((b) => b.present && b.perf);
     if (!list.length) { box.className = 'checkbar off'; return; }
-    box.className = `checkbar ${worst(list.map((p) => p.verdict))}`;
+    box.className = `checkbar ${worst(list.map((b) => b.perf.verdict))}`;
     box.append(el('span', { class: 'cb-k' }, 'Checks'));
-    for (const p of list) {
-      const bad = p.checks.filter((c) => c.level === 'warn' || c.level === 'stop');
-      box.append(el('span', { class: 'cb-item' }, lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict), ` ${p.label}: `, bad.length ? bad.map((c) => `${c.title} (${LVL[c.level].toLowerCase()})`).join(', ') : 'all inside the rules'));
+    for (const b of bots) {
+      if (!b.present || !b.perf) { box.append(el('span', { class: 'cb-item' }, hchip({ state: 'missing', label: 'MISSING' }), ` ${b.label}: has not reported`)); continue; }
+      const p = b.perf, bad = p.checks.filter((c) => c.level === 'warn' || c.level === 'stop');
+      box.append(el('span', { class: 'cb-item' }, lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict), ` ${b.label}: `, bad.length ? bad.map((c) => `${c.title} (${LVL[c.level].toLowerCase()})`).join(', ') : 'all inside the rules'));
     }
-    box.append(el('span', { class: 'cb-go' }, 'Verify →'));
+    box.append(el('span', { class: 'cb-go' }, 'Verification →'));
+  }
+  // one card per bot (live bots on Overview, the paper labs on the lab page): the same component
+  function botCard(b, o = {}) {
+    const h = health(b), card = el('div', { class: `botcard ${o.open ? 'link' : ''} ${h.state}`, 'data-bot': b.key, 'data-open': o.open ? b.key : null, role: o.open ? 'button' : null, tabindex: o.open ? 0 : null });
+    card.append(el('div', { class: 'bc-h' }, el('i', { class: 'bdot' }), el('strong', {}, b.label), b.present ? modeTag(b.mode) : null, el('span', { class: 'bc-state' }, hchip(h))));
+    if (!b.present) { card.append(el('p', { class: 'muted' }, `${b.label} ${h.note}. Its numbers appear here as soon as it reports; nothing is shown as zero in the meantime.`)); return card; }
+    const o_ = b.overall, cap = capOf(b), paperCap = !b.live && b.capital ? b.capital.usd : null, r = riskOf(b);
+    const stat = (k, v, c) => el('div', { class: 'bc-s' }, el('div', { class: 'k' }, k), el('div', { class: `v ${c || ''}` }, v));
+    card.append(el('div', { class: 'bc-grid' },
+      stat(b.live ? 'Capital' : 'Paper balance', b.live ? (cap == null ? na('No wallet report or live balance received for this bot') : fmtUsd(cap)) : paperCap == null ? na('No paper balance received yet') : fmtUsd(paperCap)),
+      stat('Total R', fmtR(o_.total_r), cls(o_.total_r)), stat('Win', pct0(o_.win_rate)),
+      stat('Closed', String(o_.trades)), stat('Open', String(b.open_list.length)),
+      stat('Risk / trade', r == null ? '—' : `${+(r * 100).toFixed(2)}%${cap == null ? '' : ` ≈ ${fmtUsd(r * cap)}`}`)));
+    card.append(el('div', { class: 'bc-wl' }, el('div', { class: 'bc-wlt' }, el('span', { class: 'k' }, 'W / L'), el('span', { class: 'v' }, el('span', { class: 'good' }, String(o_.wins)), ' / ', el('span', { class: 'bad' }, String(o_.trades - o_.wins)))),
+      el('div', { class: 'wlbar', title: `${o_.wins} won, ${o_.trades - o_.wins} lost` }, o_.trades ? [el('i', { class: 'w', style: `flex:${o_.wins}` }), el('i', { class: 'l', style: `flex:${o_.trades - o_.wins}` })] : el('i', { class: 'n', style: 'flex:1' }))));
+    if (b.dd != null && b.halt) { const pct = Math.min(100, (b.dd / Math.abs(b.halt)) * 100); const bar = el('i'); bar.style.setProperty('width', `${pct}%`); card.append(el('div', { class: `bc-dd${pct >= 60 ? ' hot' : ''}` }, el('div', { class: 'bc-wlt' }, el('span', { class: 'k' }, 'Drawdown vs halt'), el('span', { class: 'v' }, `${Number(b.dd).toFixed(1)}R / ${Math.abs(b.halt)}R`)), el('div', { class: 'meter' }, bar))); }
+    card.append(el('div', { class: 'bc-f' }, b.hb != null ? ['Last heartbeat ', ago(b.hb)] : 'No heartbeat yet', b.kill ? el('span', { class: 'bad' }, ' · KILL SWITCH ON') : null, o.open ? el('span', { class: 'bc-go' }, 'Open →') : null));
+    return card;
   }
   function renderBots(d) {
-    const p = $('#pBots'), b = d.bots;
-    p.classList.toggle('off', !b);
-    if (!b) return;
-    const parts = (d.wallet_capital && d.wallet_capital.parts) || (d.total_capital && d.total_capital.parts) || [];
-    const capOf = (r) => { const w = parts.find((x) => String(x.label).toLowerCase().replace(/[^a-z]/g, '') === String(r.label).toLowerCase().replace(/[^a-z]/g, '')); return w ? w.usd : r.capital ? r.capital.usd : null; };
-    // the risk set per trade: what the bot sized its newest entry at (a fraction of the balance), shown with that share of the capital
-    const riskOf = (r) => { const l = [...(r.trades || (r.label === 'BB-Core' ? d.trades : []) || []), ...((r.open_list || (r.label === 'BB-Core' ? d.open : [])) || [])].filter((t) => Number.isFinite(t.risk_pct)).sort((a, b) => b.entry_ts - a.entry_ts)[0]; return l ? l.risk_pct : null; };
-    const rows = [b.bbcore, b.icore].filter(Boolean).map((v) => ({ ...v, hb: v.last_heartbeat_ms ?? (v === b.bbcore ? d.status.last_heartbeat_ms : null) }));
-    const stat = (k, v, c) => el('div', { class: 'bc-s' }, el('div', { class: 'k' }, k), el('div', { class: `v ${c || ''}` }, v));
-    clear($('#bots')).append(el('div', { class: 'botcards' }, rows.map((r) => el('div', { class: 'botcard' },
-      el('div', { class: 'bc-h' }, el('strong', {}, r.label), el('span', { class: `modeTag ${r.mode}` }, String(r.mode).toUpperCase()), el('span', { class: `bc-state ${r.alive ? 'good' : 'bad'}` }, r.alive ? 'ONLINE' : 'STALE')),
-      el('div', { class: 'bc-grid' },
-        stat('Capital', capOf(r) == null ? '—' : fmtUsd(capOf(r))), stat('Total R', fmtR(r.overall.total_r), cls(r.overall.total_r)), stat('Win', pct0(r.overall.win_rate)),
-        stat('Closed', String(r.overall.trades)), stat('Open', String(r.open)), stat('Risk / trade', riskOf(r) == null ? '—' : `${+(riskOf(r) * 100).toFixed(2)}%${capOf(r) == null ? '' : ` ≈ ${fmtUsd(riskOf(r) * capOf(r))}`}`)),
-      el('div', { class: 'bc-wl' }, el('div', { class: 'bc-wlt' }, el('span', { class: 'k' }, 'W / L'), el('span', { class: 'v' }, el('span', { class: 'good' }, String(r.overall.wins)), ' / ', el('span', { class: 'bad' }, String(r.overall.trades - r.overall.wins)))),
-        el('div', { class: 'wlbar', title: `${r.overall.wins} won, ${r.overall.trades - r.overall.wins} lost` }, r.overall.trades ? [el('i', { class: 'w', style: `flex:${r.overall.wins}` }), el('i', { class: 'l', style: `flex:${r.overall.trades - r.overall.wins}` })] : el('i', { class: 'n', style: 'flex:1' })))))));
-  }
-  function renderOpen(d) {
-    const ic = d.bots && d.bots.icore ? (d.bots.icore.open_list || []).map((p) => ({ ...p, bot: 'I-Core' })) : null;
-    const rows = d.open.map((p) => ({ ...p, bot: 'BB-Core' })).concat(ic || []);
-    $('#openCount').textContent = rows.length ? `${rows.length} open` : '';
-    clear($('#open')).append(table([
-      ...(ic ? [{ h: 'Bot', left: true, f: (r) => r.bot }] : []),
-      { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'SL', f: (r) => fmtPx(r.sl) },
-      { h: 'Now', f: (r) => fmtPx(r.price) }, { h: 'R now', f: (r) => (r.current_r == null ? '—' : fmtR(r.current_r)), c: (r) => cls(r.current_r) }, { h: 'Held', f: (r) => fmtDur((Date.now() - r.entry_ts) / 1000) },
-    ], rows, 'No open positions. Flat and waiting for a signal.'));
+    clear($('#bots')).append(el('div', { class: 'botcards three' }, LIVE.map((k) => botCard(bd(k), { open: true }))));
   }
   // The chart for the chosen range: points before it are dropped and the line starts at the range start with the value it had then; flat until now when nothing changed since.
   // dd is the drawdown chart, which carries no value forward (it is zero at a new peak).
@@ -363,61 +457,249 @@
     if (last && last.ts < now - 36e5) out.push({ ts: now, y: last.y });
     return out;
   }
+  const RANGE_NAME = { 1: 'day', 7: 'week', 30: 'month', 91: '3 months' };
+  const usdAxis = (v) => `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, usdTip = (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   function renderChart() {
     if (!data) return;
     for (const b of $$('#rangeTabs button')) { const on = +b.dataset.range === chartDays; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
     for (const b of $$('#chartTabs button')) { const on = b.dataset.chart === chartKind; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
-    const d = data, note = $('#chartNote');
-    const wh = !d.capital && d.wallet_history && d.wallet_history.length ? d.wallet_history : null;   // live: the wallet reports (both accounts added) stand in for the bot's balance
-    if (chartKind === 'capital' && wh) {
-      const pts = inRange(wh.map((p) => ({ ts: p.ts, y: p.usd })));
-      lineChart($('#chart'), pts, { marks: d.capital_flows || [], fmtY: (v) => `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
+    const d = data, note = $('#chartNote'), ws = walletSeries(d), none = 'Unavailable: the live wallet reports have not built up a history yet.';
+    if (chartKind === 'capital' && ws) {
+      const pts = inRange(ws.wh.map((p) => ({ ts: p.ts, y: p.usd })));
+      lineChart($('#chart'), pts, { marks: d.capital_flows || [], fmtY: usdAxis, fmtTip: usdTip });
       // the change over the range from trading only: the capital added or paid out inside it is taken out
       const a = pts[0], z = pts[pts.length - 1], fl = (d.capital_flows || []).filter((f) => f.ts > a.ts && f.ts <= z.ts).reduce((t, f) => t + f.usd, 0), ch = z.y - a.y - fl;
-      const since = chartDays && wh[0].ts > Date.now() - chartDays * 864e5 ? ` · reports start ${fmtDay(wh[0].ts)}` : '';
-      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(a.y > 0 ? (ch / a.y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${({ 1: 'day', 7: 'week', 30: 'month', 91: '3 months' })[chartDays]}` : 'since the first report'}${fl ? `, not counting ${fmtUsd(fl, true)} capital` : ''} · ${fmtUsd(z.y)} now, every trading account added together${since}.`);
-    } else if (chartKind === 'perf' && wh) {
-      // the same wallet line with the capital added or paid out taken out: only trading moves it, so a deposit never hides the day's moves. A deposit is
-      // recorded a little before or after the balances show it, so it is taken out at the jump it made: the biggest step its way within 2 hours of it.
-      const at = new Array(wh.length).fill(0);
-      for (const f of d.capital_flows || []) {
-        let best = -1, big = -Infinity;
-        for (let i = 1; i < wh.length; i++) if (Math.abs(wh[i].ts - f.ts) <= 72e5) { const st = (wh[i].usd - wh[i - 1].usd) * Math.sign(f.usd); if (st > big) { big = st; best = i; } }
-        if (best < 0) { best = wh.findIndex((p) => p.ts >= f.ts); if (best < 0) best = wh.length - 1; }   // no report near it: from when it was recorded
-        at[best] += f.usd;
-      }
-      let cum = 0;
-      const adj = wh.map((p, i) => ({ ts: p.ts, y: p.usd - (cum += at[i]) }));
-      const pts = inRange(adj), ch = pts[pts.length - 1].y - pts[0].y;
+      const since = chartDays && ws.wh[0].ts > Date.now() - chartDays * 864e5 ? ` · reports start ${fmtDay(ws.wh[0].ts)}` : '';
+      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(a.y > 0 ? (ch / a.y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${RANGE_NAME[chartDays]}` : 'since the first report'}${fl ? `, not counting ${fmtUsd(fl, true)} capital` : ''} · ${fmtUsd(z.y)} now, every live trading account added together${since}.`);
+    } else if (chartKind === 'perf' && ws) {
+      const pts = inRange(ws.adj), ch = pts[pts.length - 1].y - pts[0].y;
       lineChart($('#chart'), pts.map((p) => ({ ts: p.ts, y: p.y - pts[0].y })), { fmtY: (v) => `${v < 0 ? '−' : v > 0 ? '+' : ''}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`, fmtTip: (v) => fmtUsd(v, true) });
-      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(pts[0].y > 0 ? (ch / pts[0].y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${({ 1: 'day', 7: 'week', 30: 'month', 91: '3 months' })[chartDays]}` : 'since the first report'}. Every trading account added together, with deposits and payouts taken out: only trading moves this line.`);
-    } else if (chartKind === 'capital') {
-      const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
-      lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
-      note.textContent = d.capital ? `BB-Core balance ${fmtUsd(d.capital.usd)} as of ${fmtTime(d.capital.as_of)} · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since ${fmtUsd(d.capital.start_usd)}${d.capital.net_flows_usd ? ` · capital added or paid out (${fmtUsd(d.capital.net_flows_usd, true)}) is not counted as profit` : ''}` : '';
-    } else if (chartKind === 'perf' && !(d.capital && d.capital.perf_points && d.capital.perf_points.length)) {
-      // no balance to draw a curve from (live balance is not shared): show the result of each day instead
+      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(pts[0].y > 0 ? (ch / pts[0].y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${RANGE_NAME[chartDays]}` : 'since the first report'}. Every live trading account added together, with deposits and payouts taken out: only trading moves this line.`);
+    } else if (chartKind === 'daily') {
+      // the result of each day, the live bots added together (dollars where every bot shares them, else R)
       const byDay = new Map();
-      for (const k of ['bbcore', 'icore', 'tcore']) for (const r of (d.perf && d.perf[k] && d.perf[k].periods && d.perf[k].periods.day) || []) {
+      for (const b of livePresent()) for (const r of (b.perf && b.perf.periods && b.perf.periods.day) || []) {
         const a = byDay.get(r.key) || { key: r.key, trades: 0, wins: 0, r: 0, usd: null };
         a.trades += r.trades; a.wins += r.wins; a.r += r.r; if (r.usd != null) a.usd = (a.usd || 0) + r.usd; byDay.set(r.key, a);
       }
       const cut = chartDays ? Date.now() - chartDays * 864e5 : 0;
       const rows = [...byDay.values()].filter((r) => Date.parse(`${r.key}T00:00:00Z`) >= cut).sort((a, b) => (a.key < b.key ? -1 : 1)).map((r) => ({ ...r, r: Math.round(r.r * 100) / 100 }));
-      barChart($('#chart'), rows, 'No closed trades in this range.');
+      barChart($('#chart'), rows, 'No closed live trades in this range.');
       const tot = rows.reduce((a, r) => a + r.r, 0);
-      note.textContent = rows.length ? `Result of each day, the live bots added together · ${fmtR(tot)} over ${rows.reduce((a, r) => a + r.trades, 0)} trades. Hover a bar for the day.` : '';
-    } else if (chartKind === 'perf') {
-      const pts = inRange(d.capital ? d.capital.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
-      lineChart($('#chart'), pts, { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });
-      note.textContent = d.capital ? `Balance with deposits and payouts taken out: only trading moves this line · ${fmtUsd(d.capital.change_usd, true)} (${fmtPct(d.capital.change_pct, true)}) since start${d.capital.twr_pct != null ? ` · time-weighted return ${fmtPct(d.capital.twr_pct, true)}` : ''}` : '';
-    } else if (chartKind === 'r') {
-      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.r_cum }))), { fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
-      note.textContent = d.equity.length ? `BB-Core cumulative R over ${d.overall.trades} closed trades: ${fmtR(d.overall.total_r)}` : '';
+      note.textContent = rows.length ? `Result of each day, the live bots added together · ${fmtR(tot)} over ${rows.reduce((a, r) => a + r.trades, 0)} trades. R is each strategy's own risk unit. Hover a bar for the day.` : '';
     } else {
-      lineChart($('#chart'), inRange(d.equity.map((p) => ({ ts: p.ts, y: p.dd_r }))), { dd: true, fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
-      note.textContent = d.equity.length ? `Max drawdown ${Number(d.overall.max_dd_r).toFixed(1)}R · now ${Number(d.equity[d.equity.length - 1].dd_r).toFixed(1)}R · halt at ${d.status.halt_r != null ? Math.abs(d.status.halt_r) : '—'}R` : '';
+      clear($('#chart')).append(el('div', { class: 'empty' }, none)); note.textContent = '';
     }
+  }
+  // positions of the live bots, in one table (T-CORE's show their current trailing stop)
+  function openRows(bots) { return bots.flatMap((b) => b.open_list.map((p) => ({ ...p, bot: b.label, botKey: b.key }))); }
+  const botName = (r) => el('span', { class: 'botname', 'data-bot': r.botKey }, el('i', { class: 'bdot' }), r.bot);
+  function renderOpenAll() {
+    const bots = LIVE.map(bd), rows = openRows(bots.filter((b) => b.present && b.mode === 'live'));
+    $('#openCount').textContent = rows.length ? `${rows.length} open` : '';
+    const host = clear($('#open'));
+    host.append(table([
+      { h: 'Bot', left: true, f: botName }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) },
+      { h: 'Stop', f: (r) => (r.trail_stop != null ? el('span', { title: 'trailing stop, as it is now' }, fmtPx(r.trail_stop), ' ↗') : fmtPx(r.sl)) },
+      { h: 'Now', f: (r) => fmtPx(r.price) }, { h: 'R now', f: (r) => (r.current_r == null ? '—' : fmtR(r.current_r)), c: (r) => cls(r.current_r) }, { h: 'Held', f: (r) => fmtDur((Date.now() - r.entry_ts) / 1000) },
+    ], rows, 'No open positions on the live bots. Flat and waiting for signals.'));
+    const off = bots.filter((b) => !b.present || b.mode !== 'live').map((b) => `${b.label} ${b.present ? 'is in paper mode' : 'has not reported'}`);
+    if (off.length) host.append(el('p', { class: 'muted note' }, `Positions of ${off.join(', ')} are not shown.`));
+  }
+  function renderLatest() {
+    const bots = livePresent(), rows = bots.flatMap((b) => withUsd(b.trades).map((t) => ({ ...t, bot: b.label, botKey: b.key }))).sort((a, b) => b.exit_ts - a.exit_ts).slice(0, 15), hasUsd = rows.some((t) => t.usd != null);
+    $('#latestCount').textContent = rows.length ? `newest ${rows.length}` : '';
+    clear($('#latest')).append(table([
+      { h: 'Closed', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Bot', left: true, f: botName }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
+      { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { class: 'est', title: 'Estimated from the nearest booked trade with the same result' }, fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
+    ], rows, 'No closed live trades yet.', openTrade));
+  }
+  // combined health: each live bot, the recorder and the wallet reports
+  function healthRow(name, key, h, detail) { return el('div', { class: 'hrow' }, el('i', { class: `dot ${h.state}` }), el('span', { class: 'hn', 'data-bot': key }, name), hchip(h), el('span', { class: 'hd' }, detail)); }
+  function renderHealthStrip() {
+    const d = data, host = clear($('#healthStrip'));
+    for (const k of LIVE) {
+      const b = bd(k), h = health(b), u = b.uptime;
+      host.append(healthRow(b.label, k, h, b.present && b.hb != null ? [ago(b.hb), u ? ` · ${u.uptime_pct.toFixed(1)}% up (7d)` : '', b.kill ? ' · KILL SWITCH' : ''] : h.note));
+    }
+    const rc = d.recorder, wc = d.wallet_capital;
+    host.append(healthRow('Data recorder', '', rc ? { state: rc.alive ? 'healthy' : 'stale', label: rc.alive ? 'HEALTHY' : 'STALE' } : { state: 'missing', label: 'MISSING' }, rc ? ago(rc.ts) : 'not reporting'));
+    const wAge = wc ? Date.now() - wc.newest_ms : null;
+    host.append(healthRow('Wallet reports', '', !wc ? { state: 'missing', label: 'MISSING' } : wAge > 30 * 60000 ? { state: 'stale', label: 'STALE' } : { state: 'healthy', label: 'HEALTHY' }, wc ? [ago(wc.newest_ms), wc.missing.length ? ` · ${wc.missing.join(', ')} missing` : ''] : 'no wallet report yet'));
+  }
+
+  // ---------------- a bot's workspace: Dashboard ----------------
+  const worst = (list) => list.reduce((w, l) => ({ stop: 2, warn: 1 }[l] > ({ stop: 2, warn: 1 }[w] || 0) ? l : w), 'ok');
+  // open positions of one bot: compact on the Dashboard, with target, risk and trailing-stop detail on Positions & Activity
+  function openTable(b, full) {
+    if (!b.present) return el('div', { class: 'empty' }, `${b.label} ${health(b).note}: its positions are unknown.`);
+    const rows = b.open_list, trailing = rows.some((r) => r.trail_stop != null);
+    return table([
+      { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) },
+      { h: trailing ? 'Stop now' : 'Stop', f: (r) => fmtPx(r.trail_stop != null ? r.trail_stop : r.sl) },
+      ...(full ? [{ h: 'Target', f: (r) => (r.tp == null ? 'none' : fmtPx(r.tp)) }] : []),
+      { h: 'Now', f: (r) => fmtPx(r.price) }, { h: 'R now', f: (r) => (r.current_r == null ? '—' : fmtR(r.current_r)), c: (r) => cls(r.current_r) },
+      ...(trailing ? [{ h: 'Locked R', f: (r) => (r.locked_r == null ? '—' : fmtR(r.locked_r)), c: (r) => cls(r.locked_r) }, { h: 'Best R', f: (r) => (r.best_r == null ? '—' : fmtR(r.best_r)) }, ...(full ? [{ h: 'Stop moves', f: (r) => r.trail_moves ?? '—' }] : [])] : []),
+      ...(full ? [{ h: 'Initial SL', f: (r) => fmtPx(r.sl) }, { h: 'Risk', f: (r) => (r.risk_pct == null ? '—' : `${+(r.risk_pct * 100).toFixed(2)}%`) }, { h: 'Opened', left: true, f: (r) => fmtShort(r.entry_ts) }] : []),
+      { h: 'Held', f: (r) => fmtDur((Date.now() - r.entry_ts) / 1000) },
+    ], rows, 'No open positions. Flat and waiting for a signal.');
+  }
+  function latestTable(b, n) {
+    const rows = withUsd(b.trades).sort((a, c) => c.exit_ts - a.exit_ts).slice(0, n), hasUsd = rows.some((t) => t.usd != null);
+    return table([
+      { h: 'Closed', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
+      { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { class: 'est', title: 'Estimated from the nearest booked trade with the same result' }, fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []),
+    ], rows, b.present ? 'No closed trades yet.' : `${b.label} ${health(b).note}.`, openTrade);
+  }
+  function renderBotDash() {
+    const b = bd(route.bot), h = health(b), cap = b.capital, p = b.perf, o = p ? p.overall : b.overall, st = b.overall, k = clear($('#bKpis'));
+    $('#bChartTitle').textContent = `${b.label} · performance`;
+    if (!b.present) k.append(el('div', { class: 'kpi notice' }, el('div', { class: 'k' }, b.label), el('div', { class: 'mid' }, hchip(h)), el('div', { class: 'sub' }, `${b.label} ${h.note}. Its balance, results and positions appear here as soon as it reports; no figure is shown as zero in the meantime.`)));
+    else {
+      const bal = capOf(b), sub = [];
+      if (cap) sub.push(el('span', { class: cls(cap.change_usd) }, `${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)})`), ` since start ${fmtUsd(cap.start_usd)}`, cap.net_flows_usd ? ` · excl. ${fmtUsd(cap.net_flows_usd, true)} capital` : '');
+      else sub.push('No balance series received for this bot.');
+      const spk = el('div', { class: 'spark' });
+      k.append(el('div', { class: 'kpi hero-kpi' }, el('div', { class: 'k' }, b.live ? 'Balance' : 'Paper balance', ' ', modeTag(b.mode)), el('div', { class: 'big' }, bal == null ? na('No wallet report or live balance received for this bot') : fmtUsd(bal)), el('div', { class: 'sub' }, sub), spk));
+      spark(spk, cap ? cap.points.map((q) => q.usd) : []);
+      const twr = cap && cap.twr_pct != null ? cap.twr_pct : null;
+      k.append(kpiCard('Time-weighted return', twr == null ? na('Needs at least two balance readings') : fmtPct(twr, true), twr == null ? 'Needs two balance readings.' : 'trading only, capital added or paid out is not counted', cls(twr)),
+        kpiCard('Result', fmtR(st.total_r), `${o.usd != null ? fmtUsd(o.usd, true) + ' · ' : ''}${st.trades} closed · ${b.open_list.length} open`, cls(st.total_r)),
+        kpiCard('Win rate · PF', st.trades ? `${pct0(st.win_rate)} · ${st.profit_factor ?? '—'}` : '—', st.trades ? `${st.wins}W / ${st.trades - st.wins}L · avg ${fmtR(st.avg_r)}` : 'No closed trades yet.'));
+      const pct = b.dd != null && b.halt ? Math.min(100, (b.dd / Math.abs(b.halt)) * 100) : null, bar = el('i');
+      bar.style.setProperty('width', `${pct || 0}%`);
+      k.append(el('div', { class: 'kpi' }, el('div', { class: 'k' }, 'Drawdown vs halt'), el('div', { class: 'mid' }, pct == null ? na('No drawdown figure reported yet') : `${Number(b.dd).toFixed(1)}R / ${Math.abs(b.halt)}R`), el('div', { class: `meter${pct >= 60 ? ' hot' : ''}` }, bar), el('div', { class: 'sub' }, pct == null ? 'No heartbeat yet.' : `${pct.toFixed(0)}% of the halt · worst ${Number(st.max_dd_r ?? 0).toFixed(1)}R`)));
+    }
+    renderBotChart(); renderRisk(b);
+    $('#bOpenCount').textContent = b.open_list.length ? `${b.open_list.length} open` : '';
+    clear($('#bOpen')).append(openTable(b, false));
+    $('#bLatestCount').textContent = b.trades.length ? `newest ${Math.min(8, b.trades.length)} of ${b.trades.length}` : '';
+    clear($('#bLatest')).append(latestTable(b, 8));
+    renderOperational(b, h);
+  }
+  // the bot's own curve: balance, balance with capital movements taken out, cumulative R, drawdown
+  function renderBotChart() {
+    if (!data) return;
+    const b = bd(route.bot), cap = b.capital, host = $('#bChart'), note = $('#bChartNote');
+    for (const x of $$('#bRangeTabs button')) { const on = +x.dataset.range === chartDays; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); }
+    for (const x of $$('#bChartTabs button')) { const on = x.dataset.bchart === bchartKind; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); }
+    const noBal = `Unavailable: ${b.label} has not shared a balance series${b.live ? ' (the combined live capital is on the Overview)' : ''}.`;
+    if (bchartKind === 'balance') {
+      lineChart(host, inRange(cap ? cap.points.map((p) => ({ ts: p.ts, y: p.usd })) : []), { marks: cap ? cap.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: usdTip, empty: noBal });
+      note.textContent = cap ? `${b.label} balance ${fmtUsd(cap.usd)} as of ${fmtTime(cap.as_of)} · ${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)}) since ${fmtUsd(cap.start_usd)}${cap.net_flows_usd ? ` · capital added or paid out (${fmtUsd(cap.net_flows_usd, true)}) is not counted as profit` : ''}${b.live ? '' : ' · paper money'}` : '';
+    } else if (bchartKind === 'perf') {
+      lineChart(host, inRange(cap && cap.perf_points ? cap.perf_points.map((p) => ({ ts: p.ts, y: p.usd })) : []), { fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: usdTip, empty: noBal });
+      note.textContent = cap ? `Balance with deposits and payouts taken out: only trading moves this line · ${fmtUsd(cap.change_usd, true)} (${fmtPct(cap.change_pct, true)}) since start${cap.twr_pct != null ? ` · time-weighted return ${fmtPct(cap.twr_pct, true)}` : ''}` : '';
+    } else if (bchartKind === 'r') {
+      const cv = rCurve(b.trades);
+      lineChart(host, inRange(cv.map((p) => ({ ts: p.ts, y: p.r_cum }))), { fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
+      note.textContent = cv.length ? `${b.label} cumulative R over ${b.overall.trades} closed trades: ${fmtR(b.overall.total_r)}` : '';
+    } else {
+      const cv = rCurve(b.trades);
+      lineChart(host, inRange(cv.map((p) => ({ ts: p.ts, y: p.dd_r }))), { dd: true, fmtY: (v) => `${v.toFixed(1)}R`, fmtTip: (v) => `${v.toFixed(2)}R` });
+      note.textContent = cv.length ? `Max drawdown ${Number(b.overall.max_dd_r).toFixed(1)}R · now ${Number(cv[cv.length - 1].dd_r).toFixed(1)}R · halt at ${b.halt != null ? Math.abs(b.halt) : '—'}R` : '';
+    }
+  }
+  function renderRisk(b) {
+    const host = clear($('#bRisk')), lvl = clear($('#bRiskLvl')), p = b.perf;
+    if (!b.present) { host.append(el('div', { class: 'empty' }, `${b.label} ${health(b).note}: no risk figures yet.`)); return; }
+    if (p) lvl.append(lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict));
+    const rule = (id) => (p ? p.checks.find((c) => c.id === id) : null), pct = b.dd != null && b.halt ? Math.min(100, (b.dd / Math.abs(b.halt)) * 100) : null, bar = el('i');
+    bar.style.setProperty('width', `${pct || 0}%`);
+    const r = riskOf(b), open = b.open_list.reduce((a, x) => a + (Number.isFinite(x.risk_pct) ? x.risk_pct : 0), 0), bal = capOf(b);
+    host.append(el('dl', { class: 'kvlist' },
+      kv('Drawdown now vs halt', pct == null ? na('No drawdown figure reported yet') : `${Number(b.dd).toFixed(1)}R / ${Math.abs(b.halt)}R`, pct == null ? null : el('small', {}, `${pct.toFixed(0)}% of the halt`)),
+      kv('Worst drawdown so far', `${Number(b.overall.max_dd_r || 0).toFixed(1)}R`, p && p.expect.max_dd_r ? el('small', {}, `backtest ${p.expect.max_dd_r}R`) : null),
+      kv('Review line', rule('drawdown') ? String(rule('drawdown').limit) : na('This bot has no drawdown rule')),
+      kv('Losing streak', p ? `${p.overall.current_losing} now` : '—', p ? el('small', {}, `longest ${p.overall.longest_losing}${p.expect.longest_losing ? ` · backtest ${p.expect.longest_losing}` : ''}`) : null),
+      kv('Risk per trade', r == null ? '—' : `${+(r * 100).toFixed(2)}%`, r != null && bal != null ? el('small', {}, `≈ ${fmtUsd(r * bal)} of ${fmtUsd(bal)}`) : null),
+      kv('Open risk', b.open_list.length ? `${+(open * 100).toFixed(2)}%` : 'flat', b.open_list.length ? el('small', {}, `${b.open_list.length} position${b.open_list.length === 1 ? '' : 's'} at their first stops${b.open_list.some((x) => x.trail_stop != null) ? '; trailing stops lower it' : ''}`) : null),
+      kv('Kill switch', el('span', { class: b.kill ? 'bad' : 'good' }, b.kill ? 'ON · no new entries' : 'off'))));
+    host.append(el('div', { class: `meter risk${pct >= 60 ? ' hot' : ''}` }, bar));
+    const bad = p ? p.checks.filter((c) => c.level === 'warn' || c.level === 'stop') : [];
+    host.append(bad.length ? el('div', { class: 'checklist' }, bad.map((c) => el('div', { class: `ck ${c.level}` }, lvlChip(c.level), el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, c.title, el('span', { class: 'ck-v' }, c.value ?? '—')), el('div', { class: 'ck-n' }, `limit ${c.limit}${c.note ? ' · ' + c.note : ''}`)))))
+      : el('p', { class: 'muted note' }, p ? 'Every stop-and-review rule is inside its limit.' : 'No rule analysis yet.'));
+  }
+  // one summary sentence and one list: what the bot is doing right now
+  function renderOperational(b, h) {
+    const s = b.status, text = clear($('#bNow')), box = clear($('#bSys'));
+    $('#bStateDot').className = `live-dot ${h.state === 'healthy' ? 'ok' : h.state === 'missing' ? '' : 'bad'}`;
+    nowSentence(b, h, text);
+    if (!b.present) return;
+    const exec = Math.max(b.last_entry_ms || 0, b.last_exit_ms || 0) || null;
+    box.append(kv('Last heartbeat', b.hb != null ? fmtHm(b.hb) + tzTag() : '—', b.hb != null ? ago(b.hb) : null), kv('Last execution', exec ? fmtShort(exec) + tzTag() : 'none yet', exec ? ago(exec) : null),
+      kv('Enabled coins', b.coins.map(sym).join(' · ') || '—'), kv('Mode', String(b.mode).toUpperCase()), kv('Build', s.commit || s.version ? `${s.commit || '?'} · v${s.version || '?'}` : '—'));
+  }
+  const renderBotPerf = () => { renderPerf(); renderTrend(); renderCoins(); };
+
+  // ---------------- Performance: coins, trend capture ----------------
+  // One row per coin for the selected bot: what triggers it, trades, wins, losses, returns, and whether it is open now. Built from the trades the page already has (per_coin of lib/perf.js),
+  // so it costs no extra request. A coin with no trade yet still gets its row (zeros).
+  const STRATS = {
+    bbcore: { name: 'BB-Core', short: 'Bollinger breakout, no target', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, no profit target: the trade runs until the stop or about 8 days at most.' },
+    tcore: { name: 'T-CORE', short: 'Bollinger breakout, 14 ATR trail', how: 'Enters like BB-Core (a 4-hour close outside the Bollinger band, with the 200-period average). Stop 2 ATR away, then a trailing stop 14 ATR behind the best price; no profit target, so a winner runs until the trail catches it.' },
+    icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
+    bb1h: { name: 'BB-1h lab', short: 'BB-Core rules on 1-hour candles (paper)', how: 'The BB-Core rules on 1-hour candles, five coins, paper only: a test of whether a faster version is worth trading, judged against its own backtest.' },
+    bbtr: { name: 'T-CORE lab', short: 'Bollinger breakout, 14 ATR trail (paper)', how: 'The T-CORE rules (BB-Core entry, 2 ATR stop, 14 ATR trailing stop) on paper, judged against its own backtest.' },
+  };
+  const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
+  function renderCoins() {
+    const b = bd(curKey()), p = b.perf, host = clear($('#coinRecord')), rows = [];
+    if (p && b.present) {
+      const coins = [...new Set([...Object.keys(p.per_coin), ...b.coins.map(full), ...b.open_list.map((o) => o.symbol)])].sort();
+      const last = new Map(); for (const t of b.trades) if (!last.has(t.symbol) || t.exit_ts > last.get(t.symbol)) last.set(t.symbol, t.exit_ts);
+      const zero = { trades: 0, wins: 0, losses: 0, win_rate: null, avg_r: null, total_r: 0, profit_factor: null, best_r: null, worst_r: null, max_dd_r: null, usd: null };
+      for (const c of coins) rows.push({ coin: c, ...zero, ...(p.per_coin[c] || {}), last: last.get(c) || null, open: b.open_list.find((o) => o.symbol === c) || null });
+      rows.push({ coin: 'ALL', ...zero, ...p.overall, last: p.last_ts, open: null, openN: b.open_list.length, _cls: 'total' });
+    }
+    $('#coinCount').textContent = rows.length ? `${rows.length - 1} coin rows` : '';
+    const hasUsd = rows.some((r) => r.usd != null);
+    const cols = [
+      { h: 'Coin', left: true, f: (r) => (r.coin === 'ALL' ? el('strong', {}, 'Total') : sym(r.coin)) }, { h: 'Trades', f: (r) => r.trades }, { h: 'Wins', f: (r) => r.wins, c: (r) => (r.wins ? 'good' : '') }, { h: 'Losses', f: (r) => r.losses, c: (r) => (r.losses ? 'bad' : '') },
+      { h: 'Win', f: (r) => pct0(r.win_rate) }, { h: 'Avg R', f: (r) => fmtR(r.avg_r), c: (r) => cls(r.avg_r) }, { h: 'Total R', f: (r) => fmtR(r.total_r), c: (r) => cls(r.total_r) },
+      ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []),
+      { h: 'PF', f: (r) => (r.profit_factor == null ? '—' : r.profit_factor) }, { h: 'Best', f: (r) => fmtR(r.best_r) }, { h: 'Worst', f: (r) => fmtR(r.worst_r) }, { h: 'Max DD', f: (r) => (r.max_dd_r == null ? '—' : `${r.max_dd_r}R`) },
+      { h: 'Last trade', f: (r) => (r.last ? fmtDay(r.last) : '—') },
+      { h: 'Open now', f: (r) => (r.coin === 'ALL' ? (r.openN ? `${r.openN} open` : 'flat') : r.open ? el('span', {}, sideEl(r.open.side), ' ', el('span', { class: cls(r.open.current_r) }, r.open.current_r == null ? '' : fmtR(r.open.current_r))) : '—') },
+    ];
+    if (rows.length) host.append(el('div', { class: `bot-block ${b.key}` }, el('div', { class: 'bot-block-h' }, STRATS[b.key].name, el('small', {}, ` · ${STRATS[b.key].short}`)), el('div', { class: 'scroll' }, table(cols, rows, ''))));
+    else host.append(el('div', { class: 'empty' }, b.present ? 'No coins yet.' : `${b.label} ${health(b).note}.`));
+    clear($('#coinNote')).append(el('p', { class: 'muted' }, STRATS[b.key].how), el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
+  }
+  // trend-follower figures against the strategy's own backtest (T-CORE and its lab): how far trades ran, how much the trail gave back
+  function trendTable(t, live) {
+    const e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
+    const row = (k, a, x) => el('tr', {}, el('td', {}, k), el('td', { class: 'num' }, a), el('td', { class: 'num muted' }, x));
+    return el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, el('th', {}, ''), el('th', { class: 'num' }, live ? 'live' : 'lab'), el('th', { class: 'num' }, 'backtest'))), el('tbody', {},
+      row('Reached +1R', pc(t.reached_1r), pc(e.reached_1r)), row('Reached +3R', pc(t.reached_3r), pc(e.reached_3r)), row('Reached +5R', pc(t.reached_5r), pc(e.reached_5r)), row('Reached +10R', pc(t.reached_10r), pc(e.reached_10r)),
+      row('Best price (MFE), median', r(t.mfe_median), r(e.mfe_median)), row('Worst price (MAE), median', r(t.mae_median), r(e.mae_median)), row('Given back to the trail, median', r(t.gave_back_median), r(e.gave_back_median)),
+      row('Candles held, median', t.bars_median ?? '—', e.bars_median ?? '—'), row('Stop moves, median', t.trail_moves_median ?? '—', '—'), row('Funding per trade', t.funding_r_avg == null ? '—' : fmtR(t.funding_r_avg), 'flat estimate'), row('Slippage in+out', t.slip_bp_avg == null ? '—' : `${t.slip_bp_avg} bp`, '4 bp')));
+  }
+  function renderTrend() {
+    const b = bd(curKey()), panel = $('#pTrend'), t = b.trend;
+    panel.classList.toggle('off', !t);
+    if (!t) return;
+    $('#trendCount').textContent = `${t.trades} closed trade${t.trades === 1 ? '' : 's'} with trend data`;
+    const host = clear($('#trend')), p = b.perf, avgHold = p ? p.overall.avg_hold_sec : null;
+    host.append(el('div', { class: 'trendgrid' },
+      el('div', {}, el('h4', {}, `Against its own backtest (2020-2026, same rules)`), t.trades ? trendTable(t, b.live) : el('div', { class: 'empty' }, 'No closed trade with trend data yet.'),
+        el('p', { class: 'muted note' }, 'R here is the initial risk (entry to the first stop). With about 21% winners, totals mean little before about 100 trades; how far trades run and how much the trail gives back show earlier whether it behaves like the backtest.')),
+      el('div', {}, el('h4', {}, 'Open trades and their trailing stop'),
+        b.open_list.length ? table([{ h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'Initial SL', f: (r) => fmtPx(r.sl) }, { h: 'Stop now', f: (r) => (r.trail_stop == null ? '—' : fmtPx(r.trail_stop)) },
+          { h: 'Locked R', f: (r) => (r.locked_r == null ? '—' : fmtR(r.locked_r)), c: (r) => cls(r.locked_r) }, { h: 'Best R', f: (r) => (r.best_r == null ? '—' : fmtR(r.best_r)) }, { h: 'Moves', f: (r) => r.trail_moves ?? '—' }, { h: 'Held', f: (r) => fmtDur((Date.now() - r.entry_ts) / 1000) }], b.open_list, '')
+          : el('div', { class: 'empty' }, 'No open trade right now.'),
+        el('dl', { class: 'kvlist', style: 'margin-top:12px' }, kv('Average hold, closed trades', avgHold == null ? '—' : fmtDur(avgHold), el('small', {}, 'entry to exit')), kv('Funding per trade', t.funding_r_avg == null ? '—' : fmtR(t.funding_r_avg)), kv('Slippage in + out', t.slip_bp_avg == null ? '—' : `${t.slip_bp_avg} bp`)))));
+  }
+
+  // ---------------- Positions & Activity ----------------
+  function renderPositions() {
+    const b = bd(route.bot);
+    $('#openFullCount').textContent = b.open_list.length ? `${b.open_list.length} open` : '';
+    clear($('#openFull')).append(openTable(b, true));
+    $('#openFullNote').textContent = b.open_list.length ? 'Now = the close of the last 4-hour candle the bot has seen, so the R shown can be hours old. For a trailing-stop bot, Stop now is the stop as it is now and Initial SL is the first stop.' : '';
+    renderActivity(b); renderSkipped(b);
   }
 
   // ---------------- Performance ----------------
@@ -438,7 +720,7 @@
       tile('Average hold', fmtDur(o.avg_hold_sec), 'entry to exit'),
     ];
     clear($('#perfTiles')).append(...tiles);
-    $('#perfNote').textContent = `${v.label} live results against ${e.source}. Single trades swing from −1R to several R, so about 150 or more trades are needed before the average says anything; until then this page shows whether live behaves like the backtest.`;
+    $('#perfNote').textContent = `${v.label} ${v.mode === 'live' ? 'live' : 'paper'} results against ${e.source}. Single trades swing from −1R to several R, so about 150 or more trades are needed before the average says anything; until then this page shows whether live behaves like the backtest.`;
     renderPeriods(p);
     renderBreakdown(p);
     renderExec(p);
@@ -493,44 +775,6 @@
     $('#execNote').textContent = `Slippage is the fill price against the price the decision used (+ = worse). The backtest assumes about 0.02% a side. Delay is the time from the candle close to the fill.${view().mode === 'live' ? '' : ' Paper fills are simulated, so these numbers only mean something in LIVE mode.'}`;
   }
 
-  // One row per coin per strategy, whichever bot is selected above: what triggers it, trades, wins, losses, returns, and whether it is open now. Built from the trades the page
-  // already has (per_coin of lib/perf.js), so it costs no extra request; a few rows at most. A coin with no trade yet still gets its row (zeros).
-  const STRATS = {
-    bbcore: { name: 'BB-Core', short: 'Bollinger breakout, no target', how: 'A 4-hour candle closes outside its Bollinger band (20, 2σ) in the direction of the 200-period average. Stop at the middle band, no profit target: the trade runs until the stop or about 8 days at most.' },
-    tcore: { name: 'T-CORE', short: 'Bollinger breakout, 14 ATR trail', how: 'Enters like BB-Core (a 4-hour close outside the Bollinger band, with the 200-period average). Stop 2 ATR away, then a trailing stop 14 ATR behind the best price; no profit target, so a winner runs until the trail catches it.' },
-    icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
-  };
-  const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
-  function renderCoins() {
-    const d = data, rows = [];
-    for (const k of ['bbcore', 'icore', 'tcore']) {
-      const p = d.perf && d.perf[k]; if (!p || (k !== 'bbcore' && !(d.bots && d.bots[k]))) continue;
-      const ob = k !== 'bbcore' ? d.bots[k] : null, trades = ob ? ob.trades || [] : d.trades, opens = (ob ? ob.open_list : d.open) || [];
-      const coins = [...new Set([...Object.keys(p.per_coin), ...((ob ? ob.enabled_coins : d.status.enabled_coins) || []).map(full), ...opens.map((o) => o.symbol)])].sort();
-      const last = new Map(); for (const t of trades) if (!last.has(t.symbol) || t.exit_ts > last.get(t.symbol)) last.set(t.symbol, t.exit_ts);
-      const zero = { trades: 0, wins: 0, losses: 0, win_rate: null, avg_r: null, total_r: 0, profit_factor: null, best_r: null, worst_r: null, max_dd_r: null, usd: null };
-      for (const c of coins) rows.push({ bot: k, coin: c, ...zero, ...(p.per_coin[c] || {}), last: last.get(c) || null, open: opens.find((o) => o.symbol === c) || null });
-      rows.push({ bot: k, coin: 'ALL', ...zero, ...p.overall, last: p.last_ts, open: null, openN: opens.length, _cls: 'total' });
-    }
-    $('#coinCount').textContent = rows.length ? `${rows.filter((r) => r.coin !== 'ALL').length} coin rows` : '';
-    const hasUsd = rows.some((r) => r.usd != null), host = clear($('#coinRecord'));
-    const cols = [
-      { h: 'Coin', left: true, f: (r) => (r.coin === 'ALL' ? el('strong', {}, 'Total') : sym(r.coin)) }, { h: 'Trades', f: (r) => r.trades }, { h: 'Wins', f: (r) => r.wins, c: (r) => (r.wins ? 'good' : '') }, { h: 'Losses', f: (r) => r.losses, c: (r) => (r.losses ? 'bad' : '') },
-      { h: 'Win', f: (r) => pct0(r.win_rate) }, { h: 'Avg R', f: (r) => fmtR(r.avg_r), c: (r) => cls(r.avg_r) }, { h: 'Total R', f: (r) => fmtR(r.total_r), c: (r) => cls(r.total_r) },
-      ...(hasUsd ? [{ h: 'P&L', f: (r) => fmtUsd(r.usd, true), c: (r) => cls(r.usd) }] : []),
-      { h: 'PF', f: (r) => (r.profit_factor == null ? '—' : r.profit_factor) }, { h: 'Best', f: (r) => fmtR(r.best_r) }, { h: 'Worst', f: (r) => fmtR(r.worst_r) }, { h: 'Max DD', f: (r) => (r.max_dd_r == null ? '—' : `${r.max_dd_r}R`) },
-      { h: 'Last trade', f: (r) => (r.last ? fmtDay(r.last) : '—') },
-      { h: 'Open now', f: (r) => (r.coin === 'ALL' ? (r.openN ? `${r.openN} open` : 'flat') : r.open ? el('span', {}, sideEl(r.open.side), ' ', el('span', { class: cls(r.open.current_r) }, r.open.current_r == null ? '' : fmtR(r.open.current_r))) : '—') },
-    ];
-    // one block per bot, so the two never run together
-    for (const k of ['bbcore', 'icore', 'tcore']) {
-      const part = rows.filter((r) => r.bot === k); if (!part.length) continue;
-      host.append(el('div', { class: `bot-block ${k}` }, el('div', { class: 'bot-block-h' }, STRATS[k].name), el('div', { class: 'scroll' }, table(cols, part, ''))));
-    }
-    if (!rows.length) host.append(el('div', { class: 'empty' }, 'No coins yet.'));
-    clear($('#coinNote')).append(el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
-  }
-
   // ---------------- Trades ----------------
   // Trades with no booked dollar result get an estimate from the nearest booked trade (in time) with the same outcome, win or loss: a stop within 0.1R of it takes its dollar figure as is, anything else is scaled by R.
   function withUsd(list) {
@@ -544,21 +788,22 @@
   }
   function renderTrades() {
     if (!data) return;
-    const all = withUsd(view().trades), f = filters;
+    const b = bd(curKey()), all = withUsd(b.trades), f = filters;
     const coinSel = $('#fCoin'), coins = [...new Set(all.map((t) => t.symbol))].sort();
     if ([...coinSel.options].slice(1).map((o) => o.value).join() !== coins.join()) { clear(coinSel).append(el('option', { value: '' }, 'All'), ...coins.map((c) => el('option', { value: c }, sym(c)))); coinSel.value = coins.includes(f.coin) ? f.coin : (f.coin = ''); }
     const rs = $('#fReason'), reasons = [...new Set(all.map((t) => t.reason).filter(Boolean))].sort();
     if ([...rs.options].slice(1).map((o) => o.value).join() !== reasons.join()) { clear(rs).append(el('option', { value: '' }, 'All'), ...reasons.map((r) => el('option', { value: r }, r))); rs.value = reasons.includes(f.reason) ? f.reason : (f.reason = ''); }
-    const from = f.from ? Date.parse(f.from + 'T00:00:00Z') : null, to = f.to ? Date.parse(f.to + 'T23:59:59Z') : null;
-    const rows = all.filter((t) => (!f.coin || t.symbol === f.coin) && (!f.side || t.side === f.side) && (!f.reason || t.reason === f.reason) && (from == null || t.exit_ts >= from) && (to == null || t.exit_ts <= to)).sort((a, b) => b.exit_ts - a.exit_ts);
+    const from = f.from ? Date.parse(f.from + 'T00:00:00Z') : null, to = f.to ? Date.parse(f.to + 'T23:59:59Z') : null, q = f.q.trim().toLowerCase();
+    const hay = (t) => `${sym(t.symbol)} ${t.symbol} ${t.side} ${t.reason} ${fmtDay(t.exit_ts)} ${fmtDay(t.entry_ts)} ${fmtR(t.r)}`.toLowerCase();
+    const rows = all.filter((t) => (!f.coin || t.symbol === f.coin) && (!f.side || t.side === f.side) && (!f.reason || t.reason === f.reason) && (from == null || t.exit_ts >= from) && (to == null || t.exit_ts <= to) && (!q || q.split(/\s+/).every((w) => hay(t).includes(w)))).sort((a, c) => c.exit_ts - a.exit_ts);
     const total = rows.reduce((a, t) => a + t.r, 0), hasUsd = rows.some((t) => t.usd != null), usd = rows.reduce((a, t) => a + (t.usd || 0), 0), wins = rows.filter((t) => t.r > 0).length;
-    clear($('#tradeSummary')).append(`${rows.length} trade${rows.length === 1 ? '' : 's'} · ${rows.length ? Math.round((wins / rows.length) * 100) : 0}% won · total `, el('span', { class: cls(total) }, fmtR(total)), hasUsd ? el('span', { class: cls(usd) }, ` (${fmtUsd(usd, true)})`) : '');
+    clear($('#tradeSummary')).append(`${b.label} · ${rows.length} trade${rows.length === 1 ? '' : 's'} · ${rows.length ? Math.round((wins / rows.length) * 100) : 0}% won · total `, el('span', { class: cls(total) }, fmtR(total)), hasUsd ? el('span', { class: cls(usd) }, ` (${fmtUsd(usd, true)})`) : '');
     const page = rows.slice(0, shown.trades);
     clear($('#trades')).append(table([
       { h: 'Exit time', left: true, f: (r) => fmtShort(r.exit_ts) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) }, { h: 'Entry', f: (r) => fmtPx(r.entry) }, { h: 'SL', f: (r) => fmtPx(r.sl) }, { h: 'TP', f: (r) => fmtPx(r.tp) },
       { h: 'Exit', f: (r) => fmtPx(r.exit) }, { h: 'Why', f: (r) => el('span', { class: `chip ${r.reason}` }, r.reason) }, { h: 'R', f: (r) => fmtR(r.r), c: (r) => cls(r.r) },
       ...(hasUsd ? [{ h: 'P&L', f: (r) => (r.usd == null ? '—' : r.est ? el('span', { class: 'est', title: 'Estimated from the nearest booked trade with the same result' }, fmtUsd(r.usd, true)) : fmtUsd(r.usd, true)), c: (r) => cls(r.usd) }] : []), { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
-    ], page, all.length ? 'No trades match.' : 'No closed trades yet.'));
+    ], page, all.length ? 'No trades match.' : b.present ? 'No closed trades yet.' : `${b.label} ${health(b).note}.`, openTrade));
     moreBtn($('#tradesMore'), 'trades', rows.length, renderTrades);
   }
 
@@ -639,7 +884,7 @@
   $('#calMetric').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; calMetric = b.dataset.metric; store.set('bot.calmetric', calMetric); renderCalendar(); });
 
   // ---------------- Research: how the run works and what it has done so far, in enough detail to decide whether the strategy is ready to go live ----------------
-  // (coin / side / exit splits and the fills-vs-model table already live on the Performance tab; this tab adds what they do not show)
+  // (coin / side / exit splits and the fills-vs-model table already live on the Performance page; this page adds what they do not show)
   // T-CORE lab: how it works, how its trades run against its own backtest (trend capture), and the open trades with their CURRENT trailing stop
   function trailHow(b, live) {
     const t = (b && b.trend) || { trades: 0 }, e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
@@ -659,10 +904,10 @@
   }
   function renderResearch() {
     if (!data) return;
-    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.key === 'icore' ? d.bots.icore : v.key === 'tcore' ? d.bots.tcore : lab ? d.labs.bb1h : trail ? d.labs.bbtr : null, live = v.mode === 'live';
+    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.b.present && v.key !== 'bbcore' ? v.b : null, live = v.mode === 'live';   // b: this bot's own data
     const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
-    const open = b ? b.open_list || [] : d.open, skipCounts = (b ? b.skip_counts : d.skip_counts) || {}, firstEvent = b ? b.first_event_ms : d.first_event_ms;
-    const cmp = b ? b.compare : d.compare, ddR = b ? b.drawdown_r : d.status.drawdown_r, haltR = b ? b.halt_r : d.status.halt_r;
+    const open = v.b.open_list, skipCounts = v.b.skip_counts || {}, firstEvent = v.b.first_ms;
+    const cmp = v.b.compare, ddR = v.b.dd, haltR = v.b.halt;
     $('#rHowTitle').textContent = `research / how ${v.label} ${live ? 'trades live' : 'paper trading works'}`;
 
     const first = tr.length ? Math.min(...tr.map((t) => t.entry_ts)) : null, skips = Object.values(skipCounts).reduce((a, x) => a + x, 0), running = firstEvent != null ? (Date.now() - firstEvent) / 1000 : null;
@@ -701,7 +946,7 @@
     const rd = clear($('#rReady'));
     rd.append(...checks.map((c) => el('div', { class: `chk ${c.status}` }, el('span', { class: 'mk', 'aria-hidden': 'true' }, mark[c.status]),
       el('div', {}, el('div', { class: 'ct' }, c.title, ' ', el('span', { class: 'cs' }, label[c.status])), el('div', { class: 'cn' }, `Needs: ${c.need}. Now: ${c.have}.`), el('div', { class: 'cn' }, c.note)))));
-    rd.append(el('p', { class: 'muted note' }, `${checks.filter((c) => c.status === 'pass').length} of ${checks.length} checks OK. These show the bot executes the way the backtest assumes; they do not prove the strategy makes money, and they are separate from the stop-and-review rules on the Verify tab. Going live also needs its own risk review.`));
+    rd.append(el('p', { class: 'muted note' }, `${checks.filter((c) => c.status === 'pass').length} of ${checks.length} checks OK. These show the bot executes the way the backtest assumes; they do not prove the strategy makes money, and they are separate from the stop-and-review rules on a live bot's Verification page. Going live also needs its own risk review.`));
 
     // is there an edge yet?
     const f3 = (x) => (x == null ? '—' : Number(x).toFixed(3)), edgeBox = clear($('#rEdge'));
@@ -743,26 +988,22 @@
       { h: 'Held', f: (r) => fmtDur(r.hold_sec) },
     ], rows.slice(0, shown.journal), 'No closed trades yet. They appear here as the bot closes them.', openTrade));
     moreBtn($('#rTradesMore'), 'journal', rows.length, renderResearch);
-    renderRegime(); renderRecorder(); loadRegimeHistory();
   }
-
 
   // ---------------- Research: the market now (regime), what trading costs here (measured slippage), and the data recorder's health. All from the recorder's heartbeat (d.recorder) ----------------
   let regimeHist = null, regimeHistTried = false;
   async function loadRegimeHistory() {   // the strategy's backtest by regime: a small static file next to the page, read once
     if (regimeHistTried) return; regimeHistTried = true;
-    try { const res = await fetch('regime-history.json', { cache: 'no-cache' }); if (res.ok) { regimeHist = await res.json(); if (data && tab === 'research') renderRegime(); } } catch { /* the panel just shows no history */ }
+    try { const res = await fetch('regime-history.json', { cache: 'no-cache' }); if (res.ok) { regimeHist = await res.json(); if (data && viewKey() === 'lab:market') renderRegime(); } } catch { /* the panel just shows no history */ }
   }
   const STATE_LABEL = { trending_up: 'Trending up', trending_down: 'Trending down', volatile: 'Volatile', quiet: 'Quiet (squeeze)', ranging: 'Ranging (chop)', choppy: 'Choppy', mixed: 'Mixed' };
   const stateChip = (s) => (s ? el('span', { class: `rg ${s}` }, STATE_LABEL[s] || s) : '—');
   const histOf = (key, group) => { const h = regimeHist && regimeHist[group] && regimeHist[group][key]; return h && h.n >= (regimeHist.min_trades || 30) ? h : null; };
 
   function renderRegime() {
-    const rc = data && data.recorder, panel = $('#pRRegime'), slip = $('#pRSlip');
-    const slipOn = !!(rc && Object.keys(rc.slippage || {}).length);
-    panel.classList.toggle('off', !(rc && rc.market_state)); slip.classList.toggle('off', !slipOn);
-    $('#pRRec').classList.toggle('c7', !slipOn); $('#pRRec').classList.toggle('c5', slipOn);   // fills the row when the slippage table is not there yet
-    if (!rc) return;
+    const rc = data && data.recorder;
+    // no recorder report: say so (the panels stay, a missing recorder is not a quiet page)
+    if (!rc) { clear($('#rgTiles')).append(el('div', { class: 'empty' }, 'Unavailable: the data recorder is not reporting, so there is no market regime yet.')); clear($('#rgTable')); $('#rgNote').textContent = ''; clear($('#slipTable')).append(el('div', { class: 'empty' }, 'Unavailable: no order-book snapshots without the data recorder.')); $('#slipNote').textContent = ''; return; }
     const m = rc.market || {}, mh = histOf(rc.market_state, 'market_states');
     clear($('#rgTiles')).append(
       tile('The market now', stateChip(rc.market_state), mh ? `BB-Core there, historically: ${fmtR(mh.avg_r)} a trade (${mh.n} trades)` : null),
@@ -789,9 +1030,9 @@
     ], srows, 'No order-book snapshots yet.'));
     $('#slipNote').textContent = 'Basis points (1 bp = 0.01% of the price) paid on top of the mid price by a market order, half the spread included; median of the last 7 days of order-book snapshots taken every 5 minutes. "Bad case" is the 90th percentile of a sell, the kind of fill a stop gets. The old paper model assumed a flat 2 bp per fill. A bigger order walks further down the book, which is how much size each coin can take.';
   }
-  function renderRecorder() {
-    const rc = data && data.recorder, box = clear($('#recHealth')), pn = $('#pRRec');
-    if (!rc) { box.append(el('div', { class: 'empty' }, 'The data recorder is not reporting. It runs on the VPS (folder lucidio-recorder): once it is installed and has the dashboard address set, its regime, measured slippage and health appear here.')); $('#recNote').textContent = ''; return; }
+  function renderRecorder(boxEl, noteEl) {   // the recorder's health, on the Research Lab's Market page and on the System Monitor
+    const rc = data && data.recorder, box = clear(boxEl);
+    if (!rc) { box.append(el('div', { class: 'empty' }, 'Missing: the data recorder is not reporting. It runs on the VPS (folder lucidio-recorder): once it is installed and has the dashboard address set, its regime, measured slippage and health appear here.')); noteEl.textContent = ''; return; }
     const h = rc.health || {}, agoOf = (ms) => (ms ? ago(ms) : el('small', {}, 'never'));
     box.append(el('dl', { class: 'kvlist' },
       kv('Recorder', el('span', { class: rc.alive ? 'good' : 'bad' }, rc.alive ? 'ONLINE' : 'STALE'), ago(rc.ts)),
@@ -801,8 +1042,7 @@
       kv('Errors in the last hour', el('span', { class: (h.errors_1h || 0) > 5 ? 'warn' : '' }, String(h.errors_1h ?? '?'))),
       kv('Server disk free', h.disk_free_gb == null ? '—' : el('span', { class: h.disk_low ? 'bad' : '' }, `${h.disk_free_gb} GB`), h.disk_low ? el('small', {}, 'recording is paused') : null),
       kv('Copy off the server', h.upload_on ? (h.upload_ok_ms ? agoOf(h.upload_ok_ms) : el('span', { class: 'warn' }, 'set up, not done yet')) : el('span', { class: 'warn' }, 'not set up'))));
-    $('#recNote').textContent = h.upload_on ? '' : 'The recorded data is only on the VPS until a copy command is set (RECORDER_SYNC_CMD in /etc/lucidio-recorder.env): if the server were lost, so would the data.';
-    pn.classList.remove('off');
+    noteEl.textContent = h.upload_on ? '' : 'The recorded data is only on the VPS until a copy command is set (RECORDER_SYNC_CMD in /etc/lucidio-recorder.env): if the server were lost, so would the data.';
   }
 
   // one trade, every detail we have
@@ -832,123 +1072,258 @@
   $('#tradeClose').addEventListener('click', closeTrade);
   $('#tradeDlg').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTrade(); });
 
-  // ---------------- Verify ----------------
-  // one card per bot: BB-Core's in #checks, I-Core's in #checks2 (hidden until I-Core reports)
-  function renderChecks(d) {
-    const list = verdicts(d);
-    [['#checks', '#pCheckList'], ['#checks2', '#pCheckList2']].forEach(([sel, panel], i) => {
-      const box = clear($(sel)), p = list[i];
-      $(panel).classList.toggle('off', i > 0 && !p);
-      if (!p) { if (!i) box.append(el('div', { class: 'empty' }, 'No data yet.')); return; }
-      $(`${panel} h2`).textContent = `checks / ${p.label}`;
-      box.append(el('div', { class: 'sub-h first' }, `${p.label} · ${p.overall.trades} closed trades · `, lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict)));
-      box.append(el('div', { class: 'checklist' }, p.checks.map((c) => el('div', { class: `ck ${c.level}` }, lvlChip(c.level),
-        el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, c.title, el('span', { class: 'ck-v' }, c.value ?? '—')), el('div', { class: 'ck-n' }, `limit ${c.limit}${c.note ? ' · ' + c.note : ''}`))))));
-    });
+  // ---------------- Verification: one bot's checks and its live-vs-backtest comparison (one panel each, no duplicates) ----------------
+  function renderChecks() {
+    const b = bd(route.bot), p = b.perf, box = clear($('#checks'));
+    $('#checksTitle').textContent = `${b.label} · stop-and-review checks`;
+    if (!b.present || !p) { box.append(el('div', { class: 'empty' }, b.present ? 'No data yet.' : `${b.label} ${health(b).note}.`)); return; }
+    box.append(el('div', { class: 'sub-h first' }, `${b.label} · ${p.overall.trades} closed trades · `, lvlChip(p.verdict === 'ok' ? 'ok' : p.verdict)));
+    box.append(el('div', { class: 'checklist' }, p.checks.map((c) => el('div', { class: `ck ${c.level}` }, lvlChip(c.level),
+      el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, c.title, el('span', { class: 'ck-v' }, c.value ?? '—')), el('div', { class: 'ck-n' }, `limit ${c.limit}${c.note ? ' · ' + c.note : ''}`))))));
+    if (p.expect && p.expect.source) box.append(el('p', { class: 'muted note' }, `Expectations: ${p.expect.source}.`));
   }
-  // one block per strategy: BB-Core's result, then I-Core's when it reports. A refused order (and the trade that follows from it) is listed as INFO: a missed trade, not a logic difference.
+  // A refused order (and the trade that follows from it) is listed as INFO: a missed trade, not a logic difference.
   const KIND = { 'exchange-refused': 'MISSED · exchange refused the order', 'follows-refused': 'FOLLOWS the refused trade', 'backtest-only': 'BACKTEST-ONLY · the backtest took it, the bot did not', 'live-only': 'LIVE-ONLY · the bot took it, the backtest did not', differs: 'DIFFERS · both took it, the result differs' };
-  function renderCompare(d) {
-    const ic = d.bots && d.bots.icore, sets = [['BB-Core', d.compare]].concat(ic ? [['I-Core', ic.compare]] : []);
-    $('#pCompare2').classList.toggle('off', !ic);
-    clear($('#compare2'));
-    if (!sets.some(([, k]) => k)) { clear($('#compare')).append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
-    sets.forEach(([name, k], i) => {
-      const c = clear($(i ? '#compare2' : '#compare'));
-      c.append(el('div', { class: 'sub-h first' }, name));
-      if (!k) { c.append(el('div', { class: 'empty' }, 'No comparison received yet.')); return; }
-      const missed = k.refused || 0, explained = k.explained || 0;
-      c.append(el('dl', { class: 'kvlist' },
-        kv('Result', el('span', { class: k.match ? 'good' : 'bad' }, k.match ? 'MATCH' : 'NOT A MATCH'), missed ? ` · ${missed} missed (exchange refused)` : ''),
-        kv('Window', `${fmtShort(k.window_from_ms)} → ${fmtShort(k.window_to_ms)}`),
-        kv('Checked', fmtTime(k.ts), ago(k.ts)),
-        kv('Trades', `${k.matched ?? 0} matched · ${k.live_only ?? 0} live-only · ${k.backtest_only ?? 0} backtest-only${explained ? ` · ${explained} explained` : ''}`),
-        kv('Other', `${k.skipped_signals ?? 0} skipped · ${k.candle_diffs ?? 0} candle diffs · tol ${k.tolerance_r}R`)));
-      if ((k.mismatches || []).length) c.append(el('div', { class: 'checklist' }, k.mismatches.map((m) => el('div', { class: `ck ${m.explained ? 'info' : 'warn'}` }, lvlChip(m.explained ? 'info' : 'warn'),
-        el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, el('span', {}, `${name} · ${sym(m.symbol)} `, sideEl(m.side), ` · candle ${fmtShort(m.signal_candle_open_ms)}`), el('span', { class: 'ck-v' }, m.nearest_threshold_pct == null ? '' : `near thr. ${Number(m.nearest_threshold_pct).toFixed(3)}%`)),
-          el('div', { class: 'ck-n' }, `${KIND[m.kind] || m.kind} · ${m.why || ''}`))))));
-    });
+  function renderCompare() {
+    const b = bd(route.bot), c = clear($('#compare')), k = b.compare;
+    if (!b.present) { c.append(el('div', { class: 'empty' }, `${b.label} ${health(b).note}.`)); return; }
+    if (!k) { c.append(el('div', { class: 'empty' }, 'No comparison received yet (compare-live-vs-backtest.js --push).')); return; }
+    const missed = k.refused || 0, explained = k.explained || 0;
+    c.append(el('dl', { class: 'kvlist' },
+      kv('Result', el('span', { class: k.match ? 'good' : 'bad' }, k.match ? 'MATCH' : 'NOT A MATCH'), missed ? ` · ${missed} missed (exchange refused)` : ''),
+      kv('Window', `${fmtShort(k.window_from_ms)} → ${fmtShort(k.window_to_ms)}`),
+      kv('Checked', fmtTime(k.ts), ago(k.ts)),
+      kv('Trades', `${k.matched ?? 0} matched · ${k.live_only ?? 0} live-only · ${k.backtest_only ?? 0} backtest-only${explained ? ` · ${explained} explained` : ''}`),
+      kv('Other', `${k.skipped_signals ?? 0} skipped · ${k.candle_diffs ?? 0} candle diffs · tol ${k.tolerance_r}R`)));
+  }
+  function renderCompareDetail() {
+    const b = bd(route.bot), host = clear($('#compareDetail')), k = b.compare;
+    if (!b.present || !k) { host.append(el('div', { class: 'empty' }, b.present ? 'No comparison run received yet.' : `${b.label} ${health(b).note}.`)); return; }
+    const mm = k.mismatches || [], n = (kind) => mm.filter((m) => m.kind === kind).length;
+    host.append(el('div', { class: 'tiles' },
+      tile('Matched trades', String(k.matched ?? 0), 'live and backtest agree', 'good'), tile('Live-only', String(k.live_only ?? 0), 'the bot took it, the backtest did not', k.live_only ? 'warn' : ''),
+      tile('Backtest-only', String(k.backtest_only ?? 0), 'the backtest took it, the bot did not', k.backtest_only ? 'warn' : ''), tile('Result differs', String(n('differs')), 'both took it, a different result', n('differs') ? 'warn' : ''),
+      tile('Refused orders', String(k.refused || 0), 'missed trades: the exchange said no'), tile('Explained', String(k.explained || 0), 'refused orders and what follows from them')));
+    host.append(el('div', { class: 'sub-h' }, 'Latest run · mismatches'));
+    if (mm.length) host.append(el('div', { class: 'checklist' }, mm.map((m) => el('div', { class: `ck ${m.explained ? 'info' : 'warn'}` }, lvlChip(m.explained ? 'info' : 'warn'),
+      el('div', { class: 'ck-b' }, el('div', { class: 'ck-t' }, el('span', {}, `${b.label} · ${sym(m.symbol)} `, sideEl(m.side), ` · candle ${fmtShort(m.signal_candle_open_ms)}`), el('span', { class: 'ck-v' }, m.nearest_threshold_pct == null ? '' : `near thr. ${Number(m.nearest_threshold_pct).toFixed(3)}%`)),
+        el('div', { class: 'ck-n' }, `${KIND[m.kind] || m.kind} · ${m.why || ''}`))))));
+    else host.append(el('div', { class: 'empty' }, 'No mismatches in the latest run.'));
+    host.append(el('div', { class: 'sub-h' }, 'Recent comparison runs'), table([
+      { h: 'Run', left: true, f: (r) => fmtShort(r.ts) }, { h: 'Result', f: (r) => el('span', { class: r.match ? 'good' : 'bad' }, r.match ? 'MATCH' : 'NOT A MATCH') },
+      { h: 'Mismatches', f: (r) => r.mismatches.length }, { h: 'Of which explained', f: (r) => r.mismatches.filter((m) => m.explained).length },
+      { h: 'Kinds', left: true, f: (r) => [...new Set(r.mismatches.map((m) => m.kind))].join(', ') || '—' },
+    ], b.compares, 'No earlier runs.'));
   }
 
-  // ---------------- Log ----------------
+  // ---------------- activity and skipped signals (one bot's own) ----------------
   const logLine = (ts, tag, ...msg) => el('div', { class: 'ln' }, el('span', { class: 't' }, fmtShort(ts)), el('span', { class: `tag ${tag}` }, tag.toUpperCase()), el('span', { class: 'msg' }, ...msg));
-  function renderActivity(d) {
-    const box = clear($('#activity')), s = d.status, out = [];
-    if (s.last_heartbeat_ms != null) out.push(logLine(s.last_heartbeat_ms, s.alive ? 'check' : 'down', s.alive ? 'heartbeat ok' : 'last heartbeat received', s.next_wake_ms ? ` · next wake ${fmtHm(s.next_wake_ms)}` : ''));
-    for (const a of d.activity || []) {
-      const coin = a.symbol ? `${sym(a.symbol)} ` : '';
-      if (a.kind === 'entry') out.push(logLine(a.ts, 'entry', coin, sideEl(a.side), ` filled @ ${fmtPx(a.entry)} · SL ${fmtPx(a.sl)} · TP ${fmtPx(a.tp)}${a.risk_usd != null ? ` · risk ${fmtUsd(a.risk_usd)}` : ''}`));
-      else if (a.kind === 'exit') out.push(logLine(a.ts, 'exit', coin, sideEl(a.side), ` ${a.reason} @ ${fmtPx(a.exit)} → `, el('span', { class: cls(a.r) }, `${fmtR(a.r)}${a.usd != null ? ` (${fmtUsd(a.usd, true)})` : ''}`)));
-      else if (a.kind === 'skip') out.push(logLine(a.ts, 'skip', coin, sideEl(a.side), ` skipped: ${a.reason}${a.detail ? ` · ${a.detail}` : ''}`));
-      else if (a.kind === 'check') out.push(logLine(a.ts, 'check', `check ${a.candle_ms ? fmtShort(a.candle_ms) : ''} processed · total ${fmtR(a.total_r)}${a.balance != null ? ` · bal ${fmtUsd(a.balance)}` : ''}`));
-      else if (a.kind === 'capital') out.push(logLine(a.ts, 'capital', a.flow === 'payout' ? 'payout sent ' : 'capital added ', el('span', {}, fmtUsd(a.usd, true)), ' · not profit or loss'));
-      else if (a.kind === 'compare') out.push(logLine(a.ts, 'compare', 'live vs backtest ', el('span', { class: a.match ? 'good' : 'bad' }, a.match ? 'MATCH' : 'MISMATCH'), ` · ${a.matched ?? 0} matched${a.mismatches ? ` · ${a.mismatches} differ` : ''}`));
-    }
-    $('#actCount').textContent = `${(d.activity || []).length} events`;
-    if (!out.length) box.append(el('div', { class: 'empty' }, 'Nothing logged yet.'));
-    else box.append(...out);
+  function actLine(a, pre) {
+    const coin = a.symbol ? `${sym(a.symbol)} ` : '', p = pre ? [pre, ' '] : [];
+    if (a.kind === 'entry') return logLine(a.ts, 'entry', ...p, coin, sideEl(a.side), ` filled @ ${fmtPx(a.entry)} · SL ${fmtPx(a.sl)} · TP ${fmtPx(a.tp)}${a.risk_usd != null ? ` · risk ${fmtUsd(a.risk_usd)}` : ''}`);
+    if (a.kind === 'exit') return logLine(a.ts, 'exit', ...p, coin, sideEl(a.side), ` ${a.reason} @ ${fmtPx(a.exit)} → `, el('span', { class: cls(a.r) }, `${fmtR(a.r)}${a.usd != null ? ` (${fmtUsd(a.usd, true)})` : ''}`));
+    if (a.kind === 'skip') return logLine(a.ts, 'skip', ...p, coin, sideEl(a.side), ` skipped: ${a.reason}${a.detail ? ` · ${a.detail}` : ''}`);
+    if (a.kind === 'check') return logLine(a.ts, 'check', ...p, `check ${a.candle_ms ? fmtShort(a.candle_ms) : ''} processed · total ${fmtR(a.total_r)}${a.balance != null ? ` · bal ${fmtUsd(a.balance)}` : ''}`);
+    if (a.kind === 'capital') return logLine(a.ts, 'capital', ...p, a.flow === 'payout' ? 'payout sent ' : 'capital added ', el('span', {}, fmtUsd(a.usd, true)), ' · not profit or loss');
+    if (a.kind === 'compare') return logLine(a.ts, 'compare', ...p, 'live vs backtest ', el('span', { class: a.match ? 'good' : 'bad' }, a.match ? 'MATCH' : 'MISMATCH'), ` · ${a.matched ?? 0} matched${a.mismatches ? ` · ${a.mismatches} differ` : ''}`);
+    return null;
   }
-  function renderSkipped(d) {
-    moreBtn($('#skippedMore'), 'skipped', d.skipped.length, () => renderSkipped(d));
+  function renderActivity(b) {
+    const box = clear($('#activity')), out = [];
+    if (b.hb != null) out.push(logLine(b.hb, b.alive ? 'check' : 'down', b.alive ? 'heartbeat ok' : 'last heartbeat received', b.status.next_wake_ms ? ` · next wake ${fmtHm(b.status.next_wake_ms)}` : ''));
+    for (const a of b.activity) out.push(actLine(a));
+    $('#actCount').textContent = `${b.activity.length} events`;
+    if (!out.length) box.append(el('div', { class: 'empty' }, b.present ? 'Nothing logged yet.' : `${b.label} ${health(b).note}.`));
+    else box.append(...out.filter(Boolean));
+  }
+  function renderSkipped(b) {
+    const total = Object.values(b.skip_counts).reduce((a, x) => a + x, 0);
+    $('#skipCount').textContent = total ? `${total} skipped in all` : '';
+    clear($('#skipSummary')).append(...Object.entries(b.skip_counts).sort((a, c) => c[1] - a[1]).map(([k, x]) => el('span', { class: 'chip' }, `${k} ${x}`)));
+    moreBtn($('#skippedMore'), 'skipped', b.skipped.length, () => renderSkipped(b));
     clear($('#skipped')).append(table([
       { h: 'Signal candle', left: true, f: (r) => fmtShort(r.signal_candle_open_ms) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
       { h: 'Reason', left: true, f: (r) => el('span', { class: 'chip' }, r.reason) }, { h: 'Detail', left: true, f: (r) => r.detail || '', c: () => 'wrap' },
-    ], d.skipped.slice(0, shown.skipped), 'No skipped signals.'));
+    ], b.skipped.slice(0, shown.skipped), b.present ? 'No skipped signals.' : `${b.label} ${health(b).note}.`));
   }
 
-  // ---------------- Status: one summary + one list (no repeated tiles) ----------------
-  function renderStatus(d) {
-    const s = d.status, o = d.overall, waiting = s.last_heartbeat_ms == null, mode = d.mode.toUpperCase(), span = (c, t) => el('span', { class: c }, t);
-    $('#hbDot').className = `live-dot ${waiting ? '' : s.alive ? 'ok' : 'bad'}`;
-    const coinsOpen = d.open.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ');
-    const text = clear($('#nowText'));
-    if (waiting) add(text, 'The dashboard has not heard from the bot yet. The bot reports on a regular schedule; press the refresh icon at the top to get a report right away.');
-    else if (!s.alive) add(text, span('bad', 'The bot is not reporting. '), `Its last heartbeat was ${fmtDur(s.age_ms / 1000)} ago (the limit is ${fmtDur(s.stale_after_ms / 1000)}). Check the VPS.`);
-    else add(text, 'BB-Core is ', el('b', { class: 'good' }, 'online'), ` in ${mode} mode. It last reported `, ago(s.last_heartbeat_ms),
-      s.next_wake_ms ? [' and will look at the market again at ', el('b', {}, fmtShort(s.next_wake_ms) + tzTag()), ' (', until(s.next_wake_ms), ').'] : '.',
-      d.open.length ? [' ', el('b', {}, `${d.open.length} position${d.open.length === 1 ? ' is' : 's are'} open`), ` (${coinsOpen}).`] : ' It is flat: no position open.',
-      o.trades ? ` ${o.trades} closed trade${o.trades === 1 ? '' : 's'}, ${fmtR(o.total_r)} in total.` : ' No trade has been taken yet.',
-      s.kill_switch ? span('warn', ' The kill switch is ON: no new entries.') : '');
-    const sys = clear($('#sys')), u = d.uptime, ic = d.bots && d.bots.icore;
-    if (!waiting) {
-      const candles = Object.entries(s.last_candle_ms || {});
-      sys.append(
-        kv('Last heartbeat', fmtHm(s.last_heartbeat_ms) + tzTag(), ago(s.last_heartbeat_ms)),
-        kv('Next check', s.next_wake_ms ? fmtHm(s.next_wake_ms) + tzTag() : '—', s.next_wake_ms ? until(s.next_wake_ms) : null),
-        kv('Last candle checked', candles.length ? `closed ${fmtHm(Math.max(...candles.map(([, v]) => closeOf(v))))}` : '—', candles.length ? ago(Math.max(...candles.map(([, v]) => closeOf(v)))) : null),
-        kv('Uptime (7d)', u ? el('span', { class: u.uptime_pct >= 99 ? 'good' : u.uptime_pct >= 95 ? 'warn' : 'bad' }, `${u.uptime_pct.toFixed(2)}%`) : '—', u ? el('small', {}, `process up ${fmtDur(s.uptime_sec)}`) : null),
-        kv('Kill switch', el('span', { class: s.kill_switch ? 'bad' : 'good' }, s.kill_switch ? 'ON · no new entries' : 'off')),
-        kv('Coins', (s.enabled_coins || []).map(sym).join(' · ') || '—'),
-        kv('Build', `${s.commit || '?'} · v${s.version || '?'}`));
-    }
-    if (ic) sys.append(kv('I-Core', el('span', { class: ic.alive ? 'good' : 'bad' }, `${ic.alive ? 'ONLINE' : 'STALE'} · ${String(ic.mode).toUpperCase()}`), ic.last_heartbeat_ms ? ago(ic.last_heartbeat_ms) : el('small', {}, 'no heartbeat yet')));
-    $('#nowNote').textContent = 'The bot reports at every 4-hour candle close, so these numbers can be hours old. The refresh icon at the top gets a fresh report: the bot checks for a request about once a minute and answers straight away (never in the middle of a run).';
-  }
-  function renderUptime(d) {
-    const u = d.uptime, bar = clear($('#upBar')), axis = clear($('#upAxis')), now = d.generated_at;
-    bar.classList.toggle('none', !u);
-    if (u) {
-      const span = Math.max(1, now - u.since_ms);
-      for (const g of u.downtimes) {
-        const i = el('i', { title: `${fmtTime(g.from)} → ${g.to ? fmtTime(g.to) : 'now'} (${fmtDur(g.dur_ms / 1000)})` });
-        i.style.setProperty('left', `${Math.max(0, ((g.from - u.since_ms) / span) * 100)}%`);
-        i.style.setProperty('width', `${Math.max(0.3, (g.dur_ms / span) * 100)}%`);
-        bar.append(i);
-      }
-      axis.append(el('span', {}, fmtShort(u.since_ms)), el('span', {}, `${u.uptime_pct.toFixed(2)}% up`), el('span', {}, 'now'));
-    }
+  // ---------------- Health: one bot's heartbeat, execution, candles, uptime, connectivity ----------------
+  // candle times: each coin's candle OPEN time; the bot checks it when it closes (4 hours later, 1 hour for the 1h lab)
+  const candleClose = (b, v) => v + (b.key === 'bb1h' ? 36e5 : CANDLE_MS);
+  function uptimeLines(u) {
     const lines = [];
-    if (u) {
-      for (const g of u.downtimes) lines.push({ ts: g.from, tag: 'down', text: g.ongoing ? `no heartbeat since ${fmtShort(g.from)} · ongoing ${fmtDur(g.dur_ms / 1000)}` : `${fmtShort(g.from)} → ${fmtHm(g.to)} · ${fmtDur(g.dur_ms / 1000)} without heartbeat` });
-      const byDay = new Map();
-      for (const r of u.restarts) { const k = fmtDay(r.ts); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(r.ts); }
-      for (const ts of byDay.values()) lines.push(ts.length === 1 ? { ts: ts[0], tag: 'restart', text: 'process restarted' }
-        : { ts: Math.max(...ts), tag: 'restart', text: `${ts.length} restarts that day · ${fmtHm(Math.min(...ts))} → ${fmtHm(Math.max(...ts))}` });
+    if (!u) return lines;
+    for (const g of u.downtimes) lines.push({ ts: g.from, tag: 'down', text: g.ongoing ? `no heartbeat since ${fmtShort(g.from)} · ongoing ${fmtDur(g.dur_ms / 1000)}` : `${fmtShort(g.from)} → ${fmtHm(g.to)} · ${fmtDur(g.dur_ms / 1000)} without heartbeat` });
+    const byDay = new Map();
+    for (const r of u.restarts) { const k = fmtDay(r.ts); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(r.ts); }
+    for (const ts of byDay.values()) lines.push(ts.length === 1 ? { ts: ts[0], tag: 'restart', text: 'process restarted' } : { ts: Math.max(...ts), tag: 'restart', text: `${ts.length} restarts that day · ${fmtHm(Math.min(...ts))} → ${fmtHm(Math.max(...ts))}` });
+    return lines.sort((a, b) => b.ts - a.ts);
+  }
+  function fillUp(bar, axis, u, now) {
+    clear(bar); clear(axis); bar.classList.toggle('none', !u);
+    if (!u) return;
+    const span = Math.max(1, now - u.since_ms);
+    for (const g of u.downtimes) {
+      const i = el('i', { title: `${fmtTime(g.from)} → ${g.to ? fmtTime(g.to) : 'now'} (${fmtDur(g.dur_ms / 1000)})` });
+      i.style.setProperty('left', `${Math.max(0, ((g.from - u.since_ms) / span) * 100)}%`); i.style.setProperty('width', `${Math.max(0.3, (g.dur_ms / span) * 100)}%`);
+      bar.append(i);
     }
-    lines.sort((a, b) => b.ts - a.ts);
-    const box = clear($('#downs'));
-    if (!lines.length) box.append(el('div', { class: 'empty' }, u ? 'No downtime or restarts in the last 7 days.' : 'No heartbeat history yet.'));
-    else box.append(...lines.map((l) => logLine(l.ts, l.tag, l.text)));
+    axis.append(el('span', {}, fmtShort(u.since_ms)), el('span', {}, `${u.uptime_pct.toFixed(2)}% up`), el('span', {}, 'now'));
+  }
+  function nowSentence(b, h, text) {
+    const s = b.status, span = (c, t) => el('span', { class: c }, t);
+    if (!b.present) return add(text, `${b.label} ${h.note}.`);
+    if (b.hb == null) return add(text, `The dashboard has not heard a heartbeat from ${b.label} yet.`);
+    if (!b.alive) return add(text, span('bad', `${b.label} is ${h.label.toLowerCase()}. `), `Its last heartbeat was ${fmtDur((Date.now() - b.hb) / 1000)} ago (the limit is ${fmtDur(data.status.stale_after_ms / 1000)}). Check the VPS.`);
+    return add(text, `${b.label} is `, el('b', { class: 'good' }, 'healthy'), ` in ${String(b.mode).toUpperCase()} mode. It last reported `, ago(b.hb),
+      s.next_wake_ms ? [' and will look at the market again at ', el('b', {}, fmtShort(s.next_wake_ms) + tzTag()), ' (', until(s.next_wake_ms), ').'] : '.',
+      b.open_list.length ? [' ', el('b', {}, `${b.open_list.length} position${b.open_list.length === 1 ? ' is' : 's are'} open`), ` (${b.open_list.map((p) => `${sym(p.symbol)} ${p.side}`).join(', ')}).`] : ' It is flat: no position open.',
+      b.overall.trades ? ` ${b.overall.trades} closed trade${b.overall.trades === 1 ? '' : 's'}, ${fmtR(b.overall.total_r)} in total.` : ' No trade has been taken yet.',
+      b.kill ? span('warn', ' The kill switch is ON: no new entries.') : '');
+  }
+  function renderHealth() {
+    const b = bd(route.bot), h = health(b), s = b.status, u = b.uptime, box = clear($('#sys'));
+    $('#hbDot').className = `live-dot ${h.state === 'healthy' ? 'ok' : h.state === 'missing' ? '' : 'bad'}`;
+    nowSentence(b, h, clear($('#nowText')));
+    if (b.present && b.hb != null) {
+      const candles = Object.entries(s.last_candle_ms || {}), newest = candles.length ? Math.max(...candles.map(([, v]) => candleClose(b, v))) : null, exec = Math.max(b.last_entry_ms || 0, b.last_exit_ms || 0) || null;
+      const pct = b.dd != null && b.halt ? Math.min(100, (b.dd / Math.abs(b.halt)) * 100) : null;
+      box.append(
+        kv('Last heartbeat', fmtHm(b.hb) + tzTag(), ago(b.hb)),
+        kv('Next check', s.next_wake_ms ? fmtHm(s.next_wake_ms) + tzTag() : na('The bot did not report its next wake'), s.next_wake_ms ? until(s.next_wake_ms) : null),
+        kv('Last execution', exec ? fmtShort(exec) + tzTag() : 'none yet', exec ? ago(exec) : el('small', {}, 'no entry or exit yet')),
+        kv('Last candle checked', newest ? `closed ${fmtHm(newest)}` : na('The bot did not report its candles'), newest ? ago(newest) : null),
+        kv('Uptime (7d)', u ? el('span', { class: u.uptime_pct >= 99 ? 'good' : u.uptime_pct >= 95 ? 'warn' : 'bad' }, `${u.uptime_pct.toFixed(2)}%`) : na('No heartbeat history yet'), s.uptime_sec != null ? el('small', {}, `process up ${fmtDur(s.uptime_sec)}`) : null),
+        kv('Kill switch', el('span', { class: b.kill ? 'bad' : 'good' }, b.kill ? 'ON · no new entries' : 'off')),
+        kv('Drawdown vs halt', pct == null ? na('No drawdown figure reported yet') : `${Number(b.dd).toFixed(1)}R / ${Math.abs(b.halt)}R`, pct == null ? null : el('small', {}, `${pct.toFixed(0)}% of the halt`)),
+        kv('Enabled coins', b.coins.map(sym).join(' · ') || '—'),
+        kv('Build', s.commit || s.version ? `${s.commit || '?'} · v${s.version || '?'}` : '—'));
+      if (candles.length) box.append(kv('Candle per coin', candles.map(([c, v]) => `${sym(c)} ${fmtHm(candleClose(b, v))}`).join(' · ')));
+    }
+    $('#nowNote').textContent = 'The bot reports at every candle close, so these numbers can be hours old. The refresh icon at the top asks the bots for a fresh report: they check for a request about once a minute and answer straight away (never in the middle of a run).';
+    fillUp($('#upBar'), $('#upAxis'), u, data.generated_at);
+    const lines = uptimeLines(u), dn = clear($('#downs'));
+    if (!lines.length) dn.append(el('div', { class: 'empty' }, u ? 'No downtime or restarts in the last 7 days.' : 'No heartbeat history yet.'));
+    else dn.append(...lines.map((l) => logLine(l.ts, l.tag, l.text)));
+    renderConn(b, h);
+  }
+  const WALLET_STALE_MS = 30 * 60000;
+  function renderConn(b, h) {
+    const host = clear($('#hConn')), w = b.live ? walletOf(b) : null, u = b.uptime;
+    const row = (k, v, sub) => kv(k, v, sub);
+    const items = [row('Heartbeat link', hchip(h), b.hb != null ? ago(b.hb) : null)];
+    if (!b.live) items.push(row('Exchange account', 'none: a paper bot', el('small', {}, 'it sends no orders and has no wallet')));
+    else if (!b.present) items.push(row('Wallet report', hchip({ state: 'missing', label: 'MISSING' })));
+    else if (!w) items.push(row('Wallet report', hchip({ state: 'missing', label: 'MISSING' }), el('small', {}, `no wallet report for ${b.label} has reached the ledger`)));
+    else {
+      const age = Date.now() - w.as_of, wh = age > WALLET_STALE_MS ? { state: 'stale', label: 'STALE' } : { state: 'healthy', label: 'HEALTHY' };
+      items.push(row('Wallet report', [hchip(wh), ' ', fmtUsd(w.usd)], ago(w.as_of)));
+      const mine = b.open_list.length, theirs = w.open;
+      items.push(row('Positions on the exchange', theirs == null ? na('The wallet report did not carry its open positions') : String(theirs),
+        theirs == null ? null : theirs === mine ? el('small', {}, `matches the ${mine} the bot reports`) : el('small', { class: 'warn' }, `DIFFERS: the bot reports ${mine}`)));
+      if (w.suspect) items.push(row('Wallet report check', el('span', { class: 'warn' }, 'waiting for your approval'), el('small', {}, 'a report that looked wrong was held back')));
+    }
+    items.push(row('Exchange API', na('The bots do not report exchange API errors to the dashboard'), el('small', {}, 'fresh wallet reports are the only sign that the exchange answered')));
+    items.push(row('Errors', na('The bots send no error log to the dashboard')));
+    items.push(row('Restarts (7d)', u ? String(u.restarts.length) : na('No heartbeat history yet'), u && u.restarts.length ? el('small', {}, `latest ${fmtShort(u.restarts[0].ts)}`) : null));
+    host.append(el('dl', { class: 'kvlist kv2' }, items));
+  }
+
+  // ---------------- System Monitor: every bot, the recorder and the server ----------------
+  let sysLogFilter = 'all';
+  function renderSystem() {
+    const d = data, now = d.generated_at, bots = LIVE.concat(LABS).map(bd), rc = d.recorder;
+    const rows = bots.map((b) => {
+      const h = health(b), u = b.uptime, s = b.status, w = b.live ? walletOf(b) : null, candles = Object.values(s.last_candle_ms || {}), exec = Math.max(b.last_entry_ms || 0, b.last_exit_ms || 0) || null;
+      const newest = candles.length ? Math.max(...candles.map((v) => candleClose(b, v))) : null, pct = b.dd != null && b.halt ? `${Number(b.dd).toFixed(1)}R / ${Math.abs(b.halt)}R` : null;
+      return { name: el('span', { class: 'botname', 'data-bot': b.key }, el('i', { class: 'bdot' }), b.label, el('small', { class: 'muted' }, ` ${b.role}`)), state: hchip(h), mode: b.present ? modeTag(b.mode) : '—', hb: b.hb != null ? ago(b.hb) : '—',
+        up: u ? el('span', { class: u.uptime_pct >= 99 ? 'good' : u.uptime_pct >= 95 ? 'warn' : 'bad' }, `${u.uptime_pct.toFixed(2)}%`) : b.present ? na('No heartbeat history yet') : '—', rs: u ? String(u.restarts.length) : '—',
+        exec: !b.present ? '—' : exec ? ago(exec) : 'none yet', candle: !b.present ? '—' : newest ? ago(newest) : na('The bot did not report its candles'), kill: !b.present ? '—' : b.kill ? el('span', { class: 'bad' }, 'ON') : 'off',
+        dd: !b.present ? '—' : pct || na('No drawdown figure reported yet'), wallet: !b.live ? 'paper' : w ? [fmtUsd(w.usd), ' · ', ago(w.as_of)] : b.present ? na('No wallet report for this bot') : '—', build: s.commit || s.version ? `${s.commit || '?'} v${s.version || '?'}` : '—' };
+    });
+    rows.push({ name: el('span', { class: 'botname' }, el('i', { class: 'bdot' }), 'Data recorder', el('small', { class: 'muted' }, ' Data')), state: hchip(rc ? { state: rc.alive ? 'healthy' : 'stale', label: rc.alive ? 'HEALTHY' : 'STALE', note: rc.alive ? '' : `no report for ${fmtDur(rc.age_ms / 1000)}` } : { state: 'missing', label: 'MISSING' }),
+      mode: '—', hb: rc ? ago(rc.ts) : '—', up: na('The recorder sends no heartbeat history'), rs: na('The recorder does not report restarts'), exec: '—', candle: rc && rc.health && rc.health.candles_ok_ms ? ago(rc.health.candles_ok_ms) : '—', kill: '—', dd: '—', wallet: '—', build: '—' });
+    clear($('#sysBots')).append(table([
+      { h: 'Bot', left: true, f: (r) => r.name }, { h: 'State', f: (r) => r.state }, { h: 'Mode', f: (r) => r.mode }, { h: 'Last heartbeat', f: (r) => r.hb }, { h: 'Uptime 7d', f: (r) => r.up }, { h: 'Restarts', f: (r) => r.rs },
+      { h: 'Last execution', f: (r) => r.exec }, { h: 'Last candle', f: (r) => r.candle }, { h: 'Kill switch', f: (r) => r.kill }, { h: 'Drawdown / halt', f: (r) => r.dd }, { h: 'Wallet report', f: (r) => r.wallet }, { h: 'Build', f: (r) => r.build },
+    ], rows, ''));
+    // heartbeat timelines, one per bot
+    const up = clear($('#sysUp'));
+    for (const b of bots) {
+      const bar = el('div', { class: 'upbar', role: 'img', 'aria-label': `${b.label} uptime timeline` }), axis = el('div', { class: 'upaxis' });
+      fillUp(bar, axis, b.uptime, now);
+      up.append(el('div', { class: 'upline' }, el('div', { class: 'upl' }, el('span', { class: 'botname', 'data-bot': b.key }, el('i', { class: 'bdot' }), b.label), b.uptime ? el('b', { class: b.uptime.uptime_pct >= 99 ? 'good' : b.uptime.uptime_pct >= 95 ? 'warn' : 'bad' }, `${b.uptime.uptime_pct.toFixed(2)}%`) : el('span', { class: 'muted' }, b.present ? 'no heartbeat history' : 'missing')), bar, b.uptime ? axis : null));
+    }
+    // downtime and restarts of every bot, newest first
+    const lines = bots.flatMap((b) => uptimeLines(b.uptime).map((l) => ({ ...l, text: `${b.label} · ${l.text}` }))).sort((a, c) => c.ts - a.ts).slice(0, 60), dn = clear($('#sysDowns'));
+    if (!lines.length) dn.append(el('div', { class: 'empty' }, 'No downtime or restarts in the last 7 days.'));
+    else dn.append(...lines.map((l) => logLine(l.ts, l.tag, l.text)));
+    // wallet connectivity of the live bots
+    clear($('#sysConn')).append(table([
+      { h: 'Account', left: true, f: (r) => r.name }, { h: 'Equity', f: (r) => r.eq }, { h: 'Report', f: (r) => r.rep }, { h: 'State', f: (r) => r.state }, { h: 'On exchange', f: (r) => r.exch }, { h: 'In the bot', f: (r) => r.mine },
+    ], LIVE.map(bd).map((b) => {
+      const w = walletOf(b), name = el('span', { class: 'botname', 'data-bot': b.key }, el('i', { class: 'bdot' }), b.label);
+      if (!w) return { name, eq: '—', rep: '—', state: hchip({ state: 'missing', label: 'MISSING' }), exch: '—', mine: b.present ? String(b.open_list.length) : '—' };
+      const age = Date.now() - w.as_of, differs = w.open != null && b.present && w.open !== b.open_list.length;
+      return { name, eq: fmtUsd(w.usd), rep: ago(w.as_of), state: w.suspect ? el('span', { class: 'hchip stale' }, 'WAITING FOR APPROVAL') : hchip(age > WALLET_STALE_MS ? { state: 'stale', label: 'STALE' } : { state: 'healthy', label: 'HEALTHY' }),
+        exch: w.open == null ? na('The wallet report did not carry its open positions') : el('span', { class: differs ? 'warn' : '' }, String(w.open)), mine: b.present ? el('span', { class: differs ? 'warn' : '' }, String(b.open_list.length)) : '—' };
+    }), ''));
+    renderRecorder($('#sysRec'), $('#sysRecNote'));
+    loadVpsInline();
+    // what the dashboard is NOT sent, said plainly
+    const h = rc && rc.health || {};
+    clear($('#sysNA')).append(el('dl', { class: 'kvlist kv2' },
+      kv('Disk free', h.disk_free_gb == null ? na('The recorder did not report it') : el('span', { class: h.disk_low ? 'bad' : '' }, `${h.disk_free_gb} GB`), rc ? el('small', {}, ['reported by the recorder ', ago(rc.ts)]) : null),
+      kv('CPU load now', na('The VPS does not report live CPU load')), kv('Memory in use now', na('The VPS does not report live memory use')), kv('Running services', na('The VPS does not report which services run')),
+      kv('Server logs', na('The VPS does not send its logs to the dashboard')), kv('Exchange API errors', na('The bots do not report exchange API errors'))),
+    el('p', { class: 'muted note' }, 'These are shown as Unavailable, never as zero. The Server panel holds the plan\'s specs as recorded on its date, not live usage. Status of every service is judged from heartbeats instead.'));
+    renderSysLog();
+  }
+  function renderSysLog() {
+    const bots = LIVE.concat(LABS).map(bd), seg = clear($('#sysLogSeg'));
+    seg.append(...[['all', 'All'], ...bots.map((b) => [b.key, b.label])].map(([k, l]) => el('button', { type: 'button', 'data-logf': k, class: k === sysLogFilter ? 'on' : '' }, l)));
+    const out = [];
+    for (const b of bots) if (sysLogFilter === 'all' || sysLogFilter === b.key) for (const a of b.activity) out.push({ ts: a.ts, line: () => actLine(a, el('span', { class: 'botname', 'data-bot': b.key }, b.label)) });
+    if (sysLogFilter === 'all') for (const f of data.capital_flows || []) out.push({ ts: f.ts, line: () => actLine({ ts: f.ts, kind: 'capital', flow: f.kind, usd: f.usd }, 'ledger') });
+    out.sort((a, c) => c.ts - a.ts);
+    const box = clear($('#sysLog'));
+    if (!out.length) box.append(el('div', { class: 'empty' }, 'Nothing logged yet.'));
+    else box.append(...out.slice(0, 120).map((x) => x.line()).filter(Boolean));
+  }
+
+  // ---------------- Research Lab: the paper bots and the market recorder, apart from live money ----------------
+  function renderLabOverview() {
+    clear($('#labCards')).append(el('div', { class: 'botcards two' }, LABS.map((k) => botCard(bd(k), { open: true }))));
+    const rows = LABS.map(bd).map((b) => {
+      const p = b.perf, e = p ? p.expect : {}, o = p ? p.overall : b.overall, rd = b.present ? BR.readiness(b.trades, { compare: b.compare, drawdownR: b.dd, haltR: b.halt, skipCompare: b.key === 'bb1h' }) : [];
+      return { b, label: b.label, n: o.trades, win: o.win_rate, ewin: e.win_rate, avg: o.avg_r, eavg: e.avg_r, pm: p ? p.trades_per_month : null, epm: e.trades_per_month, dd: o.max_dd_r, edd: e.max_dd_r, ok: rd.filter((c) => c.status === 'pass').length, of: rd.length };
+    });
+    clear($('#labCompare')).append(table([
+      { h: 'Lab', left: true, f: (r) => el('span', { class: 'botname', 'data-bot': r.b.key }, el('i', { class: 'bdot' }), r.label) }, { h: 'Closed trades', f: (r) => (r.b.present ? r.n : '—') },
+      { h: 'Win rate', f: (r) => (r.b.present ? [pct0(r.win), el('small', { class: 'muted' }, ` exp ${pct0(r.ewin)}`)] : '—') }, { h: 'Average R', f: (r) => (r.b.present ? [el('span', { class: cls(r.avg) }, fmtR(r.avg)), el('small', { class: 'muted' }, ` exp ${fmtR(r.eavg)}`)] : '—') },
+      { h: 'Trades / month', f: (r) => (r.b.present ? [r.pm ?? '—', el('small', { class: 'muted' }, ` exp ${r.epm ?? '—'}`)] : '—') }, { h: 'Worst drop', f: (r) => (r.b.present ? [`${Number(r.dd || 0).toFixed(1)}R`, el('small', { class: 'muted' }, ` exp ${r.edd ?? '—'}R`)] : '—') },
+      { h: 'Ready for live?', f: (r) => (r.b.present ? `${r.ok} of ${r.of} checks OK` : '—') },
+    ], rows, ''));
+  }
+  function renderMarket() {
+    renderRegime(); renderRecorder($('#recHealth'), $('#recNote')); loadRegimeHistory();
+    const p = view().perf;
+    if (p) renderExec(p); else { clear($('#exec')).append(el('div', { class: 'empty' }, 'No data yet.')); $('#execNote').textContent = ''; }
+  }
+
+  // ---------------- Settings ----------------
+  function renderSettings() {
+    const d = data, mode = d.mode;
+    $('#modeRow').hidden = d.modes_seen.length < 2;
+    clear($('#modeSeg')).append(...d.modes_seen.map((m) => el('button', { type: 'button', 'data-mode': m, class: m === mode ? 'on' : '' }, m)));
+    syncSettings();
+    const s = d.status;
+    $('#setInfo').textContent = `Data generated ${fmtTime(d.generated_at)} · BB-Core data mode ${d.mode}${s.commit || s.version ? ` · BB-Core build ${s.commit || '?'} v${s.version || '?'}` : ''}.`;
+  }
+  function syncSettings() {
+    for (const b of $$('[data-tz]')) b.classList.toggle('on', b.dataset.tz === tz);
+    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+    for (const b of $$('[data-theme-set]')) b.classList.toggle('on', b.dataset.themeSet === theme);
   }
 
   // every second: the clock and every "x ago" / "in x" in the open tab stays current without refetching (paused while the page is hidden)
@@ -961,47 +1336,65 @@
     for (const n of document.querySelectorAll('#app [data-until]')) { const t = Number(n.dataset.until); n.textContent = t > now ? `in ${fmtDur((t - now) / 1000)}` : 'due now'; }
   }
 
-  // ---------------- settings menu, tabs, switches ----------------
-  const menu = $('#menu'), menuBtn = $('#menuBtn');
-  function setMenu(open) { menu.hidden = !open; menuBtn.setAttribute('aria-expanded', open); }
-  function syncMenu() {
-    for (const b of $$('[data-tz]')) b.classList.toggle('on', b.dataset.tz === tz);
-    const theme = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-    for (const b of $$('[data-theme-set]')) b.classList.toggle('on', b.dataset.themeSet === theme);
-  }
+  // ---------------- keys, navigation, switches ----------------
   const typing = () => /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || $('#app').hidden;
-  menuBtn.addEventListener('click', (e) => { e.stopPropagation(); syncMenu(); setMenu(menu.hidden); });
-  document.addEventListener('click', (e) => { if (!menu.hidden && !menu.contains(e.target)) setMenu(false); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !menu.hidden) { setMenu(false); menuBtn.focus(); }
     if (e.ctrlKey || e.metaKey || e.altKey || typing()) return;
     if (e.key === 'r' || e.key === 'R') load(true);
-    if (/^[1-7]$/.test(e.key)) setTab(TABS[+e.key - 1]);
+    if (/^[1-5]$/.test(e.key)) { setPage(PAGES[+e.key - 1]); window.scrollTo(0, 0); }
   });
-  menu.addEventListener('click', (e) => {
+  $('#mainTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-page]'); if (b) { setPage(b.dataset.page); window.scrollTo(0, 0); } });
+  $('#mainTabs').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const n = (PAGES.indexOf(route.page) + (e.key === 'ArrowRight' ? 1 : PAGES.length - 1)) % PAGES.length; setPage(PAGES[n]); $(`#mainTabs [data-page="${PAGES[n]}"]`).focus(); e.preventDefault();
+  });
+  $('#subTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-sub]'); if (b) setSub(b.dataset.sub); });
+  $('#subTabs').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const subs = (route.page === 'bots' ? BOT_SUBS : LAB_SUBS).map(([k]) => k), cur = route.page === 'bots' ? route.bsub : route.lsub, n = (subs.indexOf(cur) + (e.key === 'ArrowRight' ? 1 : subs.length - 1)) % subs.length;
+    setSub(subs[n]); $(`#subTabs [data-sub="${subs[n]}"]`).focus(); e.preventDefault();
+  });
+  $('#botSel').addEventListener('click', (e) => { const b = e.target.closest('[data-selbot]'); if (b) selectBot(b.dataset.selbot); });
+  // a bot card opens that bot's workspace
+  const openCard = (c) => { if (data) goBot(c.dataset.open, LIVE.includes(c.dataset.open) ? 'dashboard' : 'performance'); };
+  document.addEventListener('click', (e) => { const c = e.target.closest('[data-open]'); if (c) openCard(c); });
+  document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-open]')) { e.preventDefault(); openCard(e.target); } });
+  window.addEventListener('hashchange', () => { readHash(location.hash); applyRoute(); });
+  $('#pChecks').addEventListener('click', () => { const bad = LIVE.map(bd).find((b) => b.perf && (b.perf.verdict === 'warn' || b.perf.verdict === 'stop')); goBot(bad ? bad.key : 'bbcore', 'verification'); });
+  $('#rangeTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartDays = +b.dataset.range; store.set('bot.range', String(chartDays)); renderChart(); });
+  $('#chartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartKind = b.dataset.chart; store.set('bot.chart', chartKind); renderChart(); });
+  $('#bRangeTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartDays = +b.dataset.range; store.set('bot.range', String(chartDays)); renderBotChart(); });
+  $('#bChartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; bchartKind = b.dataset.bchart; store.set('bot.bchart', bchartKind); renderBotChart(); });
+  $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); if (view().perf) renderPeriods(view().perf); });
+  for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
+  $('#fSearch').addEventListener('input', (e) => { filters.q = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
+  // settings: times, theme, data mode, saved preferences
+  for (const id of ['#pSettings', '#pSession']) $(id).addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.tz) { tz = b.dataset.tz; store.set('bot.tz', tz); if (data) render(data); }
     if (b.dataset.themeSet) { document.documentElement.setAttribute('data-theme', b.dataset.themeSet); store.set('bot.theme', b.dataset.themeSet); }
     if (b.dataset.mode) { modeSel = b.dataset.mode; store.set('bot.mode', modeSel); load(true); }
-    syncMenu();
+    if (b.id === 'resetPrefs') { try { for (const k of Object.keys(localStorage)) if (k.startsWith('bot.')) localStorage.removeItem(k); } catch {} location.reload(); }
+    syncSettings();
   });
-  $('#mainTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-tab]'); if (b) setTab(b.dataset.tab); });
-  $('#mainTabs').addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    const n = (TABS.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length; setTab(TABS[n]); $(`#mainTabs [data-tab="${TABS[n]}"]`).focus(); e.preventDefault();
-  });
-  window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TABS.includes(h) && h !== tab) setTab(h); });
-  $('#rangeTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartDays = +b.dataset.range; store.set('bot.range', String(chartDays)); renderChart(); });
-  $('#chartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartKind = b.dataset.chart; store.set('bot.chart', chartKind); renderChart(); });
-  $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); renderPeriods(view().perf); });
-  document.addEventListener('click', (e) => {
-    const b = e.target.closest('.botseg button[data-bot]'); if (!b || !data) return;
-    bot = b.dataset.bot; store.set('bot.view', bot); shown.trades = PAGE.trades; shown.journal = PAGE.journal; for (const t of ['performance', 'overview', 'calendar', 'research']) dirty.add(t); drawTab();
-  });
-  $('#pChecks').addEventListener('click', () => setTab('verify'));
-  for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
+  // system monitor: commands and the log filter
+  $('#sysAsk').addEventListener('click', () => { load(true); askBot(); });
+  $('#sysRefresh').addEventListener('click', () => load(true));
+  $('#sysLogSeg').addEventListener('click', (e) => { const b = e.target.closest('button[data-logf]'); if (!b) return; sysLogFilter = b.dataset.logf; renderSysLog(); });
 
-  // ---------------- VPS specs (Status tab) ----------------
+  // ---------------- VPS specs (System Monitor): a recorded snapshot of the plan, not live usage ----------------
+  let vpsInlineDone = false;
+  async function loadVpsInline() {   // the server specs, read once when the System Monitor is first opened
+    if (vpsInlineDone) return; const host = $('#vpsInline');
+    try {
+      const res = await fetch('/api/vps', { credentials: 'same-origin', cache: 'no-store' });
+      if (res.status === 401) return;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      renderVps(await res.json(), host); vpsInlineDone = true;
+    } catch (e) { clear(host).append(el('div', { class: 'empty' }, `Could not load the specs: ${e.message}`)); }
+  }
+
+  // ---------------- VPS specs (System Monitor) ----------------
   const ICON = {
     cpu: 'M9 9h6v6H9z M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M9 2v2 M15 2v2 M9 20v2 M15 20v2 M2 9h2 M2 15h2 M20 9h2 M20 15h2',
     ram: 'M2 7h20v9H2z M6 16v3 M10 16v3 M14 16v3 M18 16v3 M6 10h2v3H6z M11 10h2v3h-2z M16 10h2v3h-2z',
@@ -1072,13 +1465,14 @@
       $('#loginMsg').textContent = res.status === 429 ? 'Too many attempts. Wait a few minutes.' : res.status === 503 ? 'Login is not configured on the server.' : 'Wrong password.';
     } catch { $('#loginMsg').textContent = 'Network error.'; }
   });
-  $('#logoutBtn').addEventListener('click', async () => { setMenu(false); try { await fetch('/api/login', { method: 'DELETE', credentials: 'same-origin' }); } catch {} showLogin(''); });
-  $('#refreshBtn').addEventListener('click', () => { setMenu(false); load(true); });
+  $('#logoutBtn').addEventListener('click', async () => { try { await fetch('/api/login', { method: 'DELETE', credentials: 'same-origin' }); } catch {} showLogin(''); });
+  $('#refreshBtn').addEventListener('click', () => load(true));
 
   // "Ask bot now": leaves a request; the bot (which asks outbound about once a minute) answers with a heartbeat; we re-read every 5 s until it arrives (or give up after 3 minutes)
   let askWatch = null;
   async function askBot() {
-    const btn = $('#askBtn'), msg = $('#askMsg'); btn.disabled = true; btn.classList.add('asking'); msg.hidden = false; msg.textContent = 'Asking…';
+    const m1 = $('#askMsg'), m2 = $('#sysAskMsg'), msg = { set textContent(v) { m1.textContent = v; m2.textContent = v; }, set hidden(v) { m1.hidden = v; } };   // the answer shows at the top and on the System Monitor
+    const btn = $('#askBtn'); btn.disabled = true; btn.classList.add('asking'); msg.hidden = false; msg.textContent = 'Asking…';
     try {
       const res = await fetch('/api/ask', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: data && data.mode }) });
       if (res.status === 401) return showLogin('');

@@ -7,12 +7,12 @@
 <link rel="icon" href="../icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <meta name="robots" content="noindex, nofollow, noarchive">
-<meta name="theme-color" content="#0A0A0A">
+<meta name="theme-color" content="#0B1220">
 <title>Lucid'io Bot</title>
 <link rel="preload" href="../fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>
-  // Apply the saved theme before first paint (system | light | dark), so there is no flash.
-  try { var t = localStorage.getItem('bot.theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+  // Apply the saved theme before first paint, so there is no flash. Dark (navy) is the default; light is kept for those who choose it.
+  try { var t = localStorage.getItem('bot.theme'); document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark'); } catch (e) { document.documentElement.setAttribute('data-theme', 'dark'); }
 </script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -27,40 +27,17 @@
     </div>
     <div class="top-right">
       <span id="statusPill" class="pill" hidden></span>
-      <span id="updated" class="clock" title="Newest heartbeat or event received from the bot" hidden></span>
+      <span id="updated" class="clock" title="Newest heartbeat or event received from the bots" hidden></span>
       <span id="clock" class="clock" title="Current time"></span>
       <span id="askMsg" class="muted ask-msg" role="status" aria-live="polite" hidden></span>
-      <button type="button" class="icon-btn" id="askBtn" title="Refresh now: ask the bot for a fresh report" aria-label="Refresh now">
+      <button type="button" class="icon-btn" id="askBtn" title="Refresh now: ask the bots for a fresh report" aria-label="Refresh now">
         <svg viewBox="0 0 24 24" class="ico" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/></svg>
       </button>
-      <div class="menu-wrap">
-        <button type="button" class="icon-btn" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="menu" title="Settings">
-          <svg viewBox="0 0 24 24" class="ico" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-        </button>
-        <div id="menu" class="menu" role="menu" hidden>
-          <div class="menu-sec" id="modeRow" hidden>
-            <span class="menu-k">Data</span>
-            <div class="seg" id="modeSeg" role="group" aria-label="Paper or live data"></div>
-          </div>
-          <div class="menu-sec">
-            <span class="menu-k">Times</span>
-            <div class="seg" role="group" aria-label="Time zone"><button type="button" data-tz="utc">UTC</button><button type="button" data-tz="local">Local</button></div>
-          </div>
-          <div class="menu-sec">
-            <span class="menu-k">Theme</span>
-            <div class="seg" role="group" aria-label="Theme"><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
-          </div>
-          <div class="menu-line"></div>
-          <button type="button" class="menu-item" role="menuitem" id="refreshBtn"><span>Refresh now</span><kbd>R</kbd></button>
-          <div class="menu-line"></div>
-          <button type="button" class="menu-item danger" role="menuitem" id="logoutBtn" hidden><span>Log out</span></button>
-        </div>
-      </div>
     </div>
   </header>
 
   <section id="login" class="panel narrow" hidden>
-    <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>auth / login</h2></div>
+    <div class="ph"><h2>Sign in</h2></div>
     <div class="pb">
       <p class="muted">This page shows trading data, so it is password protected.</p>
       <form id="loginForm">
@@ -77,57 +54,140 @@
   <div id="app" hidden>
     <div id="alert" class="alert" role="alert" hidden></div>
 
-    <!-- one tab per question: how are we doing (Overview) · is the edge real (Performance) · which days won and lost (Calendar) · how does the run look in detail, is it ready for live (Research) · what happened (Trades, Log) · is it behaving (Verify) · is it running (Status).
-         Every panel says which tab it belongs to (data-tabs) and appears in exactly one tab. -->
-    <nav class="maintabs" id="mainTabs" role="tablist" aria-label="Dashboard sections">
-      <button type="button" role="tab" data-tab="overview">Overview</button>
-      <button type="button" role="tab" data-tab="performance">Performance</button>
-      <button type="button" role="tab" data-tab="calendar">Calendar</button>
-      <button type="button" role="tab" data-tab="research">Research</button>
-      <button type="button" role="tab" data-tab="verify"><span id="tbCheck" class="tb-dot" aria-hidden="true"></span>Verify</button>
-      <button type="button" role="tab" data-tab="log">Log <span class="tb-n" id="tbLog"></span></button>
-      <button type="button" role="tab" data-tab="status"><span id="tbDot" class="tb-dot" aria-hidden="true"></span>Status</button>
+    <!-- Five pages. Overview: all three live bots at a glance. Live Bots: one workspace per bot (BB-Core, I-Core, T-CORE) with six sub-pages.
+         Research Lab: the paper bots and the market recorder, kept apart from live money. System Monitor: every bot, the recorder and the server. Settings.
+         Every panel says where it lives (data-v = "overview", "bots:<sub-page>", "lab:<sub-page>", "system", "settings") and shows only there. -->
+    <nav class="pagenav" id="mainTabs" role="tablist" aria-label="Dashboard pages">
+      <button type="button" role="tab" data-page="overview">Overview</button>
+      <button type="button" role="tab" data-page="bots"><span id="tbBots" class="tb-dot" aria-hidden="true"></span>Live Bots</button>
+      <button type="button" role="tab" data-page="lab">Research Lab</button>
+      <button type="button" role="tab" data-page="system"><span id="tbSys" class="tb-dot" aria-hidden="true"></span>System Monitor</button>
+      <button type="button" role="tab" data-page="settings">Settings</button>
     </nav>
+    <div class="botsel" id="botSel" role="group" aria-label="Choose a bot" hidden></div>
+    <nav class="subnav" id="subTabs" role="tablist" aria-label="Sections" hidden></nav>
 
-    <!-- ===== Overview ===== -->
-    <section class="kpis" id="pKpis" data-tabs="overview" aria-label="Headline numbers">
+    <!-- ================= OVERVIEW: the three live bots ================= -->
+    <section class="kpis" id="pKpis" data-v="overview" aria-label="Headline numbers, live bots only">
       <div class="kpi hero-kpi">
-        <div class="k">Total capital <span class="modeTag"></span></div>
+        <div class="k">Live capital <span class="modeTag live">LIVE</span></div>
         <div class="big" id="kCapital">—</div>
         <div class="sub" id="kCapitalSub"></div>
         <div class="spark" id="kSpark"></div>
       </div>
-      <div class="kpi"><div class="k">Net result</div><div class="mid" id="kNet">—</div><div class="sub" id="kNetSub"></div></div>
-      <div class="kpi"><div class="k">Win rate · PF</div><div class="mid" id="kWin">—</div><div class="sub" id="kWinSub"></div></div>
-      <div class="kpi"><div class="k">Drawdown vs halt</div><div class="mid" id="kDd">—</div><div class="meter"><i id="kDdBar"></i></div><div class="sub" id="kDdSub"></div></div>
+      <div class="kpi"><div class="k">Time-weighted return</div><div class="mid" id="kTwr">—</div><div class="sub" id="kTwrSub"></div></div>
+      <div class="kpi"><div class="k">Realized P&amp;L</div><div class="mid" id="kNet">—</div><div class="sub" id="kNetSub"></div></div>
+      <div class="kpi"><div class="k">Open positions</div><div class="mid" id="kOpenN">—</div><div class="sub" id="kOpenSub"></div></div>
+      <div class="kpi"><div class="k">Drawdown vs halt (worst bot)</div><div class="mid" id="kDd">—</div><div class="meter"><i id="kDdBar"></i></div><div class="sub" id="kDdSub"></div></div>
     </section>
-    <button type="button" class="checkbar" id="pChecks" data-tabs="overview" title="Open the Verify tab"></button>
+    <button type="button" class="checkbar" id="pChecks" data-v="overview" title="Open the verification page of the first bot that needs a look"></button>
 
     <div class="grid">
-      <section class="panel c12" id="pBots" data-tabs="overview">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bots / side by side</h2></div>
-        <div class="pb"><div id="bots" class="scroll"></div></div>
+      <section class="panel c12" id="pBots" data-v="overview">
+        <div class="ph"><h2>Live bots</h2><span class="count">click a card to open its workspace</span></div>
+        <div class="pb"><div id="bots"></div></div>
       </section>
 
-      <section class="panel c7" id="pChart" data-tabs="overview">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / curve</h2>
+      <section class="panel c7" id="pChart" data-v="overview">
+        <div class="ph"><h2>Live capital</h2>
           <div class="tabs" id="chartTabs" role="tablist">
-            <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Performance</button><button type="button" role="tab" data-chart="r">R</button><button type="button" role="tab" data-chart="dd">Drawdown</button>
+            <button type="button" role="tab" data-chart="capital">Capital</button><button type="button" role="tab" data-chart="perf">Trading only</button><button type="button" role="tab" data-chart="daily">Daily result</button>
           </div>
         </div>
         <div class="pb"><div class="tabs range-tabs" id="rangeTabs" role="tablist" aria-label="Chart range"><button type="button" role="tab" data-range="1">1D</button><button type="button" role="tab" data-range="7">1W</button><button type="button" role="tab" data-range="30">1M</button><button type="button" role="tab" data-range="91">3M</button><button type="button" role="tab" data-range="0">All</button></div><div id="chart" class="chart"></div><p id="chartNote" class="muted note"></p></div>
       </section>
 
-      <section class="panel c5" id="pOpen" data-tabs="overview">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>positions / open</h2><span class="count" id="openCount"></span></div>
+      <section class="panel c5" id="pOpen" data-v="overview">
+        <div class="ph"><h2>Open positions · all live bots</h2><span class="count" id="openCount"></span></div>
         <div class="pb"><div id="open" class="scroll"></div></div>
       </section>
 
-      <!-- ===== Trades ===== -->
-      <section class="panel c12" id="pTrades" data-tabs="overview">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>trades / history</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+      <section class="panel c7" id="pLatest" data-v="overview">
+        <div class="ph"><h2>Latest trades · all live bots</h2><span class="count" id="latestCount"></span></div>
+        <div class="pb"><div id="latest" class="scroll capped"></div></div>
+      </section>
+
+      <section class="panel c5" id="pHealth" data-v="overview">
+        <div class="ph"><h2>System health</h2><a class="count lnk" href="#system">System Monitor →</a></div>
+        <div class="pb"><div id="healthStrip"></div></div>
+      </section>
+
+      <!-- ================= LIVE BOTS · Dashboard ================= -->
+      <section class="kpis wide" id="bKpis" data-v="bots:dashboard" aria-label="This bot's headline numbers"></section>
+
+      <section class="panel c7" id="bChartP" data-v="bots:dashboard">
+        <div class="ph"><h2 id="bChartTitle">Performance</h2>
+          <div class="tabs" id="bChartTabs" role="tablist">
+            <button type="button" role="tab" data-bchart="balance">Balance</button><button type="button" role="tab" data-bchart="perf">Trading only</button><button type="button" role="tab" data-bchart="r">R</button><button type="button" role="tab" data-bchart="dd">Drawdown</button>
+          </div>
+        </div>
+        <div class="pb"><div class="tabs range-tabs" id="bRangeTabs" role="tablist" aria-label="Chart range"><button type="button" role="tab" data-range="1">1D</button><button type="button" role="tab" data-range="7">1W</button><button type="button" role="tab" data-range="30">1M</button><button type="button" role="tab" data-range="91">3M</button><button type="button" role="tab" data-range="0">All</button></div><div id="bChart" class="chart"></div><p id="bChartNote" class="muted note"></p></div>
+      </section>
+
+      <section class="panel c5" id="bRiskP" data-v="bots:dashboard">
+        <div class="ph"><h2>Risk monitor</h2><span id="bRiskLvl"></span></div>
+        <div class="pb"><div id="bRisk"></div></div>
+      </section>
+
+      <section class="panel c7" id="bOpenP" data-v="bots:dashboard">
+        <div class="ph"><h2>Open positions</h2><span class="count" id="bOpenCount"></span></div>
+        <div class="pb"><div id="bOpen" class="scroll"></div></div>
+      </section>
+
+      <section class="panel c5" id="bLatestP" data-v="bots:dashboard">
+        <div class="ph"><h2>Latest trades</h2><span class="count" id="bLatestCount"></span></div>
+        <div class="pb"><div id="bLatest" class="scroll"></div></div>
+      </section>
+
+      <section class="panel c12" id="bStatusP" data-v="bots:dashboard">
+        <div class="ph"><h2>Operational status</h2><span id="bStateDot" class="live-dot" aria-hidden="true"></span></div>
+        <div class="pb"><p id="bNow" class="nowtext"></p><dl id="bSys" class="kvlist kv2"></dl></div>
+      </section>
+
+      <!-- ================= PERFORMANCE (a live bot's, or a lab's) ================= -->
+      <section class="panel c12" id="pPerf" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Performance · live vs expected</h2><span class="modeTag" data-botmode></span></div>
+        <div class="pb"><div id="perfTiles" class="tiles"></div><p id="perfNote" class="muted note"></p></div>
+      </section>
+
+      <section class="panel c12" id="pTrend" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Trend capture · MFE, MAE, give-back and trailing stop</h2><span class="count" id="trendCount"></span></div>
+        <div class="pb"><div id="trend"></div></div>
+      </section>
+
+      <section class="panel c12" id="pCoins" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Coins · record</h2><span class="count" id="coinCount"></span></div>
+        <div class="pb"><div id="coinRecord" class="scroll"></div><div id="coinNote" class="strats"></div></div>
+      </section>
+
+      <section class="panel c7" id="pPeriods" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Results · by period</h2>
+          <div class="tabs" id="periodTabs" role="tablist"><button type="button" role="tab" data-period="day">Day</button><button type="button" role="tab" data-period="month">Month</button><button type="button" role="tab" data-period="year">Year</button></div>
+        </div>
+        <div class="pb"><div id="periodChart" class="chart"></div><div id="periods" class="scroll capped"></div></div>
+      </section>
+
+      <section class="panel c5" id="pBreak" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Breakdown · coin, side, exit</h2></div>
+        <div class="pb"><div id="breakdown"></div></div>
+      </section>
+
+      <section class="panel c7" id="pExec" data-v="bots:performance lab:performance lab:market">
+        <div class="ph"><h2>Execution · fills vs model</h2></div>
+        <div class="pb"><div id="exec" class="scroll"></div><p id="execNote" class="muted note"></p></div>
+      </section>
+
+      <section class="panel c5" id="pRolling" data-v="bots:performance lab:performance">
+        <div class="ph"><h2>Rolling · last trades</h2></div>
+        <div class="pb"><div id="rolling" class="chart"></div><p id="rollingNote" class="muted note"></p></div>
+      </section>
+
+      <!-- ================= TRADES & CALENDAR ================= -->
+      <section class="panel c12" id="pTrades" data-v="bots:trades lab:trades">
+        <div class="ph"><h2>Trade history</h2><span class="modeTag" data-botmode></span></div>
         <div class="pb">
           <div class="filters">
+            <label>Search <input id="fSearch" type="search" placeholder="coin, side, exit, date…" autocomplete="off"></label>
             <label>Coin <select id="fCoin"><option value="">All</option></select></label>
             <label>Side <select id="fSide"><option value="">All</option><option>LONG</option><option>SHORT</option></select></label>
             <label>Exit <select id="fReason"><option value="">All</option><option>target</option><option>stop</option><option>trail</option><option>time</option><option>abort</option></select></label>
@@ -140,42 +200,8 @@
         </div>
       </section>
 
-      <!-- ===== Performance ===== -->
-      <section class="panel c12" id="pPerf" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / live vs expected</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
-        <div class="pb"><div id="perfTiles" class="tiles"></div><p id="perfNote" class="muted note"></p></div>
-      </section>
-
-      <section class="panel c12" id="pCoins" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>coins / record by strategy</h2><span class="count" id="coinCount"></span></div>
-        <div class="pb"><div id="coinRecord" class="scroll"></div><div id="coinNote" class="strats"></div></div>
-      </section>
-
-      <section class="panel c7" id="pPeriods" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>results / by period</h2>
-          <div class="tabs" id="periodTabs" role="tablist"><button type="button" role="tab" data-period="day">Day</button><button type="button" role="tab" data-period="month">Month</button><button type="button" role="tab" data-period="year">Year</button></div>
-        </div>
-        <div class="pb"><div id="periodChart" class="chart"></div><div id="periods" class="scroll capped"></div></div>
-      </section>
-
-      <section class="panel c5" id="pBreak" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>breakdown / coin · side · exit</h2></div>
-        <div class="pb"><div id="breakdown"></div></div>
-      </section>
-
-      <section class="panel c7" id="pExec" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>execution / fills vs model</h2></div>
-        <div class="pb"><div id="exec" class="scroll"></div><p id="execNote" class="muted note"></p></div>
-      </section>
-
-      <section class="panel c5" id="pRolling" data-tabs="performance">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>rolling / last trades</h2></div>
-        <div class="pb"><div id="rolling" class="chart"></div><p id="rollingNote" class="muted note"></p></div>
-      </section>
-
-      <!-- ===== Calendar: result of each day, for whichever bot and mode is selected (paper or live) ===== -->
-      <section class="panel c12" id="pCal" data-tabs="calendar">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>performance / calendar</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
+      <section class="panel c12" id="pCal" data-v="bots:trades lab:trades">
+        <div class="ph"><h2>Calendar · result of each day</h2><span class="modeTag" data-botmode></span></div>
         <div class="pb">
           <div class="calbar">
             <div class="calnav">
@@ -191,110 +217,174 @@
           <p class="muted note" id="calNote"></p>
         </div>
       </section>
-      <section class="panel c5" id="pCalDay" data-tabs="calendar">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="calDayTitle">day / trades</h2></div>
+      <section class="panel c5" id="pCalDay" data-v="bots:trades lab:trades">
+        <div class="ph"><h2 id="calDayTitle">Day · trades</h2></div>
         <div class="pb"><div id="calDay" class="scroll"></div></div>
       </section>
-      <section class="panel c7" id="pCalYear" data-tabs="calendar">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="calYearTitle">year / by month</h2></div>
+      <section class="panel c7" id="pCalYear" data-v="bots:trades lab:trades">
+        <div class="ph"><h2 id="calYearTitle">Year · by month</h2></div>
         <div class="pb"><div id="calYear" class="scroll"></div></div>
       </section>
 
-      <!-- ===== Research: how the run works and what it has done so far, to decide whether a strategy is ready to go live ===== -->
-      <section class="panel c12" id="pRHow" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2 id="rHowTitle">research / how this run works</h2><span class="modeTag" data-botmode></span><div class="tabs botseg" role="group" aria-label="Bot"></div></div>
-        <div class="pb"><div id="rRun" class="tiles"></div><div id="rHow" class="howto"></div></div>
+      <!-- ================= POSITIONS & ACTIVITY ================= -->
+      <section class="panel c12" id="pOpenFull" data-v="bots:positions">
+        <div class="ph"><h2>Current positions</h2><span class="count" id="openFullCount"></span></div>
+        <div class="pb"><div id="openFull" class="scroll"></div><p id="openFullNote" class="muted note"></p></div>
       </section>
-      <section class="panel c12" id="pRRegime" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / the market now</h2><span class="count">from the data recorder</span></div>
-        <div class="pb"><div id="rgTiles" class="tiles"></div><div id="rgTable" class="scroll" style="margin-top:12px"></div><p class="muted note" id="rgNote"></p></div>
+      <section class="panel c7" id="pActivity" data-v="bots:positions">
+        <div class="ph"><h2>Recent activity</h2><span class="count" id="actCount"></span></div>
+        <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
       </section>
-      <section class="panel c7" id="pRSlip" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / what trading costs here</h2><span class="count">measured, basis points</span></div>
-        <div class="pb"><div id="slipTable" class="scroll"></div><p class="muted note" id="slipNote"></p></div>
-      </section>
-      <section class="panel c5" id="pRRec" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / data recorder</h2></div>
-        <div class="pb"><div id="recHealth"></div><p class="muted note" id="recNote"></p></div>
-      </section>
-      <section class="panel c5" id="pRReady" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / ready for live?</h2></div>
-        <div class="pb"><div id="rReady"></div></div>
-      </section>
-      <section class="panel c7" id="pREdge" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / is there an edge yet?</h2></div>
-        <div class="pb"><div id="rEdge"></div></div>
-      </section>
-      <section class="panel c5" id="pRDist" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / result per trade (R)</h2></div>
-        <div class="pb"><div id="rHist" class="hist"></div><p class="muted note" id="rHistNote"></p></div>
-      </section>
-      <section class="panel c7" id="pRSplit" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / when it trades</h2></div>
-        <div class="pb"><div id="rSplit" class="splits"></div></div>
-      </section>
-      <section class="panel c12" id="pRTrades" data-tabs="research">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>research / trade journal</h2><span class="count" id="rTradeCount"></span></div>
-        <div class="pb"><p class="muted note" style="margin-top:0">Every closed trade with its details. Click a row to open the full card.</p><div id="rTrades" class="scroll capped tall"></div><div id="rTradesMore" class="more"></div></div>
+      <section class="panel c5" id="pSkipped" data-v="bots:positions">
+        <div class="ph"><h2>Skipped signals</h2><span class="count" id="skipCount"></span></div>
+        <div class="pb"><div id="skipSummary" class="chips"></div><div id="skipped" class="scroll capped"></div><div id="skippedMore" class="more"></div></div>
       </section>
 
-      <!-- ===== Verify ===== -->
-      <section class="panel c7" id="pCheckList" data-tabs="verify">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>checks / stop-and-review rules</h2></div>
+      <!-- ================= VERIFICATION ================= -->
+      <section class="panel c6" id="pCheckList" data-v="bots:verification">
+        <div class="ph"><h2 id="checksTitle">Stop-and-review checks</h2></div>
         <div class="pb"><div id="checks"></div>
           <p class="muted note">A rule that is not met is a reason to look, never an automatic action. The daily Telegram watch on the server uses the same rules and says so when one changes.</p></div>
       </section>
-
-      <section class="panel c5" id="pCompare" data-tabs="verify">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>verify / live vs backtest</h2><span class="modeTag"></span></div>
+      <section class="panel c6" id="pCompare" data-v="bots:verification">
+        <div class="ph"><h2>Live vs backtest</h2><span class="modeTag" data-botmode></span></div>
         <div class="pb"><div id="compare"></div></div>
       </section>
-
-      <section class="panel c7" id="pCheckList2" data-tabs="verify">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>checks / stop-and-review rules</h2></div>
-        <div class="pb"><div id="checks2"></div></div>
+      <section class="panel c12" id="pCompareRuns" data-v="bots:verification">
+        <div class="ph"><h2>Mismatches and recent comparison runs</h2></div>
+        <div class="pb"><div id="compareDetail"></div></div>
       </section>
 
-      <section class="panel c5" id="pCompare2" data-tabs="verify">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>verify / live vs backtest</h2></div>
-        <div class="pb"><div id="compare2"></div></div>
+      <!-- ================= HEALTH ================= -->
+      <section class="panel c7" id="pHNow" data-v="bots:health">
+        <div class="ph"><h2>Heartbeat and execution</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span><span class="modeTag" data-botmode></span></div>
+        <div class="pb"><p id="nowText" class="nowtext"></p><dl id="sys" class="kvlist"></dl><p id="nowNote" class="muted note"></p></div>
       </section>
-
-      <!-- ===== Log ===== -->
-      <section class="panel c12" id="pActivity" data-tabs="log">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>activity / log</h2><span class="count" id="actCount"></span></div>
-        <div class="pb"><div id="activity" class="log tall" aria-live="polite"></div></div>
-      </section>
-
-      <section class="panel c12" id="pSkipped" data-tabs="log">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>signals / skipped</h2><span class="modeTag"></span></div>
-        <div class="pb"><div id="skipped" class="scroll capped"></div><div id="skippedMore" class="more"></div></div>
-      </section>
-
-      <!-- ===== Status ===== -->
-      <section class="panel c7" id="pNow" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>bot / right now</h2><span id="hbDot" class="live-dot" aria-hidden="true"></span><span class="modeTag"></span></div>
+      <section class="panel c5" id="pHUp" data-v="bots:health">
+        <div class="ph"><h2>Uptime · last 7 days</h2></div>
         <div class="pb">
-          <p id="nowText" class="nowtext"></p>
-          <dl id="sys" class="kvlist"></dl>
-          <p id="nowNote" class="muted note"></p>
-        </div>
-      </section>
-
-      <section class="panel c5" id="pSystem" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>system / uptime</h2></div>
-        <div class="pb">
-          <div class="sub-h first">Uptime · last 7 days</div>
           <div id="upBar" class="upbar" role="img" aria-label="Uptime timeline"></div>
           <div id="upAxis" class="upaxis"></div>
           <div class="sub-h">Downtime &amp; restarts</div>
           <div id="downs" class="log short"></div>
         </div>
       </section>
+      <section class="panel c12" id="pHConn" data-v="bots:health">
+        <div class="ph"><h2>Connectivity and errors</h2></div>
+        <div class="pb"><div id="hConn"></div></div>
+      </section>
 
-      <section class="panel c12" id="pServer" data-tabs="status">
-        <div class="ph"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><h2>server / specs</h2></div>
+      <!-- ================= RESEARCH LAB ================= -->
+      <section class="panel c12" id="pLabCards" data-v="lab:overview">
+        <div class="ph"><h2>Paper bots</h2><span class="modeTag paper">PAPER</span></div>
+        <div class="pb"><p class="muted" style="margin:0 0 12px">Paper bots trade simulated money on the real market. Their balances and results live only on this page: they are never added to live capital or to any live performance figure.</p><div id="labCards"></div></div>
+      </section>
+      <section class="panel c12" id="pLabCompare" data-v="lab:overview">
+        <div class="ph"><h2>Labs against their backtests</h2></div>
+        <div class="pb"><div id="labCompare" class="scroll"></div><p class="muted note">Each lab is judged against its own backtest (same strategy, same coins). A lab that has few trades says little yet: small samples swing widely.</p></div>
+      </section>
+
+      <section class="panel c12" id="pRHow" data-v="lab:research">
+        <div class="ph"><h2 id="rHowTitle">How this run works</h2><span class="modeTag" data-botmode></span></div>
+        <div class="pb"><div id="rRun" class="tiles"></div><div id="rHow" class="howto"></div></div>
+      </section>
+      <section class="panel c5" id="pRReady" data-v="lab:research">
+        <div class="ph"><h2>Ready for live?</h2></div>
+        <div class="pb"><div id="rReady"></div></div>
+      </section>
+      <section class="panel c7" id="pREdge" data-v="lab:research">
+        <div class="ph"><h2>Is there an edge yet? · 95% range</h2></div>
+        <div class="pb"><div id="rEdge"></div></div>
+      </section>
+      <section class="panel c5" id="pRDist" data-v="lab:research">
+        <div class="ph"><h2>Result per trade (R)</h2></div>
+        <div class="pb"><div id="rHist" class="hist"></div><p class="muted note" id="rHistNote"></p></div>
+      </section>
+      <section class="panel c7" id="pRSplit" data-v="lab:research">
+        <div class="ph"><h2>When it trades · weekday, hour, holding time</h2></div>
+        <div class="pb"><div id="rSplit" class="splits"></div></div>
+      </section>
+      <section class="panel c12" id="pRTrades" data-v="lab:research">
+        <div class="ph"><h2>Trade journal</h2><span class="count" id="rTradeCount"></span></div>
+        <div class="pb"><p class="muted note" style="margin-top:0">Every closed trade with its details. Click a row to open the full card.</p><div id="rTrades" class="scroll capped tall"></div><div id="rTradesMore" class="more"></div></div>
+      </section>
+
+      <section class="panel c12" id="pRRegime" data-v="lab:market">
+        <div class="ph"><h2>Market regime · now and historically</h2><span class="count">from the data recorder</span></div>
+        <div class="pb"><div id="rgTiles" class="tiles"></div><div id="rgTable" class="scroll" style="margin-top:12px"></div><p class="muted note" id="rgNote"></p></div>
+      </section>
+      <section class="panel c7" id="pRSlip" data-v="lab:market">
+        <div class="ph"><h2>Slippage and trading costs</h2><span class="count">measured, basis points</span></div>
+        <div class="pb"><div id="slipTable" class="scroll"></div><p class="muted note" id="slipNote"></p></div>
+      </section>
+      <section class="panel c5" id="pRRec" data-v="lab:market">
+        <div class="ph"><h2>Market recorder</h2></div>
+        <div class="pb"><div id="recHealth"></div><p class="muted note" id="recNote"></p></div>
+      </section>
+
+      <!-- ================= SYSTEM MONITOR ================= -->
+      <section class="panel c12" id="pSysBots" data-v="system">
+        <div class="ph"><h2>Every bot at a glance</h2><span class="count">live bots, paper bots and the recorder</span></div>
+        <div class="pb"><div id="sysBots" class="scroll"></div>
+          <p class="muted note"><b>Healthy</b> reported inside its limit · <b>Stale</b> no heartbeat for longer than the limit · <b>Offline</b> no heartbeat for over a day · <b>Missing</b> has never reported · <b>Unavailable</b> the dashboard is not sent that figure (never shown as zero).</p></div>
+      </section>
+      <section class="panel c7" id="pSysUp" data-v="system">
+        <div class="ph"><h2>Heartbeats · last 7 days</h2></div>
+        <div class="pb"><div id="sysUp"></div></div>
+      </section>
+      <section class="panel c5" id="pSysEvents" data-v="system">
+        <div class="ph"><h2>Downtime and restarts</h2></div>
+        <div class="pb"><div id="sysDowns" class="log tall"></div></div>
+      </section>
+      <section class="panel c7" id="pSysConn" data-v="system">
+        <div class="ph"><h2>Wallet connectivity</h2></div>
+        <div class="pb"><div id="sysConn" class="scroll"></div></div>
+      </section>
+      <section class="panel c5" id="pSysRec" data-v="system">
+        <div class="ph"><h2>Data recorder</h2></div>
+        <div class="pb"><div id="sysRec"></div><p class="muted note" id="sysRecNote"></p></div>
+      </section>
+      <section class="panel c7" id="pSysVps" data-v="system">
+        <div class="ph"><h2>Server · specs</h2></div>
         <div class="pb"><div id="vpsInline"><div class="empty">Loading…</div></div></div>
+      </section>
+      <section class="panel c5" id="pSysNA" data-v="system">
+        <div class="ph"><h2>Not reported to the dashboard</h2></div>
+        <div class="pb"><div id="sysNA"></div></div>
+      </section>
+      <section class="panel c5" id="pSysCmd" data-v="system">
+        <div class="ph"><h2>Diagnostic commands</h2></div>
+        <div class="pb">
+          <div class="cmdrow"><button type="button" id="sysAsk">Ask the bots for a fresh report</button><button type="button" class="ghost" id="sysRefresh">Re-read the dashboard data</button></div>
+          <p class="muted note">The bots check for a request about once a minute and answer straight away (never in the middle of a run). The dashboard then re-reads every 5 seconds until the heartbeat arrives.</p>
+          <p id="sysAskMsg" class="muted" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+      <section class="panel c7" id="pSysLog" data-v="system">
+        <div class="ph"><h2>Event log · all bots</h2>
+          <div class="tabs" id="sysLogSeg" role="group" aria-label="Filter the log"></div></div>
+        <div class="pb"><div id="sysLog" class="log tall" aria-live="polite"></div></div>
+      </section>
+
+      <!-- ================= SETTINGS ================= -->
+      <section class="panel c6" id="pSettings" data-v="settings">
+        <div class="ph"><h2>Preferences</h2></div>
+        <div class="pb">
+          <div class="setrow" id="modeRow"><div><div class="sk">Data mode</div><div class="sd">Which data BB-Core's pages show. I-Core and T-CORE always follow their own mode.</div></div><div class="seg" id="modeSeg" role="group" aria-label="Paper or live data"></div></div>
+          <div class="setrow"><div><div class="sk">Times</div><div class="sd">Every time on the page, and the calendar days.</div></div><div class="seg" role="group" aria-label="Time zone"><button type="button" data-tz="utc">UTC</button><button type="button" data-tz="local">Local</button></div></div>
+          <div class="setrow"><div><div class="sk">Theme</div><div class="sd">Dark navy is the default.</div></div><div class="seg" role="group" aria-label="Theme"><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div></div>
+          <div class="setrow"><div><div class="sk">Refresh</div><div class="sd">The page checks for news every 60 seconds and redraws only when something changed.</div></div><button type="button" class="ghost sm" id="refreshBtn">Refresh now <kbd>R</kbd></button></div>
+          <div class="setrow"><div><div class="sk">Saved preferences</div><div class="sd">Times, theme, chart ranges and the selected bots are remembered in this browser.</div></div><button type="button" class="ghost sm" id="resetPrefs">Reset</button></div>
+        </div>
+      </section>
+      <section class="panel c6" id="pSession" data-v="settings">
+        <div class="ph"><h2>Session and keys</h2></div>
+        <div class="pb">
+          <div class="setrow"><div><div class="sk">Session</div><div class="sd">Signed in with the dashboard password.</div></div><button type="button" class="ghost sm danger" id="logoutBtn" hidden>Log out</button></div>
+          <div class="sub-h">Keyboard</div>
+          <dl class="kvlist"><div><dt>Refresh</dt><span class="fill"></span><dd><kbd>R</kbd></dd></div><div><dt>Pages</dt><span class="fill"></span><dd><kbd>1</kbd>–<kbd>5</kbd></dd></div><div><dt>Close a trade card</dt><span class="fill"></span><dd><kbd>Esc</kbd></dd></div></dl>
+          <p id="setInfo" class="muted note"></p>
+        </div>
       </section>
     </div>
 
