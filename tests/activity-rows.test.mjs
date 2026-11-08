@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 
-test('AR1 a peso deposit shows the pesos paid and the USDT they count as, on one line: +₱5,000 ($79.26)', () => {
+test('AR1 a deposit shows the pesos put in, nothing else: +₱5,000 (no conversion in the transactions)', () => {
   assert.match(app, /const paid = l\.kind === 'deposit' && Number\(l\.php_amount\) > 0;/);
-  assert.match(app, /const main = paid \? `\+\$\{php\(Number\(l\.php_amount\)\)\} \(\$\$\{f\(Number\(l\.usdt\), 2\)\}\)` : cash/);
+  assert.match(app, /const main = paid \? `\+\$\{php\(Number\(l\.php_amount\)\)\}` : cash/);
+  assert.match(app, /S\.ledger = Contribution\.withDepositPesos\(led, S\.dpesos\);/, 'pesos recorded later for an older deposit show the same way');
   assert.match(app, /if \(!withName\) rows = Contribution\.foldTopups\(rows\);/, 'a peso top-up is folded into its deposit, so the line shows the full USDT');
 });
 

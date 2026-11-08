@@ -245,3 +245,20 @@ Between steps 2 and 4, the ₱500 minimum is not checked, so small requests are 
 - **Card:** `Contribution.summary` counts top-up rows as part of the peso contribution, so *Credited to you* = 79.26 USDT at ₱63.08 per USDT, and *Lost converting* is about ₱0. A line *Topped up by the fund manager* shows the amount. `Contribution.topupDue` works out what is due: only with a fresh live rate, and each peso deposit is topped up once (a later rate move never re-credits it).
 - **App:** Record → Money in → **Peso top-ups** lists investors with a top-up due (once their deposit has joined the pool), with one **Top up** button. The Money in preview says how much the top-up will be.
 - **Tests:** `tests/peso-topup.test.mjs` (PT1–PT3), `tests/contribution.test.mjs` CB17.
+
+## Deposits are shown as the pesos put in
+
+A deposit is shown everywhere (transactions, Put in, statements) as the pesos put in, e.g. `+₱10,000`, with no conversion. Conversion only appears where today's value is shown.
+
+**Older deposits saved without their pesos.** Raf's #1 (52.3082 USDT, Oct 23) and #2 (200 USDT, Oct 28) were saved before the pesos were.
+- The fund manager adds the pesos actually paid, **once each**, with **Add pesos** under "Deposits without pesos" on My account, or on the investor's sheet.
+- Migration `20261210000000_deposit_pesos.sql` keeps them in the append-only table `deposit_pesos`, with who, when and the source, logged as `deposit_pesos_recorded`.
+- The deposit's USDT, units, the pool and every other figure are untouched. Ledger rows stay unchanged.
+- Refused:
+  - a deposit that already has pesos (e.g. #4 keeps its ₱6,897);
+  - a second try;
+  - a top-up or an undone deposit;
+  - no source given;
+  - an amount implying less than ₱20 or more than ₱200 per USDT (typo check).
+- Raf after adding ₱3,323 and ₱12,830: Put in = **₱23,050**; transactions `+₱3,323`, `+₱12,830`, `+₱6,897`.
+- Code: `Contribution.withDepositPesos`, `missingPesos`; tests `tests/deposit-pesos.test.mjs` (DP1–DP5).

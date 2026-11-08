@@ -108,6 +108,18 @@
   // A USDT-only deposit is never turned into pesos, so it never looks as if it was paid in pesos.
   const putInPesos = (s) => (s && s.php > 0 && !s.usdtOnlyCount && !(Math.abs(s.withdrawnUsdt) > 1e-9) ? s.php : null);
 
+  // A deposit is shown as the pesos put in. Older deposits saved before the pesos were (php_amount empty) get the pesos recorded later in deposit_pesos
+  // (20261210000000_deposit_pesos.sql) filled in here, on copies, so every screen (transactions, Put in, statements) shows the same pesos. Display only.
+  function withDepositPesos(rows, recorded) {
+    const m = new Map((recorded || []).map((d) => [String(d.ledger_id), Number(d.php_amount)]));
+    return (rows || []).map((l) => (l.kind === 'deposit' && l.php_amount == null && m.has(String(l.id)) ? { ...l, php_amount: m.get(String(l.id)), php_later: true } : l));
+  }
+  // the deposits that still have no pesos (not a top-up, not undone): the manager can add the pesos actually paid, once each
+  function missingPesos(rows) {
+    const undone = new Set((rows || []).filter((l) => l.reversed_of != null).map((l) => String(l.reversed_of)));
+    return (rows || []).filter((l) => l.kind === 'deposit' && Number(l.usdt) > 0 && l.php_amount == null && l.reversed_of == null && !undone.has(String(l.id)) && !isTopup(l));
+  }
+
   // "Put in" and "Withdrawn": two simple figures in PESOS, nothing else (the app shows them as two cards, green and red).
   //   put   = the pesos really paid in (php_amount of the peso deposits). Money put in directly in USDT has no pesos, so it is never turned into pesos: it is said once in
   //           a small note, and an account with no peso deposit at all shows that USDT amount instead.
@@ -221,5 +233,5 @@
       <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, putIn, sumPutIn, withdrawUnits, spreadFigures, journey, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, putIn, sumPutIn, withDepositPesos, missingPesos, withdrawUnits, spreadFigures, journey, rows, card };
 });
