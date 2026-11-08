@@ -46,6 +46,8 @@
     logo: svg('<path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/>'),
     lock: svg('<rect x="5" y="11" width="14" height="10" rx="2.5"/><g class="shackle"><path d="M8 11V8a4 4 0 0 1 8 0v3"/></g>'),
     close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
+    check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+    trash: svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'),
     reports: svg('<path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16.5h6M9 9.5h2"/>'),
   };
 
@@ -85,10 +87,35 @@
   const isAdmin = () => S.me && S.me.role === 'admin';
   const rateText = (h) => pc(h.fee_rate) + '%' + (h.fee_rate_next != null ? ` → ${pc(h.fee_rate_next)}% after next close` : '');
 
-  function toast(msg, err) {
-    const t = document.getElementById('toast');
-    t.innerHTML = `<div class="toast ${err ? 'err' : ''}" role="status">${esc(msg)}</div>`;
-    clearTimeout(toast.t); toast.t = setTimeout(() => (t.innerHTML = ''), err ? 6000 : 3500);
+  // Toasts, top right, coloured by what happened: green = saved / recorded, blue = updated / changed, red = deleted or an error.
+  // A delete that names its own target is held for a few seconds with an Undo button (holdDelete); nothing is sent until the time is up.
+  const TOAST_ICON = { ok: 'check', info: 'refresh', del: 'trash', err: 'alert' };
+  const toastKind = (m) => (/deleted|removed|handed back|cancel|revoked|deactivated/i.test(m) ? 'del'
+    : /updated|changed|renamed|corrected|applied|marked|admitted|moved|passed|joined|reactivated|viewing as|undone|password set|up to date|reset/i.test(m) ? 'info' : 'ok');
+  function toast(msg, kind, opts = {}) {
+    const k = kind === true ? 'err' : kind || toastKind(String(msg)), t = document.getElementById('toast'), ms = opts.ms || (k === 'err' ? 6500 : 3800);
+    toast.undo = opts.undo || null;
+    t.innerHTML = `<div class="toast ${k}" role="${k === 'err' ? 'alert' : 'status'}" style="--ms:${ms}ms"><span class="ticon">${ICON[TOAST_ICON[k]]}</span><span class="tmsg">${esc(msg)}</span>`
+      + `${opts.undo ? '<button type="button" class="tundo" data-toast="undo">Undo</button>' : ''}<button type="button" class="tx" data-toast="close" aria-label="Dismiss">${ICON.close}</button>${opts.undo ? '<span class="tbar"></span>' : ''}</div>`;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { t.innerHTML = ''; toast.undo = null; }, ms);
+  }
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('#toast [data-toast]'); if (!b) return;
+    const undo = b.dataset.toast === 'undo' ? toast.undo : null;
+    clearTimeout(toast.t); toast.undo = null; document.getElementById('toast').innerHTML = '';
+    if (undo) undo();
+  });
+  // A delete is held for HOLD ms with a red toast and an Undo button; only then is it sent. The button that started it keeps its spinner meanwhile.
+  // Only for deletes that name their own target (a waiting deposit, a request, a person, the keys): not for "delete the most recent entry", which a bot booking
+  // in the meantime would point at a different entry.
+  const HOLD = 6000;
+  function holdDelete(label, run, doneMsg) {
+    return new Promise((resolve) => {
+      let timer = null;
+      const undo = () => { clearTimeout(timer); toast('Undone: nothing was changed', 'info'); resolve(); };
+      toast(label, 'del', { ms: HOLD, undo });
+      timer = setTimeout(async () => { try { await run(); await refresh(doneMsg); } catch (e) { if (e.message !== 'Signed out' && !e.cancelled) toast(e.message, true); } resolve(); }, HOLD);
+    });
   }
   const store = {
     get(k = TOKEN_KEY) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -101,12 +128,14 @@
   function askSheet(opts) {
     return new Promise((resolve) => {
       const prev = document.activeElement, uid = 'cs' + (++csN), fields = opts.fields || [];
+      const paused = [...document.querySelectorAll('button.busy')]; paused.forEach((x) => x.classList.remove('busy'));   // not spinning while it waits for your answer
       const wrap = document.createElement('div'); wrap.innerHTML = ConfirmSheet.html(opts, uid);
       const bg = wrap.firstElementChild, form = bg.querySelector('form');
       document.body.appendChild(bg); document.body.style.overflow = 'hidden';
       const finish = (v) => {
         document.removeEventListener('keydown', onKey, true); bg.remove(); document.body.style.overflow = S.modal ? 'hidden' : '';
         if (prev && prev.isConnected && prev.focus) prev.focus();
+        if (v) paused.forEach((x) => { if (x.isConnected) x.classList.add('busy'); });   // confirmed: the button spins again until the action is done
         resolve(v);
       };
       function onKey(ev) {
@@ -152,10 +181,17 @@
     return r;
   }
 
+  // a thin bar across the top while anything is being sent or read (shown after a short moment, so quick reads do not flicker); the form previews do not count
+  let inFlight = 0, loadTimer = null;
+  const loadbar = (on) => { const el = document.getElementById('loadbar'); if (el) el.hidden = !on; };
   async function rpc(fn, args = {}) {
-    const { data, error } = await sb.rpc(fn, args);
-    if (error) throw new Error(error.message);
-    return data;
+    const counted = !/^admin_quote_/.test(fn);
+    if (counted && ++inFlight === 1) { clearTimeout(loadTimer); loadTimer = setTimeout(() => loadbar(true), 150); }
+    try {
+      const { data, error } = await sb.rpc(fn, args);
+      if (error) throw new Error(error.message);
+      return data;
+    } finally { if (counted && --inFlight <= 0) { inFlight = 0; clearTimeout(loadTimer); loadbar(false); } }
   }
   async function call(fn, args = {}) {
     try { return await rpc(fn, { p_token: S.token, ...args }); }
@@ -973,7 +1009,7 @@
     const gainOf = (g, p) => `<i class="${cls(g)}" style="font-style:normal">${smoney(g)}${p != null ? ' (' + pct(p, 1) + ')' : ''}</i>`;
     return `<div class="modal-bg" data-action="closemodal"><div class="sheet" role="dialog" aria-modal="true" aria-label="${nm}">
       <div class="sheet-head"><div><div class="sheet-nm">${nm}${h.active ? '' : ' <span class="chip down">off</span>'}</div><div class="note">@${esc(h.username)}${inv ? '' : ' · fund manager'}</div></div>
-        <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
+        <div class="sheet-btns">${inv && h.active ? `<button class="iconbtn" data-action="viewas" data-id="${h.id}" aria-label="Sign in as ${nm} (read-only)" title="Sign in as ${nm} (read-only)">${ICON.eye}</button>` : ''}<button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div></div>
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
       ${putInCards(putInOf(h))}${depositRecords(h.id)}
@@ -1016,7 +1052,7 @@
         <form class="resetForm" data-id="${h.id}"><label>New password for ${nm}</label>
           <input name="password" type="text" minlength="8" autocomplete="off" required>
           <div class="btns"><button class="ghost">Set password</button></div></form></details>
-      ${inv && h.active ? `<div class="btns"><button class="full" data-action="viewas" data-id="${h.id}">${ICON.eye}<span>View as ${nm}</span></button></div>` : ''}</div></div>`;
+</div></div>`;
   }
   const holderOpts = (sel) => S.all.filter((h) => h.active)
     .map((h) => `<option value="${h.id}" ${h.id === sel ? 'selected' : ''}>${esc(h.name || h.username)}${h.role === 'admin' ? ' (fund manager)' : ''}</option>`).join('');
@@ -1558,8 +1594,10 @@
       <div class="hdr-actions">${isAdmin() && !viewing ? `<button class="iconbtn add" data-tab="record" data-goside="fund" aria-label="New record" title="New record">${ICON.record}</button>` : ''}${settingsMenu(!viewing, !!viewing)}</div></header>
       ${isAdmin() && !viewing ? `<div class="ranges sidesw" role="tablist" aria-label="Side">${[['fund', 'Fund'], ['me', 'My account']].map(([k, l]) => `<button role="tab" aria-selected="${(S.side === 'me') === (k === 'me')}" class="${(S.side === 'me') === (k === 'me') ? 'on' : ''}" data-side="${k}">${l}</button>`).join('')}</div>` : ''}
       ${VIEWS[S.tab]()}
-      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}${viewing ? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">${ICON.back}</button>` : ''}</div></nav>
+      <nav class="tabs" aria-label="Sections"><div class="bar">${tabs.filter(([k]) => k !== 'record').map(([k, l]) => `<button data-tab="${k}" aria-label="${l}" title="${l}" class="${k === S.tab ? 'on' : ''}" aria-current="${k === S.tab ? 'page' : 'false'}">${ICON[k === 'home' && isAdmin() ? 'mine' : TABICON[k] || k]}</button>`).join('')}</div></nav>
+      ${viewing ? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">${ICON.back}<span>Back to admin</span></button>` : ''}
       ${viewing ? '' : userModal()}`;
+    app.classList.toggle('va', !!viewing);   // room under the last card for the "Back to admin" pill
     wirePreviews(); wireChart(); syncNav();
   }
 
@@ -1834,7 +1872,7 @@
     else if (a === 'auditmore') { try { const more = await call('admin_audit_log', { p_limit: 200, p_before: S.audit[S.audit.length - 1].id }); S.audit = S.audit.concat(more); S.auditMore = more.length >= 200; render(); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'backupjson' || a === 'backupcsv') { try { await backupDownload(a === 'backupjson' ? 'json' : 'csv'); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
     else if (a === 'makekey') { try { S.newKey = await call('admin_create_backup_key', { p_label: 'nightly backup' }); await loadAdminExtras(); render(); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
-    else if (a === 'revokekeys') { if (!(await confirmSheet('Revoke all backup keys?', 'Revoke all backup keys? The nightly backup stops until you create a new key.', 'Yes, continue', true))) return; try { await call('admin_revoke_backup_keys'); S.newKey = null; await loadAdminExtras(); render(); toast('Backup keys revoked'); } catch (e) { if (e.message !== 'Signed out') toast(e.message, true); } }
+    else if (a === 'revokekeys') { if (!(await confirmSheet('Revoke all backup keys?', 'Revoke all backup keys? The nightly backup stops until you create a new key.', 'Yes, continue', true))) return; await holdDelete('Revoking all backup keys…', async () => { await call('admin_revoke_backup_keys'); S.newKey = null; }, 'Backup keys revoked'); }
     else if (a === 'splashskip') startTour();
     else if (a === 'welcomenext' || a === 'welcomeback') { S.welcome += a === 'welcomenext' ? 1 : -1; render(); window.scrollTo(0, 0); }
     else if (a === 'welcomedone') {
@@ -1889,19 +1927,20 @@
     else if (a === 'calmonth') { S.calM = (S.calM || 0) + Number(id); render(); }
     else if (a === 'spreadcancel') {
       if (!(await confirmSheet('Hand back this admission spread?', 'Both waiting deposits (the investor\'s and your surplus) are removed together. Nothing in the books changes.', 'Yes, hand back', true))) return;
-      await act(() => call('admin_cancel_admission_spread', { p_spread: Number(id) }), 'Handed back');
+      await holdDelete('Handing back this admission spread…', () => call('admin_cancel_admission_spread', { p_spread: Number(id) }), 'Handed back');
     }
     else if (a === 'cancelpend') {
       if (!(await confirmSheet('Remove this waiting deposit?', 'Remove this waiting deposit? Use this when you gave the money back (or typed it wrong). Nothing in the books changes.', 'Yes, continue', true))) return;
-      await act(() => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
+      await holdDelete('Removing this waiting deposit…', () => call('admin_cancel_pending', { p_id: Number(id) }), 'Removed from waiting');
     }
     else if (a === 'wfsettle' && !(await settleSheet(Number(RD().balance), null))) return;
     else if (WF[a]) await act(() => WF[a](Number(id), b), 'Saved');
-    else if (a === 'cancelreq') await act(() => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
+    else if (a === 'cancelreq') await holdDelete('Cancelling the withdrawal request…', () => call('cancel_withdrawal_request', { p_id: Number(id) }), 'Request cancelled');
     else if (a === 'toggleactive') {
       const on = b.dataset.active === 'true';
       if (on && !(await confirmSheet('Deactivate this person?', 'Deactivate this person? They are signed out and cannot sign in until you reactivate them. Their units stay in the pool.', 'Yes, continue', true))) return;
-      await act(() => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null }), on ? 'Deactivated' : 'Reactivated');
+      const run = () => call('admin_set_profile', { p_profile: id, p_name: null, p_active: !on, p_fee_rate: null });
+      if (on) await holdDelete('Deactivating this person…', run, 'Deactivated'); else await act(run, 'Reactivated');
     }
     else if (a === 'bottotal') {
       const fm = $f(b.dataset.form), box = fm && fm.querySelector('[data-botbox]'), inp = fm && fm.elements[b.dataset.field]; if (!box || !inp) return;
@@ -1958,14 +1997,18 @@
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();
     }
   }
-  // a button that has to wait shows a spinner until it is done (and ignores a second tap), so it never looks like nothing happened
-  const WAITS = new Set(['signout', 'declineterms', 'refresh', 'acceptterms', 'cancelpend', 'cancelreq', 'toggleactive', 'viewas', 'exitview', 'undolast', 'editlast', 'auditmore', 'backupjson', 'backupcsv', 'makekey', 'revokekeys']);
+  // EVERY action button shows a spinner until it is done (and ignores a second tap), so it never looks like nothing happened. Only these finish at once, with nothing
+  // to wait for (they open a page or a sheet, flip a setting, fill a field or save a file from what is already on screen).
+  const INSTANT = new Set(['cur', 'theme', 'adduser', 'help', 'userview', 'closemodal', 'maxunits', 'allunits', 'eye', 'welcome', 'splashskip', 'welcomenext', 'welcomeback',
+    'welcomedone', 'termsback', 'readterms', 'profile', 'contact', 'payout', 'auditfilter', 'stmtpick', 'calmonth', 'stmtprint', 'stmtcsv', 'stmtallcsv', 'invact', 'payreq']);
   const spin = (b) => { b.style.setProperty('--spin', getComputedStyle(b).color); b.classList.add('busy'); };
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-action]');
-    if (!b || !WAITS.has(b.dataset.action)) return onClick(ev);
+    if (!b || INSTANT.has(b.dataset.action)) return onClick(ev);
     if (b.classList.contains('busy')) return;
     spin(b);
+    // "Back to admin" hands over to the browser history, which finishes a moment after onClick returns: its spinner stays until the page changes (or 5 seconds)
+    if (b.dataset.action === 'exitview') { setTimeout(() => b.isConnected && b.classList.remove('busy'), 5000); return onClick(ev); }
     return Promise.resolve(onClick(ev)).finally(() => b.classList.remove('busy'));
   });
   document.addEventListener('input', (ev) => {

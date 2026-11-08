@@ -271,10 +271,25 @@ input[aria-invalid="true"] { border-color: var(--down) !important; box-shadow: 0
 .shake { animation: shake .36s ease; }
 @keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 
-/* toast */
-.toast { position: fixed; left: 16px; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); max-width: 528px; margin: 0 auto; padding: 14px 16px;
-  border-radius: 16px; background: var(--ink); color: var(--page); font-weight: 700; font-size: 14px; z-index: 30; box-shadow: var(--sheet-shadow); }
-.toast.err { background: var(--down); color: #fff; }
+/* toasts, top right, coloured by what happened: green saved, blue updated, red deleted or an error (a delete can carry an Undo with a shrinking bar) */
+#toast { position: fixed; z-index: 60; top: calc(12px + env(safe-area-inset-top)); right: 12px; left: 12px; display: flex; justify-content: flex-end; pointer-events: none; }
+.toast { position: relative; overflow: hidden; pointer-events: auto; display: flex; align-items: center; gap: 10px; width: max-content; max-width: min(420px, 100%); padding: 12px 8px 12px 14px;
+  border-radius: 16px; background: #1B7F3B; color: #fff; font-weight: 700; font-size: 14px; line-height: 1.35; box-shadow: 0 12px 32px -10px rgba(0,0,0,0.55); animation: toastin .22s ease-out; }
+.toast.ok { background: #1B7F3B; } .toast.info { background: #1D63C6; } .toast.del, .toast.err { background: #C62828; }
+.toast .ticon { flex: none; display: grid; place-items: center; width: 22px; height: 22px; }
+.toast .ticon svg { width: 20px; height: 20px; stroke-width: 2.4; }
+.toast .tmsg { min-width: 0; overflow-wrap: anywhere; }
+.toast button { flex: none; min-height: 0; height: 32px; padding: 0 12px; border-radius: 999px; border: 0; background: rgba(255,255,255,0.22); color: #fff; font: inherit; font-weight: 800; box-shadow: none; }
+.toast button:hover { background: rgba(255,255,255,0.34); }
+.toast button.tx { width: 32px; padding: 0; background: transparent; display: grid; place-items: center; opacity: .8; } .toast button.tx svg { width: 16px; height: 16px; }
+.toast .tbar { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: rgba(255,255,255,0.75); transform-origin: left; animation: tbar var(--ms, 6s) linear forwards; }
+@keyframes toastin { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes tbar { to { transform: scaleX(0); } }
+/* a thin bar across the top while anything is being sent or read */
+#loadbar { position: fixed; z-index: 70; top: 0; left: 0; right: 0; height: 3px; overflow: hidden; background: transparent; pointer-events: none; }
+#loadbar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: loadslide 1s ease-in-out infinite; }
+#loadbar[hidden] { display: none; }
+@keyframes loadslide { from { left: -40%; } to { left: 100%; } }
 
 /* floating glass pill tab bar (Tolits TabBar) */
 nav.tabs { position: fixed; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 20; display: flex; justify-content: center; pointer-events: none; }
@@ -286,10 +301,16 @@ nav.tabs button { flex: 1; min-width: 0; min-height: 0; height: 100%; padding: 0
 nav.tabs button svg { width: 22px; height: 22px; }
 nav.tabs button.on { color: var(--accent-ink); background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), var(--btn-glow); }
 nav.tabs button:active { transform: scale(0.94); }
-/* the manager's way back from "view as": a round orange button at the end of the main nav, in the colour the old banner had */
-nav.tabs button.vaback { flex: 0 0 52px; width: 52px; height: 52px; margin-left: 6px; align-self: center; border-radius: 50%; color: #1f1300;
-  background: linear-gradient(180deg, #FFC94D, #FFB020); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(255,176,32,0.45); }
-nav.tabs button.vaback svg { width: 24px; height: 24px; stroke-width: 2.4; }
+/* the manager's way back from "view as": an orange pill OUTSIDE the tab tray, just above its right end; the hover darkens the orange */
+button.vaback { position: fixed; z-index: 21; right: max(12px, calc(50% - 230px)); bottom: calc(10px + 64px + 12px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px;
+  height: 46px; min-height: 0; padding: 0 18px 0 14px; border: 0; border-radius: 999px; color: #1f1300; font-size: 14px; font-weight: 800;
+  background: linear-gradient(180deg, #FFC94D, #FFB020); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 18px rgba(255,176,32,0.45); transition: background .15s, box-shadow .15s, transform .1s; }
+button.vaback svg { width: 20px; height: 20px; stroke-width: 2.6; }
+button.vaback:hover { background: linear-gradient(180deg, #F2A91F, #D98300); box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 18px rgba(217,131,0,0.5); }
+button.vaback:active { background: linear-gradient(180deg, #E59A12, #C97600); transform: scale(0.97); }
+button.vaback:focus-visible { outline: 3px solid #1f1300; outline-offset: 2px; }
+#app.va::after { content: ""; display: block; height: 64px; }
+.sheet-btns { display: flex; align-items: center; gap: 8px; flex: none; }
 
 /* charts */
 .gwrap { position: relative; margin: 14px -6px 4px; }
@@ -472,7 +493,8 @@ svg.mini .lab.hot { fill: var(--accent-text); }
 <body>
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
 <div class="wrap" id="app"><div class="boot" role="status" aria-label="Loading"><span class="ring"></span></div></div>
-<div id="toast"></div>
+<div id="loadbar" hidden role="progressbar" aria-label="Working"></div>
+<div id="toast" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/returns.js"></script>

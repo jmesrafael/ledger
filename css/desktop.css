@@ -14,7 +14,7 @@
   nav.tabs .bar { flex-direction: column; gap: 4px; width: 88px; max-width: none; height: auto; padding: 8px; border-radius: 34px; }
   nav.tabs button { flex: none; height: 66px; border-radius: 26px; font-size: 11px; }
   nav.tabs button:hover:not(.on) { color: var(--ink); background: var(--ghost-bg); }
-  .toast { bottom: 28px; }
+  button.vaback { bottom: calc(28px + env(safe-area-inset-bottom)); }   /* the tray is a vertical bar on the left here: the pill sits at the bottom of the content */
 
   header { padding-top: 28px; }
   .hero .big { font-size: 48px; line-height: 54px; }

@@ -277,3 +277,12 @@ A deposit is shown everywhere (transactions, Put in, statements) as the pesos pu
 - **The units were not changed.** James is credited 79.2594 USDT: 66.40 plus the 12.8594 top-up at the live rate. Raf keeps 91.6278 − 12.8594 = 78.7684 USDT. Each is 0.2455 USDT away from the exact half, as the owner decided.
 - **The top-up is not shown as "Withdrawn" on Raf's card.** The 12.8594 USDT of Raf's units passed to James is part of how that cash-in was split, not money taken out. A real payout still shows.
 - Code: `Contribution.withDepositPesos`, `depositList`, `missingPesos`. Tests: `tests/deposit-pesos.test.mjs` (DP1–DP6).
+
+## Feedback on every action (Nov 8 2026)
+
+- **Loading:** a thin bar runs across the top while anything is being sent or read (the form previews don't count). **Every** action button shows a spinner until it finishes. Only buttons that finish at once with nothing to wait for (opening a page or sheet, theme, currency) don't. While a confirmation sheet is open the button isn't spinning; it spins again once you confirm.
+- **Toasts** are at the top right: **green** = saved or recorded, **blue** = updated or changed, **red** = deleted or an error.
+- **Undo for deletes** (red, with a 6-second shrinking bar): nothing is sent until the time is up, and Undo sends nothing at all. It covers a waiting deposit being handed back or removed, a withdrawal request cancelled, a person deactivated, backup keys revoked, and an admission spread handed back.
+- **No Undo for "Delete the most recent entry".** It always acts on whichever entry is the latest when it runs. If a bot booked a trade during the wait, it would delete a different entry, so it keeps its confirmation sheet and happens at once.
+- **View as:** the eye on an investor's sheet (left of the X) signs in as them, with a spinner. **Back to admin** is an orange pill outside the tab tray (darker orange on hover, a spinner while it works).
+- Code: `toast`, `holdDelete`, `INSTANT` in `js/app.js`; tests `tests/feedback.test.mjs` (FB1–FB6).

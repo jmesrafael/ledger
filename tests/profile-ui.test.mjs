@@ -64,13 +64,18 @@ test('PU4 Home carries no forms and no "Good to know" or Withdrawals card: profi
   assert.match(app, /<div class="card"><h2>Good to know<\/h2>\r?\n\s+<p class="about">This page is a record kept by the fund manager\./, '"Good to know" lives on the About tab');
 });
 
-test('PU8 view-as: no banner on top; a round orange button at the end of the main nav goes back to the manager\'s ledger; name, contact and withdrawal details are editable, password and username are not offered', () => {
+test('PU8 view-as: no banner on top; an orange "Back to admin" pill OUTSIDE the nav tray goes back to the manager\'s ledger (darker orange on hover, a spinner while it works); name, contact and withdrawal details are editable, password and username are not offered', () => {
   const r = grab('function render()', 'Back button (phone and browser)');
   assert.ok(!r.includes('class="viewas"') && !r.includes('Back to fund manager'), 'the top banner is gone');
-  assert.match(r, /\$\{viewing \? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">\$\{ICON\.back\}<\/button>` : ''\}<\/div><\/nav>/);
+  const nav = r.slice(r.indexOf('<nav class="tabs"'), r.indexOf('</nav>'));
+  assert.ok(!nav.includes('vaback'), 'the button is not inside the nav tray');
+  assert.match(r, /<\/div><\/nav>\r?\n\s+\$\{viewing \? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">\$\{ICON\.back\}<span>Back to admin<\/span><\/button>` : ''\}/, 'right after the tray');
   assert.match(app, /a === 'exitview'/); assert.match(app, /back: svg\(/);
   const css = read('login.html');
-  assert.match(css, /nav\.tabs button\.vaback \{[^}]*border-radius: 50%[^}]*#FFB020/);
+  assert.match(css, /button\.vaback \{[^}]*position: fixed;[^}]*border-radius: 999px;[^}]*#FFB020/);
+  assert.match(css, /button\.vaback:hover \{ background: linear-gradient\(180deg, #F2A91F, #D98300\);/, 'the hover darkens the orange, it does not turn black');
+  assert.match(css, /button\.vaback:active \{ background: linear-gradient\(180deg, #E59A12, #C97600\);/);
+  assert.ok(!/nav\.tabs button\.vaback/.test(css), 'the old rules for a button inside the tray are gone');
   const v = grab('function viewProfile()', '// ---------------------------------------------------------------- investor / shared views');
   const view = v.slice(v.indexOf('if (m.impersonated)'), v.indexOf('return `<div class="sechead"><h2>Profile</h2>', v.indexOf('if (m.impersonated)') + 60));
   assert.ok(view.includes('id="nameForm"') && view.includes('contactCard(m)') && view.includes('payoutCard(m)'));
