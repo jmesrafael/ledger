@@ -1547,16 +1547,19 @@
   // Every screen the person moves to (tab, side, an open user sheet, "view as") is a history entry, so Back steps through the app instead of leaving it.
   // Re-rendering for fresh data changes nothing here; the sign-in and the terms/tour screens replace the entry instead of adding one.
   const NAV_KEYS = ['uid', 'tab', 'side', 'rec', 'modal', 'vw', 'gate'];
-  // Every page has its own address (login#/calendar, login#/fund/users, login#/me/statements, login#/fund/record/wd), so it can be bookmarked, shared and reloaded.
-  // The investor's Home is "dashboard". The address is only ever a way back to a page: it never changes what a person may see (a page not in their own tabs is ignored).
-  const RECS = ['dep', 'wd', 'eq', 'hist'];
+  // Every page has its own address: /login/calendar, /login/fund/users, /login/me/statements, /login/fund/record/wd. The investor's Home is /login/dashboard.
+  // The address lets a page be bookmarked, shared and reloaded; it never changes what a person may see (a page that is not among their own tabs is ignored).
+  // Where the app is not served at /login (a plain file or another host without the rewrite) the same addresses are used after a #, and old #/ links are still read.
+  const RECS = ['dep', 'wd', 'eq', 'hist'], PATHY = /^\/login(\/|$)/.test(location.pathname);
+  const here = () => (PATHY ? location.pathname : location.hash);
   function routeOf(s) {
     const t = s.tab === 'home' && S.me && S.me.role === 'investor' ? 'dashboard' : s.tab, sd = S.me && S.me.role === 'admin' && !PAGES.includes(t) ? (s.side === 'me' ? 'me/' : 'fund/') : '';
-    return '#/' + sd + t + (t === 'record' && s.rec ? '/' + s.rec : '');
+    return (PATHY ? '/login/' : '#/') + sd + t + (t === 'record' && s.rec ? '/' + s.rec : '');
   }
   function fromHash() {
     const m = S.me; if (!m || m.impersonated) return null;
-    const seg = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/').filter(Boolean), admin = m.role === 'admin';
+    let rel = ''; try { rel = decodeURIComponent(location.pathname).replace(/^\/login\/?/, ''); if (!rel) rel = decodeURIComponent(location.hash).replace(/^#\/?/, ''); } catch { return null; }
+    const seg = rel.split('/').filter(Boolean), admin = m.role === 'admin';
     let side = 'fund';
     if (admin && (seg[0] === 'fund' || seg[0] === 'me')) side = seg.shift();
     let tab = seg[0] === 'dashboard' && !admin ? 'home' : seg[0];
@@ -1580,7 +1583,7 @@
       s.vd = s.vw ? (move ? (p.vw ? p.vd + 1 : 0) : (p && p.vw ? p.vd : 0)) : 0;               // entries added since "view as" opened
       s.ve = s.vw ? (move ? (p.vw ? p.ve : true) : !!(p && p.vw && p.ve)) : false;             // true when "view as" opened on its own entry
       const url = S.gate || S.adminToken ? null : routeOf(s);   // the terms / tour screens and "view as" keep the address they have
-      if (p && p.app && NAV_KEYS.every((k) => p[k] === s[k])) { S.nav = p; if (url && location.hash !== url) history.replaceState(p, '', url); return; }
+      if (p && p.app && NAV_KEYS.every((k) => p[k] === s[k])) { S.nav = p; if (url && here() !== url) history.replaceState(p, '', url); return; }
       S.nav = s; move ? history.pushState(s, '', url || location.href) : history.replaceState(s, '', url || location.href);
     } catch { /* no history access: Back simply leaves the page */ }
   }

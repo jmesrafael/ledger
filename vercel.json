@@ -12,6 +12,10 @@
       "destination": "/login.html"
     },
     {
+      "source": "/login/:path*",
+      "destination": "/login.html"
+    },
+    {
       "source": "/backtest-data",
       "destination": "/reports/backtest-data.html"
     },
