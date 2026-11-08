@@ -121,6 +121,7 @@ test('DP5 the screens: a deposit shows its pesos and the USDT they bought; the p
   assert.match(app, /if \(!isAdmin\(\) \|\| S\.me\.impersonated \|\| S\.dpesos == null\) return '';/, 'only the fund manager, and only once the migration is run');
   assert.match(app, /case 'deposit_pesos_recorded':/); assert.match(app, /case 'deposit_pesos_corrected':/);
   assert.match(app, /const passed = l\.kind === 'withdrawal' && \/\^peso top-up\/i\.test\(l\.note \|\| ''\);/); assert.match(app, /label = passed \? 'Passed to investor' : label0;/);
+  assert.match(app, /if \(!withName\) rows = rows\.filter\(\(l\) => !\(l\.kind === 'withdrawal' && \/\^peso top-up\/i\.test\(l\.note \|\| ''\)\)\);/, 'not on the person\'s own list; the full log keeps it');
 });
 
 test('DP7 the live case: the earlier draft of this file was run first (no usdt_bought, one entry per deposit, two entries made); running the final file repairs it, keeping both', async () => {

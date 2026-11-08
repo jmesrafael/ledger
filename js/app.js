@@ -377,6 +377,9 @@
   function activityRows(rows, withName) {
     if (!withName && S.me && S.me.role === 'investor') rows = rows.filter((l) => l.kind !== 'fee_out');   // investors never see fee lines: it is already taken out of their balance
     if (!withName) rows = Contribution.foldTopups(rows);   // the person's own list: a peso top-up shows inside the deposit it tops up
+    // ... and on the fund manager's own list, the units passed on as that top-up are part of how a cash-in was split (each deposit shows its pesos and the USDT they
+    // bought), so they are not listed as a transaction; the full Log (withName) keeps the row
+    if (!withName) rows = rows.filter((l) => !(l.kind === 'withdrawal' && /^peso top-up/i.test(l.note || '')));
     if (!rows.length) return '<p class="note">Nothing yet.</p>';
     return rows.map((l) => {
       const passed = l.kind === 'withdrawal' && /^peso top-up/i.test(l.note || '');   // the manager's units passed on as an investor's peso top-up: part of a cash-in's split, not a payout
