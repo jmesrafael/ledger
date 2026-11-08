@@ -146,8 +146,14 @@
 
       <!-- ================= PERFORMANCE (a live bot's, or a lab's) ================= -->
       <section class="panel c12" id="pPerf" data-v="bots:performance lab:performance">
-        <div class="ph"><h2>Performance · live vs expected</h2><span class="modeTag" data-botmode></span></div>
-        <div class="pb"><div id="perfTiles" class="tiles"></div><p id="perfNote" class="muted note"></p></div>
+        <div class="ph"><h2>Performance · live vs expected</h2><span class="modeTag" data-botmode></span>
+          <div class="tabs" id="eqMetric" role="tablist" aria-label="Equity curve by"><button type="button" role="tab" data-eqm="r">By R</button><button type="button" role="tab" data-eqm="usd">By P&amp;L</button></div>
+        </div>
+        <div class="pb">
+          <div class="tabs range-tabs" id="eqRange" role="tablist" aria-label="Equity curve range"><button type="button" role="tab" data-eqr="7">1W</button><button type="button" role="tab" data-eqr="30">1M</button><button type="button" role="tab" data-eqr="91">3M</button><button type="button" role="tab" data-eqr="0">All</button></div>
+          <div id="eqChart" class="chart"></div><p id="eqNote" class="muted note"></p>
+          <div id="perfTiles" class="tiles"></div><p id="perfNote" class="muted note"></p>
+        </div>
       </section>
 
       <section class="panel c12" id="pTrend" data-v="bots:performance lab:performance">

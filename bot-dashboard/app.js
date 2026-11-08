@@ -34,6 +34,7 @@
   let chartKind = ['capital', 'perf', 'daily'].includes(store.get('bot.chart')) ? store.get('bot.chart') : 'capital';   // Overview chart
   let bchartKind = ['balance', 'perf', 'r', 'dd'].includes(store.get('bot.bchart')) ? store.get('bot.bchart') : 'r';   // a bot's own chart
   let period = ['month', 'year', 'day'].includes(store.get('bot.period')) ? store.get('bot.period') : 'day';
+  let eqMetric = store.get('bot.eqm') === 'usd' ? 'usd' : 'r', eqDays = [0, 7, 30, 91].includes(+store.get('bot.eqr')) ? +store.get('bot.eqr') : 0;   // the strategy's equity curve: by R or by P&L, and its range
   // where we are: a page, the chosen live bot and lab, and the sub-page of each. Every visit opens on Overview; a link like #bots/tcore/health opens that page.
   const route = { page: 'overview', bot: LIVE.includes(store.get('bot.view')) ? store.get('bot.view') : 'bbcore', lab: LABS.includes(store.get('bot.lab')) ? store.get('bot.lab') : 'bb1h', bsub: 'dashboard', lsub: 'overview' };
   const LEGACY = { performance: ['bots', 'performance'], calendar: ['bots', 'trades'], verify: ['bots', 'verification'], log: ['bots', 'positions'], status: ['system'], research: ['lab', 'research'] };   // the old seven tabs
@@ -170,7 +171,7 @@
   }
 
   // ---------------- charts (inline SVG) ----------------
-  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), fmtTip = null, empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
+  function lineChart(host, pts, { dd = false, fmtY = (v) => v.toFixed(1), fmtTip = null, tipOf = null, dots = false, empty = 'No closed trades yet.', marks = [], hline = null } = {}) {
     clear(host);
     if (!pts.length) { host.append(el('div', { class: 'empty' }, empty)); return; }
     const W = 680, H = 250, L = 62, R = 14, T = 12, B = 26;
@@ -196,6 +197,8 @@
     const base = (dd ? sy(0) : H - B).toFixed(1), last = pts[pts.length - 1];
     svg.append(sv('path', { class: dd ? 'dd' : 'area', d: `${path} L${sx(last.ts).toFixed(1)},${base} L${sx(pts[0].ts).toFixed(1)},${base} Z` }));
     if (!dd) svg.append(sv('path', { class: 'line', d: path }), sv('circle', { class: 'dot', cx: sx(last.ts), cy: sy(last.y), r: 3.5 }));
+    // one small dot per point (each closed trade of an equity curve), green where the line went up into it, red where it went down
+    if (dots && pts.length <= 250) pts.forEach((p, i) => { if (p.start || i === pts.length - 1) return; svg.append(sv('circle', { class: `pt ${p.y > pts[i - 1].y ? 'up' : p.y < pts[i - 1].y ? 'down' : ''}`, cx: sx(p.ts).toFixed(1), cy: sy(p.y).toFixed(1), r: 2.6 })); });
     // capital added or removed: a labeled step, never part of the line's gain. Steps close together on the chart share one label (their sum).
     const steps = [];
     for (const m of marks.filter((q) => q.ts >= x0 && q.ts <= x1).sort((a, b) => a.ts - b.ts)) {
@@ -228,7 +231,7 @@
       const p = pts[lo], cx = sx(p.ts), cy = sy(p.y);
       cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); hdot.setAttribute('cx', cx); hdot.setAttribute('cy', cy);
       cross.style.display = hdot.style.display = tip.style.display = '';
-      tip.textContent = `${fmtTime(p.ts)} · ${tipFmt(p.y)}`;
+      tip.textContent = tipOf ? tipOf(p) : `${fmtTime(p.ts)} · ${tipFmt(p.y)}`;
       const px = (cx / W) * r.width, tw = tip.offsetWidth;
       tip.style.left = `${Math.max(0, Math.min(r.width - tw, px - tw / 2))}px`; tip.style.top = `${Math.max(0, (cy / H) * r.height - 34)}px`;
     };
@@ -720,6 +723,7 @@
       tile('Average hold', fmtDur(o.avg_hold_sec), 'entry to exit'),
     ];
     clear($('#perfTiles')).append(...tiles);
+    renderEquity(v);
     $('#perfNote').textContent = `${v.label} ${v.mode === 'live' ? 'live' : 'paper'} results against ${e.source}. Single trades swing from −1R to several R, so about 150 or more trades are needed before the average says anything; until then this page shows whether live behaves like the backtest.`;
     renderPeriods(p);
     renderBreakdown(p);
@@ -732,6 +736,31 @@
       clear($('#rolling')).append(el('div', { class: 'empty' }, p.bot === 'icore' ? 'I-Core is a trend follower with few, large winners: a rolling window says little, so it is judged on drawdown and streaks.' : `Shown from trade ${50} on (now ${o.trades}).`));
       $('#rollingNote').textContent = '';
     }
+  }
+  // The strategy's equity curve: the running total of its closed trades, one step per trade at the time it closed, by R or by P&L (dollars, where the trades carry them).
+  // A range starts the curve at 0 at its first day, so the line shows what that period did. Trading results only: capital moves never enter it.
+  function renderEquity(v) {
+    const trades = (v.trades || []).filter((t) => t && t.exit_ts != null && Number.isFinite(+t.r)).slice().sort((a, b) => a.exit_ts - b.exit_ts);
+    const hasUsd = trades.some((t) => t.usd != null);
+    if (eqMetric === 'usd' && !hasUsd) eqMetric = 'r';
+    for (const b of $$('#eqMetric button')) { const on = b.dataset.eqm === eqMetric; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); b.hidden = b.dataset.eqm === 'usd' && !hasUsd; }
+    for (const b of $$('#eqRange button')) { const on = +b.dataset.eqr === eqDays; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
+    const usd = eqMetric === 'usd', val = (t) => (usd ? Number(t.usd) || 0 : Number(t.r)), host = $('#eqChart'), note = $('#eqNote');
+    const start = eqDays ? Date.now() - eqDays * 864e5 : -Infinity;
+    const before = trades.filter((t) => t.exit_ts < start), inside = trades.filter((t) => t.exit_ts >= start);
+    if (!inside.length) { clear(host).append(el('div', { class: 'empty' }, trades.length ? 'No closed trades in this range.' : 'No closed trades yet.')); note.textContent = ''; return; }
+    const base = before.reduce((a, t) => a + val(t), 0);
+    const first = inside[0], from = eqDays ? Math.min(start, first.exit_ts) : (first.entry_ts != null ? Math.min(first.entry_ts, first.exit_ts) : first.exit_ts - 36e5);
+    let cum = 0;
+    const pts = [{ ts: from, y: 0, start: true }, ...inside.map((t) => { cum += val(t); return { ts: t.exit_ts, y: Math.round(cum * 1e4) / 1e4, t }; })];
+    const num = (x) => Math.abs(Math.round(x * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+    const fmtV = usd ? (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}$${num(x)}` : (x) => `${x < 0 ? '−' : x > 0 ? '+' : ''}${num(x)}R`;
+    lineChart(host, pts, { dots: true, fmtY: fmtV, tipOf: (p) => (p.t
+      ? `${fmtTime(p.ts)} · ${sym(p.t.symbol)} ${p.t.side || ''} · ${p.t.reason || 'closed'} · ${usd ? fmtV(Number(p.t.usd) || 0) : fmtV(Number(p.t.r))} → total ${fmtV(p.y)}`
+      : `${fmtTime(p.ts)} · start of the range · 0`) });
+    const wins = inside.filter((t) => Number(t.r) > 0).length, total = cum;
+    const peak = pts.reduce((m, p) => Math.max(m, p.y), 0);
+    clear(note).append(el('strong', { class: cls(total) }, fmtV(total)), ` over ${inside.length} closed trade${inside.length === 1 ? '' : 's'}${eqDays ? ` in the last ${({ 7: 'week', 30: 'month', 91: '3 months' })[eqDays]}` : ' since the first'} · ${wins} win${wins === 1 ? '' : 's'}, ${inside.length - wins} not · ${total < peak - 1e-9 ? `${fmtV(total - peak)} below its high` : 'at its high'}. Each dot is a closed trade, at the time it closed.`);
   }
   function renderPeriods(p) {
     for (const b of $$('#periodTabs button')) { const on = b.dataset.period === period; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }
@@ -1365,6 +1394,8 @@
   $('#chartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartKind = b.dataset.chart; store.set('bot.chart', chartKind); renderChart(); });
   $('#bRangeTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; chartDays = +b.dataset.range; store.set('bot.range', String(chartDays)); renderBotChart(); });
   $('#bChartTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; bchartKind = b.dataset.bchart; store.set('bot.bchart', bchartKind); renderBotChart(); });
+  $('#eqMetric').addEventListener('click', (e) => { const b = e.target.closest('button[data-eqm]'); if (!b || !data) return; eqMetric = b.dataset.eqm; store.set('bot.eqm', eqMetric); renderEquity(view()); });
+  $('#eqRange').addEventListener('click', (e) => { const b = e.target.closest('button[data-eqr]'); if (!b || !data) return; eqDays = +b.dataset.eqr; store.set('bot.eqr', String(eqDays)); renderEquity(view()); });
   $('#periodTabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-period]'); if (!b || !data) return; period = b.dataset.period; store.set('bot.period', period); if (view().perf) renderPeriods(view().perf); });
   for (const [id, k] of [['fCoin', 'coin'], ['fSide', 'side'], ['fReason', 'reason'], ['fFrom', 'from'], ['fTo', 'to']]) $(`#${id}`).addEventListener('change', (e) => { filters[k] = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
   $('#fSearch').addEventListener('input', (e) => { filters.q = e.target.value; shown.trades = PAGE.trades; renderTrades(); });
