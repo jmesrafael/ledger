@@ -108,6 +108,22 @@
   // A USDT-only deposit is never turned into pesos, so it never looks as if it was paid in pesos.
   const putInPesos = (s) => (s && s.php > 0 && !s.usdtOnlyCount && !(Math.abs(s.withdrawnUsdt) > 1e-9) ? s.php : null);
 
+  // "Put in", ALWAYS written the same way: the pesos really paid, then the USDT they count as in brackets:  ₱6,897 ($91.63)
+  // Money put in directly in USDT (no pesos) is added as $252.31 and never turned into pesos. The total and anything taken out go on a second line.
+  // s: a summary(), or any { php, usdt, usdtOnly, withdrawnUsdt } (the sum over several people). Display only.
+  function putIn(s) {
+    const o = { php: Number((s && s.php) || 0), usdt: Number((s && s.usdt) || 0), only: Number((s && s.usdtOnly) || 0), out: Math.max(0, Number((s && s.withdrawnUsdt) || 0)) };
+    const peso = (v) => '₱' + f(v, Number.isInteger(v) ? 0 : 2), dollar = (v) => '$' + f(v, 2);
+    const parts = [];
+    if (o.php > 0) parts.push(`${peso(o.php)} (${dollar(o.usdt)})`);
+    if (o.only > 0) parts.push(dollar(o.only));
+    const total = o.usdt + o.only, sub = [];
+    if (o.php > 0 && o.only > 0) sub.push(`${dollar(total)} in total`);
+    if (o.out > 0.0049) sub.push(`${dollar(o.out)} taken out`);
+    return { main: parts.length ? parts.join(' + ') : '—', sub: sub.join(' · '), total, takenOut: o.out };
+  }
+  const sumPutIn = (list) => list.reduce((t, s) => ({ php: t.php + s.php, usdt: t.usdt + s.usdt, usdtOnly: t.usdtOnly + s.usdtOnly, withdrawnUsdt: t.withdrawnUsdt + s.withdrawnUsdt }), { php: 0, usdt: 0, usdtOnly: 0, withdrawnUsdt: 0 });
+
   // ---------------------------------------------------------------- withdrawal requests are in USDT
   // The units a request for `amountUsdt` asks for, at the unit price shown. No rate goes in: a peso rate can never change a request.
   // Within 0.01 USDT of everything unlocked means "everything" (the Max button rounds down to the cent); more than that is left for the database to refuse.
@@ -205,5 +221,5 @@
       <details class="more"><summary>All figures</summary>${rows(s)}</details></div>`;
   }
 
-  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, withdrawUnits, spreadFigures, journey, rows, card };
+  return { FRESH_MS, MAX_AGE_MS, MIN_RATE, MAX_RATE, parseFx, referenceRate, effectiveRate, summary, topupDue, foldTopups, TOPUP, putInPesos, putIn, sumPutIn, withdrawUnits, spreadFigures, journey, rows, card };
 });

@@ -103,9 +103,11 @@
     g.append(sv('stop', { offset: '0%', style: 'stop-color:var(--accent-text);stop-opacity:.28' }), sv('stop', { offset: '100%', style: 'stop-color:var(--accent-text);stop-opacity:0' }));
     defs.append(g); svg.append(defs);
     const t = (x, y, s, anchor) => { const n = sv('text', { x, y, 'text-anchor': anchor || 'start' }); n.textContent = s; return n; };
-    for (let i = 0; i <= 4; i++) {
-      const v = y0 + ((y1 - y0) * i) / 4, y = sy(v);
-      svg.append(sv('line', { class: 'grid-l', x1: L, y1: y, x2: W - R, y2: y }), t(L - 8, y + 3.5, fmtY(v), 'end'));
+    // round values on the value axis (1, 2, 2.5 or 5 × a power of ten), about four lines
+    const raw = (y1 - y0) / 4, mag = 10 ** Math.floor(Math.log10(raw || 1)), stepY = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((k) => k >= raw) || raw;
+    for (let v = Math.ceil(y0 / stepY) * stepY; v <= y1 + stepY * 1e-9; v += stepY) {
+      const y = sy(v);
+      svg.append(sv('line', { class: 'grid-l', x1: L, y1: y, x2: W - R, y2: y }), t(L - 8, y + 3.5, fmtY(Math.abs(v) < stepY * 1e-9 ? 0 : v), 'end'));
     }
     if (!dd && y0 < 0 && y1 > 0) svg.append(sv('line', { class: 'zero', x1: L, y1: sy(0), x2: W - R, y2: sy(0) }));
     if (hline != null) svg.append(sv('line', { class: 'limit', x1: L, y1: sy(hline), x2: W - R, y2: sy(hline) }));
@@ -113,13 +115,20 @@
     const base = (dd ? sy(0) : H - B).toFixed(1), last = pts[pts.length - 1];
     svg.append(sv('path', { class: dd ? 'dd' : 'area', d: `${path} L${sx(last.ts).toFixed(1)},${base} L${sx(pts[0].ts).toFixed(1)},${base} Z` }));
     if (!dd) svg.append(sv('path', { class: 'line', d: path }), sv('circle', { class: 'dot', cx: sx(last.ts), cy: sy(last.y), r: 3.5 }));
-    // capital added or removed: a labeled step, never part of the line's gain
-    marks.filter((m) => m.ts >= x0 && m.ts <= x1).forEach((m, i) => {
+    // capital added or removed: a labeled step, never part of the line's gain. Steps close together on the chart share one label (their sum).
+    const steps = [];
+    for (const m of marks.filter((q) => q.ts >= x0 && q.ts <= x1).sort((a, b) => a.ts - b.ts)) {
+      const s = steps[steps.length - 1];
+      if (s && sx(m.ts) - sx(s.ts) < 40 && (s.usd >= 0) === (m.usd >= 0)) s.usd += m.usd; else steps.push({ ts: m.ts, usd: m.usd });
+    }
+    steps.forEach((m, i) => {
       const x = sx(m.ts), up = m.usd >= 0, lbl = t(Math.min(x + 3, W - R - 2), T + 10 + (i % 3) * 11, `${up ? '+' : '−'}$${Math.abs(m.usd).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${m.usd >= 0 ? 'capital' : 'payout'}`, x > W - 120 ? 'end' : 'start');
       lbl.setAttribute('class', `flow-t ${up ? 'in' : 'out'}`);
       svg.append(sv('line', { class: `flow-l ${up ? 'in' : 'out'}`, x1: x, y1: T, x2: x, y2: H - B }), lbl);
     });
-    svg.append(t(L, H - 7, fmtDay(x0)), t(W - R, H - 7, fmtDay(x1), 'end'));
+    // five labels along the time axis: clock times for a day or two, dates beyond
+    const short = x1 - x0 <= 2 * 864e5, xl = (ms) => (short ? fmtHm(ms) : `${MON[parts(ms).mo - 1]} ${parts(ms).d}`);
+    for (let i = 0; i <= 4; i++) { const ms = x0 + ((x1 - x0) * i) / 4; svg.append(t(sx(ms), H - 7, i === 0 && short ? `${fmtDay(ms).replace(/, \d+$/, '')} ${xl(ms)}` : xl(ms), i === 0 ? 'start' : i === 4 ? 'end' : 'middle')); }
     host.append(svg);
     // hover / touch: crosshair + dot on the nearest point, tooltip with its date and value
     const cross = sv('line', { class: 'hov-l', y1: T, y2: H - B, style: 'display:none' }), hdot = sv('circle', { class: 'hov-d', r: 4.5, style: 'display:none' });
@@ -361,8 +370,27 @@
     const d = data, note = $('#chartNote');
     const wh = !d.capital && d.wallet_history && d.wallet_history.length ? d.wallet_history : null;   // live: the wallet reports (both accounts added) stand in for the bot's balance
     if (chartKind === 'capital' && wh) {
-      lineChart($('#chart'), inRange(wh.map((p) => ({ ts: p.ts, y: p.usd }))), { marks: d.capital_flows || [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
-      note.textContent = `Both trading accounts added together, from the bots' 5-minute wallet reports · ${fmtUsd(wh[wh.length - 1].usd)} at ${fmtTime(wh[wh.length - 1].ts)}. Deposits show as labelled steps, not as profit.`;
+      const pts = inRange(wh.map((p) => ({ ts: p.ts, y: p.usd })));
+      lineChart($('#chart'), pts, { marks: d.capital_flows || [], fmtY: (v) => `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` });
+      // the change over the range from trading only: the capital added or paid out inside it is taken out
+      const a = pts[0], z = pts[pts.length - 1], fl = (d.capital_flows || []).filter((f) => f.ts > a.ts && f.ts <= z.ts).reduce((t, f) => t + f.usd, 0), ch = z.y - a.y - fl;
+      const since = chartDays && wh[0].ts > Date.now() - chartDays * 864e5 ? ` · reports start ${fmtDay(wh[0].ts)}` : '';
+      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(a.y > 0 ? (ch / a.y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${({ 1: 'day', 7: 'week', 30: 'month', 91: '3 months' })[chartDays]}` : 'since the first report'}${fl ? `, not counting ${fmtUsd(fl, true)} capital` : ''} · ${fmtUsd(z.y)} now, every trading account added together${since}.`);
+    } else if (chartKind === 'perf' && wh) {
+      // the same wallet line with the capital added or paid out taken out: only trading moves it, so a deposit never hides the day's moves. A deposit is
+      // recorded a little before or after the balances show it, so it is taken out at the jump it made: the biggest step its way within 2 hours of it.
+      const at = new Array(wh.length).fill(0);
+      for (const f of d.capital_flows || []) {
+        let best = -1, big = -Infinity;
+        for (let i = 1; i < wh.length; i++) if (Math.abs(wh[i].ts - f.ts) <= 72e5) { const st = (wh[i].usd - wh[i - 1].usd) * Math.sign(f.usd); if (st > big) { big = st; best = i; } }
+        if (best < 0) { best = wh.findIndex((p) => p.ts >= f.ts); if (best < 0) best = wh.length - 1; }   // no report near it: from when it was recorded
+        at[best] += f.usd;
+      }
+      let cum = 0;
+      const adj = wh.map((p, i) => ({ ts: p.ts, y: p.usd - (cum += at[i]) }));
+      const pts = inRange(adj), ch = pts[pts.length - 1].y - pts[0].y;
+      lineChart($('#chart'), pts.map((p) => ({ ts: p.ts, y: p.y - pts[0].y })), { fmtY: (v) => `${v < 0 ? '−' : v > 0 ? '+' : ''}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`, fmtTip: (v) => fmtUsd(v, true) });
+      clear(note).append(el('strong', { class: cls(ch) }, `${fmtUsd(ch, true)} (${fmtPct(pts[0].y > 0 ? (ch / pts[0].y) * 100 : 0, true)})`), ` from trading ${chartDays ? `in the last ${({ 1: 'day', 7: 'week', 30: 'month', 91: '3 months' })[chartDays]}` : 'since the first report'}. Every trading account added together, with deposits and payouts taken out: only trading moves this line.`);
     } else if (chartKind === 'capital') {
       const pts = inRange(d.capital ? d.capital.points.map((p) => ({ ts: p.ts, y: p.usd })) : []);
       lineChart($('#chart'), pts, { marks: d.capital ? d.capital.flows : [], fmtY: (v) => `$${v.toFixed(v >= 1000 ? 0 : 2)}`, fmtTip: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, empty: d.mode === 'live' ? 'Live balance is not shared with the dashboard. Switch to the R tab.' : 'No balance received yet.' });

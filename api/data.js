@@ -82,7 +82,7 @@ module.exports = async (req, res) => {
       cached('flows', TTL.flows, () => (store.flows ? store.flows() : Promise.resolve([]))).catch(() => []),
       // the bots' 5-minute wallet reports: the real balance of each trading account (absent before the wallet tables exist)
       cached('wallets', TTL.wallets, () => (store.wallets ? store.wallets() : Promise.resolve(null))).catch(() => null),
-      cached('walletHist', TTL.walletHist, () => (store.walletHistory ? store.walletHistory({ sinceMs: now - 7 * 86400000 }) : Promise.resolve(null))).catch(() => null),
+      cached('walletHist', TTL.walletHist, () => (store.walletHistory ? store.walletHistory({ sinceMs: now - 30 * 86400000, now }) : Promise.resolve(null))).catch(() => null),
       // MEXC's booked P&L per closed live trade (absent before the closed_trades migration)
       cached('closed', TTL.wallets, () => (store.closedTrades ? store.closedTrades() : Promise.resolve([]))).catch(() => [])]);
     const events = tradeEvs.concat(equity);

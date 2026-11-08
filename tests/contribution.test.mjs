@@ -185,7 +185,7 @@ test('CB15 "Where your money stands" and the dashboard total never show USDT tur
   const home = grab(app, 'function viewHome()', '  function glanceCard(m)');
   assert.ok(!home.includes('Position.render(') && !home.includes('capitalCard'));
   assert.match(home, /\$\{pos && !pos\.estimate\.reliable \? Position\.estimateCard\(pos, fm\) : ''\}/);
-  assert.match(app, /\.filter\(\(s\) => s\.deposits\.length \|\| s\.usdtOnlyCount \|\| s\.withdrawnUsdt\)\.map\(Contribution\.putInPesos\)/, 'investors with nothing in do not block the peso total');
+  assert.match(app, /const invPutInOf = \(inv\) => Contribution\.putIn\(Contribution\.sumPutIn\(inv\.map\(contribOf\)\)\);/, 'the dashboard total uses the same format');
 });
 
 test('CB16 the reference rate in the app: stored only from the manager\'s fresh live reading, the minimum shown as the database applies it, forms say which rate they use', () => {
@@ -225,6 +225,34 @@ test('CB17 the card at one look: invested -> worth now, and the result so far (J
   const w = C.card(C.summary([james, { id: 9, ts: '2026-12-01T00:00:00Z', kind: 'withdrawal', usdt: -10, units: -11 }], ref, { units: '62', value_usdt: '54.4' }));
   assert.ok(w.includes('Taken out') && w.includes('−10.00 USDT') && w.includes('Worth now (after payouts)'));
   assert.equal(C.card(C.summary([], ref, null)), '');
+});
+
+test('CB19 "Put in" is always written ₱6,897 ($91.63): pesos paid, the USDT they count as in brackets; direct USDT is added, never turned into pesos', () => {
+  const raf4 = { id: 4, ts: '2026-11-07T10:21:09Z', kind: 'deposit', usdt: '91.6278', units: '101.17193336', php_amount: '6897', php_rate: '75.27191529' };
+  const put = (rows) => C.putIn(C.summary(rows, null, null));
+  assert.equal(put([raf4]).main, '₱6,897 ($91.63)'); assert.equal(put([raf4]).sub, '', 'nothing else to say');
+  assert.equal(put([james]).main, '₱5,000 ($66.40)');
+  // a peso top-up (the pesos credited at the live rate) is part of the same deposit: ₱5,000 ($79.26)
+  const top = { id: 9, ts: '2026-11-07T11:00:00Z', kind: 'deposit', usdt: '12.86', units: '14.1', php_amount: null, note: 'peso top-up for deposit #3: ₱5,000 credited at the live rate' };
+  assert.equal(put([james, top]).main, '₱5,000 ($79.26)');
+  // pesos and direct USDT: each part in its own place, the total on the second line; the USDT part is never turned into pesos
+  const mixed = put([raf4, raf1, raf2]); assert.equal(mixed.main, '₱6,897 ($91.63) + $252.31'); assert.equal(mixed.sub, '$343.94 in total'); near(mixed.total, 343.9360, 1e-3);
+  assert.ok(!mixed.main.includes('63.53') && !mixed.main.includes('64.01'), 'the stored 63.53 / 64.01 rates of the USDT-only deposits are not used');
+  assert.equal(put([raf1, raf2]).main, '$252.31', 'USDT only: no pesos made up');
+  // money taken out is said, not subtracted from what was put in
+  const out = { id: 20, ts: '2026-11-08T00:00:00Z', kind: 'withdrawal', usdt: -12.86, units: -14.1, php_amount: null };
+  assert.equal(put([raf4, raf1, raf2, out]).sub, '$343.94 in total · $12.86 taken out');
+  assert.equal(put([]).main, '—'); assert.equal(C.putIn(null).main, '—');
+  assert.equal(put([{ ...james, php_amount: '5000.5', usdt: '66.4' }]).main, '₱5,000.50 ($66.40)', 'cents of pesos are kept');
+  // several people (the dashboard total): the sums, in the same format
+  const tot = C.putIn(C.sumPutIn([C.summary([james], null, null), C.summary([raf4], null, null), C.summary([raf1], null, null)]));
+  assert.equal(tot.main, '₱11,897 ($158.03) + $52.31'); assert.equal(tot.sub, '$210.34 in total');
+  // wired into the three manager screens and the investor's Home
+  const app = read('js/app.js');
+  assert.match(app, /<div class="k">Put in<\/div>\$\{putInBox\(putInOf\(m\)\)\}/); assert.match(app, /\$\{line\('Put in', putInLine\(putInOf\(h\)\)\)\}/);
+  assert.match(app, /<div class="k">Put in by investors<\/div>\$\{putInBox\(invPutInOf\(inv\)\)\}/);
+  assert.match(grab(app, 'function glanceCard(m)', 'function viewWithdraw()'), /<span class="l">You put in<br>[\s\S]*\$\{putInLine\(putInOf\(m\)\)\}/);
+  assert.ok(!/const putIn = \(h\)|invPutIn\(/.test(app), 'the old pesos-or-USDT switch is gone: it no longer depends on the currency button');
 });
 
 test('CB12 database: the pesos recorded with a deposit never change its units, the pool value or anyone else; the row keeps them and stays append-only', async () => {

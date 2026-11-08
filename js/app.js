@@ -345,7 +345,7 @@
   function viewDashboard() {
     const p = S.pool, tot = Number(p.total_units) || 1, inv = S.all.filter((h) => h.role === 'investor');
     const sum = (a, k) => a.reduce((t, h) => t + Number(h[k]), 0);
-    const invValue = sum(inv, 'value_usdt'), invIn = sum(inv, 'net_in_usdt'), due = sum(inv, 'accrued_fee_usdt');
+    const invValue = sum(inv, 'value_usdt'), due = sum(inv, 'accrued_fee_usdt');
     const pend = S.reqs.filter((q) => q.status === 'pending'), pendUsdt = pend.reduce((t, q) => t + Number(q.units) * Number(p.unit_price), 0);
     const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Fund manager capital', p.admin_capital_units, 'var(--seg1)'], ["Fees earned", p.admin_fee_units, 'var(--seg3)']];
     const pb = PU.banner(S.pu);
@@ -358,7 +358,7 @@
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
         <div class="stat"><div class="k">Investors' money</div><div class="v">${money(invValue)}</div></div>
-        <div class="stat"><div class="k">Put in by investors</div><div class="v">${invPutIn(inv, invIn)}</div></div>
+        <div class="stat"><div class="k">Put in by investors</div>${putInBox(invPutInOf(inv))}</div>
         <div class="stat"><div class="k">Their fee due</div><div class="v">${money(due)}</div></div></div>
         ${S.pend.length ? `<div class="btns"><button class="ghost" data-tab="record" data-rec="dep">${S.pend.length} deposit${S.pend.length === 1 ? '' : 's'} waiting to join · ${money(pendTotal())}</button></div>` : ''}
         ${pend.length ? `<div class="btns"><button class="ghost" data-tab="log">${pend.length} withdrawal request${pend.length === 1 ? '' : 's'} · ${money(pendUsdt)}</button></div>` : '<p class="note" style="margin:12px 0 0">No withdrawal requests waiting.</p>'}</div>
@@ -549,6 +549,7 @@
       </div>
       ${tv ? `<div class="split" style="margin-top:12px" role="img" aria-label="${f(pc0, 0)}% in cash, ${f(100 - pc0, 0)}% in open trades"><i style="width:${pc0.toFixed(1)}%;background:var(--accent)"></i><i style="width:${(100 - pc0).toFixed(1)}%;background:var(--info)"></i></div>
         <div class="legend"><span><b style="background:var(--accent)"></b>In cash ${f(pc0, 0)}%</span><span><b style="background:var(--info)"></b>In open trades ${f(100 - pc0, 0)}%</span></div>` : ''}
+      <div class="row"><span class="l">You put in<br><span class="note">pesos paid, and what they count as</span></span><span class="r">${putInLine(putInOf(m))}</span></div>
       <div class="row"><span class="l">Free to withdraw now<br><span class="note">${m.next_unlock ? `your first deposit is locked until ${day(m.next_unlock)}` : 'no lock-up'}</span></span><span class="r"><b>${money(free)}</b><br><span class="note">${alt(free)}</span></span></div>
       ${tv ? `<p class="note">${esc(TVUI.state(tv).text)}</p>` : ''}
       <div class="btns"><button data-tab="withdraw">Withdraw</button><button class="ghost" data-tab="statements">Statements</button></div></div>`;
@@ -679,7 +680,7 @@
     const m = S.me, mine = myRows(), fees = myRows(['fee_in']), feeTotal = fees.reduce((t, l) => t + Number(l.usdt), 0);
     return `${growthCard('My capital')}
       <div class="card"><h2>My money in the fund</h2><div class="grid">
-        <div class="stat"><div class="k">Put in</div><div class="v">${putIn(m)}</div></div>
+        <div class="stat"><div class="k">Put in</div>${putInBox(putInOf(m))}</div>
         <div class="stat"><div class="k">Worth now</div><div class="v">${money(m.value_usdt)}</div></div>
         <div class="stat"><div class="k">Total gain</div><div class="v ${cls(m.profit_usdt)}">${smoney(m.profit_usdt)}</div></div>
         <div class="stat"><div class="k">Share of the pool</div><div class="v">${m.share_pct == null ? '—' : f(m.share_pct * 100, 2) + '%'}</div></div></div>
@@ -742,11 +743,12 @@
   // ---------------------------------------------------------------- pesos: "put in" is what was really paid (docs/php-contributions.md)
   // pesos paid, USDT received, effective and reference rates (js/contribution.js). Display only; S.ledger is only the person's own rows for an investor.
   const contribOf = (h) => Contribution.summary(S.ledger.filter((l) => l.profile_id === h.id), fxRef(), h);
-  // in pesos only when all of it was really paid in pesos; otherwise the USDT, never USDT turned into pesos (the contribution lines show the split)
-  const putIn = (h) => { const p = inPeso() ? Contribution.putInPesos(contribOf(h)) : null; return p != null ? php(p) : usdt(h.net_in_usdt); };  const invPutIn = (inv, invIn) => {   // pesos only when every investor with money in paid all of it in pesos
-    const p = inPeso() ? inv.map(contribOf).filter((s) => s.deposits.length || s.usdtOnlyCount || s.withdrawnUsdt).map(Contribution.putInPesos) : [];
-    return p.length && p.every((x) => x != null) ? php(p.reduce((t, x) => t + x, 0)) : usdt(invIn);
-  };
+  // "Put in" is ALWAYS written ₱6,897 ($91.63): the pesos really paid and the USDT they count as. Money put in directly in USDT is added as $252.31 and never
+  // turned into pesos; the total and anything taken out go on a second line (js/contribution.js putIn).
+  const putInOf = (h) => Contribution.putIn(contribOf(h));
+  const invPutInOf = (inv) => Contribution.putIn(Contribution.sumPutIn(inv.map(contribOf)));
+  const putInBox = (p) => `<div class="v">${esc(p.main)}</div>${p.sub ? `<div class="s">${esc(p.sub)}</div>` : ''}`;
+  const putInLine = (p) => `${esc(p.main)}${p.sub ? `<br><span class="note">${esc(p.sub)}</span>` : ''}`;
 
   // ---------------------------------------------------------------- statements, month by month, worst drop (maths in js/returns.js)
   const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -953,7 +955,7 @@
         <button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div>
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
-      ${line('Put in', putIn(h))}
+      ${line('Put in', putInLine(putInOf(h)))}
       ${Contribution.rows(contribOf(h), { holdings: false })}
       ${net ? line('Profit, theirs after fee', gainOf(h.net_profit_usdt, h.net_return_pct)) + line('Before fee', gainOf(h.gross_profit_usdt, h.gross_return_pct)) + line('Your fee (worth now)', money(h.profit_share_usdt))
         : line('Profit', gainOf(h.profit_usdt, h.return_pct))}

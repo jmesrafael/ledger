@@ -86,14 +86,21 @@ test('D9 every visit opens on Overview; candle times are shown at the close; res
   assert.match(css, /\.log\.short \.ln \{ grid-template-columns: auto auto 1fr;/);
 });
 
-test('D10 live capital chart: both wallets added over time, only once every wallet has reported, thinned to at most 600 points', async () => {
+test('D10 live capital chart: every account added over time; the first accounts are waited for, a later one joins; one point per cycle; thinned by age; 30 days fetched', async () => {
   const { walletHistory } = require('../lib/aggregate.js');
   assert.deepEqual(walletHistory([]), []);
-  const h = walletHistory([{ wallet: 'a', ts: 1, usd: 10 }, { wallet: 'b', ts: 2, usd: 5 }, { wallet: 'a', ts: 3, usd: 12 }]);
-  assert.deepEqual(h, [{ ts: 2, usd: 15 }, { ts: 3, usd: 17 }], 'no point with one account alone');
-  const many = []; for (let i = 0; i < 2000; i++) many.push({ wallet: i % 2 ? 'a' : 'b', ts: i, usd: 1 });
-  const t = walletHistory(many); assert.ok(t.length <= 600); assert.equal(t[t.length - 1].ts, 1999);
+  const h = walletHistory([{ wallet: 'a', ts: 1, usd: 10 }, { wallet: 'b', ts: 2, usd: 5 }, { wallet: 'a', ts: 300003, usd: 12 }]);
+  assert.deepEqual(h, [{ ts: 2, usd: 15 }, { ts: 300003, usd: 17 }], 'no point with one account alone at the start; the reports of one cycle are one point');
+  // a bot that starts reporting days later (T-CORE on Nov 7) joins the total from its first report; the others are drawn from their own start
+  const D = 864e5, rows = [];
+  for (let t = 0; t <= 10 * D; t += 300000) { rows.push({ wallet: 'a', ts: t, usd: 100 }, { wallet: 'b', ts: t + 2000, usd: 50 }); if (t >= 9 * D) rows.push({ wallet: 'c', ts: t + 3000, usd: 80 }); }
+  const w = walletHistory(rows);
+  assert.equal(w[0].usd, 150, 'drawn from the first day, before the late account existed'); assert.equal(w[w.length - 1].usd, 230);
+  const end = w[w.length - 1].ts, gap = (a, z) => w.filter((p) => p.ts > end - z && p.ts <= end - a);
+  assert.equal(gap(0, D).length, 288, 'the last day: every 5-minute cycle');
+  assert.ok(gap(D, 7 * D).length <= 6 * 48 + 1, 'the last week: every 30 minutes'); assert.ok(gap(7 * D, 11 * D).length <= 4 * 12 + 2, 'older: every 2 hours');
+  assert.ok(w.length < 700);
   const d = aggregate({ now, walletHist: [{ wallet: 'a', ts: 1, usd: 10 }], flows: [{ flow_id: 'd:1', kind: 'deposit', ts_ms: 5, usdt: 200 }], mode: 'live' });
   assert.equal(d.wallet_history.length, 1); assert.deepEqual(d.capital_flows, [{ ts: 5, usd: 200, kind: 'deposit' }]);
-  assert.match(read('api/data.js'), /store\.walletHistory\(\{ sinceMs: now - 7 \* 86400000 \}\)/);
+  assert.match(read('api/data.js'), /store\.walletHistory\(\{ sinceMs: now - 30 \* 86400000, now \}\)/);
 });
