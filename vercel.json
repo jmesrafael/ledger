@@ -8,6 +8,14 @@
       "destination": "/reports/how-lucid-io-works-v2.html"
     },
     {
+      "source": "/backtest-data",
+      "destination": "/reports/backtest-data.html"
+    },
+    {
+      "source": "/backtest-data-usd",
+      "destination": "/reports/backtest-data-usd.html"
+    },
+    {
       "source": "/login",
       "destination": "/login.html"
     },
@@ -16,12 +24,48 @@
       "destination": "/login.html"
     },
     {
-      "source": "/backtest-data",
-      "destination": "/reports/backtest-data.html"
+      "source": "/dashboard",
+      "destination": "/login.html"
     },
     {
-      "source": "/backtest-data-usd",
-      "destination": "/reports/backtest-data-usd.html"
+      "source": "/calendar",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/withdraw",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/statements",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/activity",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/contact",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/payout",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/fund/:path*",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/me/:path*",
+      "destination": "/login.html"
     }
   ],
   "headers": [

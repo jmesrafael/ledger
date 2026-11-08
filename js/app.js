@@ -1547,20 +1547,28 @@
   // Every screen the person moves to (tab, side, an open user sheet, "view as") is a history entry, so Back steps through the app instead of leaving it.
   // Re-rendering for fresh data changes nothing here; the sign-in and the terms/tour screens replace the entry instead of adding one.
   const NAV_KEYS = ['uid', 'tab', 'side', 'rec', 'modal', 'vw', 'gate'];
-  // Every page has its own address: /login/calendar, /login/fund/users, /login/me/statements, /login/fund/record/wd. The investor's Home is /login/dashboard.
-  // The address lets a page be bookmarked, shared and reloaded; it never changes what a person may see (a page that is not among their own tabs is ignored).
-  // Where the app is not served at /login (a plain file or another host without the rewrite) the same addresses are used after a #, and old #/ links are still read.
-  const RECS = ['dep', 'wd', 'eq', 'hist'], PATHY = /^\/login(\/|$)/.test(location.pathname);
+  // Every page has its own address, and /login is only the sign-in page:
+  //   investor   /dashboard  /calendar  /withdraw  /statements  /activity  /about  /profile  /contact  /payout
+  //   manager    /fund/dashboard  /fund/users  /fund/record/wd  /fund/quarter  /fund/reports  /fund/log   /me/mine  /me/statements  /me/myhistory   (and /profile ...)
+  // It lets a page be bookmarked, shared and reloaded; it never changes what a person may see (a page that is not among their own tabs is ignored).
+  // Opening a page while signed out shows /login; after signing in the person lands on the page they asked for. The first versions of these addresses
+  // (/login/calendar, #/calendar) still open, then become the real one. Where the app is not served from the site root with these rewrites (a plain file,
+  // another host) the same names are used after a # instead.
+  const RECS = ['dep', 'wd', 'eq', 'hist'];
+  const PATHY = /^\/(login|dashboard|calendar|withdraw|statements|activity|about|profile|contact|payout|fund|me)(\/|$)/.test(location.pathname);
   const here = () => (PATHY ? location.pathname : location.hash);
   function routeOf(s) {
     const t = s.tab === 'home' && S.me && S.me.role === 'investor' ? 'dashboard' : s.tab, sd = S.me && S.me.role === 'admin' && !PAGES.includes(t) ? (s.side === 'me' ? 'me/' : 'fund/') : '';
-    return (PATHY ? '/login/' : '#/') + sd + t + (t === 'record' && s.rec ? '/' + s.rec : '');
+    return (PATHY ? '/' : '#/') + sd + t + (t === 'record' && s.rec ? '/' + s.rec : '');
   }
-  function fromHash() {
+  function fromHash(src) {
     const m = S.me; if (!m || m.impersonated) return null;
-    let rel = ''; try { rel = decodeURIComponent(location.pathname).replace(/^\/login\/?/, ''); if (!rel) rel = decodeURIComponent(location.hash).replace(/^#\/?/, ''); } catch { return null; }
+    const at = src || LAND || location;
+    let rel = ''; try { rel = decodeURIComponent(at.pathname).replace(/^\/(login(\/|$))?/, ''); if (!rel) rel = decodeURIComponent(at.hash).replace(/^#\/?/, ''); } catch { return null; }
     const seg = rel.split('/').filter(Boolean), admin = m.role === 'admin';
     let side = 'fund';
+  const LOGIN = PATHY ? '/login' : null;
+  let LAND = PATHY && !/^\/login\/?$/.test(location.pathname) ? { pathname: location.pathname, hash: '' } : null;   // the page asked for before sign-in; used once
     if (admin && (seg[0] === 'fund' || seg[0] === 'me')) side = seg.shift();
     let tab = seg[0] === 'dashboard' && !admin ? 'home' : seg[0];
     const tabs = admin ? TABS[side === 'me' ? 'adminMe' : 'admin'] : TABS.investor;
@@ -1568,7 +1576,7 @@
     return { tab, side: PAGES.includes(tab) ? null : side, rec: tab === 'record' && RECS.includes(seg[1]) ? seg[1] : null };   // profile, contact and payout open on whichever side the manager is on
   }
   function applyHash() {
-    const r = fromHash(); if (!r) return false;
+    const r = fromHash(); LAND = null; if (!r) return false;
     S.tab = r.tab; if (S.me.role === 'admin' && r.side) S.side = r.side; if (r.rec) S.rec = r.rec;
     return true;
   }
@@ -1576,7 +1584,7 @@
     try {
       document.body.style.overflow = S.modal ? 'hidden' : '';
       const p = history.state;
-      if (!S.me) { if (!(p && p.out)) history.replaceState({ app: 1, out: 1 }, ''); return; }   // signed out: the address stays, so signing in lands on that page
+      if (!S.me) { const u = LOGIN && location.pathname !== LOGIN ? LOGIN : null; if (u || !(p && p.out)) history.replaceState({ app: 1, out: 1 }, '', u || location.href); return; }   // signed out: this is /login (LAND remembers the page asked for)
       const s = { app: 1, uid: S.me.id, tab: S.tab, side: S.side === 'me' ? 'me' : 'fund', rec: S.rec, modal: S.modal || null, vw: !!S.adminToken, gate: !!S.gate };
       const live = p && p.app && !p.out && !p.gate && !s.gate && !S.navReplace;
       const move = live && (p.uid === s.uid ? (p.tab !== s.tab || p.side !== s.side || p.modal !== s.modal) : p.vw !== s.vw);
