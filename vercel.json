@@ -2,6 +2,12 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": ".",
+  "crons": [
+    {
+      "path": "/api/monthly-report",
+      "schedule": "0 7 1 * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/",
