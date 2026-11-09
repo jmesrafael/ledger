@@ -39,7 +39,8 @@ test('BD2 no duplicated panels (the old Verify tab had two of each), and every e
 });
 
 test('BD3 a live bot is never a lab and a lab is never live: separate lists, live money only from live-mode bots', () => {
-  assert.match(app, /const LIVE = \['bbcore', 'icore', 'tcore'\], LABS = \['bb1h', 'bbtr'\];/);
+  assert.match(app, /const LIVE = \['bbcore', 'icore', 'tcore'\], LABS = \['bb1h'\];/);
+  assert.ok(!/bbtr|T-CORE lab/.test(app.replace(/\/\/.*$/gm, '')), 'the T-CORE paper lab is gone from the page');
   assert.match(app, /const livePresent = \(\) => LIVE\.map\(bd\)\.filter\(\(b\) => b\.present && b\.mode === 'live'\);/);
   assert.match(app, /const live = tc\.parts\.filter\(\(p\) => p\.mode === 'live'\)/);
   for (const fn of ['renderOpenAll', 'renderLatest']) assert.ok(/LIVE\.map\(bd\)|livePresent\(\)/.test(app.slice(app.indexOf(`function ${fn}`), app.indexOf(`function ${fn}`) + 900)), fn);

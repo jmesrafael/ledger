@@ -20,10 +20,10 @@
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
   // The five pages: Overview (the three live bots), Live Bots (a workspace per bot), Research Lab (paper bots + market recorder), System Monitor, Settings.
-  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h', 'bbtr'];
+  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h'];   // the paper labs: the 1h BB-Core. (The T-CORE paper lab is retired: T-CORE trades live.)
   const BOTS = {
     bbcore: { label: 'BB-Core', live: true, role: 'Live' }, icore: { label: 'I-Core', live: true, role: 'Live' }, tcore: { label: 'T-CORE', live: true, role: 'Live' },
-    bb1h: { label: 'BB-1h lab', live: false, role: 'Paper lab' }, bbtr: { label: 'T-CORE lab', live: false, role: 'Paper lab' },
+    bb1h: { label: 'BB-1h lab', live: false, role: 'Paper lab' },
   };
   const BOT_SUBS = [['dashboard', 'Dashboard'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['positions', 'Positions & Activity'], ['verification', 'Verification'], ['health', 'Health']];
   const LAB_SUBS = [['overview', 'Labs'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['research', 'Research'], ['market', 'Market & Costs']];
@@ -648,7 +648,6 @@
     tcore: { name: 'T-CORE', short: 'Bollinger breakout, 14 ATR trail', how: 'Enters like BB-Core (a 4-hour close outside the Bollinger band, with the 200-period average). Stop 2 ATR away, then a trailing stop 14 ATR behind the best price; no profit target, so a winner runs until the trail catches it.' },
     icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
     bb1h: { name: 'BB-1h lab', short: 'BB-Core rules on 1-hour candles (paper)', how: 'The BB-Core rules on 1-hour candles, five coins, paper only: a test of whether a faster version is worth trading, judged against its own backtest.' },
-    bbtr: { name: 'T-CORE lab', short: 'Bollinger breakout, 14 ATR trail (paper)', how: 'The T-CORE rules (BB-Core entry, 2 ATR stop, 14 ATR trailing stop) on paper, judged against its own backtest.' },
   };
   const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
   function renderCoins() {
@@ -674,7 +673,7 @@
     else host.append(el('div', { class: 'empty' }, b.present ? 'No coins yet.' : `${b.label} ${health(b).note}.`));
     clear($('#coinNote')).append(el('p', { class: 'muted' }, STRATS[b.key].how), el('p', { class: 'muted' }, 'Wins and losses are counted per closed trade (a trade that ends at 0R counts as a loss). R is the amount risked on one trade. Each coin trades one position at a time.'));
   }
-  // trend-follower figures against the strategy's own backtest (T-CORE and its lab): how far trades ran, how much the trail gave back
+  // trend-follower figures against the strategy's own backtest (T-CORE): how far trades ran, how much the trail gave back
   function trendTable(t, live) {
     const e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
     const row = (k, a, x) => el('tr', {}, el('td', {}, k), el('td', { class: 'num' }, a), el('td', { class: 'num muted' }, x));
@@ -918,7 +917,7 @@
 
   // ---------------- Research: how the run works and what it has done so far, in enough detail to decide whether the strategy is ready to go live ----------------
   // (coin / side / exit splits and the fills-vs-model table already live on the Performance page; this page adds what they do not show)
-  // T-CORE lab: how it works, how its trades run against its own backtest (trend capture), and the open trades with their CURRENT trailing stop
+  // T-CORE: how it works, how its trades run against its own backtest (trend capture), and the open trades with their CURRENT trailing stop
   function trailHow(b, live) {
     const t = (b && b.trend) || { trades: 0 }, e = t.expect || {}, pc = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`), r = (x) => (x == null ? '—' : fmtR(x));
     const row = (k, a, x) => el('tr', {}, el('td', {}, k), el('td', { class: 'num' }, a), el('td', { class: 'num muted' }, x));
@@ -937,7 +936,7 @@
   }
   function renderResearch() {
     if (!data) return;
-    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', trail = v.key === 'bbtr', b = v.b.present && v.key !== 'bbcore' ? v.b : null, live = v.mode === 'live';   // b: this bot's own data
+    const d = data, v = view(), tr = v.trades, lab = v.key === 'bb1h', b = v.b.present && v.key !== 'bbcore' ? v.b : null, live = v.mode === 'live';   // b: this bot's own data
     const o = BR.summarize(tr), ex = BR.execution(tr), eg = BR.edge(tr);
     const open = v.b.open_list, skipCounts = v.b.skip_counts || {}, firstEvent = v.b.first_ms;
     const cmp = v.b.compare, ddR = v.b.dd, haltR = v.b.halt;
@@ -953,7 +952,7 @@
     clear($('#rHow')).append(...(live && v.key === 'tcore' ? trailHow(b, true) : live ? [
       el('p', {}, el('b', {}, 'This bot trades real money on MEXC. '), 'The same detail is kept as for a paper run, so the live record can be compared with what paper and the backtest showed.'),
       el('p', { class: 'muted' }, 'Fees, slippage and funding on live trades are what MEXC actually charged. Skipped signals are kept with the reason.'),
-    ] : trail ? trailHow(b) : lab ? [
+    ] : lab ? [
       el('p', {}, el('b', {}, 'A paper run with real-world costs. '), 'The 1h bot reads the real candles and takes the same decisions as the strategy, but no order is ever sent. The only simulated thing is the money; what each trade would cost is taken from MEXC itself:'),
       el('ul', {},
         el('li', {}, el('b', {}, 'Size: '), 'whole contracts, rounded exactly like the live bot. A coin whose single contract would risk too much is skipped, as live would.'),
@@ -1326,7 +1325,7 @@
 
   // ---------------- Research Lab: the paper bots and the market recorder, apart from live money ----------------
   function renderLabOverview() {
-    clear($('#labCards')).append(el('div', { class: 'botcards two' }, LABS.map((k) => botCard(bd(k), { open: true }))));
+    clear($('#labCards')).append(el('div', { class: `botcards${LABS.length > 1 ? ' two' : ''}` }, LABS.map((k) => botCard(bd(k), { open: true }))));
     const rows = LABS.map(bd).map((b) => {
       const p = b.perf, e = p ? p.expect : {}, o = p ? p.overall : b.overall, rd = b.present ? BR.readiness(b.trades, { compare: b.compare, drawdownR: b.dd, haltR: b.halt, skipCompare: b.key === 'bb1h' }) : [];
       return { b, label: b.label, n: o.trades, win: o.win_rate, ewin: e.win_rate, avg: o.avg_r, eavg: e.avg_r, pm: p ? p.trades_per_month : null, epm: e.trades_per_month, dd: o.max_dd_r, edd: e.max_dd_r, ok: rd.filter((c) => c.status === 'pass').length, of: rd.length };
