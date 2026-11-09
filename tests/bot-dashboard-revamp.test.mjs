@@ -92,7 +92,8 @@ test('BD7 settings keep every preference and its saved key; the System Monitor n
   for (const k of ['bot.tz', 'bot.mode', 'bot.range', 'bot.chart', 'bot.period', 'bot.view', 'bot.calmetric', 'bot.theme', 'bot.lastCapital']) assert.ok(app.includes(`'${k}'`), k);
   for (const id of ['modeSeg', 'refreshBtn', 'logoutBtn', 'resetPrefs']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('data-tz="utc"') && html.includes('data-theme-set="dark"'));
-  for (const what of ['CPU load now', 'Memory in use now', 'Running services', 'Server logs']) assert.ok(app.includes(`kv('${what}', na(`), what + ' is Unavailable, not a number');
+  for (const what of ['CPU load now', 'Memory in use now', 'Running services', 'Disk free', 'Exchange API errors']) assert.ok(app.split('\n').some((ln) => ln.includes(`kv('${what}', `) && ln.includes('na(')), what + ' is Unavailable when the recorder did not report it, never a number');
+  assert.ok(app.includes("kv('Server logs', na("), 'logs are never sent');
   assert.match(app, /fetch\('\/api\/vps'/); assert.match(read('api/vps.js'), /as_of: '2026-10-23'/);   // the specs are a dated snapshot, shown as such
   assert.match(html, /<h1>Bot dashboard<\/h1>/); assert.match(html, /id="backBtn"/);
 });

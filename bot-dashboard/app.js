@@ -1302,13 +1302,21 @@
     }), ''));
     renderRecorder($('#sysRec'), $('#sysRecNote'));
     loadVpsInline();
-    // what the dashboard is NOT sent, said plainly
-    const h = rc && rc.health || {};
+    // the server as the recorder reads it every 5 minutes (CPU, memory, which bot processes run, its own exchange errors); whatever it cannot read is Unavailable, never zero
+    const h = rc && rc.health || {}, sv = rc && rc.server || {}, has = (k) => Number.isFinite(sv[k]), src = rc ? el('small', {}, ['reported by the recorder ', ago(rc.ts)]) : null;
+    const SVC = [['svc_bbcore', 'BB-Core'], ['svc_icore', 'I-Core'], ['svc_tcore', 'T-CORE'], ['svc_bb1h', 'BB-1h lab'], ['svc_recorder', 'Recorder']].filter(([k]) => has(k));
+    const perCore = has('load_1m') && sv.cpus > 0 ? sv.load_1m / sv.cpus : null, memPct = has('mem_used_mb') && sv.mem_total_mb > 0 ? (sv.mem_used_mb / sv.mem_total_mb) * 100 : null;
     clear($('#sysNA')).append(el('dl', { class: 'kvlist kv2' },
-      kv('Disk free', h.disk_free_gb == null ? na('The recorder did not report it') : el('span', { class: h.disk_low ? 'bad' : '' }, `${h.disk_free_gb} GB`), rc ? el('small', {}, ['reported by the recorder ', ago(rc.ts)]) : null),
-      kv('CPU load now', na('The VPS does not report live CPU load')), kv('Memory in use now', na('The VPS does not report live memory use')), kv('Running services', na('The VPS does not report which services run')),
-      kv('Server logs', na('The VPS does not send its logs to the dashboard')), kv('Exchange API errors', na('The bots do not report exchange API errors'))),
-    el('p', { class: 'muted note' }, 'These are shown as Unavailable, never as zero. The Server panel holds the plan\'s specs as recorded on its date, not live usage. Status of every service is judged from heartbeats instead.'));
+      kv('Disk free', h.disk_free_gb == null ? na('The recorder did not report it') : el('span', { class: h.disk_low ? 'bad' : '' }, `${h.disk_free_gb} GB`), src),
+      kv('CPU load now', !has('load_1m') ? na('The recorder did not report it') : el('span', { class: perCore > 1.5 ? 'bad' : perCore > 0.8 ? 'warn' : '' }, `${Math.round(perCore * 100)}%`),
+        has('load_1m') ? el('small', {}, `load ${sv.load_1m} · 5 min ${has('load_5m') ? sv.load_5m : '—'} · 15 min ${has('load_15m') ? sv.load_15m : '—'} on ${sv.cpus} core${sv.cpus === 1 ? '' : 's'}`) : null),
+      kv('Memory in use now', memPct == null ? na('The recorder did not report it') : el('span', { class: memPct > 90 ? 'bad' : memPct > 80 ? 'warn' : '' }, `${Math.round(memPct)}% · ${sv.mem_used_mb} of ${sv.mem_total_mb} MB`),
+        has('swap_used_mb') ? el('small', {}, `swap in use ${sv.swap_used_mb} MB`) : null),
+      kv('Running services', SVC.length ? el('span', {}, SVC.map(([k, name], i) => el('span', { class: sv[k] === 1 ? 'good' : 'bad' }, `${i ? ' · ' : ''}${name} ${sv[k] === 1 ? '✓' : '✗'}`))) : na('The recorder did not report them'),
+        SVC.length ? el('small', {}, 'a bot\'s process found running on the server') : null),
+      kv('Server logs', na('Logs are never sent: they can hold keys and addresses'), el('small', {}, 'the dashboard only ever receives numbers')),
+      kv('Exchange API errors', h.errors_1h == null ? na('The recorder did not report it') : el('span', { class: h.errors_1h > 0 ? 'warn' : '' }, `${h.errors_1h} in the last hour`), el('small', {}, 'the recorder\'s own MEXC requests; the bots do not report theirs'))),
+    el('p', { class: 'muted note' }, 'These figures come from the recorder\'s heartbeat every 5 minutes. A figure it cannot read is shown as Unavailable, never as zero. The Server panel above holds the plan\'s specs as recorded on its date. Status of every bot is judged from its own heartbeats.'));
     renderSysLog();
   }
   function renderSysLog() {
