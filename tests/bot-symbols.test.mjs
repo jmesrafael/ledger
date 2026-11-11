@@ -1,5 +1,6 @@
-// The bot trades five coins (SOL, ZEC, NEAR, ADA, GALA). 20261116000000_bot_events_more_symbols.sql widened the symbol check to NEAR/ADA,
-// then 20261126000000_bot_events_gala.sql widened it again to GALA. lib/schema.js (what the website accepts) must name exactly the same symbols.
+// The bots trade five coins (SOL, ETH, NEAR, ADA, GALA; ETH replaced ZEC on Nov 12, 2026). 20261116000000_bot_events_more_symbols.sql widened the
+// symbol check to NEAR/ADA, 20261126000000_bot_events_gala.sql to GALA, then 20261211000000_bot_events_eth.sql to ETH (ZEC stays for the old trades).
+// lib/schema.js (what the website accepts) must name exactly the same symbols.
 // Run on the real SQL in an in-memory Postgres.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,8 +13,10 @@ const schema = require('../lib/schema.js');
 const sql = (dir, f) => { const a = new URL(`../supabase/${dir}/applied/${f}`, import.meta.url); return readFileSync(existsSync(a) ? a : new URL(`../supabase/${dir}/${f}`, import.meta.url), 'utf8'); };
 const BASE = '20261111000000_bot_events.sql', MORE = '20261116000000_bot_events_more_symbols.sql', BACK = '20261116000000_rollback_bot_events_more_symbols.sql';
 const GALA = '20261126000000_bot_events_gala.sql', GALA_BACK = '20261126000000_rollback_bot_events_gala.sql';
+const ETH = '20261211000000_bot_events_eth.sql', ETH_BACK = '20261211000000_rollback_bot_events_eth.sql';
 const NEW_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT'];
-const ALL_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT', 'GALA_USDT'];
+const GALA_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT', 'GALA_USDT'];
+const ALL_SYMBOLS = [...GALA_SYMBOLS, 'ETH_USDT'];
 
 async function fresh() {
   const db = new PGlite();
@@ -68,10 +71,10 @@ test('after the GALA migration GALA is stored too; BTC and junk are still refuse
   const db = await fresh();
   await db.exec(sql('migrations', MORE));
   await db.exec(sql('migrations', GALA));
-  for (const s of ALL_SYMBOLS) await put(db, s);
+  for (const s of GALA_SYMBOLS) await put(db, s);
   await put(db, null);
   for (const bad of ['BTC_USDT', 'ETH_USDT', 'gala_usdt', 'GALA', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
-  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ALL_SYMBOLS.length + 1);
+  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, GALA_SYMBOLS.length + 1);
 });
 
 test('the GALA migration is safe to run twice and keeps the rows that already exist', async () => {
@@ -100,15 +103,38 @@ test('the GALA rollback restores the four-coin check, and refuses while a GALA r
   await assert.rejects(put(db, 'GALA_USDT'), /check/i);
 });
 
+test('after the ETH migration ETH is stored too, ZEC still is (open ZEC trades finish); BTC and junk are still refused', async () => {
+  const db = await fresh();
+  await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA)); await db.exec(sql('migrations', ETH));
+  for (const s of ALL_SYMBOLS) await put(db, s);
+  for (const bad of ['BTC_USDT', 'eth_usdt', 'ETH', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
+  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ALL_SYMBOLS.length);
+});
+
+test('the ETH migration is safe to run twice, refuses to run before the base migration, and its rollback refuses while an ETH row exists', async () => {
+  const db = await fresh();
+  await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA));
+  await put(db, 'GALA_USDT');
+  await db.exec(sql('migrations', ETH)); await db.exec(sql('migrations', ETH));
+  assert.equal((await db.query(`select count(*)::int as c from public.bot_events where symbol = 'GALA_USDT'`)).rows[0].c, 1);
+  await put(db, 'ETH_USDT');
+  await assert.rejects(db.exec(sql('rollback', ETH_BACK)), /check/i);
+  await db.exec(`delete from public.bot_events where symbol = 'ETH_USDT'`);
+  await db.exec(sql('rollback', ETH_BACK));
+  await put(db, 'GALA_USDT');
+  await assert.rejects(put(db, 'ETH_USDT'), /check/i);
+  await assert.rejects(new PGlite().exec(sql('migrations', ETH)), /preflight/);
+});
+
 test('the website schema (lib/schema.js) and the database check name exactly the same symbols', () => {
-  const m = sql('migrations', GALA).match(/symbol in \(([^)]*)\)/);
+  const m = sql('migrations', ETH).match(/symbol in \(([^)]*)\)/);
   assert.ok(m, 'the migration has a symbol list');
   const inDb = m[1].split(',').map((s) => s.trim().replace(/'/g, ''));
   assert.deepEqual([...inDb].sort(), [...schema.ALLOWED_SYMBOLS].sort());
   assert.deepEqual([...schema.ALLOWED_SYMBOLS].sort(), [...ALL_SYMBOLS].sort());
 });
 
-test('the website accepts a five-coin heartbeat and exits for the new coins, and still refuses BTC', () => {
+test('the website accepts a heartbeat and exits for every coin (ETH included), and still refuses BTC', () => {
   const base = { ts_ms: 1792800000000, mode: 'paper' };
   for (const s of ALL_SYMBOLS) assert.ok(schema.validateEvent({ event_id: `site-test-${s}-0001`, type: 'exit', symbol: s, side: 'SHORT', ...base, data: { r: -1, usd: -1 } }).ok, s);
   assert.equal(schema.validateEvent({ event_id: 'site-test-btc-0001', type: 'exit', symbol: 'BTC_USDT', side: 'SHORT', ...base, data: {} }).ok, false);
