@@ -290,6 +290,22 @@
         <div class="pb"><div id="labCompare" class="scroll"></div><p class="muted note">Each lab is judged against its own backtest (same strategy, same coins). A lab that has few trades says little yet: small samples swing widely.</p></div>
       </section>
 
+      <section class="panel c12" id="pNewsBt" data-v="lab:news">
+        <div class="ph"><h2>News gate · backtest (2020 → now)</h2><span class="muted" id="nlBtWhen"></span></div>
+        <div class="pb"><p class="muted" style="margin:0 0 12px">Each bot's own backtest trades replayed through the news gate: no new entry in the 8 hours before CPI / jobs / FOMC releases, no new long after a hack on the coin's chain (the rule set chosen is named above; every rule tried is listed below). Rules are picked on 2020-2023 and checked on 2024 onward (never seen while picking). The gate only removes or shrinks entries; a real bot might take a different trade instead, which the news labs below measure.</p>
+          <div id="nlBacktest" class="scroll"></div><h3 class="sub" style="margin:18px 0 8px">Every rule tried</h3><div id="nlVariants" class="scroll"></div>
+          <p class="muted note">p = share of random skips of the same number of trades that kept at least as much R (low p = the rule removes worse-than-random trades). Helps = better R per trade before AND after 2024, and no deeper drawdown.</p></div>
+      </section>
+      <section class="panel c12" id="pNewsShadow" data-v="lab:news">
+        <div class="ph"><h2>Shadow · what the gate would have done to the real bots</h2><span class="muted" id="nlShadowWhen"></span></div>
+        <div class="pb"><p class="muted" style="margin:0 0 12px">Every trade of the live bots and the paper labs since Nov 1, 2026, checked against the news gate at its entry time (calendar, Fear &amp; Greed, BTC move, hacks as they were then). Nothing here changes any bot.</p>
+          <div id="nlShadow" class="scroll"></div><h3 class="sub" style="margin:18px 0 8px">Recent trades and the gate's verdict</h3><div id="nlShadowTrades" class="scroll"></div></div>
+      </section>
+      <section class="panel c12" id="pNewsLive" data-v="lab:news">
+        <div class="ph"><h2>News labs · forward test against their counterparts</h2></div>
+        <div class="pb"><div id="nlLive" class="scroll"></div><p class="muted note">T-CORE news vs the T-CORE paper lab is the clean test (same engine, same paper costs). BB-CORE news and I-CORE news are paper bots compared with live bots, so costs differ; read their difference as a direction, not an exact figure. Paper bots send no Telegram messages.</p></div>
+      </section>
+
       <section class="panel c12" id="pRHow" data-v="lab:research">
         <div class="ph"><h2 id="rHowTitle">How this run works</h2><span class="modeTag" data-botmode></span></div>
         <div class="pb"><div id="rRun" class="tiles"></div><div id="rHow" class="howto"></div></div>
@@ -401,6 +417,7 @@
   <div class="dlghead"><h2 id="tradeDlgTitle">Trade</h2><button type="button" class="ghost sm" id="tradeClose">Close</button></div>
   <div id="tradeBody"></div>
 </dialog>
+<script src="news-gate.js"></script>
 <script src="research.js"></script>
 <script src="app.js"></script>
 </body>

@@ -1,0 +1,2695 @@
+{
+ "generated": "2026-11-11T07:16:32.055Z",
+ "split": "2024-01-01",
+ "events": 3796,
+ "chosen": {
+  "name": "CHOSEN: blackout 8h before + coin-chain hack",
+  "cfg": {
+   "blackout": {
+    "on": true,
+    "preH": 8,
+    "postH": 0
+   },
+   "fng": {
+    "on": false,
+    "mode": "contrarian",
+    "lo": 20,
+    "hi": 80
+   },
+   "crash": {
+    "on": false,
+    "pct": 5,
+    "action": "skip"
+   },
+   "hack": {
+    "on": true,
+    "coinHours": 72,
+    "coinMinUsd": 1000000,
+    "marketHours": 48,
+    "marketMinUsd": 1000000000000000
+   }
+  }
+ },
+ "bots": {
+  "BB-CORE": {
+   "key": "bb-core|BBX|4h",
+   "base": {
+    "all": {
+     "n": 1341,
+     "R": 594.2,
+     "avgR": 0.443,
+     "win": 36.4,
+     "ddR": -25
+    },
+    "is": {
+     "n": 716,
+     "R": 371.1,
+     "avgR": 0.518,
+     "win": 35.5,
+     "ddR": -23.2
+    },
+    "oos": {
+     "n": 625,
+     "R": 223.1,
+     "avgR": 0.357,
+     "win": 37.4,
+     "ddR": -25
+    }
+   },
+   "chosen": {
+    "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+    "all": {
+     "n": 1277,
+     "R": 609,
+     "avgR": 0.477,
+     "win": 36.8,
+     "ddR": -22.3
+    },
+    "is": {
+     "n": 689,
+     "R": 379.2,
+     "avgR": 0.55,
+     "win": 35.8,
+     "ddR": -20.9
+    },
+    "oos": {
+     "n": 588,
+     "R": 229.8,
+     "avgR": 0.391,
+     "win": 37.9,
+     "ddR": -22.3
+    },
+    "skipped": {
+     "n": 64,
+     "R": -14.8,
+     "avgR": -0.231,
+     "win": 28.1,
+     "ddR": -20.3
+    },
+    "reasons": {
+     "blackout": 53,
+     "hack on SOL": 8,
+     "hack on ZEC": 1,
+     "hack on NEAR": 1,
+     "hack on GALA": 1
+    },
+    "dR": 14.8,
+    "dIS": 8.1,
+    "dOOS": 6.7,
+    "dDD": 2.7,
+    "p": 0.01,
+    "helps": true
+   },
+   "rows": [
+    {
+     "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+     "skipped": {
+      "n": 64,
+      "R": -14.8,
+      "avgR": -0.231,
+      "win": 28.1,
+      "ddR": -20.3
+     },
+     "all": {
+      "n": 1277,
+      "R": 609,
+      "avgR": 0.477,
+      "win": 36.8,
+      "ddR": -22.3
+     },
+     "is": {
+      "n": 689,
+      "R": 379.2,
+      "avgR": 0.55,
+      "win": 35.8,
+      "ddR": -20.9
+     },
+     "oos": {
+      "n": 588,
+      "R": 229.8,
+      "avgR": 0.391,
+      "win": 37.9,
+      "ddR": -22.3
+     },
+     "dR": 14.8,
+     "dIS": 8.1,
+     "dOOS": 6.7,
+     "dDD": 2.7,
+     "p": 0.01,
+     "helps": true,
+     "reasons": {
+      "blackout": 53,
+      "hack on SOL": 8,
+      "hack on ZEC": 1,
+      "hack on NEAR": 1,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "blackout ±4h",
+     "skipped": {
+      "n": 67,
+      "R": 49.3,
+      "avgR": 0.735,
+      "win": 44.8,
+      "ddR": -6.7
+     },
+     "all": {
+      "n": 1274,
+      "R": 544.9,
+      "avgR": 0.428,
+      "win": 35.9,
+      "ddR": -35.9
+     },
+     "is": {
+      "n": 674,
+      "R": 335.6,
+      "avgR": 0.498,
+      "win": 34.7,
+      "ddR": -35.9
+     },
+     "oos": {
+      "n": 600,
+      "R": 209.4,
+      "avgR": 0.349,
+      "win": 37.3,
+      "ddR": -24
+     },
+     "dR": -49.3,
+     "dIS": -35.5,
+     "dOOS": -13.7,
+     "dDD": -10.9,
+     "p": 0.818,
+     "helps": false,
+     "reasons": {
+      "blackout": 67
+     }
+    },
+    {
+     "variant": "blackout ±2h",
+     "skipped": {
+      "n": 23,
+      "R": 16.6,
+      "avgR": 0.722,
+      "win": 39.1,
+      "ddR": -6.6
+     },
+     "all": {
+      "n": 1318,
+      "R": 577.6,
+      "avgR": 0.438,
+      "win": 36.3,
+      "ddR": -25
+     },
+     "is": {
+      "n": 706,
+      "R": 368,
+      "avgR": 0.521,
+      "win": 35.4,
+      "ddR": -21.9
+     },
+     "oos": {
+      "n": 612,
+      "R": 209.6,
+      "avgR": 0.342,
+      "win": 37.4,
+      "ddR": -25
+     },
+     "dR": -16.6,
+     "dIS": -3.1,
+     "dOOS": -13.5,
+     "dDD": 0,
+     "p": 0.747,
+     "helps": false,
+     "reasons": {
+      "blackout": 23
+     }
+    },
+    {
+     "variant": "blackout 8h before",
+     "skipped": {
+      "n": 53,
+      "R": -11,
+      "avgR": -0.207,
+      "win": 28.3,
+      "ddR": -17.5
+     },
+     "all": {
+      "n": 1288,
+      "R": 605.1,
+      "avgR": 0.47,
+      "win": 36.7,
+      "ddR": -22.3
+     },
+     "is": {
+      "n": 693,
+      "R": 378.4,
+      "avgR": 0.546,
+      "win": 35.8,
+      "ddR": -20.9
+     },
+     "oos": {
+      "n": 595,
+      "R": 226.8,
+      "avgR": 0.381,
+      "win": 37.8,
+      "ddR": -22.3
+     },
+     "dR": 10.9,
+     "dIS": 7.3,
+     "dOOS": 3.7,
+     "dDD": 2.7,
+     "p": 0.025,
+     "helps": true,
+     "reasons": {
+      "blackout": 53
+     }
+    },
+    {
+     "variant": "blackout 8h after",
+     "skipped": {
+      "n": 102,
+      "R": 99.9,
+      "avgR": 0.979,
+      "win": 47.1,
+      "ddR": -13
+     },
+     "all": {
+      "n": 1239,
+      "R": 494.3,
+      "avgR": 0.399,
+      "win": 35.5,
+      "ddR": -39.5
+     },
+     "is": {
+      "n": 655,
+      "R": 297.7,
+      "avgR": 0.455,
+      "win": 34.2,
+      "ddR": -39.5
+     },
+     "oos": {
+      "n": 584,
+      "R": 196.6,
+      "avgR": 0.337,
+      "win": 37,
+      "ddR": -24
+     },
+     "dR": -99.9,
+     "dIS": -73.4,
+     "dOOS": -26.5,
+     "dDD": -14.5,
+     "p": 0.936,
+     "helps": false,
+     "reasons": {
+      "blackout": 102
+     }
+    },
+    {
+     "variant": "F&G contrarian 20/80",
+     "skipped": {
+      "n": 162,
+      "R": 55.7,
+      "avgR": 0.344,
+      "win": 38.9,
+      "ddR": -22.3
+     },
+     "all": {
+      "n": 1179,
+      "R": 538.5,
+      "avgR": 0.457,
+      "win": 36,
+      "ddR": -25
+     },
+     "is": {
+      "n": 617,
+      "R": 308,
+      "avgR": 0.499,
+      "win": 34.4,
+      "ddR": -21.9
+     },
+     "oos": {
+      "n": 562,
+      "R": 230.6,
+      "avgR": 0.41,
+      "win": 37.9,
+      "ddR": -25
+     },
+     "dR": -55.7,
+     "dIS": -63.1,
+     "dOOS": 7.5,
+     "dDD": 0,
+     "p": 0.347,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 3,
+      "fear&greed 86": 5,
+      "fear&greed 90": 4,
+      "fear&greed 91": 9,
+      "fear&greed 94": 3,
+      "fear&greed 83": 4,
+      "fear&greed 93": 5,
+      "fear&greed 81": 5,
+      "fear&greed 12": 15,
+      "fear&greed 15": 6,
+      "fear&greed 20": 15,
+      "fear&greed 11": 14,
+      "fear&greed 17": 2,
+      "fear&greed 13": 11,
+      "fear&greed 10": 6,
+      "fear&greed 82": 2,
+      "fear&greed 84": 8,
+      "fear&greed 16": 8,
+      "fear&greed 8": 7,
+      "fear&greed 5": 2,
+      "fear&greed 14": 6,
+      "fear&greed 87": 1,
+      "fear&greed 92": 7,
+      "fear&greed 80": 3,
+      "fear&greed 9": 4,
+      "fear&greed 19": 2,
+      "fear&greed 95": 1,
+      "fear&greed 18": 4
+     }
+    },
+    {
+     "variant": "F&G contrarian 25/75",
+     "skipped": {
+      "n": 306,
+      "R": 170.9,
+      "avgR": 0.559,
+      "win": 36.6,
+      "ddR": -18.2
+     },
+     "all": {
+      "n": 1035,
+      "R": 423.2,
+      "avgR": 0.409,
+      "win": 36.3,
+      "ddR": -25.1
+     },
+     "is": {
+      "n": 527,
+      "R": 228.4,
+      "avgR": 0.433,
+      "win": 34.5,
+      "ddR": -25.1
+     },
+     "oos": {
+      "n": 508,
+      "R": 194.9,
+      "avgR": 0.384,
+      "win": 38.2,
+      "ddR": -25
+     },
+     "dR": -171,
+     "dIS": -142.7,
+     "dOOS": -28.2,
+     "dDD": -0.1,
+     "p": 0.767,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 3,
+      "fear&greed 86": 5,
+      "fear&greed 90": 4,
+      "fear&greed 91": 9,
+      "fear&greed 94": 3,
+      "fear&greed 79": 12,
+      "fear&greed 76": 14,
+      "fear&greed 83": 4,
+      "fear&greed 93": 5,
+      "fear&greed 81": 5,
+      "fear&greed 23": 27,
+      "fear&greed 12": 15,
+      "fear&greed 25": 21,
+      "fear&greed 15": 6,
+      "fear&greed 22": 20,
+      "fear&greed 20": 15,
+      "fear&greed 11": 14,
+      "fear&greed 17": 2,
+      "fear&greed 13": 11,
+      "fear&greed 10": 6,
+      "fear&greed 21": 7,
+      "fear&greed 82": 2,
+      "fear&greed 75": 14,
+      "fear&greed 84": 8,
+      "fear&greed 16": 8,
+      "fear&greed 24": 20,
+      "fear&greed 8": 7,
+      "fear&greed 5": 2,
+      "fear&greed 14": 6,
+      "fear&greed 87": 1,
+      "fear&greed 92": 7,
+      "fear&greed 80": 3,
+      "fear&greed 9": 4,
+      "fear&greed 78": 2,
+      "fear&greed 77": 7,
+      "fear&greed 19": 2,
+      "fear&greed 95": 1,
+      "fear&greed 18": 4
+     }
+    },
+    {
+     "variant": "F&G with-trend 20/80",
+     "skipped": {
+      "n": 58,
+      "R": 13.5,
+      "avgR": 0.233,
+      "win": 31,
+      "ddR": -16
+     },
+     "all": {
+      "n": 1283,
+      "R": 580.7,
+      "avgR": 0.453,
+      "win": 36.6,
+      "ddR": -29.9
+     },
+     "is": {
+      "n": 682,
+      "R": 374.8,
+      "avgR": 0.55,
+      "win": 36.1,
+      "ddR": -21.9
+     },
+     "oos": {
+      "n": 601,
+      "R": 205.9,
+      "avgR": 0.343,
+      "win": 37.3,
+      "ddR": -29.9
+     },
+     "dR": -13.5,
+     "dIS": 3.7,
+     "dOOS": -17.2,
+     "dDD": -4.9,
+     "p": 0.309,
+     "helps": false,
+     "reasons": {
+      "fear&greed 93": 3,
+      "fear&greed 92": 2,
+      "fear&greed 20": 12,
+      "fear&greed 11": 4,
+      "fear&greed 18": 1,
+      "fear&greed 15": 4,
+      "fear&greed 80": 3,
+      "fear&greed 10": 2,
+      "fear&greed 8": 4,
+      "fear&greed 13": 5,
+      "fear&greed 12": 2,
+      "fear&greed 83": 1,
+      "fear&greed 89": 1,
+      "fear&greed 94": 2,
+      "fear&greed 81": 3,
+      "fear&greed 16": 3,
+      "fear&greed 14": 2,
+      "fear&greed 95": 1,
+      "fear&greed 17": 2,
+      "fear&greed 90": 1
+     }
+    },
+    {
+     "variant": "BTC crash guard 5%",
+     "skipped": {
+      "n": 7,
+      "R": 11.2,
+      "avgR": 1.599,
+      "win": 42.9,
+      "ddR": -3.1
+     },
+     "all": {
+      "n": 1334,
+      "R": 583,
+      "avgR": 0.437,
+      "win": 36.4,
+      "ddR": -25
+     },
+     "is": {
+      "n": 712,
+      "R": 356.8,
+      "avgR": 0.501,
+      "win": 35.3,
+      "ddR": -23.2
+     },
+     "oos": {
+      "n": 622,
+      "R": 226.2,
+      "avgR": 0.364,
+      "win": 37.6,
+      "ddR": -25
+     },
+     "dR": -11.2,
+     "dIS": -14.3,
+     "dOOS": 3.1,
+     "dDD": 0,
+     "p": 0.887,
+     "helps": false,
+     "reasons": {
+      "BTC -7.9% in 24h": 1,
+      "BTC -8.3% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC -6.0% in 24h": 1,
+      "BTC -9.7% in 24h": 1,
+      "BTC -5.1% in 24h": 1,
+      "BTC +7.0% in 24h": 1
+     }
+    },
+    {
+     "variant": "BTC crash guard 8%",
+     "skipped": {
+      "n": 3,
+      "R": 4.8,
+      "avgR": 1.603,
+      "win": 66.7,
+      "ddR": -1
+     },
+     "all": {
+      "n": 1338,
+      "R": 589.4,
+      "avgR": 0.44,
+      "win": 36.3,
+      "ddR": -25
+     },
+     "is": {
+      "n": 713,
+      "R": 366.3,
+      "avgR": 0.514,
+      "win": 35.3,
+      "ddR": -23.2
+     },
+     "oos": {
+      "n": 625,
+      "R": 223.1,
+      "avgR": 0.357,
+      "win": 37.4,
+      "ddR": -25
+     },
+     "dR": -4.8,
+     "dIS": -4.8,
+     "dOOS": 0,
+     "dDD": 0,
+     "p": 0.826,
+     "helps": false,
+     "reasons": {
+      "BTC -8.3% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC -9.7% in 24h": 1
+     }
+    },
+    {
+     "variant": "BTC 5% move: half size",
+     "skipped": {
+      "n": 0,
+      "R": 0,
+      "avgR": 0,
+      "win": 0,
+      "ddR": 0
+     },
+     "all": {
+      "n": 1341,
+      "R": 588.6,
+      "avgR": 0.439,
+      "win": 36.4,
+      "ddR": -25
+     },
+     "is": {
+      "n": 716,
+      "R": 363.9,
+      "avgR": 0.508,
+      "win": 35.5,
+      "ddR": -23.2
+     },
+     "oos": {
+      "n": 625,
+      "R": 224.6,
+      "avgR": 0.359,
+      "win": 37.4,
+      "ddR": -25
+     },
+     "dR": -5.6,
+     "dIS": -7.2,
+     "dOOS": 1.5,
+     "dDD": 0,
+     "p": null,
+     "helps": false,
+     "reasons": {}
+    },
+    {
+     "variant": "hack guard (coin + $100M market)",
+     "skipped": {
+      "n": 36,
+      "R": -10.4,
+      "avgR": -0.289,
+      "win": 30.6,
+      "ddR": -14.8
+     },
+     "all": {
+      "n": 1305,
+      "R": 604.6,
+      "avgR": 0.463,
+      "win": 36.6,
+      "ddR": -23.3
+     },
+     "is": {
+      "n": 694,
+      "R": 380.6,
+      "avgR": 0.548,
+      "win": 35.9,
+      "ddR": -21.3
+     },
+     "oos": {
+      "n": 611,
+      "R": 224,
+      "avgR": 0.367,
+      "win": 37.3,
+      "ddR": -23.3
+     },
+     "dR": 10.4,
+     "dIS": 9.5,
+     "dOOS": 0.9,
+     "dDD": 1.7,
+     "p": 0.034,
+     "helps": true,
+     "reasons": {
+      "market hack": 24,
+      "hack on SOL": 8,
+      "hack on ZEC": 1,
+      "hack on NEAR": 2,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "hack guard: coin chain only",
+     "skipped": {
+      "n": 12,
+      "R": -4.9,
+      "avgR": -0.407,
+      "win": 25,
+      "ddR": -7.2
+     },
+     "all": {
+      "n": 1329,
+      "R": 599.1,
+      "avgR": 0.451,
+      "win": 36.5,
+      "ddR": -24
+     },
+     "is": {
+      "n": 711,
+      "R": 372.9,
+      "avgR": 0.525,
+      "win": 35.6,
+      "ddR": -23.2
+     },
+     "oos": {
+      "n": 618,
+      "R": 226.2,
+      "avgR": 0.366,
+      "win": 37.5,
+      "ddR": -24
+     },
+     "dR": 4.9,
+     "dIS": 1.8,
+     "dOOS": 3.1,
+     "dDD": 1,
+     "p": 0.114,
+     "helps": true,
+     "reasons": {
+      "hack on SOL": 8,
+      "hack on ZEC": 1,
+      "hack on NEAR": 2,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "hack guard: $100M market only",
+     "skipped": {
+      "n": 25,
+      "R": -6.6,
+      "avgR": -0.262,
+      "win": 32,
+      "ddR": -9.7
+     },
+     "all": {
+      "n": 1316,
+      "R": 600.7,
+      "avgR": 0.456,
+      "win": 36.5,
+      "ddR": -23.3
+     },
+     "is": {
+      "n": 699,
+      "R": 378.7,
+      "avgR": 0.542,
+      "win": 35.8,
+      "ddR": -21.3
+     },
+     "oos": {
+      "n": 617,
+      "R": 222,
+      "avgR": 0.36,
+      "win": 37.3,
+      "ddR": -23.3
+     },
+     "dR": 6.5,
+     "dIS": 7.6,
+     "dOOS": -1.1,
+     "dDD": 1.7,
+     "p": 0.074,
+     "helps": true,
+     "reasons": {
+      "market hack": 25
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack",
+     "skipped": {
+      "n": 97,
+      "R": 41.4,
+      "avgR": 0.427,
+      "win": 40.2,
+      "ddR": -10.2
+     },
+     "all": {
+      "n": 1244,
+      "R": 552.8,
+      "avgR": 0.444,
+      "win": 36.1,
+      "ddR": -31.8
+     },
+     "is": {
+      "n": 658,
+      "R": 342.5,
+      "avgR": 0.521,
+      "win": 35.1,
+      "ddR": -31.8
+     },
+     "oos": {
+      "n": 586,
+      "R": 210.3,
+      "avgR": 0.359,
+      "win": 37.2,
+      "ddR": -22.3
+     },
+     "dR": -41.4,
+     "dIS": -28.6,
+     "dOOS": -12.8,
+     "dDD": -6.8,
+     "p": 0.527,
+     "helps": false,
+     "reasons": {
+      "blackout": 67,
+      "market hack": 18,
+      "hack on SOL": 8,
+      "hack on ZEC": 1,
+      "hack on NEAR": 2,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack + crash 5%",
+     "skipped": {
+      "n": 104,
+      "R": 52.6,
+      "avgR": 0.506,
+      "win": 40.4,
+      "ddR": -10.2
+     },
+     "all": {
+      "n": 1237,
+      "R": 541.6,
+      "avgR": 0.438,
+      "win": 36.1,
+      "ddR": -31.8
+     },
+     "is": {
+      "n": 654,
+      "R": 328.2,
+      "avgR": 0.502,
+      "win": 34.9,
+      "ddR": -31.8
+     },
+     "oos": {
+      "n": 583,
+      "R": 213.4,
+      "avgR": 0.366,
+      "win": 37.4,
+      "ddR": -22.3
+     },
+     "dR": -52.6,
+     "dIS": -42.9,
+     "dOOS": -9.7,
+     "dDD": -6.8,
+     "p": 0.638,
+     "helps": false,
+     "reasons": {
+      "BTC -7.9% in 24h": 1,
+      "BTC -8.3% in 24h": 1,
+      "blackout": 67,
+      "BTC -8.5% in 24h": 1,
+      "market hack": 18,
+      "hack on SOL": 8,
+      "BTC -6.0% in 24h": 1,
+      "hack on ZEC": 1,
+      "hack on NEAR": 2,
+      "BTC -9.7% in 24h": 1,
+      "BTC -5.1% in 24h": 1,
+      "BTC +7.0% in 24h": 1,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "all four (contrarian F&G)",
+     "skipped": {
+      "n": 256,
+      "R": 95.3,
+      "avgR": 0.372,
+      "win": 39.5,
+      "ddR": -23.1
+     },
+     "all": {
+      "n": 1085,
+      "R": 498.9,
+      "avgR": 0.46,
+      "win": 35.7,
+      "ddR": -28.3
+     },
+     "is": {
+      "n": 560,
+      "R": 281.6,
+      "avgR": 0.503,
+      "win": 33.8,
+      "ddR": -28.3
+     },
+     "oos": {
+      "n": 525,
+      "R": 217.3,
+      "avgR": 0.414,
+      "win": 37.7,
+      "ddR": -22.3
+     },
+     "dR": -95.3,
+     "dIS": -89.5,
+     "dOOS": -5.8,
+     "dDD": -3.3,
+     "p": 0.369,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 2,
+      "fear&greed 86": 5,
+      "fear&greed 90": 4,
+      "fear&greed 91": 9,
+      "fear&greed 94": 3,
+      "BTC -7.9% in 24h": 1,
+      "fear&greed 83": 4,
+      "fear&greed 93": 4,
+      "fear&greed 81": 5,
+      "BTC -8.3% in 24h": 1,
+      "blackout": 67,
+      "BTC -8.5% in 24h": 1,
+      "fear&greed 12": 15,
+      "market hack": 18,
+      "hack on SOL": 7,
+      "fear&greed 15": 6,
+      "fear&greed 20": 15,
+      "fear&greed 11": 14,
+      "fear&greed 17": 2,
+      "fear&greed 13": 7,
+      "fear&greed 10": 6,
+      "fear&greed 82": 2,
+      "fear&greed 84": 8,
+      "fear&greed 16": 8,
+      "fear&greed 8": 7,
+      "fear&greed 5": 2,
+      "fear&greed 14": 6,
+      "fear&greed 87": 1,
+      "fear&greed 92": 6,
+      "fear&greed 80": 3,
+      "fear&greed 9": 4,
+      "BTC -6.0% in 24h": 1,
+      "hack on ZEC": 1,
+      "hack on NEAR": 2,
+      "BTC -9.7% in 24h": 1,
+      "fear&greed 19": 2,
+      "BTC -5.1% in 24h": 1,
+      "fear&greed 95": 1,
+      "fear&greed 18": 2,
+      "BTC +7.0% in 24h": 1,
+      "hack on GALA": 1
+     }
+    }
+   ]
+  },
+  "I-CORE": {
+   "key": "i-core|P7|4h",
+   "base": {
+    "all": {
+     "n": 767,
+     "R": 668.1,
+     "avgR": 0.871,
+     "win": 32.2,
+     "ddR": -28
+    },
+    "is": {
+     "n": 405,
+     "R": 376.2,
+     "avgR": 0.929,
+     "win": 32.3,
+     "ddR": -28
+    },
+    "oos": {
+     "n": 362,
+     "R": 291.8,
+     "avgR": 0.806,
+     "win": 32,
+     "ddR": -26.9
+    }
+   },
+   "chosen": {
+    "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+    "all": {
+     "n": 735,
+     "R": 677.5,
+     "avgR": 0.922,
+     "win": 32.7,
+     "ddR": -25.9
+    },
+    "is": {
+     "n": 388,
+     "R": 380.9,
+     "avgR": 0.982,
+     "win": 32.7,
+     "ddR": -25.9
+    },
+    "oos": {
+     "n": 347,
+     "R": 296.6,
+     "avgR": 0.855,
+     "win": 32.6,
+     "ddR": -25.8
+    },
+    "skipped": {
+     "n": 32,
+     "R": -9.4,
+     "avgR": -0.295,
+     "win": 21.9,
+     "ddR": -9.8
+    },
+    "reasons": {
+     "blackout": 24,
+     "hack on SOL": 7,
+     "hack on GALA": 1
+    },
+    "dR": 9.4,
+    "dIS": 4.7,
+    "dOOS": 4.8,
+    "dDD": 2.1,
+    "p": 0.053,
+    "helps": true
+   },
+   "rows": [
+    {
+     "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+     "skipped": {
+      "n": 32,
+      "R": -9.4,
+      "avgR": -0.295,
+      "win": 21.9,
+      "ddR": -9.8
+     },
+     "all": {
+      "n": 735,
+      "R": 677.5,
+      "avgR": 0.922,
+      "win": 32.7,
+      "ddR": -25.9
+     },
+     "is": {
+      "n": 388,
+      "R": 380.9,
+      "avgR": 0.982,
+      "win": 32.7,
+      "ddR": -25.9
+     },
+     "oos": {
+      "n": 347,
+      "R": 296.6,
+      "avgR": 0.855,
+      "win": 32.6,
+      "ddR": -25.8
+     },
+     "dR": 9.4,
+     "dIS": 4.7,
+     "dOOS": 4.8,
+     "dDD": 2.1,
+     "p": 0.053,
+     "helps": true,
+     "reasons": {
+      "blackout": 24,
+      "hack on SOL": 7,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "blackout ±4h",
+     "skipped": {
+      "n": 47,
+      "R": -6.8,
+      "avgR": -0.146,
+      "win": 31.9,
+      "ddR": -14.1
+     },
+     "all": {
+      "n": 720,
+      "R": 674.9,
+      "avgR": 0.937,
+      "win": 32.2,
+      "ddR": -30
+     },
+     "is": {
+      "n": 373,
+      "R": 373.9,
+      "avgR": 1.002,
+      "win": 31.9,
+      "ddR": -30
+     },
+     "oos": {
+      "n": 347,
+      "R": 301.1,
+      "avgR": 0.868,
+      "win": 32.6,
+      "ddR": -25.8
+     },
+     "dR": 6.8,
+     "dIS": -2.3,
+     "dOOS": 9.3,
+     "dDD": -2,
+     "p": 0.068,
+     "helps": false,
+     "reasons": {
+      "blackout": 47
+     }
+    },
+    {
+     "variant": "blackout ±2h",
+     "skipped": {
+      "n": 19,
+      "R": -8.7,
+      "avgR": -0.456,
+      "win": 21.1,
+      "ddR": -9.3
+     },
+     "all": {
+      "n": 748,
+      "R": 676.8,
+      "avgR": 0.905,
+      "win": 32.5,
+      "ddR": -25.8
+     },
+     "is": {
+      "n": 391,
+      "R": 381.3,
+      "avgR": 0.975,
+      "win": 32.7,
+      "ddR": -24.9
+     },
+     "oos": {
+      "n": 357,
+      "R": 295.4,
+      "avgR": 0.827,
+      "win": 32.2,
+      "ddR": -25.8
+     },
+     "dR": 8.7,
+     "dIS": 5.1,
+     "dOOS": 3.6,
+     "dDD": 2.2,
+     "p": 0.056,
+     "helps": true,
+     "reasons": {
+      "blackout": 19
+     }
+    },
+    {
+     "variant": "blackout 8h before",
+     "skipped": {
+      "n": 24,
+      "R": -6.9,
+      "avgR": -0.287,
+      "win": 25,
+      "ddR": -6.9
+     },
+     "all": {
+      "n": 743,
+      "R": 675,
+      "avgR": 0.908,
+      "win": 32.4,
+      "ddR": -25.9
+     },
+     "is": {
+      "n": 390,
+      "R": 379.1,
+      "avgR": 0.972,
+      "win": 32.6,
+      "ddR": -25.9
+     },
+     "oos": {
+      "n": 353,
+      "R": 295.8,
+      "avgR": 0.838,
+      "win": 32.3,
+      "ddR": -25.8
+     },
+     "dR": 6.9,
+     "dIS": 2.9,
+     "dOOS": 4,
+     "dDD": 2.1,
+     "p": 0.091,
+     "helps": true,
+     "reasons": {
+      "blackout": 24
+     }
+    },
+    {
+     "variant": "blackout 8h after",
+     "skipped": {
+      "n": 62,
+      "R": 28.4,
+      "avgR": 0.458,
+      "win": 35.5,
+      "ddR": -9.1
+     },
+     "all": {
+      "n": 705,
+      "R": 639.7,
+      "avgR": 0.907,
+      "win": 31.9,
+      "ddR": -31.2
+     },
+     "is": {
+      "n": 366,
+      "R": 359.2,
+      "avgR": 0.981,
+      "win": 32.2,
+      "ddR": -31.2
+     },
+     "oos": {
+      "n": 339,
+      "R": 280.5,
+      "avgR": 0.827,
+      "win": 31.6,
+      "ddR": -25.8
+     },
+     "dR": -28.4,
+     "dIS": -17,
+     "dOOS": -11.3,
+     "dDD": -3.2,
+     "p": 0.385,
+     "helps": false,
+     "reasons": {
+      "blackout": 62
+     }
+    },
+    {
+     "variant": "F&G contrarian 20/80",
+     "skipped": {
+      "n": 89,
+      "R": 61.9,
+      "avgR": 0.695,
+      "win": 30.3,
+      "ddR": -18.6
+     },
+     "all": {
+      "n": 678,
+      "R": 606.2,
+      "avgR": 0.894,
+      "win": 32.4,
+      "ddR": -28
+     },
+     "is": {
+      "n": 354,
+      "R": 299.1,
+      "avgR": 0.845,
+      "win": 31.9,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 324,
+      "R": 307.2,
+      "avgR": 0.948,
+      "win": 33,
+      "ddR": -17.7
+     },
+     "dR": -61.9,
+     "dIS": -77.1,
+     "dOOS": 15.4,
+     "dDD": 0,
+     "p": 0.494,
+     "helps": false,
+     "reasons": {
+      "fear&greed 86": 4,
+      "fear&greed 90": 2,
+      "fear&greed 95": 3,
+      "fear&greed 92": 4,
+      "fear&greed 81": 1,
+      "fear&greed 20": 9,
+      "fear&greed 10": 5,
+      "fear&greed 13": 5,
+      "fear&greed 9": 9,
+      "fear&greed 12": 10,
+      "fear&greed 16": 4,
+      "fear&greed 94": 3,
+      "fear&greed 80": 1,
+      "fear&greed 17": 4,
+      "fear&greed 11": 5,
+      "fear&greed 15": 4,
+      "fear&greed 83": 4,
+      "fear&greed 5": 1,
+      "fear&greed 84": 2,
+      "fear&greed 93": 1,
+      "fear&greed 18": 2,
+      "fear&greed 14": 3,
+      "fear&greed 91": 1,
+      "fear&greed 19": 1,
+      "fear&greed 8": 1
+     }
+    },
+    {
+     "variant": "F&G contrarian 25/75",
+     "skipped": {
+      "n": 168,
+      "R": 92.7,
+      "avgR": 0.552,
+      "win": 32.7,
+      "ddR": -23.9
+     },
+     "all": {
+      "n": 599,
+      "R": 575.4,
+      "avgR": 0.961,
+      "win": 32.1,
+      "ddR": -28
+     },
+     "is": {
+      "n": 315,
+      "R": 289.1,
+      "avgR": 0.918,
+      "win": 31.1,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 284,
+      "R": 286.3,
+      "avgR": 1.008,
+      "win": 33.1,
+      "ddR": -17.2
+     },
+     "dR": -92.7,
+     "dIS": -87.1,
+     "dOOS": -5.5,
+     "dDD": 0,
+     "p": 0.288,
+     "helps": false,
+     "reasons": {
+      "fear&greed 86": 4,
+      "fear&greed 90": 2,
+      "fear&greed 95": 3,
+      "fear&greed 92": 4,
+      "fear&greed 81": 1,
+      "fear&greed 76": 10,
+      "fear&greed 75": 16,
+      "fear&greed 79": 3,
+      "fear&greed 23": 10,
+      "fear&greed 25": 11,
+      "fear&greed 20": 9,
+      "fear&greed 78": 3,
+      "fear&greed 22": 12,
+      "fear&greed 10": 5,
+      "fear&greed 13": 5,
+      "fear&greed 24": 7,
+      "fear&greed 9": 9,
+      "fear&greed 12": 10,
+      "fear&greed 16": 4,
+      "fear&greed 94": 3,
+      "fear&greed 80": 1,
+      "fear&greed 17": 4,
+      "fear&greed 11": 5,
+      "fear&greed 15": 4,
+      "fear&greed 83": 4,
+      "fear&greed 5": 1,
+      "fear&greed 21": 2,
+      "fear&greed 84": 2,
+      "fear&greed 93": 1,
+      "fear&greed 77": 5,
+      "fear&greed 18": 2,
+      "fear&greed 14": 3,
+      "fear&greed 91": 1,
+      "fear&greed 19": 1,
+      "fear&greed 8": 1
+     }
+    },
+    {
+     "variant": "F&G with-trend 20/80",
+     "skipped": {
+      "n": 33,
+      "R": 7.4,
+      "avgR": 0.223,
+      "win": 42.4,
+      "ddR": -7.8
+     },
+     "all": {
+      "n": 734,
+      "R": 660.7,
+      "avgR": 0.9,
+      "win": 31.7,
+      "ddR": -28
+     },
+     "is": {
+      "n": 383,
+      "R": 367.6,
+      "avgR": 0.96,
+      "win": 31.9,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 351,
+      "R": 293.1,
+      "avgR": 0.835,
+      "win": 31.6,
+      "ddR": -24
+     },
+     "dR": -7.4,
+     "dIS": -8.6,
+     "dOOS": 1.3,
+     "dDD": 0,
+     "p": 0.346,
+     "helps": true,
+     "reasons": {
+      "fear&greed 87": 1,
+      "fear&greed 92": 5,
+      "fear&greed 20": 3,
+      "fear&greed 15": 2,
+      "fear&greed 18": 1,
+      "fear&greed 11": 3,
+      "fear&greed 13": 3,
+      "fear&greed 10": 2,
+      "fear&greed 83": 2,
+      "fear&greed 84": 2,
+      "fear&greed 17": 2,
+      "fear&greed 16": 1,
+      "fear&greed 91": 2,
+      "fear&greed 86": 1,
+      "fear&greed 80": 1,
+      "fear&greed 90": 1,
+      "fear&greed 12": 1
+     }
+    },
+    {
+     "variant": "BTC crash guard 5%",
+     "skipped": {
+      "n": 21,
+      "R": 5,
+      "avgR": 0.238,
+      "win": 33.3,
+      "ddR": -4.8
+     },
+     "all": {
+      "n": 746,
+      "R": 663.1,
+      "avgR": 0.889,
+      "win": 32.2,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 392,
+      "R": 379.7,
+      "avgR": 0.969,
+      "win": 32.7,
+      "ddR": -27
+     },
+     "oos": {
+      "n": 354,
+      "R": 283.4,
+      "avgR": 0.801,
+      "win": 31.6,
+      "ddR": -29.7
+     },
+     "dR": -5,
+     "dIS": 3.5,
+     "dOOS": -8.4,
+     "dDD": -1.7,
+     "p": 0.393,
+     "helps": false,
+     "reasons": {
+      "BTC -7.0% in 24h": 1,
+      "BTC -8.1% in 24h": 1,
+      "BTC +9.1% in 24h": 1,
+      "BTC -6.7% in 24h": 4,
+      "BTC -9.6% in 24h": 1,
+      "BTC -6.5% in 24h": 1,
+      "BTC -6.4% in 24h": 1,
+      "BTC -6.3% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC +8.9% in 24h": 1,
+      "BTC +5.0% in 24h": 1,
+      "BTC +6.7% in 24h": 1,
+      "BTC +6.5% in 24h": 2,
+      "BTC +11.4% in 24h": 1,
+      "BTC +10.3% in 24h": 1,
+      "BTC +7.0% in 24h": 1,
+      "BTC +6.1% in 24h": 1
+     }
+    },
+    {
+     "variant": "BTC crash guard 8%",
+     "skipped": {
+      "n": 7,
+      "R": -1.2,
+      "avgR": -0.174,
+      "win": 28.6,
+      "ddR": -2
+     },
+     "all": {
+      "n": 760,
+      "R": 669.3,
+      "avgR": 0.881,
+      "win": 32.2,
+      "ddR": -27
+     },
+     "is": {
+      "n": 398,
+      "R": 377.5,
+      "avgR": 0.948,
+      "win": 32.4,
+      "ddR": -27
+     },
+     "oos": {
+      "n": 362,
+      "R": 291.8,
+      "avgR": 0.806,
+      "win": 32,
+      "ddR": -26.9
+     },
+     "dR": 1.2,
+     "dIS": 1.3,
+     "dOOS": 0,
+     "dDD": 1,
+     "p": 0.339,
+     "helps": false,
+     "reasons": {
+      "BTC -8.1% in 24h": 1,
+      "BTC +9.1% in 24h": 1,
+      "BTC -9.6% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC +8.9% in 24h": 1,
+      "BTC +11.4% in 24h": 1,
+      "BTC +10.3% in 24h": 1
+     }
+    },
+    {
+     "variant": "BTC 5% move: half size",
+     "skipped": {
+      "n": 0,
+      "R": 0,
+      "avgR": 0,
+      "win": 0,
+      "ddR": 0
+     },
+     "all": {
+      "n": 767,
+      "R": 665.6,
+      "avgR": 0.868,
+      "win": 32.2,
+      "ddR": -28.3
+     },
+     "is": {
+      "n": 405,
+      "R": 378,
+      "avgR": 0.933,
+      "win": 32.3,
+      "ddR": -27.5
+     },
+     "oos": {
+      "n": 362,
+      "R": 287.6,
+      "avgR": 0.795,
+      "win": 32,
+      "ddR": -28.3
+     },
+     "dR": -2.5,
+     "dIS": 1.8,
+     "dOOS": -4.2,
+     "dDD": -0.3,
+     "p": null,
+     "helps": false,
+     "reasons": {}
+    },
+    {
+     "variant": "hack guard (coin + $100M market)",
+     "skipped": {
+      "n": 20,
+      "R": -9.7,
+      "avgR": -0.486,
+      "win": 15,
+      "ddR": -11.3
+     },
+     "all": {
+      "n": 747,
+      "R": 677.8,
+      "avgR": 0.907,
+      "win": 32.7,
+      "ddR": -28
+     },
+     "is": {
+      "n": 393,
+      "R": 383.5,
+      "avgR": 0.976,
+      "win": 32.8,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 354,
+      "R": 294.3,
+      "avgR": 0.831,
+      "win": 32.5,
+      "ddR": -26.2
+     },
+     "dR": 9.7,
+     "dIS": 7.3,
+     "dOOS": 2.5,
+     "dDD": 0,
+     "p": 0.041,
+     "helps": true,
+     "reasons": {
+      "market hack": 12,
+      "hack on SOL": 7,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "hack guard: coin chain only",
+     "skipped": {
+      "n": 8,
+      "R": -2.5,
+      "avgR": -0.318,
+      "win": 12.5,
+      "ddR": -4.8
+     },
+     "all": {
+      "n": 759,
+      "R": 670.6,
+      "avgR": 0.884,
+      "win": 32.4,
+      "ddR": -28
+     },
+     "is": {
+      "n": 403,
+      "R": 378,
+      "avgR": 0.938,
+      "win": 32.5,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 356,
+      "R": 292.6,
+      "avgR": 0.822,
+      "win": 32.3,
+      "ddR": -26.9
+     },
+     "dR": 2.5,
+     "dIS": 1.8,
+     "dOOS": 0.8,
+     "dDD": 0,
+     "p": 0.247,
+     "helps": true,
+     "reasons": {
+      "hack on SOL": 7,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "hack guard: $100M market only",
+     "skipped": {
+      "n": 12,
+      "R": -7.2,
+      "avgR": -0.598,
+      "win": 16.7,
+      "ddR": -7.2
+     },
+     "all": {
+      "n": 755,
+      "R": 675.3,
+      "avgR": 0.894,
+      "win": 32.5,
+      "ddR": -28
+     },
+     "is": {
+      "n": 395,
+      "R": 381.7,
+      "avgR": 0.966,
+      "win": 32.7,
+      "ddR": -28
+     },
+     "oos": {
+      "n": 360,
+      "R": 293.6,
+      "avgR": 0.816,
+      "win": 32.2,
+      "ddR": -26.2
+     },
+     "dR": 7.2,
+     "dIS": 5.5,
+     "dOOS": 1.8,
+     "dDD": 0,
+     "p": 0.059,
+     "helps": true,
+     "reasons": {
+      "market hack": 12
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack",
+     "skipped": {
+      "n": 66,
+      "R": -15.8,
+      "avgR": -0.24,
+      "win": 27.3,
+      "ddR": -20.8
+     },
+     "all": {
+      "n": 701,
+      "R": 683.9,
+      "avgR": 0.976,
+      "win": 32.7,
+      "ddR": -31.2
+     },
+     "is": {
+      "n": 362,
+      "R": 380.3,
+      "avgR": 1.051,
+      "win": 32.3,
+      "ddR": -31.2
+     },
+     "oos": {
+      "n": 339,
+      "R": 303.6,
+      "avgR": 0.895,
+      "win": 33,
+      "ddR": -25.1
+     },
+     "dR": 15.8,
+     "dIS": 4.1,
+     "dOOS": 11.8,
+     "dDD": -3.2,
+     "p": 0.014,
+     "helps": false,
+     "reasons": {
+      "blackout": 47,
+      "hack on SOL": 7,
+      "market hack": 11,
+      "hack on GALA": 1
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack + crash 5%",
+     "skipped": {
+      "n": 87,
+      "R": -10.8,
+      "avgR": -0.124,
+      "win": 28.7,
+      "ddR": -12.3
+     },
+     "all": {
+      "n": 680,
+      "R": 678.9,
+      "avgR": 0.998,
+      "win": 32.6,
+      "ddR": -30.2
+     },
+     "is": {
+      "n": 349,
+      "R": 383.8,
+      "avgR": 1.1,
+      "win": 32.7,
+      "ddR": -30.2
+     },
+     "oos": {
+      "n": 331,
+      "R": 295.1,
+      "avgR": 0.892,
+      "win": 32.6,
+      "ddR": -28
+     },
+     "dR": 10.8,
+     "dIS": 7.6,
+     "dOOS": 3.3,
+     "dDD": -2.2,
+     "p": 0.022,
+     "helps": false,
+     "reasons": {
+      "blackout": 47,
+      "BTC -7.0% in 24h": 1,
+      "BTC -8.1% in 24h": 1,
+      "hack on SOL": 7,
+      "BTC +9.1% in 24h": 1,
+      "BTC -6.7% in 24h": 4,
+      "market hack": 11,
+      "BTC -9.6% in 24h": 1,
+      "BTC -6.5% in 24h": 1,
+      "BTC -6.4% in 24h": 1,
+      "BTC -6.3% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC +8.9% in 24h": 1,
+      "BTC +5.0% in 24h": 1,
+      "BTC +6.7% in 24h": 1,
+      "BTC +6.5% in 24h": 2,
+      "BTC +11.4% in 24h": 1,
+      "BTC +10.3% in 24h": 1,
+      "BTC +7.0% in 24h": 1,
+      "hack on GALA": 1,
+      "BTC +6.1% in 24h": 1
+     }
+    },
+    {
+     "variant": "all four (contrarian F&G)",
+     "skipped": {
+      "n": 171,
+      "R": 49.8,
+      "avgR": 0.291,
+      "win": 29.2,
+      "ddR": -30.5
+     },
+     "all": {
+      "n": 596,
+      "R": 618.2,
+      "avgR": 1.037,
+      "win": 33.1,
+      "ddR": -31.2
+     },
+     "is": {
+      "n": 302,
+      "R": 305,
+      "avgR": 1.01,
+      "win": 32.1,
+      "ddR": -31.2
+     },
+     "oos": {
+      "n": 294,
+      "R": 313.3,
+      "avgR": 1.065,
+      "win": 34,
+      "ddR": -16.1
+     },
+     "dR": -49.9,
+     "dIS": -71.2,
+     "dOOS": 21.5,
+     "dDD": -3.2,
+     "p": 0.088,
+     "helps": false,
+     "reasons": {
+      "fear&greed 86": 4,
+      "fear&greed 90": 2,
+      "fear&greed 95": 3,
+      "fear&greed 92": 3,
+      "blackout": 47,
+      "fear&greed 81": 1,
+      "BTC -7.0% in 24h": 1,
+      "BTC -8.1% in 24h": 1,
+      "fear&greed 20": 9,
+      "fear&greed 10": 4,
+      "fear&greed 13": 5,
+      "hack on SOL": 7,
+      "BTC +9.1% in 24h": 1,
+      "BTC -6.7% in 24h": 4,
+      "fear&greed 9": 9,
+      "fear&greed 12": 10,
+      "fear&greed 16": 4,
+      "market hack": 11,
+      "fear&greed 94": 3,
+      "fear&greed 80": 1,
+      "BTC -9.6% in 24h": 1,
+      "fear&greed 17": 4,
+      "fear&greed 11": 5,
+      "fear&greed 15": 4,
+      "fear&greed 83": 4,
+      "fear&greed 5": 1,
+      "BTC -6.5% in 24h": 1,
+      "BTC -6.4% in 24h": 1,
+      "BTC -6.3% in 24h": 1,
+      "BTC -8.5% in 24h": 1,
+      "BTC +8.9% in 24h": 1,
+      "fear&greed 84": 2,
+      "BTC +6.7% in 24h": 1,
+      "fear&greed 93": 1,
+      "fear&greed 18": 2,
+      "fear&greed 14": 3,
+      "BTC +6.5% in 24h": 2,
+      "fear&greed 91": 1,
+      "BTC +11.4% in 24h": 1,
+      "fear&greed 19": 1,
+      "BTC +7.0% in 24h": 1,
+      "hack on GALA": 1,
+      "fear&greed 8": 1
+     }
+    }
+   ]
+  },
+  "T-CORE": {
+   "key": "bb-trail|P14|4h",
+   "base": {
+    "all": {
+     "n": 613,
+     "R": 788.3,
+     "avgR": 1.286,
+     "win": 21,
+     "ddR": -29.7
+    },
+    "is": {
+     "n": 311,
+     "R": 432.5,
+     "avgR": 1.391,
+     "win": 22.5,
+     "ddR": -29.7
+    },
+    "oos": {
+     "n": 302,
+     "R": 355.8,
+     "avgR": 1.178,
+     "win": 19.5,
+     "ddR": -27.3
+    }
+   },
+   "chosen": {
+    "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+    "all": {
+     "n": 582,
+     "R": 812.3,
+     "avgR": 1.396,
+     "win": 21.5,
+     "ddR": -26.7
+    },
+    "is": {
+     "n": 290,
+     "R": 450.6,
+     "avgR": 1.554,
+     "win": 23.4,
+     "ddR": -26.7
+    },
+    "oos": {
+     "n": 292,
+     "R": 361.6,
+     "avgR": 1.238,
+     "win": 19.5,
+     "ddR": -26.3
+    },
+    "skipped": {
+     "n": 31,
+     "R": -23.9,
+     "avgR": -0.772,
+     "win": 12.9,
+     "ddR": -23.9
+    },
+    "reasons": {
+     "blackout": 27,
+     "hack on SOL": 4
+    },
+    "dR": 24,
+    "dIS": 18.1,
+    "dOOS": 5.8,
+    "dDD": 3,
+    "p": 0.012,
+    "helps": true
+   },
+   "rows": [
+    {
+     "variant": "CHOSEN: blackout 8h before + coin-chain hack",
+     "skipped": {
+      "n": 31,
+      "R": -23.9,
+      "avgR": -0.772,
+      "win": 12.9,
+      "ddR": -23.9
+     },
+     "all": {
+      "n": 582,
+      "R": 812.3,
+      "avgR": 1.396,
+      "win": 21.5,
+      "ddR": -26.7
+     },
+     "is": {
+      "n": 290,
+      "R": 450.6,
+      "avgR": 1.554,
+      "win": 23.4,
+      "ddR": -26.7
+     },
+     "oos": {
+      "n": 292,
+      "R": 361.6,
+      "avgR": 1.238,
+      "win": 19.5,
+      "ddR": -26.3
+     },
+     "dR": 24,
+     "dIS": 18.1,
+     "dOOS": 5.8,
+     "dDD": 3,
+     "p": 0.012,
+     "helps": true,
+     "reasons": {
+      "blackout": 27,
+      "hack on SOL": 4
+     }
+    },
+    {
+     "variant": "blackout ±4h",
+     "skipped": {
+      "n": 39,
+      "R": 1.2,
+      "avgR": 0.031,
+      "win": 17.9,
+      "ddR": -14.1
+     },
+     "all": {
+      "n": 574,
+      "R": 787.1,
+      "avgR": 1.371,
+      "win": 21.3,
+      "ddR": -27.7
+     },
+     "is": {
+      "n": 286,
+      "R": 421.8,
+      "avgR": 1.475,
+      "win": 22.7,
+      "ddR": -27.7
+     },
+     "oos": {
+      "n": 288,
+      "R": 365.4,
+      "avgR": 1.269,
+      "win": 19.8,
+      "ddR": -26.3
+     },
+     "dR": -1.2,
+     "dIS": -10.7,
+     "dOOS": 9.6,
+     "dDD": 2,
+     "p": 0.196,
+     "helps": true,
+     "reasons": {
+      "blackout": 39
+     }
+    },
+    {
+     "variant": "blackout ±2h",
+     "skipped": {
+      "n": 15,
+      "R": -11.6,
+      "avgR": -0.774,
+      "win": 13.3,
+      "ddR": -12.8
+     },
+     "all": {
+      "n": 598,
+      "R": 799.9,
+      "avgR": 1.338,
+      "win": 21.2,
+      "ddR": -27.8
+     },
+     "is": {
+      "n": 301,
+      "R": 442.2,
+      "avgR": 1.469,
+      "win": 22.9,
+      "ddR": -27.8
+     },
+     "oos": {
+      "n": 297,
+      "R": 357.7,
+      "avgR": 1.204,
+      "win": 19.5,
+      "ddR": -26.3
+     },
+     "dR": 11.6,
+     "dIS": 9.7,
+     "dOOS": 1.9,
+     "dDD": 1.9,
+     "p": 0.071,
+     "helps": true,
+     "reasons": {
+      "blackout": 15
+     }
+    },
+    {
+     "variant": "blackout 8h before",
+     "skipped": {
+      "n": 27,
+      "R": -19.7,
+      "avgR": -0.731,
+      "win": 14.8,
+      "ddR": -20.2
+     },
+     "all": {
+      "n": 586,
+      "R": 808.1,
+      "avgR": 1.379,
+      "win": 21.3,
+      "ddR": -26.7
+     },
+     "is": {
+      "n": 293,
+      "R": 447.5,
+      "avgR": 1.527,
+      "win": 23.2,
+      "ddR": -26.7
+     },
+     "oos": {
+      "n": 293,
+      "R": 360.6,
+      "avgR": 1.231,
+      "win": 19.5,
+      "ddR": -26.3
+     },
+     "dR": 19.8,
+     "dIS": 15,
+     "dOOS": 4.8,
+     "dDD": 3,
+     "p": 0.021,
+     "helps": true,
+     "reasons": {
+      "blackout": 27
+     }
+    },
+    {
+     "variant": "blackout 8h after",
+     "skipped": {
+      "n": 40,
+      "R": 34.2,
+      "avgR": 0.855,
+      "win": 25,
+      "ddR": -10.7
+     },
+     "all": {
+      "n": 573,
+      "R": 754.1,
+      "avgR": 1.316,
+      "win": 20.8,
+      "ddR": -31.2
+     },
+     "is": {
+      "n": 288,
+      "R": 387.5,
+      "avgR": 1.346,
+      "win": 21.9,
+      "ddR": -31.2
+     },
+     "oos": {
+      "n": 285,
+      "R": 366.6,
+      "avgR": 1.286,
+      "win": 19.6,
+      "ddR": -26.3
+     },
+     "dR": -34.2,
+     "dIS": -45,
+     "dOOS": 10.8,
+     "dDD": -1.5,
+     "p": 0.513,
+     "helps": false,
+     "reasons": {
+      "blackout": 40
+     }
+    },
+    {
+     "variant": "F&G contrarian 20/80",
+     "skipped": {
+      "n": 46,
+      "R": 116.7,
+      "avgR": 2.538,
+      "win": 17.4,
+      "ddR": -16
+     },
+     "all": {
+      "n": 567,
+      "R": 671.6,
+      "avgR": 1.184,
+      "win": 21.3,
+      "ddR": -30.1
+     },
+     "is": {
+      "n": 278,
+      "R": 306.6,
+      "avgR": 1.103,
+      "win": 22.7,
+      "ddR": -30.1
+     },
+     "oos": {
+      "n": 289,
+      "R": 365,
+      "avgR": 1.263,
+      "win": 20.1,
+      "ddR": -27.3
+     },
+     "dR": -116.7,
+     "dIS": -125.9,
+     "dOOS": 9.2,
+     "dDD": -0.4,
+     "p": 0.848,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 2,
+      "fear&greed 86": 3,
+      "fear&greed 94": 2,
+      "fear&greed 13": 4,
+      "fear&greed 11": 3,
+      "fear&greed 12": 3,
+      "fear&greed 14": 2,
+      "fear&greed 8": 3,
+      "fear&greed 89": 1,
+      "fear&greed 90": 2,
+      "fear&greed 91": 4,
+      "fear&greed 92": 4,
+      "fear&greed 93": 1,
+      "fear&greed 81": 2,
+      "fear&greed 80": 2,
+      "fear&greed 10": 2,
+      "fear&greed 15": 1,
+      "fear&greed 18": 2,
+      "fear&greed 84": 1,
+      "fear&greed 19": 1,
+      "fear&greed 20": 1
+     }
+    },
+    {
+     "variant": "F&G contrarian 25/75",
+     "skipped": {
+      "n": 89,
+      "R": 132.6,
+      "avgR": 1.489,
+      "win": 20.2,
+      "ddR": -14.4
+     },
+     "all": {
+      "n": 524,
+      "R": 655.8,
+      "avgR": 1.251,
+      "win": 21.2,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 260,
+      "R": 299.7,
+      "avgR": 1.153,
+      "win": 21.9,
+      "ddR": -29.7
+     },
+     "oos": {
+      "n": 264,
+      "R": 356,
+      "avgR": 1.349,
+      "win": 20.5,
+      "ddR": -26.3
+     },
+     "dR": -132.5,
+     "dIS": -132.8,
+     "dOOS": 0.2,
+     "dDD": 0,
+     "p": 0.669,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 2,
+      "fear&greed 86": 3,
+      "fear&greed 94": 2,
+      "fear&greed 23": 9,
+      "fear&greed 13": 4,
+      "fear&greed 25": 8,
+      "fear&greed 21": 2,
+      "fear&greed 24": 5,
+      "fear&greed 76": 6,
+      "fear&greed 77": 3,
+      "fear&greed 11": 3,
+      "fear&greed 12": 3,
+      "fear&greed 22": 3,
+      "fear&greed 14": 2,
+      "fear&greed 8": 3,
+      "fear&greed 89": 1,
+      "fear&greed 90": 2,
+      "fear&greed 91": 4,
+      "fear&greed 92": 4,
+      "fear&greed 93": 1,
+      "fear&greed 81": 2,
+      "fear&greed 79": 2,
+      "fear&greed 80": 2,
+      "fear&greed 75": 3,
+      "fear&greed 10": 2,
+      "fear&greed 15": 1,
+      "fear&greed 78": 2,
+      "fear&greed 18": 2,
+      "fear&greed 84": 1,
+      "fear&greed 19": 1,
+      "fear&greed 20": 1
+     }
+    },
+    {
+     "variant": "F&G with-trend 20/80",
+     "skipped": {
+      "n": 35,
+      "R": 36.3,
+      "avgR": 1.037,
+      "win": 14.3,
+      "ddR": -25.3
+     },
+     "all": {
+      "n": 578,
+      "R": 752,
+      "avgR": 1.301,
+      "win": 21.5,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 294,
+      "R": 392,
+      "avgR": 1.333,
+      "win": 22.4,
+      "ddR": -29.7
+     },
+     "oos": {
+      "n": 284,
+      "R": 360.1,
+      "avgR": 1.268,
+      "win": 20.4,
+      "ddR": -27.3
+     },
+     "dR": -36.3,
+     "dIS": -40.5,
+     "dOOS": 4.3,
+     "dDD": 0,
+     "p": 0.589,
+     "helps": false,
+     "reasons": {
+      "fear&greed 93": 1,
+      "fear&greed 92": 2,
+      "fear&greed 20": 3,
+      "fear&greed 10": 3,
+      "fear&greed 8": 3,
+      "fear&greed 15": 3,
+      "fear&greed 12": 3,
+      "fear&greed 11": 3,
+      "fear&greed 13": 4,
+      "fear&greed 83": 1,
+      "fear&greed 89": 2,
+      "fear&greed 14": 2,
+      "fear&greed 95": 1,
+      "fear&greed 17": 1,
+      "fear&greed 90": 1,
+      "fear&greed 86": 1,
+      "fear&greed 16": 1
+     }
+    },
+    {
+     "variant": "BTC crash guard 5%",
+     "skipped": {
+      "n": 0,
+      "R": 0,
+      "avgR": 0,
+      "win": 0,
+      "ddR": 0
+     },
+     "all": {
+      "n": 613,
+      "R": 788.3,
+      "avgR": 1.286,
+      "win": 21,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 311,
+      "R": 432.5,
+      "avgR": 1.391,
+      "win": 22.5,
+      "ddR": -29.7
+     },
+     "oos": {
+      "n": 302,
+      "R": 355.8,
+      "avgR": 1.178,
+      "win": 19.5,
+      "ddR": -27.3
+     },
+     "dR": 0,
+     "dIS": 0,
+     "dOOS": 0,
+     "dDD": 0,
+     "p": null,
+     "helps": false,
+     "reasons": {}
+    },
+    {
+     "variant": "BTC crash guard 8%",
+     "skipped": {
+      "n": 0,
+      "R": 0,
+      "avgR": 0,
+      "win": 0,
+      "ddR": 0
+     },
+     "all": {
+      "n": 613,
+      "R": 788.3,
+      "avgR": 1.286,
+      "win": 21,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 311,
+      "R": 432.5,
+      "avgR": 1.391,
+      "win": 22.5,
+      "ddR": -29.7
+     },
+     "oos": {
+      "n": 302,
+      "R": 355.8,
+      "avgR": 1.178,
+      "win": 19.5,
+      "ddR": -27.3
+     },
+     "dR": 0,
+     "dIS": 0,
+     "dOOS": 0,
+     "dDD": 0,
+     "p": null,
+     "helps": false,
+     "reasons": {}
+    },
+    {
+     "variant": "BTC 5% move: half size",
+     "skipped": {
+      "n": 0,
+      "R": 0,
+      "avgR": 0,
+      "win": 0,
+      "ddR": 0
+     },
+     "all": {
+      "n": 613,
+      "R": 788.3,
+      "avgR": 1.286,
+      "win": 21,
+      "ddR": -29.7
+     },
+     "is": {
+      "n": 311,
+      "R": 432.5,
+      "avgR": 1.391,
+      "win": 22.5,
+      "ddR": -29.7
+     },
+     "oos": {
+      "n": 302,
+      "R": 355.8,
+      "avgR": 1.178,
+      "win": 19.5,
+      "ddR": -27.3
+     },
+     "dR": 0,
+     "dIS": 0,
+     "dOOS": 0,
+     "dDD": 0,
+     "p": null,
+     "helps": false,
+     "reasons": {}
+    },
+    {
+     "variant": "hack guard (coin + $100M market)",
+     "skipped": {
+      "n": 19,
+      "R": 3.2,
+      "avgR": 0.168,
+      "win": 10.5,
+      "ddR": -16.4
+     },
+     "all": {
+      "n": 594,
+      "R": 785.1,
+      "avgR": 1.322,
+      "win": 21.4,
+      "ddR": -26.7
+     },
+     "is": {
+      "n": 299,
+      "R": 445,
+      "avgR": 1.488,
+      "win": 23.4,
+      "ddR": -26.1
+     },
+     "oos": {
+      "n": 295,
+      "R": 340.1,
+      "avgR": 1.153,
+      "win": 19.3,
+      "ddR": -26.7
+     },
+     "dR": -3.2,
+     "dIS": 12.5,
+     "dOOS": -15.7,
+     "dDD": 3,
+     "p": 0.386,
+     "helps": false,
+     "reasons": {
+      "market hack": 15,
+      "hack on SOL": 4
+     }
+    },
+    {
+     "variant": "hack guard: coin chain only",
+     "skipped": {
+      "n": 4,
+      "R": -4.2,
+      "avgR": -1.048,
+      "win": 0,
+      "ddR": -4.2
+     },
+     "all": {
+      "n": 609,
+      "R": 792.5,
+      "avgR": 1.301,
+      "win": 21.2,
+      "ddR": -28.6
+     },
+     "is": {
+      "n": 308,
+      "R": 435.6,
+      "avgR": 1.414,
+      "win": 22.7,
+      "ddR": -28.6
+     },
+     "oos": {
+      "n": 301,
+      "R": 356.9,
+      "avgR": 1.186,
+      "win": 19.6,
+      "ddR": -27.3
+     },
+     "dR": 4.2,
+     "dIS": 3.1,
+     "dOOS": 1.1,
+     "dDD": 1.1,
+     "p": 0.064,
+     "helps": true,
+     "reasons": {
+      "hack on SOL": 4
+     }
+    },
+    {
+     "variant": "hack guard: $100M market only",
+     "skipped": {
+      "n": 16,
+      "R": 6.4,
+      "avgR": 0.397,
+      "win": 12.5,
+      "ddR": -13.6
+     },
+     "all": {
+      "n": 597,
+      "R": 782,
+      "avgR": 1.31,
+      "win": 21.3,
+      "ddR": -27.2
+     },
+     "is": {
+      "n": 301,
+      "R": 442.9,
+      "avgR": 1.472,
+      "win": 23.3,
+      "ddR": -27.2
+     },
+     "oos": {
+      "n": 296,
+      "R": 339,
+      "avgR": 1.145,
+      "win": 19.3,
+      "ddR": -26.7
+     },
+     "dR": -6.3,
+     "dIS": 10.4,
+     "dOOS": -16.8,
+     "dDD": 2.5,
+     "p": 0.495,
+     "helps": false,
+     "reasons": {
+      "market hack": 16
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack",
+     "skipped": {
+      "n": 53,
+      "R": 9.7,
+      "avgR": 0.183,
+      "win": 17,
+      "ddR": -21.4
+     },
+     "all": {
+      "n": 560,
+      "R": 778.6,
+      "avgR": 1.39,
+      "win": 21.4,
+      "ddR": -25.7
+     },
+     "is": {
+      "n": 279,
+      "R": 429,
+      "avgR": 1.538,
+      "win": 23.3,
+      "ddR": -24.7
+     },
+     "oos": {
+      "n": 281,
+      "R": 349.6,
+      "avgR": 1.244,
+      "win": 19.6,
+      "ddR": -25.7
+     },
+     "dR": -9.7,
+     "dIS": -3.5,
+     "dOOS": -6.2,
+     "dDD": 4,
+     "p": 0.203,
+     "helps": true,
+     "reasons": {
+      "blackout": 39,
+      "hack on SOL": 4,
+      "market hack": 10
+     }
+    },
+    {
+     "variant": "blackout ±4h + hack + crash 5%",
+     "skipped": {
+      "n": 53,
+      "R": 9.7,
+      "avgR": 0.183,
+      "win": 17,
+      "ddR": -21.4
+     },
+     "all": {
+      "n": 560,
+      "R": 778.6,
+      "avgR": 1.39,
+      "win": 21.4,
+      "ddR": -25.7
+     },
+     "is": {
+      "n": 279,
+      "R": 429,
+      "avgR": 1.538,
+      "win": 23.3,
+      "ddR": -24.7
+     },
+     "oos": {
+      "n": 281,
+      "R": 349.6,
+      "avgR": 1.244,
+      "win": 19.6,
+      "ddR": -25.7
+     },
+     "dR": -9.7,
+     "dIS": -3.5,
+     "dOOS": -6.2,
+     "dDD": 4,
+     "p": 0.203,
+     "helps": true,
+     "reasons": {
+      "blackout": 39,
+      "hack on SOL": 4,
+      "market hack": 10
+     }
+    },
+    {
+     "variant": "all four (contrarian F&G)",
+     "skipped": {
+      "n": 93,
+      "R": 131.1,
+      "avgR": 1.41,
+      "win": 17.2,
+      "ddR": -24.8
+     },
+     "all": {
+      "n": 520,
+      "R": 657.2,
+      "avgR": 1.264,
+      "win": 21.7,
+      "ddR": -29.3
+     },
+     "is": {
+      "n": 251,
+      "R": 299.4,
+      "avgR": 1.193,
+      "win": 23.5,
+      "ddR": -29.3
+     },
+     "oos": {
+      "n": 269,
+      "R": 357.8,
+      "avgR": 1.33,
+      "win": 20.1,
+      "ddR": -25.7
+     },
+     "dR": -131.1,
+     "dIS": -133.1,
+     "dOOS": 2,
+     "dDD": 0.4,
+     "p": 0.644,
+     "helps": false,
+     "reasons": {
+      "fear&greed 88": 2,
+      "fear&greed 86": 3,
+      "blackout": 39,
+      "fear&greed 94": 2,
+      "fear&greed 13": 3,
+      "hack on SOL": 4,
+      "market hack": 10,
+      "fear&greed 11": 3,
+      "fear&greed 12": 3,
+      "fear&greed 14": 2,
+      "fear&greed 8": 3,
+      "fear&greed 89": 1,
+      "fear&greed 90": 1,
+      "fear&greed 91": 4,
+      "fear&greed 93": 1,
+      "fear&greed 81": 2,
+      "fear&greed 80": 2,
+      "fear&greed 10": 2,
+      "fear&greed 15": 1,
+      "fear&greed 92": 2,
+      "fear&greed 18": 1,
+      "fear&greed 19": 1,
+      "fear&greed 20": 1
+     }
+    }
+   ]
+  }
+ }
+}

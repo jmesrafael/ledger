@@ -19,11 +19,12 @@ Data feed (one JSON, /api/data), built by aggregate():
   bots.bbcore | bots.icore | bots.tcore      short view of each LIVE bot (T-CORE only if it has reported)
   total_capital                              the three live bots' balances added together
   labs.bb1h | labs.bbtr                      paper lab bots (BB-1h lab, T-CORE lab)
+  news_labs.bbn | icn | tcn                  news lab paper bots (BB-CORE / I-CORE / T-CORE + news gate); each also has news_skips { total, recent }
   recorder                                   data recorder heartbeat (regime, market, slippage, health)
   wallet_capital, wallet_history             real MEXC balances per account, every 5 minutes
   capital, capital_flows                     BB-Core balance, deposits/payouts
   uptime, activity                           BB-Core heartbeat gaps, newest 80 log lines
-  perf.bbcore | icore | bb1h | bbtr | tcore  per-bot analysis (lib/perf.js)
+  perf.bbcore | icore | bb1h | bbtr | tcore | bbn | icn | tcn  per-bot analysis (lib/perf.js)
 
 Bots on the page
   BB-Core      live   4h, key "bbcore"   (the main bot; its data is the "default" page data)
@@ -31,6 +32,11 @@ Bots on the page
   T-CORE       live   key "tcore", own MEXC wallet "tcore"
   BB-1h lab    paper  key "bb1h"   (lab: 1h BB-Core, five coins)
   T-CORE lab   paper  key "bbtr"   (lab: same strategy as T-CORE, paper)
+  BB-CORE news paper key "bbn"   (news lab: BB-Core 4h + news gate; event_id prefix bbn|; no Telegram)
+  I-CORE news  paper key "icn"   (news lab: I-Core + news gate; prefix icn|)
+  T-CORE news  paper key "tcn"   (news lab: T-CORE + news gate; prefix tcn|; compared with bbtr)
+  News Lab tab (Research Lab > News Lab): backtest (news-lab-backtest.json), shadow verdicts on the real bots trades
+               (news-gate.js + cryptobai.vercel.app/api/gate-inputs), news labs vs their counterparts
   Recorder     data only, no trades
 
 Controls shared by the whole page

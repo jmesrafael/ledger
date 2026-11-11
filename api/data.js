@@ -12,14 +12,15 @@ const { createSupabaseStore } = require('../lib/store.js');
 const { aggregate, STALE_MS } = require('../lib/aggregate.js');
 const { send } = require('../lib/http.js');
 
-const VERSION = 'perf-8';   // change it when aggregate() output changes shape, so every open page reloads once
+const VERSION = 'perf-9';   // change it when aggregate() output changes shape, so every open page reloads once
 let store = null;
 
-function fingerprint({ mode, events, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, beats, beatsBy, flows, wallets, walletHist, closedTrades, now }) {
+function fingerprint({ mode, events, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, newsHeartbeats, beats, beatsBy, flows, wallets, walletHist, closedTrades, now }) {
   const newest = (list) => (list || []).reduce((m, e) => Math.max(m, +e.ts_ms || 0), 0);
   const alive = (hb) => (hb ? (now - hb.ts_ms <= STALE_MS ? 'a' : `s${Math.floor(now / 60000)}`) : '-');   // a stale bot's "no heartbeat for x" grows each minute
   const key = [VERSION, mode || '', events.length, newest(events), (equity || []).length, newest(equity), heartbeat ? heartbeat.ts_ms : 0, alive(heartbeat),
     icoreHeartbeat ? icoreHeartbeat.ts_ms : 0, alive(icoreHeartbeat), bb1hHeartbeat ? bb1hHeartbeat.ts_ms : 0, alive(bb1hHeartbeat), bbtrHeartbeat ? bbtrHeartbeat.ts_ms : 0, alive(bbtrHeartbeat), tcoreHeartbeat ? tcoreHeartbeat.ts_ms : 0, alive(tcoreHeartbeat), recorderHeartbeat ? recorderHeartbeat.ts_ms : 0, recorderHeartbeat ? (now - recorderHeartbeat.ts_ms <= 30 * 60000 ? 'a' : `s${Math.floor(now / 60000)}`) : '-',   // the recorder beats every 5 minutes: stale after 30 (aggregate.js RECORDER_STALE_MS)
+    Object.entries(newsHeartbeats || {}).map(([k, hb]) => `${k}:${hb ? hb.ts_ms : 0}:${alive(hb)}`).join(','),   // the news lab paper bots (bbn, icn, tcn)
     (beats || []).length, Object.entries(beatsBy || {}).map(([k, v]) => `${k}:${(v || []).length}`).join(','), (flows || []).length, newest((flows || []).map((f) => ({ ts_ms: f.ts_ms }))),
     (wallets || []).map((w) => `${w.wallet}:${w.received_ms}:${w.equity_usdt}`).join(','), (walletHist || []).length, (walletHist || []).reduce((m, w) => Math.max(m, +w.ts || 0), 0), (closedTrades || []).length, (closedTrades || []).filter((c) => c.included).length].join('|');
   return `"${crypto.createHash('sha1').update(key).digest('hex').slice(0, 20)}"`;
@@ -73,15 +74,17 @@ module.exports = async (req, res) => {
     const now = Date.now();
     // heartbeat history only feeds the uptime panel: if it fails, the rest of the page still loads
     // capital movements come from the ledger's capital_flows view; before that migration exists they are simply absent
-    const [tradeEvs, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, beats, beatsBy, flows, wallets, walletHist, closedTrades] = await Promise.all([
+    const [tradeEvs, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, newsHeartbeats, beats, beatsBy, flows, wallets, walletHist, closedTrades] = await Promise.all([
       tradeEvents(), cached('equity', TTL.equity, () => (store.equityEvents ? store.equityEvents() : Promise.resolve([]))),
       store.latestHeartbeat(), store.latestHeartbeat({ bot: 'icore' }).catch(() => null),
       // the 1h paper lab bot and the data recorder: absent until they report, and a failed read never fails the page
       store.latestHeartbeat({ bot: 'bb1h' }).catch(() => null), store.latestHeartbeat({ bot: 'bbtr' }).catch(() => null), store.latestHeartbeat({ bot: 'tcore' }).catch(() => null), store.latestHeartbeat({ bot: 'recorder' }).catch(() => null),
+      // the news lab paper bots (BB-CORE / I-CORE / T-CORE with the news gate): absent until they report
+      Promise.all(['bbn', 'icn', 'tcn'].map((b) => store.latestHeartbeat({ bot: b }).catch(() => null))).then((l) => ({ bbn: l[0], icn: l[1], tcn: l[2] })),
       cached('beats', TTL.beats, () => store.heartbeats({ sinceMs: now - 7 * 86400000 })).catch(() => null),
       // the same 7-day heartbeat history for every other bot (the System Monitor and each bot's Health page); one failed read leaves only that bot's uptime out
-      Promise.all(['icore', 'tcore', 'bb1h', 'bbtr'].map((b) => cached(`beats:${b}`, TTL.beats, () => store.heartbeats({ sinceMs: now - 7 * 86400000, bot: b })).catch(() => null)))
-        .then((l) => ({ icore: l[0], tcore: l[1], bb1h: l[2], bbtr: l[3] })),
+      Promise.all(['icore', 'tcore', 'bb1h', 'bbtr', 'bbn', 'icn', 'tcn'].map((b) => cached(`beats:${b}`, TTL.beats, () => store.heartbeats({ sinceMs: now - 7 * 86400000, bot: b })).catch(() => null)))
+        .then((l) => ({ icore: l[0], tcore: l[1], bb1h: l[2], bbtr: l[3], bbn: l[4], icn: l[5], tcn: l[6] })),
       cached('flows', TTL.flows, () => (store.flows ? store.flows() : Promise.resolve([]))).catch(() => []),
       // the bots' 5-minute wallet reports: the real balance of each trading account (absent before the wallet tables exist)
       cached('wallets', TTL.wallets, () => (store.wallets ? store.wallets() : Promise.resolve(null))).catch(() => null),
@@ -89,8 +92,8 @@ module.exports = async (req, res) => {
       // MEXC's booked P&L per closed live trade (absent before the closed_trades migration)
       cached('closed', TTL.wallets, () => (store.closedTrades ? store.closedTrades() : Promise.resolve([]))).catch(() => [])]);
     const events = tradeEvs.concat(equity);
-    const etag = fingerprint({ mode, events: tradeEvs, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, beats, beatsBy, flows, wallets, walletHist, closedTrades, now });
-    const body = req.headers['if-none-match'] === etag ? '' : JSON.stringify(aggregate({ events, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, beats, flows, wallets, walletHist, closedTrades, now, beatsBy, mode }));
+    const etag = fingerprint({ mode, events: tradeEvs, equity, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, newsHeartbeats, beats, beatsBy, flows, wallets, walletHist, closedTrades, now });
+    const body = req.headers['if-none-match'] === etag ? '' : JSON.stringify(aggregate({ events, heartbeat, icoreHeartbeat, bb1hHeartbeat, bbtrHeartbeat, tcoreHeartbeat, recorderHeartbeat, newsHeartbeats, beats, flows, wallets, walletHist, closedTrades, now, beatsBy, mode }));
     if (body) respCache.set(mode || 'auto', { at: Date.now(), etag, body });
     else { const h = respCache.get(mode || 'auto'); if (h && h.etag === etag) h.at = Date.now(); }
     reply(req, res, etag, body);

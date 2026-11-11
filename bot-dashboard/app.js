@@ -20,13 +20,16 @@
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
   // The five pages: Overview (the three live bots), Live Bots (a workspace per bot), Research Lab (paper bots + market recorder), System Monitor, Settings.
-  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h'];   // the paper labs: the 1h BB-Core. (The T-CORE paper lab is retired: T-CORE trades live.)
+  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h', 'bbn', 'icn', 'tcn'];   // the paper labs: the 1h BB-Core, and the three news labs (each strategy with the news gate). (The T-CORE paper lab bbtr is not shown as a lab: T-CORE trades live; the News Lab page still compares against it.)
+  const NEWS = { bbn: 'bbcore', icn: 'icore', tcn: 'bbtr' };   // news lab -> the bot it is compared with (tcn against the T-CORE paper lab: same engine, same paper costs)
   const BOTS = {
     bbcore: { label: 'BB-Core', live: true, role: 'Live' }, icore: { label: 'I-Core', live: true, role: 'Live' }, tcore: { label: 'T-CORE', live: true, role: 'Live' },
     bb1h: { label: 'BB-1h lab', live: false, role: 'Paper lab' },
+    bbn: { label: 'BB-CORE news', live: false, role: 'News lab' }, icn: { label: 'I-CORE news', live: false, role: 'News lab' }, tcn: { label: 'T-CORE news', live: false, role: 'News lab' },
+    bbtr: { label: 'T-CORE lab', live: false, role: 'Paper lab' },
   };
   const BOT_SUBS = [['dashboard', 'Dashboard'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['positions', 'Positions & Activity'], ['verification', 'Verification'], ['health', 'Health']];
-  const LAB_SUBS = [['overview', 'Labs'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['research', 'Research'], ['market', 'Market & Costs']];
+  const LAB_SUBS = [['overview', 'Labs'], ['news', 'News Lab'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['research', 'Research'], ['market', 'Market & Costs']];
   const PAGES = ['overview', 'bots', 'lab', 'system', 'settings'];
 
   let tz = store.get('bot.tz') === 'local' ? 'local' : 'utc', data = null, etag = null, modeSel = store.get('bot.mode') || '';
@@ -99,7 +102,7 @@
         skipped: d.skipped, skip_counts: d.skip_counts || {}, activity: (d.activity || []).filter((a) => a.kind !== 'capital'), uptime: d.uptime, coins: s.enabled_coins || [], kill: !!s.kill_switch, dd: s.drawdown_r, halt: s.halt_r,
         first_ms: d.first_event_ms, last_exit_ms: bb.last_exit_ms ?? lastOf(d.trades, 'exit_ts'), last_entry_ms: bb.last_entry_ms ?? lastOf(d.trades, 'entry_ts'), trend: null };
     }
-    const b = (d.bots && d.bots[k]) || (d.labs && d.labs[k]);
+    const b = (d.bots && d.bots[k]) || (d.labs && d.labs[k]) || (d.news_labs && d.news_labs[k]);
     if (!b) return { key: k, ...meta, present: false, mode: meta.live ? 'live' : 'paper', hb: null, alive: false, status: {}, trades: [], open_list: [], capital: null, overall: ZERO(), perf, compare: null, compares: [], skipped: [], skip_counts: {},
       activity: [], uptime: null, coins: [], kill: false, dd: null, halt: null, first_ms: null, last_exit_ms: null, last_entry_ms: null, trend: null };
     return { key: k, ...meta, present: true, mode: b.mode, hb: b.last_heartbeat_ms, alive: !!b.alive, status: b.status || {}, trades: b.trades || [], open_list: b.open_list || [], capital: b.capital, overall: b.overall, perf, compare: b.compare, compares: b.compares || [],
@@ -285,6 +288,7 @@
     'lab:trades': () => { renderTrades(); renderCalendar(); },
     'lab:research': () => renderResearch(),
     'lab:market': () => renderMarket(),
+    'lab:news': () => renderNewsLab(),
     system: () => renderSystem(),
     settings: () => renderSettings(),
   };
@@ -348,7 +352,7 @@
         return el('button', { type: 'button', role: 'tab', 'data-sub': k, class: k === cur ? 'on' : '', 'aria-selected': k === cur, tabindex: k === cur ? 0 : -1 }, badge, l);
       }));
     }
-    const showSel = p === 'bots' || (p === 'lab' && route.lsub !== 'overview');
+    const showSel = p === 'bots' || (p === 'lab' && route.lsub !== 'overview' && route.lsub !== 'news');
     sel.hidden = !showSel;
     if (showSel) {
       const cur = curKey();
@@ -648,6 +652,9 @@
     tcore: { name: 'T-CORE', short: 'Bollinger breakout, 14 ATR trail', how: 'Enters like BB-Core (a 4-hour close outside the Bollinger band, with the 200-period average). Stop 2 ATR away, then a trailing stop 14 ATR behind the best price; no profit target, so a winner runs until the trail catches it.' },
     icore: { name: 'I-Core', short: 'Ichimoku cloud', how: 'A 4-hour candle closes through the Ichimoku cloud, after not being outside it, in the direction of the 200-period average. Stop 2 ATR away, then a trailing stop 7 ATR behind the best price; no profit target.' },
     bb1h: { name: 'BB-1h lab', short: 'BB-Core rules on 1-hour candles (paper)', how: 'The BB-Core rules on 1-hour candles, five coins, paper only: a test of whether a faster version is worth trading, judged against its own backtest.' },
+    bbn: { name: 'BB-CORE news lab', short: 'BB-Core 4h + news gate (paper)', how: 'The BB-Core 4h rules, paper only, with the news gate in front of every new entry: no new entry in the 8 hours before a CPI / jobs / FOMC / PCE / PPI release, and no new long within 3 days of a $1M+ hack on the coin’s own chain. The gate can only skip an entry, never open one. Compared with live BB-Core in the News Lab.' },
+    icn: { name: 'I-CORE news lab', short: 'I-Core + news gate (paper)', how: 'The I-Core rules, paper only, with the news gate in front of every new entry (see BB-CORE news lab). Compared with live I-Core in the News Lab.' },
+    tcn: { name: 'T-CORE news lab', short: 'T-CORE + news gate (paper)', how: 'The T-CORE rules, paper only, with the news gate in front of every new entry. Compared with the T-CORE paper bot: same engine, same paper costs, so any difference is the gate.' },
   };
   const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);
   function renderCoins() {
@@ -1171,11 +1178,11 @@
   function renderSkipped(b) {
     const total = Object.values(b.skip_counts).reduce((a, x) => a + x, 0);
     $('#skipCount').textContent = total ? `${total} skipped in all` : '';
-    clear($('#skipSummary')).append(...Object.entries(b.skip_counts).sort((a, c) => c[1] - a[1]).map(([k, x]) => el('span', { class: 'chip' }, `${k} ${x}`)));
+    clear($('#skipSummary')).append(...Object.entries(b.skip_counts).sort((a, c) => c[1] - a[1]).map(([k, x]) => el('span', { class: 'chip' }, `${reasonLabel(k)} ${x}`)));
     moreBtn($('#skippedMore'), 'skipped', b.skipped.length, () => renderSkipped(b));
     clear($('#skipped')).append(table([
       { h: 'Signal candle', left: true, f: (r) => fmtShort(r.signal_candle_open_ms) }, { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.symbol)} `, sideEl(r.side)) },
-      { h: 'Reason', left: true, f: (r) => el('span', { class: 'chip' }, r.reason) }, { h: 'Detail', left: true, f: (r) => r.detail || '', c: () => 'wrap' },
+      { h: 'Reason', left: true, f: (r) => el('span', { class: 'chip' }, reasonLabel(r.reason)) }, { h: 'Detail', left: true, f: (r) => r.detail || '', c: () => 'wrap' },
     ], b.skipped.slice(0, shown.skipped), b.present ? 'No skipped signals.' : `${b.label} ${health(b).note}.`));
   }
 
@@ -1345,6 +1352,105 @@
       { h: 'Ready for live?', f: (r) => (r.b.present ? `${r.ok} of ${r.of} checks OK` : '—') },
     ], rows, ''));
   }
+  // ---------------- News Lab: the news gate's backtest, its shadow verdicts on the real bots' trades, and the news paper bots against their counterparts ----------------
+  const reasonLabel = (r) => { const s = String(r || ''); if (!s.startsWith('news_gate')) return r; const rest = s.slice(9).replace(/^[:_\s]+/, ''); return rest ? `skipped by news gate (${rest})` : 'skipped by news gate'; };
+  const GATE_INPUTS_URL = 'https://cryptobai.vercel.app/api/gate-inputs', SHADOW_FROM = Date.UTC(2026, 10, 1);
+  const nl = { bt: null, btTried: false, inp: null, inpAt: 0, inpErr: null, loading: false };
+  async function loadNewsLab() {
+    if (nl.loading) return; nl.loading = true;
+    try {
+      if (!nl.btTried) { nl.btTried = true; try { const r = await fetch('news-lab-backtest.json', { cache: 'no-cache' }); if (r.ok) nl.bt = await r.json(); } catch { /* the panel says it is not there */ } }
+      if (!nl.inp || Date.now() - nl.inpAt > 30 * 60e3) {
+        try { const r = await fetch(GATE_INPUTS_URL, { cache: 'no-cache' }); if (!r.ok) throw new Error(`HTTP ${r.status}`); nl.inp = await r.json(); nl.inpAt = Date.now(); nl.inpErr = null; } catch (e) { nl.inpErr = String(e.message || e); }
+      }
+    } finally { nl.loading = false; }
+    if (data && viewKey() === 'lab:news') drawNewsLab();
+  }
+  function renderNewsLab() { drawNewsLab(); loadNewsLab(); }
+  // the gate's verdict for one trade, from the inputs as they were at its entry time
+  function shadowVerdict(t, inp) {
+    const ts = Math.floor(t.entry_ts / 1000), fng = inp.fng || [], btc = inp.btc || [];
+    const lastAt = (rows, x) => { let lo = 0, hi = rows.length - 1, k = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (rows[m][0] <= x) { k = m; lo = m + 1; } else hi = m - 1; } return k; };
+    const fngAt = (x) => { const k = lastAt(fng, x); return k >= 0 ? fng[k][1] : null; };
+    const a = lastAt(btc, ts), b = lastAt(btc, ts - 86400);
+    const btcChange24h = a >= 0 && b >= 0 && btc[a][0] - btc[b][0] >= 20 * 3600 ? (btc[a][1] / btc[b][1] - 1) * 100 : null;
+    return window.NewsGate.gate({ t: ts, coin: sym(t.symbol), dir: t.side === 'SHORT' ? -1 : 1, events: inp.events || [], fngAt, btcChange24h, hacks: inp.hacks || [] }, inp.cfg || window.NewsGate.DEFAULTS);
+  }
+  const signed = (x) => `${x > 0 ? '+' : ''}${x}`;
+  function drawNewsLab() {
+    // a) backtest
+    const bt = nl.bt, bh = clear($('#nlBacktest')), vh = clear($('#nlVariants'));
+    $('#nlBtWhen').textContent = bt && bt.generated ? `run ${String(bt.generated).slice(0, 10)}${bt.chosen ? ` · rule set: ${bt.chosen.name}` : ''}` : '';
+    const rows = bt && bt.bots ? Object.entries(bt.bots).filter(([, b]) => b && b.base).map(([name, b]) => ({ name, b, c: b.chosen || null })) : [];
+    if (!rows.length) bh.append(el('div', { class: 'empty' }, nl.btTried ? 'No backtest result published yet.' : 'Loading…'));
+    else {
+      const both = (x, y, f) => [f(x), el('small', { class: 'muted' }, ' → '), y ? f(y) : '—'];
+      bh.append(table([
+        { h: 'Bot', left: true, f: (r) => el('b', {}, r.name) },
+        { h: 'Trades', f: (r) => both(r.b.base.all, r.c && r.c.all, (s) => String(s.n)) },
+        { h: 'Total R', f: (r) => both(r.b.base.all, r.c && r.c.all, (s) => el('span', { class: cls(s.R) }, `${s.R}R`)) },
+        { h: 'R / trade', f: (r) => both(r.b.base.all, r.c && r.c.all, (s) => `${Number(s.avgR).toFixed(3)}R`) },
+        { h: 'Worst drop', f: (r) => both(r.b.base.all, r.c && r.c.all, (s) => `${s.ddR}R`) },
+        { h: 'Before 2024', f: (r) => both(r.b.base.is, r.c && r.c.is, (s) => `${s.R}R`) },
+        { h: '2024 →', f: (r) => both(r.b.base.oos, r.c && r.c.oos, (s) => `${s.R}R`) },
+        { h: 'Skipped', f: (r) => (r.c && r.c.skipped ? `${r.c.skipped.n} (${signed(r.c.skipped.R)}R)` : '—') },
+        { h: 'p', f: (r) => (r.c && r.c.p != null ? String(r.c.p) : '—') },
+      ], rows, ''));
+      const vrows = rows.flatMap(({ name, b }) => (b.rows || []).map((v) => ({ name, ...v, _cls: v.helps ? 'total' : '' })));
+      vh.append(table([
+        { h: 'Bot', left: true, f: (r) => r.name }, { h: 'Rule', left: true, f: (r) => r.variant },
+        { h: 'Skipped', f: (r) => (r.skipped ? `${r.skipped.n} (${signed(r.skipped.R)}R)` : '—') },
+        { h: 'R / trade kept', f: (r) => (r.all ? Number(r.all.avgR).toFixed(3) : '—') },
+        { h: 'ΔR', f: (r) => el('span', { class: cls(r.dR) }, signed(r.dR)) }, { h: 'ΔR <2024', f: (r) => el('span', { class: cls(r.dIS) }, signed(r.dIS)) },
+        { h: 'ΔR 2024+', f: (r) => el('span', { class: cls(r.dOOS) }, signed(r.dOOS)) }, { h: 'Δ drop', f: (r) => el('span', { class: cls(r.dDD) }, signed(r.dDD)) },
+        { h: 'p', f: (r) => (r.p != null ? String(r.p) : '—') }, { h: 'Helps', f: (r) => (r.helps ? '✓' : '') },
+      ], vrows, 'No variants in the backtest file.'));
+    }
+    // b) shadow verdicts on the real bots' trades
+    const sh = clear($('#nlShadow')), st = clear($('#nlShadowTrades')), inp = nl.inp;
+    $('#nlShadowWhen').textContent = inp ? `gate inputs ${fmtShort(inp.updated)}${tzTag()}` : '';
+    if (!inp || !window.NewsGate) sh.append(el('div', { class: 'empty' }, nl.inpErr ? `Gate inputs unavailable (${nl.inpErr}).` : 'Loading gate inputs…'));
+    else {
+      const all = [], sum = (xs) => xs.reduce((a, x) => a + x.t.r, 0);
+      const per = ['bbcore', 'icore', 'tcore', 'bbtr', 'bb1h'].map((k) => {
+        const b = bd(k);
+        const tr = b.present ? b.trades.concat(b.open_list.map((o) => ({ ...o, r: null }))).filter((t) => t.entry_ts >= SHADOW_FROM) : [];
+        const v = tr.map((t) => { const x = { bot: k, label: b.label, t, g: shadowVerdict(t, inp) }; all.push(x); return x; });
+        const closed = v.filter((x) => x.t.r != null), skip = closed.filter((x) => !x.g.allow), keep = closed.filter((x) => x.g.allow);
+        return { k, b, n: v.length, closed: closed.length, wouldSkip: v.filter((x) => !x.g.allow).length, skipR: sum(skip), keepR: sum(keep), allR: sum(closed) };
+      });
+      sh.append(table([
+        { h: 'Bot', left: true, f: (r) => el('span', { class: 'botname', 'data-bot': r.k }, el('i', { class: 'bdot' }), r.b.label, el('small', { class: 'muted' }, ` ${r.b.present ? String(r.b.mode).toUpperCase() : 'MISSING'}`)) },
+        { h: 'Trades since Nov 1', f: (r) => (r.b.present ? `${r.n}${r.n - r.closed ? ` (${r.n - r.closed} open)` : ''}` : '—') },
+        { h: 'Gate would skip', f: (r) => (r.b.present ? String(r.wouldSkip) : '—') },
+        { h: 'R of skipped', f: (r) => (r.b.present && r.wouldSkip ? el('span', { class: cls(r.skipR) }, fmtR(r.skipR)) : '—') },
+        { h: 'R as traded', f: (r) => (r.b.present ? el('span', { class: cls(r.allR) }, fmtR(r.allR)) : '—') },
+        { h: 'R with gate', f: (r) => (r.b.present ? el('span', { class: cls(r.keepR) }, fmtR(r.keepR)) : '—') },
+        { h: 'Gate effect', f: (r) => { if (!r.b.present || !r.closed) return '—'; const d = r.keepR - r.allR; return el('span', { class: cls(d) }, Math.abs(d) < 1e-9 ? 'none' : `${d > 0 ? 'helped' : 'cost'} ${Math.abs(d).toFixed(2)}R`); } },
+      ], per, ''));
+      all.sort((a, b) => b.t.entry_ts - a.t.entry_ts);
+      st.append(table([
+        { h: 'Entry', left: true, f: (r) => fmtShort(r.t.entry_ts) }, { h: 'Bot', left: true, f: (r) => el('span', { class: 'botname', 'data-bot': r.bot }, el('i', { class: 'bdot' }), r.label) },
+        { h: 'Coin', left: true, f: (r) => el('span', {}, `${sym(r.t.symbol)} `, sideEl(r.t.side)) }, { h: 'R', f: (r) => (r.t.r == null ? 'open' : fmtR(r.t.r)), c: (r) => cls(r.t.r) },
+        { h: 'Gate', f: (r) => el('span', { class: `chip ${r.g.allow ? 'good' : 'bad'}` }, r.g.allow ? 'allow' : 'skip') },
+        { h: 'Why', left: true, f: (r) => r.g.reasons.join('; '), c: () => 'wrap' },
+      ], all.slice(0, 60), 'No trades since Nov 1 yet.'));
+    }
+    // c) the news paper bots against their counterparts
+    const lrows = Object.entries(NEWS).map(([k, c]) => ({ k, n: bd(k), c: bd(c), skips: data.news_labs && data.news_labs[k] ? data.news_labs[k].news_skips : null }));
+    const vs = (r, f) => el('small', { class: 'muted' }, ` vs ${r.c.present ? f(r.c) : '—'}`);
+    clear($('#nlLive')).append(table([
+      { h: 'News lab', left: true, f: (r) => el('span', { class: 'botname', 'data-bot': r.k }, el('i', { class: 'bdot' }), r.n.label, el('small', { class: 'muted' }, ` vs ${r.c.label}`)) },
+      { h: 'Status', left: true, f: (r) => (r.n.present ? (r.n.alive ? 'running' : `stale · ${health(r.n).note}`) : 'waiting for first heartbeat') },
+      { h: 'Trades', f: (r) => (r.n.present ? [String(r.n.overall.trades), vs(r, (b) => b.overall.trades)] : '—') },
+      { h: 'Total R', f: (r) => (r.n.present ? [el('span', { class: cls(r.n.overall.total_r) }, fmtR(r.n.overall.total_r)), vs(r, (b) => fmtR(b.overall.total_r))] : '—') },
+      { h: 'R / trade', f: (r) => (r.n.present ? [fmtR(r.n.overall.avg_r), vs(r, (b) => fmtR(b.overall.avg_r))] : '—') },
+      { h: 'Worst drop', f: (r) => (r.n.present ? [`${Number(r.n.overall.max_dd_r || 0).toFixed(1)}R`, vs(r, (b) => `${Number(b.overall.max_dd_r || 0).toFixed(1)}R`)] : '—') },
+      { h: 'Paper equity', f: (r) => (r.n.present && r.n.capital ? `${Number(r.n.capital.usd).toFixed(2)}` : '—') },
+      { h: 'Skipped by news gate', f: (r) => (r.n.present ? String(r.skips ? r.skips.total : 0) : '—') },
+    ], lrows, ''));
+  }
+
   function renderMarket() {
     renderRegime(); renderRecorder($('#recHealth'), $('#recNote')); loadRegimeHistory();
     const p = view().perf;
