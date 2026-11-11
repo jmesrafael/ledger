@@ -1,5 +1,13 @@
 [
   {
+    "slug": "tcore-eth",
+    "title": "ETH on T-CORE",
+    "kind": "Data report",
+    "updated": "Nov 12, 2026",
+    "file": "/reports/tcore-eth.html",
+    "summary": "T-CORE started trading ETH live on 12 Nov 2026 in place of ZEC (being delisted). Every year and month of ETH on T-CORE since 2019, the trading-math checks and a comparison with SOL, ZEC, NEAR, ADA and GALA. ETH made +177R in 132 trades (+1.34R a trade, profit factor 2.79), was positive every year 2020–2026 and lost money in 27 of 82 months. On the same 2022–2026 window it is T-CORE's steadiest coin (first on 11 of 16 measures, shallowest drawdown, no losing year) but not its biggest earner. BB-CORE and I-CORE do not trade ETH. A test on past prices, not a promise."
+  },
+  {
     "slug": "zec-replacement",
     "title": "Replacing ZEC: ETH",
     "kind": "Data report",

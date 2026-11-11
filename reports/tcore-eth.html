@@ -1,0 +1,184 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="robots" content="noindex, nofollow, noarchive">
+<title>ETH on T-CORE · Lucid'io</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; min-height: 297mm; padding: 16mm 15mm 18mm; position: relative; page-break-after: always; overflow: hidden; background: #fff; }
+.page:last-child { page-break-after: auto; }
+.foot { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; gap: 10px; }
+h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; line-height: 1.1; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+.sub { color: #64748b; font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+p, li { font-size: 12px; line-height: 1.6; }
+.pos { color: #15803d; } .neg { color: #dc2626; } .flat { color: #64748b; }
+.ax { font-size: 10px; fill: #64748b; } .ax.b { font-weight: 700; fill: #0f172a; font-size: 11px; }
+.lbl { font-size: 11.5px; font-weight: 700; } .tiny { font-size: 9.5px; fill: #334155; font-variant-numeric: tabular-nums; }
+.wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { text-align: right; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #64748b; font-weight: 600; padding: 5px 6px; border-bottom: 1.5px solid #0f172a; vertical-align: bottom; }
+td { text-align: right; padding: 4.5px 6px; border-bottom: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: none; }
+tr.hl-live td { background: #eff6ff; } tr.hl-sug td { background: #f0fdfa; font-weight: 600; }
+td.best { color: #0f766e; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+table.score { font-size: 10px; } table.score th { font-size: 8.5px; } table.score td { padding: 4px 5px; }
+.card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.note { background: #f8fafc; border-left: 3px solid #1d4ed8; padding: 9px 12px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; margin: 10px 0; }
+.warn { background: #fef2f2; border-left-color: #dc2626; }
+.good { background: #f0fdfa; border-left-color: #0f766e; }
+.cover-band { background: linear-gradient(135deg, #0f172a 0%, #12355b 55%, #0f766e 120%); color: #fff; margin: -16mm -15mm 18px; padding: 20mm 15mm 14mm; position: relative; }
+.cover-band .sub { color: #cbd5e1; max-width: 150mm; }
+.cover-band .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #5eead4; margin-bottom: 10px; }
+.vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; margin-top: 16px; }
+.team { border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
+.team .nm { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; } .team .bots { font-size: 15px; font-weight: 700; margin-top: 4px; } .team .split { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+.vs .x { align-self: center; font-size: 22px; font-weight: 800; color: #5eead4; }
+.cmps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.cmp { border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 12px; }
+.cmp .k { font-size: 9.5px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.cmp .row { display: flex; flex-direction: column; gap: 2px; } .cmp .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; } .cmp .v.up { color: #0f766e; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 10.5px; color: #475569; align-items: center; margin: 4px 0 8px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cal { width: 100%; border-collapse: separate; border-spacing: 2px; }
+.cal td, .cal th { text-align: center; border: none; padding: 5px 0; font-size: 9.5px; border-radius: 4px; }
+.cal th { padding: 2px 0; border-bottom: none; font-size: 8.5px; }
+.cal td.yr { text-align: left; font-weight: 700; font-size: 10px; padding-left: 3px; }
+.cal td.tot { font-weight: 700; background: #f1f5f9; font-size: 9.5px; } .cal td.na { background: transparent; }
+.checks td { vertical-align: top; text-align: left; } .checks td:nth-child(n+2) { white-space: nowrap; } .checks .d { color: #64748b; font-size: 10px; margin-top: 1px; }
+.chk { display: inline-flex; width: 16px; height: 16px; border-radius: 50%; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; margin-right: 4px; vertical-align: -3px; }
+.chk.ok { background: #ccfbf1; color: #0f766e; } .chk.mid { background: #fef3c7; color: #b45309; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 4px; }
+.step { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; background: #0f766e; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.step b { font-size: 12.5px; } .step p { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #334155; }
+ul.tight { margin: 6px 0; padding-left: 18px; } ul.tight li { margin: 2px 0; }
+@media screen {
+  html { background: #e2e8f0; }
+  body { padding: 32px 0; }
+  .page { min-height: 0; max-width: 210mm; width: auto; margin: 0 auto 24px; border-radius: 10px; box-shadow: 0 4px 24px rgba(15,23,42,.12); padding-bottom: 54px; }
+  .foot { bottom: 14px; }
+  .cover-band { border-radius: 10px 10px 0 0; }
+}
+@media screen and (max-width: 760px) {
+  body { padding: 0; }
+  .page { padding: 16px 16px 60px; border-radius: 0; margin: 0 0 8px; }
+  .cover-band { margin: -16px -16px 16px; padding: 30px 16px 20px; border-radius: 0; }
+  .foot { left: 16px; right: 16px; flex-direction: column; gap: 2px; }
+  .two, .steps { grid-template-columns: 1fr; } .cmps { grid-template-columns: 1fr 1fr; }
+  .vs { grid-template-columns: 1fr; } .vs .x { justify-self: center; }
+  h1 { font-size: 27px; }
+}
+</style></head><body>
+<section class="page">
+  <div class="cover-band">
+    <div class="tag">Coin review · T-CORE · 4-hour · 2017 → Nov 2026</div>
+    <h1>ETH on T-CORE</h1>
+    <p class="sub">T-CORE (bb-core entry, 2 ATR stop, 14 ATR trail) started trading ETH live on 12 Nov 2026, in place of ZEC, which is being delisted. This report shows how ETH has done on T-CORE every year and every month, runs it through the trading-math checks, compares it with the five coins T-CORE traded, and gives a verdict. BB-CORE and I-CORE do not trade ETH: on those two bots it ranks last of six coins.</p>
+    <div class="vs">
+      <div class="team"><div class="nm" style="color:#fdba74">Before</div><div class="bots">SOL · ZEC · NEAR · ADA · GALA</div><div class="split">T-CORE until 12 Nov 2026</div></div>
+      <div class="x">→</div>
+      <div class="team"><div class="nm" style="color:#5eead4">Now (live)</div><div class="bots">SOL · NEAR · ADA · GALA · ETH</div><div class="split">ZEC only finishes its open trade</div></div>
+    </div>
+  </div>
+  <h2>The answer: ETH is T-CORE's steadiest coin</h2>
+  <p>On T-CORE, ETH made money in <b>every calendar year we have data for: 2017 to 2026</b> (7 of 7 on the main 2020–2026 data, 10 of 10 on the 10-year series). On the same 2022–2026 window it has the <b>fewest losing months, the shallowest drawdown and no losing year</b> of the six coins. It is not the biggest earner: ZEC and SOL made more R a month, with far bigger swings. Two honest caveats are on page 4: its profit comes from about 10 big trends, and the drawdown it actually had (10.4R) was a lucky order of trades; plan for 15–24R.</p>
+  <div class="cmps">
+    <div class="cmp"><div class="k">Total since Nov 2019</div><div class="row"><div><span class="v up">+177R</span></div><div style="font-size:10.5px;color:#64748b">132 trades · +1.34R a trade</div></div></div>
+    <div class="cmp"><div class="k">Years positive (2020–26)</div><div class="row"><div><span class="v up">7 / 7</span></div><div style="font-size:10.5px;color:#64748b">the only coin with no losing year</div></div></div>
+    <div class="cmp"><div class="k">Max drawdown</div><div class="row"><div><span class="v up">−10.4R</span></div><div style="font-size:10.5px;color:#64748b">shallowest of the six coins</div></div></div>
+    <div class="cmp"><div class="k">Losing months</div><div class="row"><div><span class="v up">27 / 82</span></div><div style="font-size:10.5px;color:#64748b">33% of months (flat months count as flat)</div></div></div>
+    <div class="cmp"><div class="k">Profit factor</div><div class="row"><div><span class="v up">2.79</span></div><div style="font-size:10.5px;color:#64748b">R won ÷ R lost</div></div></div>
+    <div class="cmp"><div class="k">Edge certainty (t-stat)</div><div class="row"><div><span class="v up">2.46</span></div><div style="font-size:10.5px;color:#64748b">above 2 = unlikely to be luck</div></div></div>
+  </div>
+  <h3>ETH on T-CORE, cumulative R by month (Jan 2020 → Oct 2026)</h3>
+  <svg viewBox="0 0 760 230" width="100%" role="img" aria-label="ETH on T-CORE, cumulative R by month"><line x1="44" x2="682" y1="204" y2="204" stroke="#e2e8f0"/><text class="ax" x="38" y="207" text-anchor="end">0R</text><line x1="44" x2="682" y1="156" y2="156" stroke="#e2e8f0"/><text class="ax" x="38" y="159" text-anchor="end">50R</text><line x1="44" x2="682" y1="108" y2="108" stroke="#e2e8f0"/><text class="ax" x="38" y="111" text-anchor="end">100R</text><line x1="44" x2="682" y1="60" y2="60" stroke="#e2e8f0"/><text class="ax" x="38" y="63" text-anchor="end">150R</text><line x1="44" x2="682" y1="12" y2="12" stroke="#e2e8f0"/><text class="ax" x="38" y="15" text-anchor="end">200R</text><text class="ax" x="44" y="222" text-anchor="middle">2020</text><text class="ax" x="138.51851851851853" y="222" text-anchor="middle">2021</text><text class="ax" x="233.03703703703704" y="222" text-anchor="middle">2022</text><text class="ax" x="327.55555555555554" y="222" text-anchor="middle">2023</text><text class="ax" x="422.0740740740741" y="222" text-anchor="middle">2024</text><text class="ax" x="516.5925925925926" y="222" text-anchor="middle">2025</text><text class="ax" x="611.1111111111111" y="222" text-anchor="middle">2026</text><polyline fill="none" stroke="#0f766e" stroke-width="2.4" points="44.0,200.7 51.9,200.7 59.8,185.3 67.6,185.3 75.5,185.3 83.4,178.6 91.3,178.6 99.1,178.6 107.0,164.9 114.9,168.8 122.8,170.7 130.6,170.7 138.5,170.7 146.4,122.4 154.3,125.7 162.1,125.7 170.0,120.6 177.9,120.6 185.8,120.9 193.7,120.9 201.5,119.4 209.4,122.3 217.3,122.3 225.2,122.5 233.0,122.5 240.9,121.4 248.8,124.3 256.7,125.3 264.5,125.3 272.4,125.3 280.3,111.4 288.2,109.5 296.0,109.5 303.9,107.6 311.8,108.7 319.7,109.4 327.6,110.3 335.4,110.3 343.3,100.9 351.2,100.9 359.1,101.6 366.9,103.6 374.8,102.7 382.7,98.4 390.6,103.5 398.4,107.6 406.3,107.6 414.2,107.6 422.1,90.8 430.0,91.8 437.8,81.6 445.7,84.7 453.6,83.8 461.5,86.7 469.3,91.6 477.2,86.9 485.1,85.5 493.0,90.5 500.8,91.5 508.7,87.5 516.6,87.5 524.5,82.5 532.3,82.5 540.2,76.9 548.1,76.9 556.0,71.6 563.9,72.6 571.7,72.6 579.6,51.2 587.5,57.1 595.4,57.1 603.2,53.8 611.1,57.6 619.0,48.6 626.9,50.3 634.7,50.3 642.6,49.2 650.5,44.7 658.4,46.7 666.2,49.8 674.1,49.8 682.0,32.8"/><text class="lbl" x="688" y="36.76067199999995" fill="#0f766e">+178R</text></svg>
+  <p class="sub">R = one unit of risk per trade. T-CORE risks 2.5% of its balance per trade, so 1R ≈ $2.50 on today's ~$100 account. Fees, slippage and funding included. Live sizing check on 12 Nov 2026: a signal would size to 3 ETH contracts, real risk $2.18 for a $2.51 target.</p>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 1</span></div>
+</section>
+<section class="page">
+  <h2>Every year</h2>
+  <p class="sub">Trades counted when they close. * 2020 includes the last weeks of 2019 (trading starts 11 Nov 2019). Max drawdown inside the year, trade by trade.</p>
+  <div class="wrap"><table class="score"><tr><th>Year</th><th>Trades</th><th>Win rate</th><th>Profit factor</th><th>R per trade</th><th>Total R</th><th>Max drawdown</th><th>Losing months</th><th>Best month</th><th>Worst month</th><th>Biggest trade</th></tr>
+<tr><td>2020*</td><td>14</td><td>36%</td><td>4.78</td><td class="pos">+2.47</td><td class="pos"><b>+34.6</b></td><td>7.1</td><td>2/14</td><td class="pos">+16.0</td><td class="neg">−4.0</td><td>+15.3</td></tr><tr><td>2021</td><td>17</td><td>29%</td><td>4.99</td><td class="pos">+2.95</td><td class="pos"><b>+50.2</b></td><td>6.3</td><td>4/12</td><td class="pos">+50.4</td><td class="neg">−3.5</td><td>+51.4</td></tr><tr><td>2022</td><td>16</td><td>38%</td><td>2.32</td><td class="pos">+0.85</td><td class="pos"><b>+13.7</b></td><td>7.1</td><td>4/12</td><td class="pos">+14.5</td><td class="neg">−3.0</td><td>+14.5</td></tr><tr><td>2023</td><td>22</td><td>18%</td><td>1.10</td><td class="pos">+0.09</td><td class="pos"><b>+1.9</b></td><td>9.5</td><td>5/12</td><td class="pos">+9.8</td><td class="neg">−5.3</td><td>+10.8</td></tr><tr><td>2024</td><td>27</td><td>26%</td><td>2.01</td><td class="pos">+0.78</td><td class="pos"><b>+20.9</b></td><td>10.4</td><td>6/12</td><td class="pos">+17.5</td><td class="neg">−5.3</td><td>+18.4</td></tr><tr><td>2025</td><td>15</td><td>33%</td><td>4.39</td><td class="pos">+2.34</td><td class="pos"><b>+35.1</b></td><td>6.2</td><td>2/12</td><td class="pos">+22.3</td><td class="neg">−6.2</td><td>+22.3</td></tr><tr><td>2026 (to 11 Nov)</td><td>21</td><td>19%</td><td>2.21</td><td class="pos">+0.99</td><td class="pos"><b>+20.9</b></td><td>6.3</td><td>5/11</td><td class="pos">+17.7</td><td class="neg">−4.0</td><td>+21.9</td></tr>
+<tr class="tot"><td>All</td><td>132</td><td>27%</td><td>2.79</td><td class="pos">+1.34</td><td class="pos">+177.3</td><td>10.4</td><td>27/82</td><td class="pos">+50.4</td><td class="neg">−6.2</td><td>+51.4</td></tr></table></div>
+  <h3>Before 2020 (10-year series: Poloniex 2016-17 joined to Binance)</h3>
+  <table class="score"><tr><th>Year</th><th>2017</th><th>2018</th><th>2019</th></tr><tr><td>T-CORE on ETH, total R</td><td class="pos">+506.1</td><td class="pos">+55.7</td><td class="pos">+33.9</td></tr></table>
+  <p class="sub">The 10-year run (Dec 2016 → Nov 2026) has T-CORE positive on ETH in 10 of 10 years. <b>Ignore the size of 2017:</b> ETH went from about $8 to $1,400 that year on thin Poloniex markets, and a 14 ATR trail with a 2 ATR stop turns a 100× trend into hundreds of R. It shows the rules ride a real trend; it is not a return to expect. 2018–2019 are also thin-market years and count for less.</p>
+  <div class="note"><b>Reading the years.</b> The pattern is the same every year: about a quarter of the trades win, losers are small (−1R), and a few long trends pay for everything. The weakest year on the 7-year data was 2023 (+1.9R), when ETH chopped sideways; it still finished positive. The best years (2021, 2025) each came from one or two big trends.</div>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 2</span></div>
+</section>
+<section class="page">
+  <h2>Every month</h2>
+  <p class="sub">R closed in each month. Green = profit, red = loss, the darker the bigger (full colour at 12R). 0 = no trade closed that month. Nov 2026 runs to 11 Nov.</p>
+  <div class="wrap"><table class="score" style="table-layout:fixed"><tr><th style="width:44px">Year</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th><th>Year R</th></tr><tr><td>2019</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td class="na" style="background:#fff">·</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td class="flat"><b>+0.0</b></td></tr><tr><td>2020</td><td style="background:rgba(15,118,110,0.290965);color:#0f172a;text-align:center">+3.4</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+16.0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.46834499999999996);color:#0f172a;text-align:center">+7.0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+14.3</td><td style="background:rgba(220,38,38,0.320435);color:#0f172a;text-align:center">−4.0</td><td style="background:rgba(220,38,38,0.223555);color:#0f172a;text-align:center">−2.1</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td class="pos"><b>+34.6</b></td></tr><tr><td>2021</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+50.4</td><td style="background:rgba(220,38,38,0.292625);color:#0f172a;text-align:center">−3.5</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.38615499999999997);color:#0f172a;text-align:center">+5.3</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(220,38,38,0.136305);color:#0f172a;text-align:center">−0.3</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.19724);color:#0f172a;text-align:center">+1.5</td><td style="background:rgba(220,38,38,0.272555);color:#0f172a;text-align:center">−3.1</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(220,38,38,0.130585);color:#0f172a;text-align:center">−0.2</td><td class="pos"><b>+50.2</b></td></tr><tr><td>2022</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.17814);color:#0f172a;text-align:center">+1.2</td><td style="background:rgba(220,38,38,0.271605);color:#0f172a;text-align:center">−3.0</td><td style="background:rgba(220,38,38,0.17024);color:#0f172a;text-align:center">−1.0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+14.5</td><td style="background:rgba(15,118,110,0.218445);color:#0f172a;text-align:center">+2.0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.21766);color:#0f172a;text-align:center">+2.0</td><td style="background:rgba(220,38,38,0.17468499999999998);color:#0f172a;text-align:center">−1.1</td><td style="background:rgba(220,38,38,0.15848);color:#0f172a;text-align:center">−0.8</td><td class="pos"><b>+13.7</b></td></tr><tr><td>2023</td><td style="background:rgba(220,38,38,0.16698);color:#0f172a;text-align:center">−0.9</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.608325);color:#fff;text-align:center">+9.8</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(220,38,38,0.15492);color:#0f172a;text-align:center">−0.7</td><td style="background:rgba(220,38,38,0.22368);color:#0f172a;text-align:center">−2.1</td><td style="background:rgba(15,118,110,0.165405);color:#0f172a;text-align:center">+0.9</td><td style="background:rgba(15,118,110,0.34397);color:#0f172a;text-align:center">+4.5</td><td style="background:rgba(220,38,38,0.38582999999999995);color:#0f172a;text-align:center">−5.3</td><td style="background:rgba(220,38,38,0.32955500000000004);color:#0f172a;text-align:center">−4.2</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td class="pos"><b>+1.9</b></td></tr><tr><td>2024</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+17.5</td><td style="background:rgba(220,38,38,0.17229);color:#0f172a;text-align:center">−1.0</td><td style="background:rgba(15,118,110,0.65094);color:#fff;text-align:center">+10.6</td><td style="background:rgba(220,38,38,0.28097000000000005);color:#0f172a;text-align:center">−3.2</td><td style="background:rgba(15,118,110,0.16563999999999998);color:#0f172a;text-align:center">+0.9</td><td style="background:rgba(220,38,38,0.26874);color:#0f172a;text-align:center">−3.0</td><td style="background:rgba(220,38,38,0.37465);color:#0f172a;text-align:center">−5.1</td><td style="background:rgba(15,118,110,0.36218);color:#0f172a;text-align:center">+4.8</td><td style="background:rgba(15,118,110,0.19454499999999997);color:#0f172a;text-align:center">+1.5</td><td style="background:rgba(220,38,38,0.383355);color:#0f172a;text-align:center">−5.3</td><td style="background:rgba(220,38,38,0.16960999999999998);color:#0f172a;text-align:center">−1.0</td><td style="background:rgba(15,118,110,0.3297);color:#0f172a;text-align:center">+4.2</td><td class="pos"><b>+20.9</b></td></tr><tr><td>2025</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.37612);color:#0f172a;text-align:center">+5.1</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.41181);color:#0f172a;text-align:center">+5.8</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.398425);color:#0f172a;text-align:center">+5.6</td><td style="background:rgba(220,38,38,0.17218);color:#0f172a;text-align:center">−1.0</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+22.3</td><td style="background:rgba(220,38,38,0.43070499999999995);color:#0f172a;text-align:center">−6.2</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.29537);color:#0f172a;text-align:center">+3.5</td><td class="pos"><b>+35.1</b></td></tr><tr><td>2026</td><td style="background:rgba(220,38,38,0.31793499999999997);color:#0f172a;text-align:center">−4.0</td><td style="background:rgba(15,118,110,0.587135);color:#fff;text-align:center">+9.3</td><td style="background:rgba(220,38,38,0.20873);color:#0f172a;text-align:center">−1.8</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.178955);color:#0f172a;text-align:center">+1.2</td><td style="background:rgba(15,118,110,0.351305);color:#0f172a;text-align:center">+4.6</td><td style="background:rgba(220,38,38,0.22363);color:#0f172a;text-align:center">−2.1</td><td style="background:rgba(220,38,38,0.28018499999999996);color:#0f172a;text-align:center">−3.2</td><td style="background:#f8fafc;color:#0f172a;text-align:center">0</td><td style="background:rgba(15,118,110,0.72);color:#fff;text-align:center">+17.7</td><td style="background:rgba(220,38,38,0.17145);color:#0f172a;text-align:center">−1.0</td><td class="na" style="background:#fff">·</td><td class="pos"><b>+20.9</b></td></tr></table></div>
+  <h3>What the months show</h3>
+  <ul class="tight">
+    <li><b>27 of 82 months lost money</b> (33%), 26 were flat, the rest made money. The longest run of losing months was <b>3</b>.</li>
+    <li>The typical (median) month made +0.00R; the average month +2.18R. The gap is the trend system at work: most months are small, a few are large.</li>
+    <li>Best month +50.4R, worst month −6.2R. The worst 12 months in a row: −4.9R; 4% of all 12-month periods ended negative.</li>
+    <li>The longest time below a previous high was 12 months.</li>
+  </ul>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 3</span></div>
+</section>
+<section class="page">
+  <h2>The trading-math checks</h2>
+  <p class="sub">Each line is a measure from the trading-math notes (section number in front). Every T-CORE trade on ETH since Nov 2019; months Jan 2020 → Oct 2026.</p>
+  <div class="wrap"><table class="score"><tr><th>§</th><th>Measure</th><th>ETH on T-CORE</th><th style="text-align:left">What it means</th></tr>
+  <tr><td>1.1</td><td style="text-align:left">Sample size</td><td><b>132 trades, 82 months</b></td><td style="text-align:left">enough for the averages below to mean something (the t-stat confirms it)</td></tr>
+  <tr><td>1.2</td><td style="text-align:left">Mean / median R per trade</td><td><b>+1.34 / +0.00</b></td><td style="text-align:left">the typical trade ends about break-even (the trail often exits near the entry); the average is carried by a few big winners</td></tr>
+  <tr><td>1.2</td><td style="text-align:left">Win rate, average win / loss</td><td><b>27%, +7.68 / 1.03</b></td><td style="text-align:left">one win pays for about 7.4 losses</td></tr>
+  <tr><td>1.2</td><td style="text-align:left">Expected value</td><td><b>+1.34R a trade</b></td><td style="text-align:left">win% × average win − loss% × average loss</td></tr>
+  <tr><td>1.3</td><td style="text-align:left">Std dev of R / skew</td><td><b>6.28 / +4.8</b></td><td style="text-align:left">results are lumpy with a long right tail, as expected for a 14 ATR trail</td></tr>
+  <tr><td>1.3</td><td style="text-align:left">Top 10 trades</td><td><b>104% of all profit</b></td><td style="text-align:left">without its 10 best trades ETH on T-CORE is −7.1R: the whole profit comes from catching about 10 big trends in 7 years. Missing one (a skipped signal, a bot outage) costs a lot</td></tr>
+  <tr><td>1.6</td><td style="text-align:left">t-stat of the mean</td><td><b>2.46</b></td><td style="text-align:left">above 2: the edge is unlikely to be luck</td></tr>
+  <tr><td>1.1</td><td style="text-align:left">In-sample (to 2022) → out-of-sample (2023 on)</td><td><b>+2.10 → +0.93 R a trade</b></td><td style="text-align:left">weaker after 2023 but clearly positive: no sign the edge has gone</td></tr>
+  <tr><td>1.7</td><td style="text-align:left">R a trade when BTC trends up / down</td><td><b>+1.50 / +1.16</b></td><td style="text-align:left">works in both market directions</td></tr>
+  <tr><td>1.7</td><td style="text-align:left">Longs / shorts</td><td><b>+2.60 (60) / +0.30 (72)</b></td><td style="text-align:left">R a trade (number of trades)</td></tr>
+  <tr><td>3.2</td><td style="text-align:left">Lag-1 autocorrelation: trades / months</td><td><b>−0.08 / −0.18</b></td><td style="text-align:left">close to 0: wins do not come in one cluster</td></tr>
+  <tr><td>4.2</td><td style="text-align:left">Sharpe / Sortino (monthly, annualised)</td><td><b>0.98 / 4.29</b></td><td style="text-align:left">return per unit of volatility / of downside only</td></tr>
+  <tr><td>4.3</td><td style="text-align:left">Max drawdown (trade by trade)</td><td><b>10.4R</b></td><td style="text-align:left">longest losing streak 9 trades</td></tr>
+  <tr><td>4.1</td><td style="text-align:left">VaR 95% one month / CVaR</td><td><b>4.2R / 5.2R</b></td><td style="text-align:left">1 month in 20 loses more than the VaR; the worst 5% of months lose the CVaR on average</td></tr>
+  <tr><td>4.4</td><td style="text-align:left">Monte Carlo max drawdown: median / 95% / 99%</td><td><b>15.4 / 24.5 / 29.7R</b></td><td style="text-align:left">10,000 reshuffles of the same trades: the 10.4R that actually happened was a lucky order. With these trades in a typical order the worst drop is about 15R, in a bad case 24R</td></tr>
+  <tr><td>4.4</td><td style="text-align:left">Chance of a losing 12 months / bad-case year</td><td><b>14.4% / −7.9R</b></td><td style="text-align:left">10,000 years built from random months: more pessimistic than history, where 4% of 12-month periods ended negative</td></tr>
+  </table></div>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 4</span></div>
+</section>
+<section class="page">
+  <h2>ETH against the five coins T-CORE traded</h2>
+  <p class="sub">Same 58 months for every coin (Jan 2022 → Oct 2026; GALA's data starts Sep 2021). Underlined = best in the row. A month with no closed trade counts as flat.</p>
+  <div class="wrap"><table class="score"><tr><th>T-CORE, Jan 2022 → Oct 2026</th><th>ETH</th><th>SOL</th><th>ZEC</th><th>NEAR</th><th>ADA</th><th>GALA</th><th>ETH rank</th></tr><tr><td>Losing months</td><td>21/58</td><td>27/58</td><td>27/58</td><td>25/58</td><td>22/58</td><td class="best">19/58</td><td>2/6</td></tr><tr><td>Longest run of losing months</td><td class="best">3</td><td>6</td><td>6</td><td>7</td><td class="best">3</td><td>5</td><td>1/6</td></tr><tr><td>12-month periods ending negative</td><td class="best">2%</td><td>34%</td><td>53%</td><td>36%</td><td>15%</td><td>11%</td><td>1/6</td></tr><tr><td>Worst 12 months (R)</td><td class="best">−1.0</td><td>−12.9</td><td>−27.8</td><td>−17.1</td><td>−6.0</td><td>−7.2</td><td>1/6</td></tr><tr><td>Max drawdown (R)</td><td class="best">10.4</td><td>20.8</td><td>30.9</td><td>25.2</td><td>14.7</td><td>13.6</td><td>1/6</td></tr><tr><td>Longest time below a previous high (months)</td><td class="best">12</td><td>17</td><td>35</td><td>25</td><td class="best">12</td><td>15</td><td>1/6</td></tr><tr><td>Years positive</td><td class="best">5/5</td><td>4/5</td><td>4/5</td><td>4/5</td><td>4/5</td><td>4/5</td><td>1/6</td></tr><tr><td>Worst year (R)</td><td class="best">+1.9</td><td>−2.5</td><td>−27.8</td><td>−6.8</td><td>−6.0</td><td>−3.6</td><td>1/6</td></tr><tr><td>Win rate</td><td class="best">26%</td><td>18%</td><td>16%</td><td>24%</td><td>23%</td><td>25%</td><td>1/6</td></tr><tr><td>Profit factor</td><td>2.22</td><td>2.33</td><td class="best">3.37</td><td>2.05</td><td>1.66</td><td>2.05</td><td>3/6</td></tr><tr><td>R per trade</td><td>+0.94</td><td>+1.10</td><td class="best">+2.00</td><td>+0.78</td><td>+0.51</td><td>+0.79</td><td>3/6</td></tr><tr><td>R per month</td><td>+1.61</td><td>+2.00</td><td class="best">+3.91</td><td>+1.15</td><td>+0.99</td><td>+1.27</td><td>3/6</td></tr><tr><td>Sharpe (monthly, annualised)</td><td class="best">0.97</td><td>0.53</td><td>0.47</td><td>0.76</td><td>0.52</td><td>0.91</td><td>1/6</td></tr><tr><td>t-stat of the mean</td><td class="best">2.01</td><td>1.15</td><td>1.03</td><td>1.60</td><td>1.08</td><td>1.77</td><td>1/6</td></tr><tr><td>R per month, 2025–26</td><td>+2.59</td><td>+0.82</td><td class="best">+10.78</td><td>+1.04</td><td>−0.26</td><td>+0.38</td><td>2/6</td></tr><tr><td>Losing months, 2025–26</td><td class="best">27%</td><td>50%</td><td>45%</td><td>55%</td><td>41%</td><td>41%</td><td>1/6</td></tr></table></div>
+  <div class="note good"><b>ETH is first on 11 of 16 measures</b> and the only coin with no losing year (the Monte Carlo caveat on page 4 applies to every coin's drawdown, not just ETH's). It wins every measure of steadiness (losing months, losing runs, bad 12-month periods, drawdown, time below a high, worst year) and is mid-table on raw profit: ZEC and SOL made more R a month, with drawdowns 2–3 times deeper. Starting in 2020 or 2021 instead (fewer coins have complete data) gives the same picture: ETH first on 10 of 15 measures.</div>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 5</span></div>
+</section>
+<section class="page">
+  <h2>T-CORE as a whole: with ZEC vs with ETH</h2>
+  <p class="sub">T-CORE on SOL + NEAR + ADA + GALA plus the fifth coin, Oct 2021 → Oct 2026 (61 months, when every coin trades). R, trade by trade for drawdown, by month for the rest.</p>
+  <div class="wrap"><table class="score"><tr><th>T-CORE</th><th>4 coins only</th><th>+ ZEC (before)</th><th>+ ETH (now)</th></tr>
+  <tr><td>Total R</td><td>+327</td><td class="best">+554</td><td>+419</td></tr>
+  <tr><td>Max drawdown (R)</td><td class="best">30.4</td><td>36.7</td><td>34.5</td></tr>
+  <tr><td>Return ÷ drawdown</td><td>10.7</td><td class="best">15.1</td><td>12.2</td></tr>
+  <tr><td>Losing months</td><td class="best">46%</td><td>51%</td><td>48%</td></tr>
+  <tr><td>Worst 12 months (R)</td><td>−13.7</td><td>−2.9</td><td class="best">+11.9</td></tr>
+  <tr><td>Sharpe (monthly, annualised)</td><td>0.78</td><td>0.86</td><td class="best">0.89</td></tr>
+  <tr><td>Worst month (R)</td><td class="best">−15.6</td><td>−16.5</td><td>−20.9</td></tr>
+  </table></div>
+  <p>With ZEC, T-CORE made more (+554R vs +419R) and had the better return ÷ drawdown (15.1 vs 12.2): most of that came from ZEC's 2025 rally, and ZEC carried 58% of T-CORE's risk on its own. ETH carries 13%, its results move with the other four coins at a correlation of 0.31 (ZEC 0.00), and T-CORE with ETH has the best Sharpe of the three set-ups. ZEC is leaving either way: against the four coins alone, adding ETH adds +92R for 4.0R more drawdown.</p>
+  <h2>Verdict</h2>
+  <div class="note good"><b>ETH on T-CORE: a good long-term fit, and the right replacement for ZEC.</b> It has been positive every year we have data for, has the shallowest drawdown and the fewest losing months of the six coins, works whether BTC is rising or falling, and its edge is statistically solid (t-stat 2.46). It will not repeat ZEC's 2025 windfall: expect T-CORE to earn somewhat less than it did with ZEC, with smaller swings.</div>
+  <h3>What to watch</h3>
+  <ul class="tight">
+    <li><b>Long losing runs are normal:</b> about 27% of trades win; up to 9 losers in a row happened. Judge ETH on months and years, not on single trades.</li>
+    <li><b>Drawdown to expect:</b> plan for about 15R, 24R in a bad case (1 in 20). The 10.4R in the backtest was a lucky order of trades. A drop past ~30R would be outside the tested range and worth a review.</li>
+    <li><b>Everything rides on the big trends:</b> without its 10 best trades ETH on T-CORE is about −7R. The bot must stay up and take every signal.</li>
+    <li><b>Contract size:</b> 1 MEXC contract = 0.01 ETH (≈ $20). At today's ~$100 balance a normal stop sizes to 2–3 contracts, so the real risk can be up to ~15% under target. A stop wider than about 12% skips the trade rather than oversizing it.</li>
+    <li><b>Not on BB-CORE or I-CORE:</b> ETH ranks last of six coins on both (deep drawdowns, 3–4 years below a high). Keep it on T-CORE only.</li>
+  </ul>
+  <div class="note">In-sample backtest on Binance spot prices with real fees and funding (MEXC charges ETH a lower 0.02% taker fee than the 0.05% modelled). Scripts: StrategyBacktester/research/zec-replacement (tcore-eth-report.js, eth-vs-coins.js, parity.js).</div>
+  <div class="foot"><span>Lucid'io · ETH on T-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 6</span></div>
+</section>
+</body></html>
