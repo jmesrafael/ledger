@@ -2,5 +2,6 @@
   "key": "paste the nightly backup key from the app here (Fund -> Log -> Backups)",
   "outDir": "backups",
   "keep": 60,
-  "copyTo": ""
+  "copyTo": "",
+  "telegram": { "token": "", "chatId": "" }
 }

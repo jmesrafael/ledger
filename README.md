@@ -45,6 +45,7 @@ Simple username + password. No emails, no sign-up page: the manager creates ever
   1. In the app press **Create nightly backup key** and copy it (shown once). The key can only read an export; it cannot sign in or change anything, and **Revoke all keys** stops it at once.
   2. Copy `backup.config.example.json` to `backup.config.json` (gitignored) and paste the key in. Optional `copyTo` = a second folder, e.g. a Google Drive / OneDrive folder.
   3. Test it: `node scripts/backup-ledger.mjs`. Then schedule it: `node scripts/backup-ledger.mjs --schedule 02:30` (Windows Task Scheduler; on Linux use cron).
+  4. Also run the daily **books-vs-MEXC check** with the same key: see [docs/daily-recon.md](docs/daily-recon.md).
   Each run saves `backups/ledger-<date>_<time>/` (`ledger.json`, one CSV per table, `summary.json`), re-checks the numbers (units add up, row counts match, no password hashes), keeps the newest 60, and logs to `backups/backup.log` and `backups/status.json`. Backups never contain passwords, so after a restore everyone gets a new password (Users → Edit / reset password). The Backups card warns when no automatic backup has run for 3 days.
 
 ## Test data
