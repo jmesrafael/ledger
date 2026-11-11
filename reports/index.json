@@ -1,5 +1,21 @@
 [
   {
+    "slug": "coin-candidates",
+    "title": "Coin Candidates: XRP, BNB, ONE, DOT",
+    "kind": "Data report",
+    "updated": "Nov 12, 2026",
+    "file": "/reports/coin-candidates.html",
+    "summary": "XRP, BNB, ONE and DOT tested on BB-CORE, I-CORE and T-CORE with the bots' own rules and real costs: every year 2020–2026, the owner's stability rule (6–7 winning years, few losing months, low drawdown, small losses and big wins), and what each coin does to today's lineup (profit added against risk added). BB-CORE: XRP worsens, BNB trade-off, ONE trade-off, DOT trade-off; I-CORE: XRP trade-off, BNB improves, ONE trade-off, DOT worsens; T-CORE: XRP worsens, BNB worsens, ONE improves, DOT trade-off. Nothing was switched on. A test on past prices, not a promise."
+  },
+  {
+    "slug": "fifth-coin-bbcore-icore",
+    "title": "A Fifth Coin for BB-CORE and I-CORE",
+    "kind": "Data report",
+    "updated": "Nov 12, 2026",
+    "file": "/reports/fifth-coin-bbcore-icore.html",
+    "summary": "With ZEC gone and ETH on T-CORE only, BB-CORE and I-CORE trade four coins. About 120 markets were tested per bot, including MEXC's stock, index, gold and oil contracts. Under the owners' rule (stability over luck) no new coin qualifies, so both bots stay on SOL, NEAR, ADA and GALA. Closest: DOT on BB-CORE wins 59% of months (more than any kept coin) but deepens the bot's worst drop from 27.4R to 35.1R; BNB on I-CORE loses in 52% of its months but makes the bot steadier (43% → 39% losing months, +464R → +575R, drop 24.1R → 25.7R). No stock, index, gold or oil contract fits. A test on past prices, not a promise."
+  },
+  {
     "slug": "tcore-eth",
     "title": "ETH on T-CORE",
     "kind": "Data report",

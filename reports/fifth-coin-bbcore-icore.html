@@ -1,0 +1,145 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="robots" content="noindex, nofollow, noarchive">
+<title>A Fifth Coin for BB-CORE and I-CORE · Lucid'io</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; min-height: 297mm; padding: 16mm 15mm 18mm; position: relative; page-break-after: always; overflow: hidden; background: #fff; }
+.page:last-child { page-break-after: auto; }
+.foot { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; gap: 10px; }
+h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; line-height: 1.1; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+.sub { color: #64748b; font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+p, li { font-size: 12px; line-height: 1.6; }
+.pos { color: #15803d; } .neg { color: #dc2626; } .flat { color: #64748b; }
+.wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { text-align: right; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #64748b; font-weight: 600; padding: 5px 6px; border-bottom: 1.5px solid #0f172a; vertical-align: bottom; }
+td { text-align: right; padding: 4.5px 6px; border-bottom: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: none; }
+tr.hl-sug td { background: #f0fdfa; font-weight: 600; }
+tr.keep td { color: #334155; }
+td.best { color: #0f766e; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+td.miss { color: #dc2626; font-weight: 600; }
+.note { background: #f8fafc; border-left: 3px solid #1d4ed8; padding: 9px 12px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; margin: 10px 0; }
+.warn { background: #fef2f2; border-left-color: #dc2626; }
+.good { background: #f0fdfa; border-left-color: #0f766e; }
+.cover-band { background: linear-gradient(135deg, #0f172a 0%, #12355b 55%, #0f766e 120%); color: #fff; margin: -16mm -15mm 18px; padding: 20mm 15mm 14mm; position: relative; }
+.cover-band .sub { color: #cbd5e1; max-width: 160mm; }
+.cover-band .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #5eead4; margin-bottom: 10px; }
+.vs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
+.team { border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
+.team .nm { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: #5eead4; } .team .bots { font-size: 15px; font-weight: 700; margin-top: 4px; } .team .split { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 4px; }
+.step { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; background: #0f766e; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.step b { font-size: 12.5px; } .step p { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #334155; }
+ul.tight { margin: 6px 0; padding-left: 18px; } ul.tight li { margin: 2px 0; }
+@media screen {
+  html { background: #e2e8f0; }
+  body { padding: 32px 0; }
+  .page { min-height: 0; max-width: 210mm; width: auto; margin: 0 auto 24px; border-radius: 10px; box-shadow: 0 4px 24px rgba(15,23,42,.12); padding-bottom: 54px; }
+  .foot { bottom: 14px; }
+  .cover-band { border-radius: 10px 10px 0 0; }
+}
+@media screen and (max-width: 760px) {
+  body { padding: 0; }
+  .page { padding: 16px 16px 60px; border-radius: 0; margin: 0 0 8px; }
+  .cover-band { margin: -16px -16px 16px; padding: 30px 16px 20px; border-radius: 0; }
+  .foot { left: 16px; right: 16px; flex-direction: column; gap: 2px; }
+  .vs, .steps { grid-template-columns: 1fr; }
+  h1 { font-size: 27px; }
+}
+</style></head><body>
+
+<section class="page">
+  <div class="cover-band">
+    <div class="tag">Coin review · BB-CORE + I-CORE · 4-hour · 2020 → Oct 2026</div>
+    <h1>A Fifth Coin for BB-CORE and I-CORE</h1>
+    <p class="sub">ZEC is gone from all three bots. T-CORE took ETH in its place, but on BB-CORE and I-CORE ETH ranks last, so those two bots now trade four coins. This report asks whether any other market can fill the fifth slot: about 120 markets, including MEXC's stock, index, gold and oil contracts, each tested on each bot with the bots' exact rules and real costs.</p>
+    <div class="vs">
+      <div class="team"><div class="nm">BB-CORE (live)</div><div class="bots">SOL · NEAR · ADA · GALA</div><div class="split">closest candidate: DOT</div></div>
+      <div class="team"><div class="nm">I-CORE (live)</div><div class="bots">SOL · NEAR · ADA · GALA</div><div class="split">closest candidate: BNB</div></div>
+      <div class="team"><div class="nm">T-CORE (live)</div><div class="bots">SOL · NEAR · ADA · GALA · ETH</div><div class="split">ETH stays</div></div>
+    </div>
+  </div>
+  <h2>The answer: no new coin clears the bar, two come close</h2>
+  <p>The owner's rule for adding a coin is <b>stability over luck</b>: on that bot, the new coin must be at least as steady as the middle of the four coins the bot already trades, on every measure (years won, losing months, worst drop, worst year, size of wins against losses). <b>No coin passes all of them</b>, so BB-CORE and I-CORE stay on four coins.</p>
+  <p>Two coins come close and are worth knowing about:</p>
+  <ul class="tight">
+    <li><b>DOT on BB-CORE</b> wins more months than any coin the bot trades (59% against 56–58%) and has a smaller worst drop than SOL or ADA. It misses on win size (wins 2.39× its losses; the bot's coins about 2.96×) and on its worst year (−0.6R). Added to the bot, profit rises about 19% (+460R → +546R) but the bot's worst drop rises about 28% (27.4R → 35.1R).</li>
+    <li><b>BNB on I-CORE</b> wins fewer months (41%) than SOL, ADA or GALA (about 50%), so it fails the rule, but it is as good as NEAR, which the bot already trades (40% of months, 4 of 7 years). It has the best win size of all (5.35×). Added to the bot, losing months fall (43% → 39%), profit rises (+464R → +575R) and the worst drop barely moves (24.1R → 25.7R).</li>
+  </ul>
+  <div class="note good"><b>Recommendation.</b> Keep BB-CORE and I-CORE on four coins. If the owners want a fifth coin anyway, BNB on I-CORE is the stronger case (it makes the bot smoother as a whole); DOT on BB-CORE buys more profit with a deeper drop. Either one should run in paper mode first.</div>
+  <div class="note warn"><b>Correction to an earlier draft.</b> An earlier version of this study recommended DOT and BNB because it measured drawdown only at month-end, which hides dips that recover inside a month and made both coins look like they lower the drop. Measured trade by trade, as here, they raise it. The profit totals and years won were the same in both versions.</div>
+  <div class="foot"><span>Lucid'io · A Fifth Coin for BB-CORE and I-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 1</span></div>
+</section>
+
+<section class="page">
+  <h2>BB-CORE: DOT is the closest call</h2>
+  <p class="sub">Jan 2020 → Oct 2026 (each coin from its first month of data). "Won" = the coin made money that month. The bar is the middle (median) of the four coins the bot trades. <span class="neg">Red</span> = misses the bar.</p>
+  <div class="wrap"><table>
+    <tr><th>Coin</th><th>Months won</th><th>Months lost</th><th>Years won</th><th>Worst year</th><th>Worst drop</th><th>Avg win ÷ avg loss</th></tr>
+    <tr class="keep"><td>SOL</td><td>58%</td><td>42%</td><td>7 of 7</td><td class="pos">+1.1R</td><td>15.3R</td><td>2.92</td></tr>
+    <tr class="keep"><td>NEAR</td><td>58%</td><td>42%</td><td>6 of 7</td><td class="neg">−9.4R</td><td>13.3R</td><td>2.75</td></tr>
+    <tr class="keep"><td>ADA</td><td>56%</td><td>44%</td><td>7 of 7</td><td class="pos">+6.2R</td><td>17.1R</td><td>3.00</td></tr>
+    <tr class="keep"><td>GALA</td><td>57%</td><td>43%</td><td>6 of 6</td><td class="pos">+12.2R</td><td>10.9R</td><td>3.60</td></tr>
+    <tr class="tot"><td>Bar (median of the four)</td><td>57.5%</td><td>42.5%</td><td>6 of 7</td><td>+3.6R</td><td>14.3R</td><td>2.96</td></tr>
+    <tr class="hl-sug"><td>DOT</td><td class="best">59%</td><td>41%</td><td>6 of 7</td><td class="miss">−0.6R</td><td>12.9R</td><td class="miss">2.39</td></tr>
+    <tr><td>BNB</td><td class="miss">49%</td><td class="miss">51%</td><td>7 of 7</td><td class="miss">+1.0R</td><td class="miss">18.5R</td><td class="miss">2.90</td></tr>
+    <tr><td>XRP</td><td class="miss">48%</td><td class="miss">52%</td><td>6 of 7</td><td class="miss">−5.5R</td><td class="miss">27.2R</td><td>3.22</td></tr>
+    <tr><td>ETH</td><td class="miss">55%</td><td class="miss">45%</td><td>6 of 7</td><td class="miss">−14.9R</td><td class="miss">26.2R</td><td class="miss">2.89</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:6px">DOT passes on months, years won and worst drop; it misses on win size and worst year. BB-CORE closes a trade every month, so months won + months lost = 100%.</p>
+  <h3>What DOT does to the whole bot (four coins + DOT, Jan 2021 → Oct 2026, trade by trade)</h3>
+  <div class="wrap"><table>
+    <tr><th>BB-CORE</th><th>Total</th><th>Worst drop</th><th>Losing months</th></tr>
+    <tr class="keep"><td>Today: SOL, NEAR, ADA, GALA</td><td>+460R</td><td>27.4R</td><td>39%</td></tr>
+    <tr class="hl-sug"><td>+ DOT</td><td class="pos">+546R</td><td class="neg">35.1R</td><td class="pos">34%</td></tr>
+    <tr><td>+ BNB</td><td>+543R</td><td class="neg">35.3R</td><td>36%</td></tr>
+    <tr><td>+ XRP</td><td>+522R</td><td class="neg">32.9R</td><td>37%</td></tr>
+  </table></div>
+  <div class="note">DOT makes the bot's months steadier (fewer losing months) and adds profit, but the worst drop grows by about 8R. Year by year on BB-CORE: <span class="neg">−0.6</span> / +22.1 / +25.3 / +14.9 / +5.1 / +5.2 / +13.9R (2020 → 2026). It also has the most in common with the bot's other coins (it tends to fall when they fall), only 6 years of data and a price that has dropped to about $0.85.</div>
+  <div class="foot"><span>Lucid'io · A Fifth Coin for BB-CORE and I-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 2</span></div>
+</section>
+
+<section class="page">
+  <h2>I-CORE: BNB is as good as NEAR, not as good as the rest</h2>
+  <p class="sub">Same window and bar. "Flat" = no trade closed that month (I-CORE trades less often than BB-CORE).</p>
+  <div class="wrap"><table>
+    <tr><th>Coin</th><th>Months won</th><th>Months lost</th><th>Flat</th><th>Years won</th><th>Worst year</th><th>Worst drop</th><th>Avg win ÷ avg loss</th></tr>
+    <tr class="keep"><td>SOL</td><td>50%</td><td>41%</td><td>9%</td><td>7 of 7</td><td class="pos">+2.3R</td><td>16.9R</td><td>4.62</td></tr>
+    <tr class="keep"><td>NEAR</td><td>40%</td><td>50%</td><td>10%</td><td>4 of 7</td><td class="neg">−4.1R</td><td>11.3R</td><td>4.30</td></tr>
+    <tr class="keep"><td>ADA</td><td>54%</td><td>41%</td><td>5%</td><td>6 of 7</td><td class="neg">−1.5R</td><td>10.4R</td><td>4.51</td></tr>
+    <tr class="keep"><td>GALA</td><td>51%</td><td>41%</td><td>8%</td><td>5 of 6</td><td class="neg">−4.9R</td><td>10.2R</td><td>4.43</td></tr>
+    <tr class="tot"><td>Bar (median of the four)</td><td>50.5%</td><td>41%</td><td></td><td>6 of 7</td><td>−2.8R</td><td>10.8R</td><td>4.47</td></tr>
+    <tr class="hl-sug"><td>BNB</td><td class="miss">41%</td><td class="miss">52%</td><td>6%</td><td>6 of 7</td><td class="miss">−4.0R</td><td class="miss">12.2R</td><td class="best">5.35</td></tr>
+    <tr><td>XRP</td><td class="miss">45%</td><td class="miss">51%</td><td>4%</td><td>7 of 7</td><td class="pos">+1.6R</td><td class="miss">18.8R</td><td>4.74</td></tr>
+    <tr><td>DOT</td><td class="miss">42%</td><td class="miss">54%</td><td>4%</td><td class="miss">4 of 7</td><td class="miss">−9.5R</td><td class="miss">18.6R</td><td class="miss">2.87</td></tr>
+    <tr><td>ETH</td><td class="miss">39%</td><td class="miss">55%</td><td>6%</td><td class="miss">5 of 7</td><td class="miss">−10.2R</td><td class="miss">28.0R</td><td class="miss">4.30</td></tr>
+  </table></div>
+  <h3>What BNB does to the whole bot (four coins + BNB, Jan 2021 → Oct 2026, trade by trade)</h3>
+  <div class="wrap"><table>
+    <tr><th>I-CORE</th><th>Total</th><th>Worst drop</th><th>Losing months</th></tr>
+    <tr class="keep"><td>Today: SOL, NEAR, ADA, GALA</td><td>+464R</td><td>24.1R</td><td>43%</td></tr>
+    <tr class="hl-sug"><td>+ BNB</td><td class="pos">+575R</td><td>25.7R</td><td class="pos">39%</td></tr>
+    <tr><td>+ XRP</td><td class="pos">+591R</td><td class="neg">30.8R</td><td class="pos">39%</td></tr>
+    <tr><td>+ DOT</td><td>+500R</td><td class="neg">37.8R</td><td class="neg">49%</td></tr>
+  </table></div>
+  <div class="note">BNB on its own loses in half its months, but its losing months fall when the other coins win, so the bot as a whole gets steadier. Year by year on I-CORE: +7.1 / +83.9 / +9.5 / <span class="neg">−4.0</span> / +15.5 / +3.6 / +2.2R (2020 → 2026): its edge has faded since 2021. MEXC trades only about $6–8M of BNB a day, enough at the bots' sizes (one contract ≈ $6.86).</div>
+
+  <h3>Stocks, gold and oil on MEXC: none fit</h3>
+  <p>MEXC also lists about 30 liquid non-crypto contracts (gold, silver, oil, S&amp;P 500, Nasdaq, NVDA, SNDK, MU, TSLA, SK Hynix and more). They were tested on up to 13 years of prices (Dukascopy and Yahoo, stock splits corrected), on the 24/7 candles MEXC shows (quiet nights and weekends). Every market with a long history fails: gold made about +0.1R a year with a 69R drop, the S&amp;P 500 and Nasdaq about +1R a year or less, and big tech mostly lost money on BB-CORE. The few that look good (SNDK, SK Hynix, MSTR) have under 3 years of data, all from the 2025–26 chip rally, and their results swing wildly with how closed hours are handled. These bots are built for crypto trends.</p>
+
+  <div class="steps">
+    <div class="step"><div class="n">1</div><b>Keep as is</b><p>BB-CORE and I-CORE on SOL, NEAR, ADA, GALA. T-CORE keeps ETH.</p></div>
+    <div class="step"><div class="n">2</div><b>Optional: paper-test BNB on I-CORE</b><p>Only if the owners accept a coin that fails the rule but makes the bot smoother.</p></div>
+    <div class="step"><div class="n">3</div><b>Re-check as coins change</b><p>Re-run the stability test when new coins list or the kept coins weaken (NEAR on I-CORE already misses the bar).</p></div>
+  </div>
+  <p class="sub" style="margin-top:10px">Method: the bots' own rules (checked trade for trade against the live code), 0.05% fee each side, 0.02% slippage per fill, real funding. R = profit in units of the amount risked per trade. Sources: StrategyBacktester research/zec-replacement (stability.js) and research/zec-replacement-2.</p>
+  <div class="foot"><span>Lucid'io · A Fifth Coin for BB-CORE and I-CORE · Nov 12, 2026</span><span>A test on past prices, not a promise · page 3</span></div>
+</section>
+</body></html>
