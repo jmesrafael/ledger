@@ -1,0 +1,187 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="robots" content="noindex, nofollow, noarchive">
+<title>Replacing ZEC · Lucid'io</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; min-height: 297mm; padding: 16mm 15mm 18mm; position: relative; page-break-after: always; overflow: hidden; background: #fff; }
+.page:last-child { page-break-after: auto; }
+.foot { position: absolute; bottom: 8mm; left: 15mm; right: 15mm; font-size: 8.5px; color: #64748b; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 5px; gap: 10px; }
+h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; line-height: 1.1; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 14px; margin: 16px 0 6px; }
+.sub { color: #64748b; font-size: 12.5px; margin: 0 0 14px; line-height: 1.5; }
+p, li { font-size: 12px; line-height: 1.6; }
+.pos { color: #15803d; } .neg { color: #dc2626; } .flat { color: #64748b; }
+.ax { font-size: 10px; fill: #64748b; } .ax.b { font-weight: 700; fill: #0f172a; font-size: 11px; }
+.lbl { font-size: 11.5px; font-weight: 700; } .tiny { font-size: 9.5px; fill: #334155; font-variant-numeric: tabular-nums; }
+.wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { text-align: right; font-size: 9.5px; text-transform: uppercase; letter-spacing: .3px; color: #64748b; font-weight: 600; padding: 5px 6px; border-bottom: 1.5px solid #0f172a; vertical-align: bottom; }
+td { text-align: right; padding: 4.5px 6px; border-bottom: 1px solid #e2e8f0; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+tr.tot td { font-weight: 700; border-top: 1.5px solid #0f172a; border-bottom: none; }
+tr.hl-live td { background: #eff6ff; } tr.hl-sug td { background: #f0fdfa; font-weight: 600; }
+td.best { color: #0f766e; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+table.score { font-size: 10px; } table.score th { font-size: 8.5px; } table.score td { padding: 4px 5px; }
+.card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.note { background: #f8fafc; border-left: 3px solid #1d4ed8; padding: 9px 12px; border-radius: 6px; font-size: 11.5px; line-height: 1.55; margin: 10px 0; }
+.warn { background: #fef2f2; border-left-color: #dc2626; }
+.good { background: #f0fdfa; border-left-color: #0f766e; }
+.cover-band { background: linear-gradient(135deg, #0f172a 0%, #12355b 55%, #0f766e 120%); color: #fff; margin: -16mm -15mm 18px; padding: 20mm 15mm 14mm; position: relative; }
+.cover-band .sub { color: #cbd5e1; max-width: 150mm; }
+.cover-band .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #5eead4; margin-bottom: 10px; }
+.vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: stretch; margin-top: 16px; }
+.team { border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
+.team .nm { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; } .team .bots { font-size: 15px; font-weight: 700; margin-top: 4px; } .team .split { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+.vs .x { align-self: center; font-size: 22px; font-weight: 800; color: #5eead4; }
+.cmps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.cmp { border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 12px; }
+.cmp .k { font-size: 9.5px; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.cmp .row { display: flex; flex-direction: column; gap: 2px; } .cmp .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; } .cmp .v.up { color: #0f766e; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 10.5px; color: #475569; align-items: center; margin: 4px 0 8px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cal { width: 100%; border-collapse: separate; border-spacing: 2px; }
+.cal td, .cal th { text-align: center; border: none; padding: 5px 0; font-size: 9.5px; border-radius: 4px; }
+.cal th { padding: 2px 0; border-bottom: none; font-size: 8.5px; }
+.cal td.yr { text-align: left; font-weight: 700; font-size: 10px; padding-left: 3px; }
+.cal td.tot { font-weight: 700; background: #f1f5f9; font-size: 9.5px; } .cal td.na { background: transparent; }
+.checks td { vertical-align: top; text-align: left; } .checks td:nth-child(n+2) { white-space: nowrap; } .checks .d { color: #64748b; font-size: 10px; margin-top: 1px; }
+.chk { display: inline-flex; width: 16px; height: 16px; border-radius: 50%; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; margin-right: 4px; vertical-align: -3px; }
+.chk.ok { background: #ccfbf1; color: #0f766e; } .chk.mid { background: #fef3c7; color: #b45309; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0 4px; }
+.step { border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; background: #0f766e; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.step b { font-size: 12.5px; } .step p { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #334155; }
+ul.tight { margin: 6px 0; padding-left: 18px; } ul.tight li { margin: 2px 0; }
+@media screen {
+  html { background: #e2e8f0; }
+  body { padding: 32px 0; }
+  .page { min-height: 0; max-width: 210mm; width: auto; margin: 0 auto 24px; border-radius: 10px; box-shadow: 0 4px 24px rgba(15,23,42,.12); padding-bottom: 54px; }
+  .foot { bottom: 14px; }
+  .cover-band { border-radius: 10px 10px 0 0; }
+}
+@media screen and (max-width: 760px) {
+  body { padding: 0; }
+  .page { padding: 16px 16px 60px; border-radius: 0; margin: 0 0 8px; }
+  .cover-band { margin: -16px -16px 16px; padding: 30px 16px 20px; border-radius: 0; }
+  .foot { left: 16px; right: 16px; flex-direction: column; gap: 2px; }
+  .two, .steps { grid-template-columns: 1fr; } .cmps { grid-template-columns: 1fr 1fr; }
+  .vs { grid-template-columns: 1fr; } .vs .x { justify-self: center; }
+  h1 { font-size: 27px; }
+}
+</style></head><body>
+<section class="page">
+  <div class="cover-band">
+    <div class="tag">Coin review · TRI-CORE bots · up to 10 years · 4-hour</div>
+    <h1>Replacing ZEC</h1>
+    <p class="sub">ZEC is being delisted. Which coin should the three bots (BB-CORE, I-CORE, T-CORE) trade instead, next to SOL, NEAR, ADA and GALA? Tested on 7 years (45 coins), 10 years (all coins with data from 2016) and the top 100 by market cap, with the bots' exact rules and real costs, then judged with the trading-math checks.</p>
+    <div class="vs">
+      <div class="team"><div class="nm" style="color:#fdba74">Leaving</div><div class="bots">SOL · NEAR · ADA · GALA · ZEC</div><div class="split">the coins traded today</div></div>
+      <div class="x">→</div>
+      <div class="team"><div class="nm" style="color:#5eead4">Recommended</div><div class="bots">SOL · NEAR · ADA · GALA · ETH</div><div class="split">ETH takes ZEC's place</div></div>
+    </div>
+  </div>
+  <h2>The answer: ETH</h2>
+  <p><b>ETH is the best replacement.</b> No coin in the top 100 improves the five-coin portfolio more. It passes every test, it has 10 years of history, the deepest MEXC market ($1.5B a day) and the lowest MEXC fee. <b>Nothing fully replaces ZEC:</b> ZEC's lead comes from one year (2025, +100R). With ETH the portfolio earns about 14% less but is smoother and its risk is spread over all five coins instead of sitting on one.</p>
+  <div class="legend"><span><span class="sw" style="background:#c2410c"></span>With ZEC (today)</span><span><span class="sw" style="background:#0f766e"></span>With ETH</span><span>Oct 2021 → Nov 2026, the window where all five coins have data</span></div>
+  <div class="cmps">
+    <div class="cmp"><div class="k">Total profit (R)</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">+490R</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v">+423R</span></div></div></div>
+    <div class="cmp"><div class="k">Sharpe (return ÷ volatility)</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">1.69</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v up">2.03</span></div></div></div>
+    <div class="cmp"><div class="k">Worst drop (R)</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">−20.7</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v">−21.4</span></div></div></div>
+    <div class="cmp"><div class="k">5th coin's share of all risk</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">56%</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v up">13%</span></div></div></div>
+    <div class="cmp"><div class="k">Typical (median) month</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">+3.8R</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v up">+5.4R</span></div></div></div>
+    <div class="cmp"><div class="k">Edge certainty (t-stat, > 2 = not luck)</div><div class="row"><div><span class="dot" style="background:#c2410c"></span><span class="v">2.25</span></div><div><span class="dot" style="background:#0f766e"></span><span class="v up">3.80</span></div></div></div>
+  </div>
+  <h3>Five-coin portfolio, cumulative R</h3>
+  <svg viewBox="0 0 760 290" width="100%" role="img" aria-label="Cumulative R of the five-coin portfolio with ZEC and with ETH"><line x1="46" x2="664" y1="259.8007047885574" y2="259.8007047885574" stroke="#e2e8f0"/><text class="ax" x="40" y="262.8007047885574" text-anchor="end">0R</text><line x1="46" x2="664" y1="210.64056383084596" y2="210.64056383084596" stroke="#e2e8f0"/><text class="ax" x="40" y="213.64056383084596" text-anchor="end">100R</text><line x1="46" x2="664" y1="161.48042287313447" y2="161.48042287313447" stroke="#e2e8f0"/><text class="ax" x="40" y="164.48042287313447" text-anchor="end">200R</text><line x1="46" x2="664" y1="112.32028191542298" y2="112.32028191542298" stroke="#e2e8f0"/><text class="ax" x="40" y="115.32028191542298" text-anchor="end">300R</text><line x1="46" x2="664" y1="63.160140957711484" y2="63.160140957711484" stroke="#e2e8f0"/><text class="ax" x="40" y="66.16014095771149" text-anchor="end">400R</text><line x1="46" x2="664" y1="14" y2="14" stroke="#e2e8f0"/><text class="ax" x="40" y="17" text-anchor="end">500R</text><text class="ax" x="76.39344262295081" y="280" text-anchor="middle">2022</text><line x1="76.39344262295081" x2="76.39344262295081" y1="260" y2="264" stroke="#94a3b8"/><text class="ax" x="197.9672131147541" y="280" text-anchor="middle">2023</text><line x1="197.9672131147541" x2="197.9672131147541" y1="260" y2="264" stroke="#94a3b8"/><text class="ax" x="319.54098360655735" y="280" text-anchor="middle">2024</text><line x1="319.54098360655735" x2="319.54098360655735" y1="260" y2="264" stroke="#94a3b8"/><text class="ax" x="441.11475409836066" y="280" text-anchor="middle">2025</text><line x1="441.11475409836066" x2="441.11475409836066" y1="260" y2="264" stroke="#94a3b8"/><text class="ax" x="562.688524590164" y="280" text-anchor="middle">2026</text><line x1="562.688524590164" x2="562.688524590164" y1="260" y2="264" stroke="#94a3b8"/><polyline fill="none" stroke="#c2410c" stroke-width="2.4" points="46.0,259.0 56.1,244.6 66.3,235.5 76.4,225.8 86.5,223.8 96.7,222.2 106.8,221.5 116.9,214.9 127.0,209.3 137.2,212.0 147.3,212.6 157.4,215.0 167.6,211.1 177.7,213.5 187.8,211.9 198.0,206.7 208.1,209.7 218.2,207.9 228.4,211.2 238.5,209.3 248.6,202.3 258.8,204.9 268.9,201.9 279.0,203.3 289.1,197.1 299.3,192.6 309.4,178.0 319.5,156.9 329.7,155.5 339.8,150.6 349.9,142.4 360.1,144.5 370.2,144.2 380.3,143.0 390.5,140.7 400.6,140.7 410.7,146.0 420.9,138.4 431.0,120.0 441.1,122.2 451.2,116.6 461.4,116.9 471.5,116.6 481.6,114.4 491.8,111.6 501.9,110.6 512.0,113.1 522.2,111.6 532.3,106.0 542.4,57.8 552.6,60.3 562.7,59.8 572.8,54.5 583.0,58.4 593.1,61.9 603.2,53.6 613.3,44.4 623.5,46.3 633.6,34.1 643.7,23.3 653.9,18.6 664.0,19.1"/><polyline fill="none" stroke="#0f766e" stroke-width="2.4" points="46.0,260.0 56.1,245.7 66.3,237.5 76.4,225.1 86.5,223.6 96.7,223.7 106.8,219.6 116.9,212.8 127.0,205.8 137.2,205.8 147.3,206.0 157.4,208.7 167.6,204.2 177.7,204.5 187.8,204.0 198.0,196.2 208.1,197.8 218.2,195.5 228.4,197.9 238.5,198.4 248.6,194.5 258.8,198.4 268.9,193.4 279.0,195.5 289.1,189.0 299.3,182.5 309.4,166.8 319.5,144.8 329.7,142.9 339.8,136.3 349.9,131.6 360.1,133.1 370.2,134.9 380.3,133.9 390.5,130.9 400.6,129.9 410.7,136.7 420.9,128.5 431.0,110.7 441.1,114.5 451.2,110.0 461.4,108.1 471.5,104.6 481.6,101.3 491.8,99.9 501.9,95.7 512.0,96.6 522.2,93.3 532.3,94.2 542.4,88.7 552.6,92.1 562.7,93.1 572.8,86.0 583.0,88.4 593.1,92.9 603.2,88.5 613.3,77.1 623.5,78.2 633.6,62.2 643.7,57.1 653.9,52.0 664.0,51.9"/><text class="lbl" x="670" y="23.111204435443664" fill="#c2410c">+ZEC +490R</text><text class="lbl" x="670" y="55.9100516301382" fill="#0f766e">+ETH +423R</text></svg>
+  <p class="sub">R = one unit of risk per trade (the bots risk 2.5% of the balance per trade, so 1R ≈ 2.5% at today's size). TRI-CORE weighting 50/25/25. Real fees, slippage and funding included.</p>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 1</span></div>
+</section>
+<section class="page">
+  <h2>How it was tested</h2>
+  <p class="sub">The same three bots that run on the VPS, unchanged, on every candidate coin.</p>
+  <div class="card"><ul class="tight">
+    <li><b>The engine is the bots' own code.</b> The research engine was run against the bots' core files (the same files the VPS runs, checked byte for byte) on ZEC, ETH, BTC, DOGE, XRP and SOL: <b>16 of 18 bot/coin pairs identical trade for trade</b>; the other 3 trades out of ~6,000 differ only where the price equals the Bollinger middle to the last decimal.</li>
+    <li><b>Rules:</b> BB-CORE (Bollinger 20,2 close-through + SMA200, stop at the middle band, 48-candle exit), I-CORE (Ichimoku cloud break + SMA200, 2 ATR stop, 7 ATR trail), T-CORE (BB-CORE entry, 2 ATR stop, 14 ATR trail). TRI-CORE = 50/25/25.</li>
+    <li><b>Costs:</b> 0.05% fee per side, 0.02% slippage per fill, real Binance funding. Every coin also re-run at double and triple costs.</li>
+    <li><b>Data:</b> Binance spot 4h candles (futures only start in 2019-20); Poloniex for 2016-2019; Binance or MEXC futures for coins without a spot market.</li>
+    <li><b>Gates fixed before seeing results:</b> 7 full years, all three bots positive, ≥ 6 of 7 years positive, positive before and after 2023, ≥ 4 of 5 market regimes positive, positive at double costs, enough MEXC volume.</li>
+  </ul></div>
+  <h3>7-year screen: 45 coins with data from Nov 2019, 7 contenders passed</h3>
+  <div class="wrap"><table class="score"><tr><th>Coin</th><th>BB-CORE avg R</th><th>I-CORE avg R</th><th>T-CORE avg R</th><th>Total R</th><th>Worst drop</th><th>Years +</th><th>R/yr without best year</th><th>Correlation with the 4 coins</th><th>Portfolio return ÷ drop</th></tr><tr class="hl-live"><td>ZEC (leaving)</td><td class="pos">+0.46</td><td class="pos">+1.15</td><td class="pos">+1.76</td><td class="pos">+187</td><td>19.0</td><td>6/7</td><td class="pos">+14.5</td><td>0.05</td><td>23.6</td></tr><tr class="hl-sug"><td>ETH</td><td class="pos">+0.35</td><td class="pos">+0.49</td><td class="pos">+1.34</td><td class="pos">+124</td><td>15.5</td><td>6/7</td><td class="pos">+15.5</td><td>0.26</td><td class="best">19.8</td></tr><tr><td>ONE</td><td class="pos">+0.38</td><td class="pos">+0.55</td><td class="pos">+2.18</td><td class="pos">+163</td><td>10.8</td><td>7/7</td><td class="pos">+14.0</td><td>0.45</td><td>15.8</td></tr><tr><td>DOGE</td><td class="pos">+0.75</td><td class="pos">+0.75</td><td class="pos">+1.38</td><td class="pos">+213</td><td>14.0</td><td>6/7</td><td class="pos">+17.3</td><td>0.29</td><td>14.2</td></tr><tr><td>BTC</td><td class="pos">+0.23</td><td class="pos">+0.60</td><td class="pos">+1.98</td><td class="pos">+135</td><td>11.8</td><td>6/7</td><td class="pos">+13.8</td><td>0.42</td><td>17.4</td></tr><tr><td>XRP</td><td class="pos">+0.39</td><td class="pos">+0.66</td><td class="pos">+0.43</td><td class="pos">+116</td><td>24.3</td><td>6/7</td><td class="pos">+12.4</td><td>0.45</td><td>14.6</td></tr><tr><td>BNB</td><td class="pos">+0.32</td><td class="pos">+0.61</td><td class="pos">+0.99</td><td class="pos">+121</td><td>18.1</td><td>7/7</td><td class="pos">+8.9</td><td>0.11</td><td>15.9</td></tr><tr><td>LINK</td><td class="pos">+0.28</td><td class="pos">+0.15</td><td class="pos">+0.58</td><td class="pos">+72</td><td>15.4</td><td>6/7</td><td class="pos">+5.8</td><td>0.49</td><td>12.2</td></tr></table></div>
+  <div class="note">Portfolio = SOL + NEAR + ADA + GALA + the coin, Oct 2021 → Nov 2026. Four coins alone: +354R, return ÷ drop 16.9. ETH is the only contender that adds profit without deepening the worst drop.</div>
+  <h3>Does a high backtest rank predict the future?</h3>
+  <p>Barely. Ranking the 39 seven-year coins on 2019–2022 and checking 2023–2026 gives a rank correlation of only <b>0.17</b>; ZEC itself was 16th before 2023 and 1st after. So the choice rests on robustness (consistency, drawdown, diversification, liquidity), not on the biggest total.</p>
+  <p>Excluded: VET (strong but under $0.5M a day on MEXC), XLM (5 of 7 years), ONE (best recent numbers but price $0.0016, thin market, a 2022 bridge hack: itself a delisting risk).</p>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 2</span></div>
+</section>
+<section class="page">
+  <h2>10 years: Dec 2016 → Nov 2026</h2>
+  <p class="sub">Only 9 coins have data back to 2016 on any free source. * = coins the bots keep, shown with all the history that exists (SOL, NEAR and GALA started trading in 2020–21, ADA in 2018). Poloniex 2016–2019 joined to Binance; the two sources agree within 0.2–0.5% where they overlap.</p>
+  <div class="wrap"><table class="score"><tr><th>Coin</th><th>Years</th><th>Total R</th><th>R a year</th><th>Worst drop</th><th>Return ÷ drop</th><th>Years +</th><th>2017</th><th>2018</th><th>2019</th><th>2020</th><th>2021</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th><th>2026</th></tr><tr><td>BTC</td><td>9.9</td><td class="pos">+265</td><td class="pos">+26.6</td><td>11.8</td><td class="best">22.4</td><td>9/10</td><td class="pos">+53</td><td class="pos">+33</td><td class="pos">+48</td><td class="pos">+31</td><td class="pos">+52</td><td class="pos">+2</td><td class="pos">+27</td><td class="pos">+15</td><td class="neg">−5</td><td class="pos">+9</td></tr><tr class="hl-sug"><td>ETH</td><td>9.9</td><td class="pos">+343</td><td class="pos">+34.5</td><td>17.9</td><td>19.1</td><td>9/10</td><td class="pos">+168</td><td class="pos">+35</td><td class="pos">+22</td><td class="pos">+26</td><td class="pos">+24</td><td class="pos">+29</td><td class="neg">−8</td><td class="pos">+4</td><td class="pos">+16</td><td class="pos">+28</td></tr><tr><td>XLM</td><td>9.9</td><td class="pos">+312</td><td class="pos">+31.4</td><td>19.8</td><td>15.8</td><td>8/10</td><td class="pos">+98</td><td class="pos">+82</td><td class="pos">+22</td><td class="pos">+46</td><td class="neg">−5</td><td class="pos">+3</td><td class="pos">+5</td><td class="pos">+64</td><td class="pos">+5</td><td class="neg">−7</td></tr><tr class="hl-live"><td>ZEC</td><td>9.9</td><td class="pos">+243</td><td class="pos">+24.5</td><td>19.0</td><td>12.8</td><td>9/10</td><td class="pos">+34</td><td class="pos">+15</td><td class="pos">+14</td><td class="pos">+33</td><td class="pos">+16</td><td class="pos">+9</td><td class="neg">−15</td><td class="pos">+8</td><td class="pos">+100</td><td class="pos">+30</td></tr><tr><td>XRP</td><td>9.9</td><td class="pos">+272</td><td class="pos">+27.4</td><td>24.3</td><td>11.2</td><td>8/10</td><td class="pos">+93</td><td class="pos">+70</td><td class="neg">−3</td><td class="pos">+38</td><td class="pos">+38</td><td class="pos">+1</td><td class="neg">−1</td><td class="pos">+28</td><td class="pos">+4</td><td class="pos">+5</td></tr><tr><td>ETC</td><td>9.9</td><td class="pos">+207</td><td class="pos">+20.8</td><td>28.5</td><td>7.3</td><td>7/10</td><td class="pos">+71</td><td class="pos">+14</td><td class="pos">+13</td><td class="pos">+23</td><td class="pos">+79</td><td class="pos">+28</td><td class="neg">−7</td><td class="pos">+2</td><td class="neg">−4</td><td class="neg">−13</td></tr><tr><td>LTC</td><td>9.9</td><td class="pos">+157</td><td class="pos">+15.8</td><td>30.0</td><td>5.2</td><td>7/10</td><td class="pos">+67</td><td class="pos">+32</td><td class="pos">+22</td><td class="pos">+14</td><td class="pos">+28</td><td class="pos">+6</td><td class="neg">−10</td><td class="neg">−4</td><td class="neg">−6</td><td class="pos">+9</td></tr><tr><td>DASH</td><td>9.9</td><td class="pos">+146</td><td class="pos">+14.6</td><td>28.3</td><td>5.1</td><td>8/10</td><td class="pos">+69</td><td class="pos">+23</td><td class="pos">+20</td><td class="pos">+5</td><td class="pos">+13</td><td class="pos">+6</td><td class="neg">−1</td><td class="neg">−10</td><td class="pos">+6</td><td class="pos">+14</td></tr><tr><td>XMR</td><td>9.9</td><td class="pos">+22</td><td class="pos">+2.2</td><td>83.3</td><td>0.3</td><td>6/10</td><td class="pos">+47</td><td class="pos">+18</td><td class="pos">+12</td><td class="pos">+5</td><td class="pos">+5</td><td class="neg">−14</td><td class="neg">−19</td><td class="neg">−34</td><td class="neg">−8</td><td class="pos">+9</td></tr><tr><td>GALA *</td><td>5.1</td><td class="pos">+126</td><td class="pos">+24.9</td><td>7.3</td><td>17.4</td><td>6/6</td><td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="pos">+45</td><td class="pos">+14</td><td class="pos">+22</td><td class="pos">+25</td><td class="pos">+9</td><td class="pos">+10</td></tr><tr><td>ADA *</td><td>8.5</td><td class="pos">+169</td><td class="pos">+19.9</td><td>12.1</td><td>14.0</td><td>9/9</td><td class="na">·</td><td class="pos">+20</td><td class="pos">+8</td><td class="pos">+39</td><td class="pos">+30</td><td class="pos">+7</td><td class="pos">+25</td><td class="pos">+31</td><td class="pos">+8</td><td class="pos">+1</td></tr><tr><td>SOL *</td><td>6.2</td><td class="pos">+151</td><td class="pos">+24.6</td><td>11.8</td><td>12.8</td><td>7/7</td><td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="pos">+4</td><td class="pos">+57</td><td class="pos">+6</td><td class="pos">+33</td><td class="pos">+33</td><td class="pos">+6</td><td class="pos">+13</td></tr><tr><td>NEAR *</td><td>6.0</td><td class="pos">+90</td><td class="pos">+15.0</td><td>7.9</td><td>11.4</td><td>5/7</td><td class="na">·</td><td class="na">·</td><td class="na">·</td><td class="neg">−8</td><td class="pos">+33</td><td class="pos">+12</td><td class="pos">+4</td><td class="pos">+20</td><td class="neg">−1</td><td class="pos">+30</td></tr></table></div>
+  <h3>What 10 years add</h3>
+  <ul class="tight">
+    <li><b>BTC is the best coin on its own:</b> smallest drop, best return ÷ drop, and positive in all 7 market phases (2017 bubble, 2018 bear, 2019, 2020-21 bull, 2022 bear, 2023-24, 2025-26).</li>
+    <li><b>ETH has the biggest total</b> and is the only coin where T-CORE made money all 10 years; but half its total is 2017, when markets were thin, so that year counts for less.</li>
+    <li><b>As ZEC's replacement, ETH still beats BTC:</b> portfolio return ÷ drop 19.8 vs 17.4, because ETH's bot results move more independently of the other four coins (correlation 0.26 vs 0.42). Taking both (6 coins) scores 19.4: no better than ETH alone.</li>
+    <li><b>No coin is positive every year.</b> Only ADA (9 of 9) is, and the bots already trade it.</li>
+  </ul>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 3</span></div>
+</section>
+<section class="page">
+  <h2>Top 100 by market cap: does anything beat ETH?</h2>
+  <p class="sub">CoinGecko top 100 (stablecoins, wrapped and staked copies and tokenized funds removed). 78 trade on MEXC futures and were tested on all their history. Gates: ≥ 2 years, all three bots positive, both halves positive, ≥ 75% of 12-month windows positive, positive at double costs, ≥ $5M a day on MEXC. Then each coin takes ETH's place in the portfolio over the <b>same period</b>.</p>
+  <div class="wrap"><table class="score"><tr><th>Coin (rank)</th><th>Years</th><th>R a year</th><th>Worst drop</th><th>12-month windows +</th><th>MEXC a day</th><th>Swap test from</th><th>Portfolio score with coin</th><th>with ETH</th><th>Difference</th></tr><tr><td>ARB <span class="flat">#46</span></td><td>3.5</td><td class="pos">+10.0</td><td>10.6</td><td>90%</td><td>$24.6M</td><td>2023-04</td><td>13.8</td><td>13.7</td><td class="flat">+0.0</td></tr><tr class="hl-sug"><td>ETH <span class="flat">#2</span></td><td>9.9</td><td class="pos">+34.5</td><td>17.9</td><td>86%</td><td>$1339M</td><td>2021-10</td><td>19.8</td><td>19.8</td><td class="flat">+0.0</td></tr><tr><td>ENA <span class="flat">#29</span></td><td>2.5</td><td class="pos">+15.5</td><td>8.1</td><td>100%</td><td>$36.6M</td><td>2024-05</td><td>7.6</td><td>7.6</td><td class="flat">−0.0</td></tr><tr><td>BTC <span class="flat">#1</span></td><td>9.9</td><td class="pos">+26.6</td><td>11.8</td><td>87%</td><td>$3039M</td><td>2021-10</td><td>17.4</td><td>19.8</td><td class="neg">−2.3</td></tr><tr><td>PEPE <span class="flat">#28</span></td><td>3.4</td><td class="pos">+16.5</td><td>7.0</td><td>100%</td><td>$74.5M</td><td>2023-06</td><td>11.8</td><td>14.2</td><td class="neg">−2.4</td></tr><tr><td>SUI <span class="flat">#20</span></td><td>3.4</td><td class="pos">+12.9</td><td>7.4</td><td>100%</td><td>$45.7M</td><td>2023-06</td><td>11.4</td><td>14.2</td><td class="neg">−2.8</td></tr><tr><td>BNB <span class="flat">#3</span></td><td>8.9</td><td class="pos">+19.0</td><td>18.1</td><td>90%</td><td>$7.3M</td><td>2021-10</td><td>15.9</td><td>19.8</td><td class="neg">−3.8</td></tr><tr><td>XLM <span class="flat">#13</span></td><td>9.9</td><td class="pos">+31.4</td><td>19.8</td><td>83%</td><td>$28.4M</td><td>2021-10</td><td>15.2</td><td>19.8</td><td class="neg">−4.6</td></tr><tr><td>DOT <span class="flat">#38</span></td><td>6.1</td><td class="pos">+12.0</td><td>8.8</td><td>94%</td><td>$9.4M</td><td>2021-10</td><td>15.1</td><td>19.8</td><td class="neg">−4.7</td></tr><tr><td>XRP <span class="flat">#4</span></td><td>9.9</td><td class="pos">+27.4</td><td>24.3</td><td>77%</td><td>$302M</td><td>2021-10</td><td>14.6</td><td>19.8</td><td class="neg">−5.1</td></tr><tr><td>DOGE <span class="flat">#10</span></td><td>7.3</td><td class="pos">+28.9</td><td>14.0</td><td>92%</td><td>$107M</td><td>2021-10</td><td>14.2</td><td>19.8</td><td class="neg">−5.6</td></tr><tr><td>UNI <span class="flat">#17</span></td><td>6.1</td><td class="pos">+7.8</td><td>12.4</td><td>87%</td><td>$40.6M</td><td>2021-10</td><td>14.1</td><td>19.8</td><td class="neg">−5.6</td></tr><tr><td>AVAX <span class="flat">#18</span></td><td>6.0</td><td class="pos">+15.9</td><td>11.2</td><td>92%</td><td>$23.9M</td><td>2021-10</td><td>12.9</td><td>19.8</td><td class="neg">−6.9</td></tr><tr><td>LINK <span class="flat">#11</span></td><td>7.7</td><td class="pos">+11.3</td><td>15.4</td><td>81%</td><td>$87.2M</td><td>2021-10</td><td>12.2</td><td>19.8</td><td class="neg">−7.6</td></tr></table></div>
+  <div class="note good"><b>No coin beats ETH.</b> ARB and ENA only tie it, on 2.5–3.5 years of data against ETH's 10. XRP and DOGE make good money alone but deepen the portfolio's worst drop (to 26.9R and 29.0R, vs 21.4R with ETH).</div>
+  <ul class="tight">
+    <li><b>Good numbers, too thin on MEXC:</b> VET, SHIB, STX, SEI, FET, RAY, ALGO, STRK, CAKE.</li>
+    <li><b>Too new (under 2 years):</b> HYPE (1.4 years, I-CORE loses), PI, PENGU, VVV, AERO, KITE, NIGHT, M.</li>
+    <li><b>At least one bot loses:</b> AAVE, TAO, BCH, XMR, APT, JUP, ATOM, ONDO, TIA, WLD, ASTER, WLFI, VIRTUAL, STABLE and most 2025–26 listings.</li>
+  </ul>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 4</span></div>
+</section>
+<section class="page">
+  <h2>The trading-math checks: ZEC vs ETH</h2>
+  <p class="sub">Each line is a measure from the trading-math notes (section number in front). All three bots, every trade since Nov 2019. Underlined = better.</p>
+  <div class="wrap"><table class="score"><tr><th>Per coin</th><th>ZEC</th><th>ETH</th></tr><tr><td>1.1 Sample size (trades)</td><td>636</td><td>645</td></tr><tr><td>1.2 Mean R per trade</td><td class="best">+0.95</td><td>+0.60</td></tr><tr><td>1.2 Median R per trade</td><td>−1.01</td><td>−1.02</td></tr><tr><td>Win rate</td><td>30.7%</td><td>31.3%</td></tr><tr><td>Average win / average loss (R)</td><td>+5.33 / 0.99</td><td>+4.08 / 0.99</td></tr><tr><td>Expected value (win% × win − loss% × loss)</td><td class="best">+0.95</td><td>+0.60</td></tr><tr><td>1.3 Standard deviation of R</td><td>10.62</td><td class="best">3.98</td></tr><tr><td>Skew (right tail)</td><td>16.2</td><td>5.7</td></tr><tr><td>Top 1% of trades = share of all profit</td><td>81%</td><td class="best">49%</td></tr><tr><td>1.6 t-stat of the mean (> 2 = unlikely luck)</td><td>2.25</td><td class="best">3.80</td></tr><tr><td>t-stat BB-CORE / I-CORE / T-CORE</td><td>3.02 / 1.38 / 1.17</td><td>2.20 / 1.95 / 2.46</td></tr><tr><td>1.1 In-sample (to 2022) → out-of-sample (2023 on) mean R</td><td>+0.64 → +1.15</td><td>+1.03 → +0.32</td></tr><tr><td>1.7 Mean R when BTC trends up / down</td><td>+0.03 / +2.02</td><td class="best">+0.56 / +0.64</td></tr><tr><td>3.2 Lag-1 autocorrelation of trade R</td><td>+0.41</td><td class="best">+0.16</td></tr></table></div>
+  <div class="note"><b>Reading.</b> For both coins the typical trade is a full loss (median −1R): these are trend systems that live on a few big winners. ZEC's average is higher, but <b>81% of its profit comes from 1% of its trades</b> (6 trades), its results swing 2.7× as much, and its edge is the less certain one (t-stat 2.25 against 3.80; on its own, ZEC's I-CORE and T-CORE edges are not significant). ZEC made its money when BTC was falling (+2.02R a trade, +0.03R when BTC was rising); ETH earns in both. ZEC's wins come in one cluster (autocorrelation 0.41), which is the 2025 rally.</div>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 5</span></div>
+</section>
+<section class="page">
+  <h2>The trading-math checks: the five-coin portfolio</h2>
+  <p class="sub">SOL + NEAR + ADA + GALA + the 5th coin, monthly TRI-CORE R, Oct 2021 → Nov 2026 (62 months). Monte Carlo: 10,000 reshuffles of the trade order, and 10,000 resampled years.</p>
+  <div class="wrap"><table class="score"><tr><th>Portfolio</th><th>+ ZEC</th><th>+ ETH</th></tr><tr><td>Total R / R per year</td><td class="best">+490 / +96.6</td><td>+423 / +83.5</td></tr><tr><td>Median month / std dev of a month</td><td>+3.76 / 16.2</td><td class="best">+5.42 / 11.6</td></tr><tr><td>4.2 Sharpe (annualised)</td><td>1.69</td><td class="best">2.03</td></tr><tr><td>Sortino (downside only)</td><td class="best">9.4</td><td>7.7</td></tr><tr><td>4.3 Max drawdown (R)</td><td class="best">20.7</td><td>21.4</td></tr><tr><td>Positive months / worst month</td><td class="best">69% / −10.7</td><td>65% / −13.7</td></tr><tr><td>4.1 VaR 95%, one month (historical / normal formula)</td><td>6.7 / 18.8</td><td>7.7 / 12.4</td></tr><tr><td>CVaR: average of the worst 5% of months</td><td class="best">8.1</td><td>9.6</td></tr><tr><td>1.4 5th coin's correlation with the other four</td><td class="best">+0.03</td><td>+0.18</td></tr><tr><td>2.3 5th coin's share of portfolio risk (wᵀΣw)</td><td>56%</td><td class="best">13%</td></tr><tr><td>2.5 PCA: effective number of independent bets (of 5)</td><td class="best">4.37</td><td>4.11</td></tr><tr><td>4.4 Monte Carlo max drawdown: median / 95% / 99%</td><td>13.4 / 19.9 / 23.9</td><td>13.0 / 19.5 / 23.4</td></tr><tr><td>4.4 Chance of a losing 12 months / bad-case year (5%)</td><td>1.2% / +21.6R</td><td>1.3% / +19.5R</td></tr></table></div>
+  <h3>Who carries the risk (2.3, wᵀΣw)</h3>
+  <div class="legend"><b style="width:52px">+ ZEC</b><span><span class="sw" style="background:#94a3b8"></span>SOL 11%</span><span><span class="sw" style="background:#94a3b8"></span>NEAR 6%</span><span><span class="sw" style="background:#94a3b8"></span>ADA 14%</span><span><span class="sw" style="background:#94a3b8"></span>GALA 13%</span><span><span class="sw" style="background:#c2410c"></span>ZEC 56%</span></div>
+  <div class="legend"><b style="width:52px">+ ETH</b><span><span class="sw" style="background:#94a3b8"></span>SOL 23%</span><span><span class="sw" style="background:#94a3b8"></span>NEAR 13%</span><span><span class="sw" style="background:#94a3b8"></span>ADA 26%</span><span><span class="sw" style="background:#94a3b8"></span>GALA 25%</span><span><span class="sw" style="background:#0f766e"></span>ETH 13%</span></div>
+  <div class="note good"><b>Verdict.</b> With ZEC the portfolio made more (+490R vs +423R) and had gentler bad months, but <b>more than half of all its risk sat on one coin</b>, whose profit came from a handful of trades in one rally. With ETH it makes about 14% less, is smoother (Sharpe 2.03 vs 1.69, a better typical month, lower volatility) and every coin carries a fair share of the risk. Worst drop, Monte Carlo drawdowns and the chance of a losing year are the same. ZEC is leaving anyway: <b>ETH is the replacement that keeps the portfolio's risk healthy.</b></div>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 6</span></div>
+</section>
+<section class="page">
+  <h2>ETH's weaknesses, and what to do next</h2>
+  <h3>Weaknesses</h3>
+  <ul class="tight">
+    <li>BB-CORE alone is weak on ETH since 2023 (+0.18R a trade); most of ETH's recent edge comes from T-CORE.</li>
+    <li>ETH lost in 2023 (−8R) and in the 2023-24 phase; ZEC lost there too (−15R).</li>
+    <li>ETH falls together with BTC in crashes; its bot results still correlate only 0.18–0.26 with the other four coins.</li>
+    <li><b>Contract size:</b> one MEXC ETH contract is 0.01 ETH (about $20.50), twice ZEC's ($9.74). On T-CORE's ~$40 account a wide stop can need less than one contract: check how the bot rounds before switching.</li>
+  </ul>
+  <h3>Backups</h3>
+  <ul class="tight">
+    <li><b>BTC</b>: the best 10-year coin on its own; second choice.</li>
+    <li><b>ARB, ENA</b>: tie ETH on short histories; watch, do not trade yet.</li>
+  </ul>
+  <h3>What the data does not prove</h3>
+  <ul class="tight">
+    <li>Spot prices, not MEXC futures prices; funding is zero before each coin had a futures market. 2016–2019 markets were thin, so those years count for less.</li>
+    <li>Choosing the best of many coins flatters the winner: past rank predicted future rank only weakly (0.17).</li>
+    <li>MEXC volume is a one-day snapshot (Nov 11, 2026). Results are in R; dollars depend on each bot's size and on contract rounding.</li>
+  </ul>
+  <div class="note">Scripts and full tables: StrategyBacktester/research/zec-replacement (REPORT.md, parity.js, screen.js, deep.js, walkforward.js, fut.js, run10.js, screen100.js, math.js).</div>
+  <div class="foot"><span>Lucid'io · Replacing ZEC · Nov 11, 2026</span><span>A test on past prices, not a promise · page 7</span></div>
+</section>
+</body></html>

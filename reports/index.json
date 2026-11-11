@@ -1,5 +1,13 @@
 [
   {
+    "slug": "zec-replacement",
+    "title": "Replacing ZEC: ETH",
+    "kind": "Data report",
+    "updated": "Nov 11, 2026",
+    "file": "/reports/zec-replacement.html",
+    "summary": "ZEC is being delisted. The three bots (BB-CORE, I-CORE, T-CORE), with their exact live rules and real costs, were tested on 45 coins over 7 years, 9 coins over 10 years and the top 100 by market cap. ETH is the best replacement next to SOL, NEAR, ADA and GALA: no coin improves the portfolio more. Nothing fully replaces ZEC (one year, 2025, made +100R): with ETH the portfolio earns about 14% less (+423R vs +490R since Oct 2021) but is smoother (Sharpe 2.03 vs 1.69) and its risk is spread (the 5th coin carries 13% of the risk instead of ZEC's 56%). Backup: BTC. Check ETH's larger MEXC contract size first. A test on past prices, not a promise."
+  },
+  {
     "slug": "live-pair-vs-three-bot",
     "title": "Live Pair vs Three-Bot Mix",
     "summary": "The two live bots (BB-CORE + I-CORE, ₱10,000 split 50/50) against 10 other mixes on SOL, ZEC, NEAR, ADA and GALA, 4h, 2020 to 5 Nov 2026, judged with the trading-math survival checks. The live pair made money in 7 of 7 years and 70% of months, about ₱33,500 a year on a fresh ₱10,000. Adding a third bot, T-CORE, with 25% of the money (TRI-CORE, 50/25/25) keeps the same score before and after 2023 (20.5), cuts the chance of a 30% drop from 55% to 39% and is positive in rising, sideways and falling months. It made less in 2022–2023. Paper-test T-CORE first. ₱60 per $1. A test on past prices, not a promise.",
