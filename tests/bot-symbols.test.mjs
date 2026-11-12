@@ -14,9 +14,11 @@ const sql = (dir, f) => { const a = new URL(`../supabase/${dir}/applied/${f}`, i
 const BASE = '20261111000000_bot_events.sql', MORE = '20261116000000_bot_events_more_symbols.sql', BACK = '20261116000000_rollback_bot_events_more_symbols.sql';
 const GALA = '20261126000000_bot_events_gala.sql', GALA_BACK = '20261126000000_rollback_bot_events_gala.sql';
 const ETH = '20261211000000_bot_events_eth.sql', ETH_BACK = '20261211000000_rollback_bot_events_eth.sql';
+const SUIARB = '20261212000000_bot_events_sui_arb.sql', SUIARB_BACK = '20261212000000_rollback_bot_events_sui_arb.sql';   // the coin lab paper bots (cbb, ctc)
 const NEW_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT'];
 const GALA_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT', 'GALA_USDT'];
-const ALL_SYMBOLS = [...GALA_SYMBOLS, 'ETH_USDT'];
+const ETH_SYMBOLS = [...GALA_SYMBOLS, 'ETH_USDT'];
+const ALL_SYMBOLS = [...ETH_SYMBOLS, 'SUI_USDT', 'ARB_USDT'];
 
 async function fresh() {
   const db = new PGlite();
@@ -106,9 +108,9 @@ test('the GALA rollback restores the four-coin check, and refuses while a GALA r
 test('after the ETH migration ETH is stored too, ZEC still is (open ZEC trades finish); BTC and junk are still refused', async () => {
   const db = await fresh();
   await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA)); await db.exec(sql('migrations', ETH));
-  for (const s of ALL_SYMBOLS) await put(db, s);
-  for (const bad of ['BTC_USDT', 'eth_usdt', 'ETH', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
-  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ALL_SYMBOLS.length);
+  for (const s of ETH_SYMBOLS) await put(db, s);
+  for (const bad of ['BTC_USDT', 'eth_usdt', 'ETH', 'SUI_USDT', 'ARB_USDT', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
+  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ETH_SYMBOLS.length);
 });
 
 test('the ETH migration is safe to run twice, refuses to run before the base migration, and its rollback refuses while an ETH row exists', async () => {
@@ -126,8 +128,31 @@ test('the ETH migration is safe to run twice, refuses to run before the base mig
   await assert.rejects(new PGlite().exec(sql('migrations', ETH)), /preflight/);
 });
 
+test('after the SUI/ARB migration both are stored, every older coin still is; BTC and junk are still refused', async () => {
+  const db = await fresh();
+  await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA)); await db.exec(sql('migrations', ETH)); await db.exec(sql('migrations', SUIARB));
+  for (const s of ALL_SYMBOLS) await put(db, s);
+  for (const bad of ['BTC_USDT', 'sui_usdt', 'ARB', 'APT_USDT', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
+  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ALL_SYMBOLS.length);
+});
+
+test('the SUI/ARB migration is safe to run twice, refuses to run before the base migration, and its rollback refuses while a SUI or ARB row exists', async () => {
+  const db = await fresh();
+  await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA)); await db.exec(sql('migrations', ETH));
+  await put(db, 'ETH_USDT');
+  await db.exec(sql('migrations', SUIARB)); await db.exec(sql('migrations', SUIARB));
+  assert.equal((await db.query(`select count(*)::int as c from public.bot_events where symbol = 'ETH_USDT'`)).rows[0].c, 1);
+  await put(db, 'ARB_USDT');
+  await assert.rejects(db.exec(sql('rollback', SUIARB_BACK)), /check/i);
+  await db.exec(`delete from public.bot_events where symbol in ('SUI_USDT','ARB_USDT')`);
+  await db.exec(sql('rollback', SUIARB_BACK));
+  await put(db, 'ETH_USDT');
+  await assert.rejects(put(db, 'SUI_USDT'), /check/i);
+  await assert.rejects(new PGlite().exec(sql('migrations', SUIARB)), /preflight/);
+});
+
 test('the website schema (lib/schema.js) and the database check name exactly the same symbols', () => {
-  const m = sql('migrations', ETH).match(/symbol in \(([^)]*)\)/);
+  const m = sql('migrations', SUIARB).match(/symbol in \(([^)]*)\)/);
   assert.ok(m, 'the migration has a symbol list');
   const inDb = m[1].split(',').map((s) => s.trim().replace(/'/g, ''));
   assert.deepEqual([...inDb].sort(), [...schema.ALLOWED_SYMBOLS].sort());

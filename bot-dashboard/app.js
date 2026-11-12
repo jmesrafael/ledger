@@ -20,13 +20,14 @@
   const sv = (tag, attrs) => { const n = document.createElementNS(SVG, tag); for (const [k, v] of Object.entries(attrs || {})) n.setAttribute(k, v); return n; };
 
   // The five pages: Overview (the three live bots), Live Bots (a workspace per bot), Research Lab (paper bots + market recorder), System Monitor, Settings.
-  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h', 'bbn', 'icn', 'tcn'];   // the paper labs: the 1h BB-Core, and the three news labs (each strategy with the news gate). (The T-CORE paper lab bbtr is not shown as a lab: T-CORE trades live; the News Lab page still compares against it.)
+  const LIVE = ['bbcore', 'icore', 'tcore'], LABS = ['bb1h', 'bbn', 'icn', 'tcn', 'cbb', 'ctc'];   // the paper labs: the 1h BB-Core, the three news labs (each strategy with the news gate), and the two coin labs (BB-CORE on ARB, T-CORE on SUI + ARB). (The T-CORE paper lab bbtr is not shown as a lab: T-CORE trades live; the News Lab page still compares against it.)
   const NEWS = { bbn: 'bbcore', icn: 'icore', tcn: 'bbtr' };   // news lab -> the bot it is compared with (tcn against the T-CORE paper lab: same engine, same paper costs)
   const BOTS = {
     bbcore: { label: 'BB-Core', live: true, role: 'Live' }, icore: { label: 'I-Core', live: true, role: 'Live' }, tcore: { label: 'T-CORE', live: true, role: 'Live' },
     bb1h: { label: 'BB-1h lab', live: false, role: 'Paper lab' },
     bbn: { label: 'BB-CORE news', live: false, role: 'News lab' }, icn: { label: 'I-CORE news', live: false, role: 'News lab' }, tcn: { label: 'T-CORE news', live: false, role: 'News lab' },
     bbtr: { label: 'T-CORE lab', live: false, role: 'Paper lab' },
+    cbb: { label: 'BB-CORE ARB', live: false, role: 'Coin lab' }, ctc: { label: 'T-CORE SUI+ARB', live: false, role: 'Coin lab' },
   };
   const BOT_SUBS = [['dashboard', 'Dashboard'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['positions', 'Positions & Activity'], ['verification', 'Verification'], ['health', 'Health']];
   const LAB_SUBS = [['overview', 'Labs'], ['news', 'News Lab'], ['performance', 'Performance'], ['trades', 'Trades & Calendar'], ['research', 'Research'], ['market', 'Market & Costs']];
@@ -102,7 +103,7 @@
         skipped: d.skipped, skip_counts: d.skip_counts || {}, activity: (d.activity || []).filter((a) => a.kind !== 'capital'), uptime: d.uptime, coins: s.enabled_coins || [], kill: !!s.kill_switch, dd: s.drawdown_r, halt: s.halt_r,
         first_ms: d.first_event_ms, last_exit_ms: bb.last_exit_ms ?? lastOf(d.trades, 'exit_ts'), last_entry_ms: bb.last_entry_ms ?? lastOf(d.trades, 'entry_ts'), trend: null };
     }
-    const b = (d.bots && d.bots[k]) || (d.labs && d.labs[k]) || (d.news_labs && d.news_labs[k]);
+    const b = (d.bots && d.bots[k]) || (d.labs && d.labs[k]) || (d.news_labs && d.news_labs[k]) || (d.coin_labs && d.coin_labs[k]);
     if (!b) return { key: k, ...meta, present: false, mode: meta.live ? 'live' : 'paper', hb: null, alive: false, status: {}, trades: [], open_list: [], capital: null, overall: ZERO(), perf, compare: null, compares: [], skipped: [], skip_counts: {},
       activity: [], uptime: null, coins: [], kill: false, dd: null, halt: null, first_ms: null, last_exit_ms: null, last_entry_ms: null, trend: null };
     return { key: k, ...meta, present: true, mode: b.mode, hb: b.last_heartbeat_ms, alive: !!b.alive, status: b.status || {}, trades: b.trades || [], open_list: b.open_list || [], capital: b.capital, overall: b.overall, perf, compare: b.compare, compares: b.compares || [],
@@ -654,6 +655,8 @@
     bb1h: { name: 'BB-1h lab', short: 'BB-Core rules on 1-hour candles (paper)', how: 'The BB-Core rules on 1-hour candles, five coins, paper only: a test of whether a faster version is worth trading, judged against its own backtest.' },
     bbn: { name: 'BB-CORE news lab', short: 'BB-Core 4h + news gate (paper)', how: 'The BB-Core 4h rules, paper only, with the news gate in front of every new entry: no new entry in the 8 hours before a CPI / jobs / FOMC / PCE / PPI release, and no new long within 3 days of a $1M+ hack on the coin’s own chain. The gate can only skip an entry, never open one. Compared with live BB-Core in the News Lab.' },
     icn: { name: 'I-CORE news lab', short: 'I-Core + news gate (paper)', how: 'The I-Core rules, paper only, with the news gate in front of every new entry (see BB-CORE news lab). Compared with live I-Core in the News Lab.' },
+    cbb: { name: 'BB-CORE coin lab', short: 'BB-Core 4h on ARB only (paper)', how: 'The BB-Core 4h rules, unchanged, on ARB only, paper only: a forward test of ARB as a new BB-CORE coin before any real money. Judged against its own ARB backtest (May 2023 to Nov 2026: about 4 trades a month, 36% winners, +0.23R a trade).' },
+    ctc: { name: 'T-CORE coin lab', short: 'T-CORE on SUI + ARB only (paper)', how: 'The T-CORE rules (2 ATR stop, 14 ATR trail), unchanged, on SUI and ARB only, paper only: a forward test of both as new T-CORE coins. Judged against its own backtest on those coins (May 2023 to Nov 2026: about 3.6 trades a month, 23% winners, +0.65R a trade). I-CORE gets no new coin: it did worse with both.' },
     tcn: { name: 'T-CORE news lab', short: 'T-CORE + news gate (paper)', how: 'The T-CORE rules, paper only, with the news gate in front of every new entry. Compared with the T-CORE paper bot: same engine, same paper costs, so any difference is the gate.' },
   };
   const full = (c) => (/_USDT$/.test(c) ? c : `${c}_USDT`);

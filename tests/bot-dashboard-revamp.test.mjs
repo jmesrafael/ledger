@@ -39,7 +39,7 @@ test('BD2 no duplicated panels (the old Verify tab had two of each), and every e
 });
 
 test('BD3 a live bot is never a lab and a lab is never live: separate lists, live money only from live-mode bots', () => {
-  assert.match(app, /const LIVE = \['bbcore', 'icore', 'tcore'\], LABS = \['bb1h', 'bbn', 'icn', 'tcn'\];/);
+  assert.match(app, /const LIVE = \['bbcore', 'icore', 'tcore'\], LABS = \['bb1h', 'bbn', 'icn', 'tcn', 'cbb', 'ctc'\];/);   // + the coin labs (Nov 12, 2026)
   // the T-CORE paper lab (bbtr) is not a lab on the page any more; it appears only as the News Lab's yardstick for T-CORE news (same engine, same paper costs)
   const noComments = app.replace(/\/\/.*$/gm, '');
   const rest = noComments.replace("tcn: 'bbtr' }", '').replace("bbtr: { label: 'T-CORE lab', live: false, role: 'Paper lab' },", '').replace("['bbcore', 'icore', 'tcore', 'bbtr', 'bb1h'].map((k) => {", '');
@@ -88,7 +88,7 @@ test("BD6 the memory store answers each bot's own heartbeat history; the live st
   assert.equal((await s.heartbeats({ sinceMs: 0 })).length, 1); assert.equal((await s.heartbeats({ sinceMs: 0, bot: 'tcore' })).length, 2); assert.equal((await s.heartbeats({ sinceMs: 0, bot: 'icore' })).length, 1);
   assert.match(read('lib/store.js'), /type=eq\.heartbeat\$\{botQuery\(bot\)\}&ts_ms/);
   const api = read('api/data.js');
-  assert.match(api, /\['icore', 'tcore', 'bb1h', 'bbtr', 'bbn', 'icn', 'tcn'\]\.map\(\(b\) => cached\(`beats:\$\{b\}`/); assert.match(api, /const VERSION = 'perf-9'/);   // + the news labs (bbn, icn, tcn)
+  assert.match(api, /\['icore', 'tcore', 'bb1h', 'bbtr', 'bbn', 'icn', 'tcn', 'cbb', 'ctc'\]\.map\(\(b\) => cached\(`beats:\$\{b\}`/); assert.match(api, /const VERSION = 'perf-10'/);   // + the news labs (bbn, icn, tcn) and the coin labs (cbb, ctc)
 });
 
 test('BD7 settings keep every preference and its saved key; the System Monitor never invents server figures', () => {

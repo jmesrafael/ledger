@@ -79,7 +79,7 @@ test('skips by the news gate are counted separately from the other skip reasons'
 test('the page lists the news labs, compares tcn with the T-CORE paper lab, and has a News Lab tab', () => {
   const app = fs.readFileSync(new URL('../bot-dashboard/app.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../bot-dashboard/index.html', import.meta.url), 'utf8');
-  assert.match(app, /LABS = \['bb1h', 'bbn', 'icn', 'tcn'\]/);
+  assert.match(app, /LABS = \['bb1h', 'bbn', 'icn', 'tcn', 'cbb', 'ctc'\]/);   // the coin labs follow the news labs
   assert.match(app, /NEWS = \{ bbn: 'bbcore', icn: 'icore', tcn: 'bbtr' \}/);
   assert.match(app, /\['news', 'News Lab'\]/);
   assert.match(app, /'lab:news': \(\) => renderNewsLab\(\)/);
