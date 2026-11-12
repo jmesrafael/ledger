@@ -1,5 +1,13 @@
 [
   {
+    "slug": "sui-arb-live",
+    "title": "SUI and ARB Join the Live Bots",
+    "kind": "Decision report",
+    "updated": "Nov 12, 2026",
+    "file": "/reports/sui-arb-live.html",
+    "summary": "Nov 12, 2026: ARB joins BB-CORE, SUI and ARB join T-CORE, I-CORE keeps its coins (live). On the TRI-CORE account from Jun 2023 to Nov 2026 the change lifts the result from +278R to +320R with the same worst drop (20.5R → 20.3R) and helped in 27 of 42 months. Every option per bot, each new coin by year and month, what the account gains each month, the risks (picked after seeing the results; a few big months carry the profit) and what to watch. A test on past prices, not a promise."
+  },
+  {
     "slug": "coin-candidates",
     "title": "Coin Candidates: XRP, BNB, ONE, DOT",
     "kind": "Data report",
