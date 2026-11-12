@@ -91,3 +91,11 @@ Left for you, in this order:
 3. **Website:** the next Vercel deploy of this repo (`js/desk.js`, `js/app.js`, `login.html`). It works before step 1 (the old Record screens show) and after it (the four steps).
 4. **History (optional, once):** `select public._nav_backfill('2026-11-07 10:30+00', now() - interval '1 hour', 60);` fills the curves from the kept wallet reports.
 5. **Rollback:** `supabase/rollback/20261213000000_rollback_live_nav.sql`.
+
+## History filled (Nov 13, 2026)
+
+`supabase/maintenance/20261113_backfill_nav_history.sql` turned the kept MEXC wallet reports (Oct 28 → Nov 12) into 1,007 verified NAV points every 15 minutes, plus a
+point at each Nov 7 flow, so every holder's curve moves with the real accounts (like the Total Fund chart): value = their units then × that moment's price. Same
+checks as live readings; it added rows to `nav_snapshots` only (ledger, units, marks and fees unchanged, verified against `backup_20261113`). Curves now have one
+point per 15 minutes (`nav_history_bucket_minutes = 15`). Nov 2 midday → Nov 7 03:30 is skipped on purpose: I-Core had moved to a new MEXC account while the
+old one still held a position, so the reports did not match the books; the curve is a straight line there rather than a guess.
