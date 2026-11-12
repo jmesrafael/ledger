@@ -7,7 +7,7 @@
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the fund manager's own session while "viewing as"
-  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', lrange: '1W', lkind: 'capital', live: null, rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
 
   // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -263,7 +263,7 @@
     const [pool, hist, history, led, reqs, all, elog, pend] = await Promise.all([admin ? call('pool_summary') : null, admin ? call('price_history') : [], call('my_history'),
       call(admin ? 'admin_ledger' : 'my_ledger'), call(admin ? 'admin_requests' : 'my_requests'),
       admin ? call('admin_overview') : null, admin ? call('admin_equity_log') : null, call(admin ? 'admin_pending' : 'my_pending'),
-      loadFx(), admin ? loadReports() : null, loadFund(), admin ? loadAdminExtras() : null,
+      loadFx(), admin ? loadReports() : null, admin ? loadLive() : null, loadFund(), admin ? loadAdminExtras() : null,
       group(async () => { const [p, ps] = await Promise.all([admin ? null : call('my_payout'), admin ? call('admin_payouts') : null]); S.payout = p; S.payouts = ps || []; }, () => { S.payout = null; S.payouts = []; }),   // empty until the payout-details migration is run
       group(async () => { const [c, cs] = await Promise.all([call('my_contact'), admin ? call('admin_contacts') : null]); S.contact = c; S.contacts = cs || []; S.contactOn = true; }, () => { S.contact = null; S.contacts = []; S.contactOn = false; }),   // hidden until the contact-details migration is run
       group(async () => { const [p, q, c] = await Promise.all([admin ? null : call('my_position'), admin ? call('admin_capital_queue') : null, admin ? call('admin_balance_checks') : null]); S.pos = p; S.queue = q; S.checks = c; }, () => { S.pos = null; S.queue = null; S.checks = null; }),   // empty until the capital-workflow migration is run
@@ -303,6 +303,14 @@
     return Number(x.rate) > Number(S.exit.mature_rate) + 1e-9 ?`Account under 1 year old. Drops to ${pc(S.exit.mature_rate)}% on ${day(exitTurns(x).toISOString())}.` : 'Account over 1 year old.';
   };
   const minPhp = () => (S.exit ? Number(S.exit.min_php) : 0);
+  // the fund's live capital (the bots' 5-minute MEXC wallet reports, every live account added together) from /api/fund-live; fund manager only. null when it cannot
+  // be reached (a plain-file copy of the app, no reports yet): the Fund dashboard then shows the booked pool value as before. A failed read keeps the last figures.
+  async function loadLive() {
+    try {
+      const r = await fetch('/api/fund-live', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: S.adminToken || S.token }) });
+      if (r.ok) S.live = await r.json();
+    } catch { /* keep the last figures; none yet = the booked pool value is shown */ }
+  }
   async function loadFund() { try { S.fund = (await rpc('fund_returns', { p_token: S.token })) || []; } catch { S.fund = []; } }
   // reports/index.json: a small registry of compiled HTML reports (see reports/README or the folder itself to add one).
   // Plain static files, not database rows — missing or unreadable just means an empty Reports tab, never a hard error.
@@ -388,11 +396,12 @@
     const pend = S.reqs.filter((q) => q.status === 'pending'), pendUsdt = pend.reduce((t, q) => t + Number(q.units) * Number(p.unit_price), 0);
     const seg = [['Investors', p.investor_units, 'var(--seg2)'], ['Fund manager capital', p.admin_capital_units, 'var(--seg1)'], ["Fees earned", p.admin_fee_units, 'var(--seg3)']];
     const pb = PU.banner(S.pu);
-    return `${pb ? `<div class="card" data-pool="banner"><p class="warn"><b>Pending P/L: ${esc(pb)}</b></p><p class="note">Nobody can join or be paid out until you click Update Pool (Record → Balance).</p><div class="btns"><button data-tab="record" data-rec="eq">Go to Update Pool</button></div></div>` : ''}<div class="card hero"><h2>Total Fund</h2>
+    const live = liveCard(p);
+    return `${pb ? `<div class="card" data-pool="banner"><p class="warn"><b>Pending P/L: ${esc(pb)}</b></p><p class="note">Nobody can join or be paid out until you click Update Pool (Record → Balance).</p><div class="btns"><button data-tab="record" data-rec="eq">Go to Update Pool</button></div></div>` : ''}${live || `<div class="card hero"><h2>Total Fund</h2>
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
-        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>
-      <div class="card"><h2>Fund performance</h2>${chart(S.hist)}</div>
+        <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>`}
+      <div class="card"><h2>${live ? 'Unit price' : 'Fund performance'}</h2>${chart(S.hist)}${live ? `<p class="note" style="margin:8px 0 0">The booked unit price: it moves only when the pool is valued (Update Pool), not every 5 minutes.</p>` : ''}</div>
       ${TVUI.adminCard(S.tv, S.tvPrev)}
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
@@ -696,6 +705,63 @@
     svg.addEventListener('pointerleave', reset); svg.addEventListener('pointerup', (ev) => { if (ev.pointerType !== 'mouse') reset(); });
     reset();
   }
+  // ---------------------------------------------------------------- the fund, live (js/livefund.js): the same 5-minute MEXC wallet reports as the bot dashboard's
+  // "Live capital" chart. The big number is what every live trading account holds now; the booked pool value (what units are priced at) stays on the card below it.
+  const LF = LiveFund;
+  const sinceTxt = (ms) => { const m = (Date.now() - ms) / 60000; return m < 1 ? 'just now' : m < 90 ? Math.round(m) + ' min ago' : m < 2880 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; };
+  const lfAxis = (v, signed) => (signed && v ? (v > 0 ? '+' : '−') : '') + (inPeso() ? '₱' + Math.round(Math.abs(v) * rate()).toLocaleString('en-PH') : '$' + Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 2 }));
+  const lfWhen = (ms, short) => (short ? new Date(ms).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : new Date(ms).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }));
+  function liveCard(p) {
+    const L = S.live, wc = L && L.wallet_capital, v = wc && wc.usd != null ? LF.view(L, S.lrange, S.lkind) : null;
+    if (!v) { S.lchart = null; return ''; }
+    const g = LF.svg(v, { axis: (n) => lfAxis(n, v.kind === 'trading'), when: lfWhen });
+    S.lchart = { v, g };
+    const rl = v.range[2], since = v.range[1] && v.firstTs > Date.now() - v.range[1] * 864e5 ? ` · reports start ${day(new Date(v.firstTs).toISOString())}` : '';
+    const note = v.kind === 'capital'
+      ? `<b class="${cls(v.change)}">${smoney(v.change)} (${pct(LF.changePct(v))})</b> from trading, ${rl}${v.flowSum ? `, not counting ${smoney(v.flowSum)} capital` : ''} · ${money(v.now)} now, every live trading account added together${since}.`
+      : `<b class="${cls(v.change)}">${smoney(v.change)} (${pct(LF.changePct(v))})</b> from trading, ${rl}. Every live trading account added together, with deposits and payouts taken out: only trading moves this line${since}.`;
+    const parts = wc.parts.map((x) => `${esc(x.label)} ${money(x.usd)}`).join(' + ');
+    const warn = [wc.missing.length ? `${esc(wc.missing.join(', '))} has not reported, not counted` : '', wc.parts.some((x) => x.suspect) ? 'a wallet report is waiting for approval' : '', Date.now() - wc.newest_ms > 30 * 60000 ? 'old: the VPS has not reported for a while' : ''].filter(Boolean);
+    return `<div class="card hero" style="--dot:${g.color}"><h2>Total Fund <span class="lf-tag">LIVE</span></h2>
+      <div class="big" id="lfv">${money(wc.usd)}</div><div class="sub" id="lfp">${alt(wc.usd)}</div>
+      <div id="lfd" class="delta ${cls(v.change)}">${smoney(v.change)} (${pct(LF.changePct(v))}) ${rl}</div>
+      <div class="note" style="margin:6px 0 0">${parts} · MEXC reports ${sinceTxt(wc.newest_ms)}${warn.length ? ` · <span class="down">${warn.join(' · ')}</span>` : ''}</div>
+      <div class="ranges lf-kinds" role="tablist">${LF.KINDS.map(([k, l]) => `<button role="tab" aria-selected="${k === v.kind}" class="${k === v.kind ? 'on' : ''}" data-lkind="${k}">${l}</button>`).join('')}</div>
+      ${g.html}
+      <div class="ranges">${LF.RANGES.map(([k]) => `<button class="${k === v.range[0] ? 'on' : ''}" data-lrange="${k}">${k}</button>`).join('')}</div>
+      <p class="note" style="margin:8px 0 0">${note}</p>
+      <div class="row"><span class="l">Booked pool value<br><span class="note">unit price ${f(p.unit_price, 4)} · valued ${p.asof ? day(p.asof) : '—'}${fundStart() ? ' · started ' + day(fundStart()) : ''}</span></span><span class="r">${money(p.equity_usdt)}<br><span class="note ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</span></span></div>${lastClose()}</div>`;
+  }
+  function showLive(i) {   // the point under the finger (or the latest one): the balance then and the change from trading up to it
+    const { v, g } = S.lchart, pts = v.pts, p = pts[i], a = pts[0], last = i === pts.length - 1;
+    const dot = $f('lfdot'); dot.style.left = (g.X(p.ts) / g.W) * 100 + '%'; dot.style.top = (g.Y(p.y) / g.H) * 100 + '%'; dot.classList.toggle('live', last);
+    const d = v.kind === 'trading' ? p.y : p.y - a.y - v.marks.filter((m) => m.ts <= p.ts).reduce((t, m) => t + m.usd, 0);
+    if (v.kind === 'capital') { $f('lfv').textContent = money(last ? S.live.wallet_capital.usd : p.y); $f('lfp').textContent = alt(last ? S.live.wallet_capital.usd : p.y); }
+    $f('lfd').className = 'delta ' + cls(d);
+    $f('lfd').textContent = `${smoney(d)} (${pct(v.base > 0 ? d / v.base : 0)}) ${last ? v.range[2] : `by ${new Date(p.ts).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}`;
+  }
+  function wireLive() {
+    const svg = $f('lfc'); if (!svg || !S.lchart) return;
+    const { v, g } = S.lchart, pts = v.pts, gx = $f('lfx');
+    const at = (ev) => {
+      const r = svg.getBoundingClientRect(), x = ((ev.clientX - r.left) / r.width) * g.W;
+      let lo = 0, hi = pts.length - 1;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (g.X(pts[m].ts) < x) lo = m + 1; else hi = m; }
+      if (lo > 0 && Math.abs(g.X(pts[lo - 1].ts) - x) <= Math.abs(g.X(pts[lo].ts) - x)) lo--;
+      gx.setAttribute('x1', g.X(pts[lo].ts)); gx.setAttribute('x2', g.X(pts[lo].ts)); gx.setAttribute('visibility', 'visible'); S.lhover = true; showLive(lo);
+    };
+    const reset = () => { gx.setAttribute('visibility', 'hidden'); S.lhover = false; showLive(pts.length - 1); };
+    svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at);
+    svg.addEventListener('pointerleave', reset); svg.addEventListener('pointerup', (ev) => { if (ev.pointerType !== 'mouse') reset(); });
+    reset();
+  }
+  // while the Fund dashboard is open, ask for the live figures once a minute and redraw only when a new wallet report has arrived (the bots send one every 5 minutes)
+  setInterval(async () => {
+    if (!S.me || !isAdmin() || S.me.impersonated || S.side === 'me' || S.tab !== 'dashboard' || S.modal || S.lhover || document.visibilityState !== 'visible') return;
+    const stamp = (l) => (l && l.wallet_capital ? `${l.wallet_capital.newest_ms}|${(l.wallet_history || []).length}|${(l.capital_flows || []).length}` : '');
+    const before = stamp(S.live); await loadLive();
+    if (stamp(S.live) !== before && S.tab === 'dashboard' && !S.modal) render();
+  }, 60000);
   const viewAbout = () => {
     const rate = S.me && S.me.role === 'investor' ? pc(S.me.fee_rate) : '20';
     return `<div class="card"><h2>Growing this together</h2>
@@ -1598,7 +1664,7 @@
       ${viewing ? `<button class="vaback" data-action="exitview" aria-label="Back to the fund manager's ledger" title="Back to the fund manager's ledger">${ICON.back}<span>Back to admin</span></button>` : ''}
       ${viewing ? '' : userModal()}`;
     app.classList.toggle('va', !!viewing);   // room under the last card for the "Back to admin" pill
-    wirePreviews(); wireChart(); syncNav();
+    wirePreviews(); wireChart(); wireLive(); syncNav();
   }
 
   // ---------------------------------------------------------------- Back button (phone and browser)
@@ -1834,6 +1900,8 @@
     if (tab) { S.tab = tab.dataset.tab; if (tab.dataset.rec) S.rec = tab.dataset.rec; S.recWho = tab.dataset.who === 'me' ? S.me.id : tab.dataset.who || null; if (tab.dataset.goside) S.side = tab.dataset.goside; render(); window.scrollTo(0, 0); return; }
     const rc = ev.target.closest('[data-rec]');
     if (rc) { S.rec = rc.dataset.rec; render(); return; }
+    const lr = ev.target.closest('[data-lrange], [data-lkind]');
+    if (lr) { if (lr.dataset.lrange) S.lrange = lr.dataset.lrange; if (lr.dataset.lkind) S.lkind = lr.dataset.lkind; render(); return; }
     const rg = ev.target.closest('[data-range]');
     if (rg) { S.range = rg.dataset.range; render(); return; }
     const b = ev.target.closest('[data-action]'); if (!b) return;

@@ -326,6 +326,16 @@ svg.chart { width: 100%; height: 130px; display: block; overflow: visible; }
 .ranges button.on { color: var(--ink); background-color: var(--ghost-bg); background-image: var(--ghost-img); box-shadow: var(--ghost-shadow); }
 :root:not([data-theme="dark"]) .ranges button.on { background-color: #fff; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ranges button.on { background-color: transparent; } }
+/* the Fund dashboard's live capital card (js/livefund.js) */
+.lf-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .6px; vertical-align: 2px; color: var(--up); background: var(--up-bg); }
+.lf-kinds { margin: 12px 0 0; }
+.lf-wrap { position: relative; margin: 14px 0 4px 44px; }
+.lf-wrap svg.growth { height: 200px; }
+.lf-axis { position: absolute; left: -44px; top: 0; bottom: 0; width: 40px; pointer-events: none; }
+.lf-axis span { position: absolute; right: 0; transform: translateY(-50%); font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lf-flow { position: absolute; z-index: 1; margin: 0 4px; font-size: 10px; font-weight: 800; white-space: nowrap; pointer-events: none; }
+.lf-flow.in { color: var(--up); } .lf-flow.out { color: var(--down); }
+.lf-x { display: flex; justify-content: space-between; margin-left: 44px; font-size: 10px; color: var(--muted); }
 .delta { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 999px; font-weight: 800; font-size: 13px; }
 .delta.up { background: var(--up-bg); } .delta.down { background: var(--down-bg); } .delta.muted { background: var(--variant); }
 .donutwrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: center; margin: 6px 0 4px; }
@@ -506,6 +516,7 @@ svg.mini .lab.hot { fill: var(--accent-text); }
 <script src="js/settlepreview.js"></script>
 <script src="js/investorctx.js"></script>
 <script src="js/bottotal.js"></script>
+<script src="js/livefund.js"></script>
 <script src="js/truevalue-ui.js"></script>
 <script src="js/contribution.js"></script>
 <script src="js/app.js"></script>

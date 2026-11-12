@@ -42,3 +42,4 @@ function makeHandler(fetchImpl = fetch) {
 
 module.exports = makeHandler();
 module.exports.makeHandler = makeHandler;
+module.exports.summaryOf = summaryOf;
