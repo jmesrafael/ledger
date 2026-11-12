@@ -7,7 +7,7 @@
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const app = document.getElementById('app');
   const TOKEN_KEY = 'ledger.token', ADMIN_KEY = 'ledger.admin_token';   // ADMIN_KEY: the fund manager's own session while "viewing as"
-  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', lrange: '1W', lkind: 'capital', live: null, rec: 'eq', fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
+  const S = { tab: null, token: null, adminToken: null, uid: null, me: null, pool: null, hist: [], history: [], ledger: [], reqs: [], all: [], elog: [], reports: [], pend: [], range: 'ALL', lrange: '1W', lkind: 'capital', live: null, rec: null, nav: null, cashins: null, fx: null, cur: 'PHP', addUser: false, welcome: null, welcomeDone: false, gate: null, termsRO: false, splashT: null };
 
   // ---------------------------------------------------------------- icons (stroke icons, inherit text colour)
   const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -270,6 +270,7 @@
       group(async () => { S.pu = admin ? await call('admin_pool_status') : null; }, () => { S.pu = null; }),   // null until the pool-update migration is run
       group(async () => { S.dpesos = await call(admin ? 'admin_deposit_pesos' : 'my_deposit_pesos'); }, () => { S.dpesos = null; }),   // null until 20261210000000_deposit_pesos.sql is run
       group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; }),   // null until the withdrawal-fee migration is run
+      group(async () => { const [n, c] = await Promise.all([call(admin ? 'admin_nav' : 'my_nav'), admin ? call('admin_cash_ins') : null]); S.nav = n; S.cashins = c || []; }, () => { S.nav = null; S.cashins = null; }),   // null until 20261213000000_live_nav.sql is run: the older Record screens are shown
       group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); S.tvPrev = admin ? await call('admin_preview_book_corrections') : null; }, () => { S.tv = null; S.tvPrev = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     // a deposit is shown as the pesos put in: pesos recorded later for an older deposit are filled in (Contribution.withDepositPesos)
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = Contribution.withDepositPesos(led, S.dpesos); S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
@@ -401,7 +402,8 @@
         <div class="big">${money(p.equity_usdt)}</div><div class="sub">${alt(p.equity_usdt)}</div>
         <div class="delta ${cls(p.since_start_pct)}">${pct(p.since_start_pct)} since start</div>
         <p class="note" style="margin:8px 0 0">Last updated ${p.asof ? day(p.asof) : '—'} · unit price ${f(p.unit_price, 4)}${fundStart() ? ' · fund started ' + day(fundStart()) : ''}</p>${lastClose()}</div>`}
-      <div class="card"><h2>${live ? 'Unit price' : 'Fund performance'}</h2>${chart(S.hist)}${live ? `<p class="note" style="margin:8px 0 0">The booked unit price: it moves only when the pool is valued (Update Pool), not every 5 minutes.</p>` : ''}</div>
+      ${S.nav ? `<div class="card" data-navline><p style="margin:0">${Desk.navLine({ ...S.nav, live: true, ts: S.nav.latest_verified && S.nav.latest_verified.ts })}</p><div class="btns"><button class="ghost sm" data-tab="record" data-rec="nav">Live NAV and reconciliation</button></div></div>` : ''}
+      <div class="card"><h2>${live ? 'Unit price' : 'Fund performance'}</h2>${chart(S.hist)}${live ? `<p class="note" style="margin:8px 0 0">${S.nav ? 'The unit price follows the verified MEXC wallet reports (open trades included), one point an hour.' : 'The booked unit price: it moves only when the pool is valued (Update Pool), not every 5 minutes.'}</p>` : ''}</div>
       ${TVUI.adminCard(S.tv, S.tvPrev)}
       <div class="card"><div class="grid">
         <div class="stat"><div class="k">Investors</div><div class="v">${p.investor_count}</div></div>
@@ -680,7 +682,7 @@
         <line id="gx" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-opacity=".6" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/>
       </svg><span class="dot live" id="gdot"></span></div>
       <div class="ranges">${RANGES.map(([k]) => `<button class="${k === S.range ? 'on' : ''}" data-range="${k}">${k}</button>`).join('')}</div>
-      <p class="note" style="margin:8px 0 0">Line: what your money is worth. Dashed: what you have put in. Drag across the chart to see any day.</p>
+      <p class="note" style="margin:8px 0 0">Line: what your money is worth. Dashed: what you have put in. Drag across the chart to see any day.</p>${S.nav && S.nav.live ? `<p style="margin:4px 0 0">${Desk.navLine(S.nav)}</p>` : ''}
       <p class="note" style="margin:4px 0 0">${rateNote()}. Pesos move with the exchange rate even when your USDT does not.</p></div>`;
   }
   function showPoint(i) {   // update the big number to the point under the finger (or the latest point)
@@ -1228,13 +1230,25 @@
       ${S.pend.map((d) => `<div class="row"><span class="l">${esc(d.name)} · ${day(d.received_at)}<br><span class="note">${d.php_amount ? php(d.php_amount) + ' = ' : ''}${usdt(d.usdt)} · ${d.arrived_at ? (g ? 'in the exchange: admit it under Record → Balance' : 'in the exchange, joins at the next reading') : '<span class="warn">not in the exchange yet</span>'}</span></span>
         <span class="r">${d.arrived_at || g ? '' : `<button class="sm" data-action="arrived" data-id="${d.id}">In the exchange</button> `}${legs.has(Number(d.id)) ? `<span class="note">part of admission spread #${legs.get(Number(d.id)).id}: admitted or handed back together</span>` : `<button class="ghost sm" data-action="cancelpend" data-id="${d.id}">Handed back</button>`}</span></div>`).join('')}${g ? '<div class="btns"><button data-tab="record" data-rec="eq">Open Record → Balance</button></div>' : ''}</div>`;
   }
+  // the four routine steps (js/desk.js); the database quotes every figure. Shown once 20261213000000_live_nav.sql is run (S.nav is then set).
+  function deskView() {
+    const o = { holderOpts: holderOpts(S.recWho), rate: rate(), cashins: S.cashins, now: Date.now(), requests: S.reqs, payouts: S.nav.payouts_to_send, unitPrice: S.pool.unit_price, defaultFee: 0.2 };
+    if (S.rec === 'add') return Desk.addForm(o);
+    if (S.rec === 'cash') return Desk.cashForm(o);
+    if (S.rec === 'out') return Desk.outForm(o);
+    if (S.rec === 'move') return Desk.moveForm(o);
+    return Desk.navCard(S.nav, Date.now());
+  }
   function viewRecord() {
+    const desk = !!S.nav && isAdmin();
+    if (!S.rec || (!desk && Desk.isDesk(S.rec))) S.rec = desk ? 'cash' : 'eq';
+    if (desk && Desk.isDesk(S.rec)) return Desk.tabs(S.rec) + deskView();
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
     const pick = (k, html) => (S.rec === k ? html : '');
     const noBal = '<div class="card"><h2>Balance</h2><p class="note">Nothing to balance yet. Record the first deposit under <b>Money in</b>, then confirm it reached the exchange and it will show up here.</p><div class="btns"><button data-rec="dep">Go to Money in</button></div></div>';
     const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
-    return `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
+    return `${desk ? Desk.tabs(S.rec) : `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>`}
       ${pick('dep', `${RH.button('dep')}<div class="card"><h2>Money in</h2>
         <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached the exchange and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
@@ -1589,8 +1603,8 @@
       [ICON.logo, `Welcome to Lucid'io, ${first}`, `<p class="about"><b>Clear rules. Real growth.</b></p>
         <p class="about">This is the fund manager side of Lucid'io Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
-      [ICON.record, 'Your routine', `<p class="about"><b>Record → Update equity</b> daily or weekly: type the pool’s total from the exchange, open trades included.</p>
-        <p class="about"><b>Money received:</b> a deposit waits until your next Update equity, then buys units at that day’s price, so newcomers never share profit made before they joined. Withdrawals: type the total just before you pay out.</p>
+      [ICON.record, 'Your routine', `<p class="about"><b>Nothing to value by hand:</b> the unit price follows the bots’ MEXC wallet reports every 5 minutes, open trades included, and every balance and chart moves with it.</p>
+        <p class="about"><b>Record</b> has your four steps: <b>Add investor</b>, <b>Cash in</b> (pesos + the USDT that arrived; it joins at the live price once MEXC shows it), <b>Withdraw</b> (redeemed at the live price, then send it from MEXC and mark it sent) and <b>Transfer</b> (ownership between two people, nobody else’s value moves).</p>
         <p class="about"><b>Settle:</b> every two months. Confirm the exchange balance under Record → Balance, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
       [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they must agree to the terms before they see anything, and you can see who has.</p>
         <p class="about"><b>View as</b> opens the app exactly as that person sees it (read-only).</p>
@@ -1678,7 +1692,7 @@
   // Opening a page while signed out shows /login; after signing in the person lands on the page they asked for. The first versions of these addresses
   // (/login/calendar, #/calendar) still open, then become the real one. Where the app is not served from the site root with these rewrites (a plain file,
   // another host) the same names are used after a # instead.
-  const RECS = ['dep', 'wd', 'eq', 'hist'];
+  const RECS = ['dep', 'wd', 'eq', 'hist', 'add', 'cash', 'out', 'move', 'nav'];
   const PATHY = /^\/(login|dashboard|calendar|withdraw|statements|activity|about|profile|contact|payout|fund|me)(\/|$)/.test(location.pathname);
   const here = () => (PATHY ? location.pathname : location.hash);
   const LOGIN = PATHY ? '/login' : null;
@@ -1752,11 +1766,37 @@
   const $f = (id) => document.getElementById(id);
   const fv = (form, name) => (form.elements[name] ? form.elements[name].value : '');
   function wirePreviews() {
-    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle], ['reqForm', reqPrev], ['spreadForm', spreadPrev]]) {
+    for (const [id, fn] of [['eqForm', eqPrev], ['depForm', depPrev], ['wdForm', wdPrev], ['qForm', syncSettle], ['reqForm', reqPrev], ['spreadForm', spreadPrev],
+      ['addForm', deskPrev], ['cashForm', deskPrev], ['outForm', deskPrev], ['moveForm', deskPrev]]) {
       const el = $f(id); if (el) { el.addEventListener('input', (e) => { el.dataset.last = e.target.name || ''; fn(el); }); fn(el); }
     }
   }
   const setPrev = (id, html) => { const el = $f(id); if (el) el.innerHTML = html; };
+  const formVals = (fm) => { const o = {}; for (const el of fm.elements) if (el.name) o[el.name] = el.type === 'checkbox' ? el.checked : el.value; return o; };
+  // the four routine steps: the database's own quote (the real step, rolled back), so the preview is exactly what saving does
+  const DESK_Q = { cashForm: ['admin_quote_cash_in', Desk.cashArgs, Desk.cashText], outForm: ['admin_quote_withdraw_now', Desk.outArgs, Desk.outText], moveForm: ['admin_quote_transfer', Desk.moveArgs, Desk.moveText] };
+  let dkSeq = 0, dkTimer = null;
+  function deskPrev(fm) {
+    const v = formVals(fm), pid = fm.id.replace('Form', 'Prev');
+    dkSeq++; clearTimeout(dkTimer);
+    if (fm.id === 'addForm') {
+      const c = Desk.credit(v.php, v.usdt, v.rate);
+      if (!c) return setPrev(pid, '—');
+      return setPrev(pid, `${num(v.php) > 0 ? `${php(num(v.php))} at ₱${f(num(v.rate), 4)} = ` : ''}<b>${usdt(c.credited, 6)}</b> credited.${c.topup > 0 ? `<br>${usdt(c.topup, 6)} less arrived: it comes from <b>your</b> units at the live price.` : c.surplus > 0 ? `<br>${usdt(c.surplus, 6)} more arrived: it joins as <b>your</b> own money.` : ''}<br><span class="note">It joins at the live price once the MEXC reports show it.</span>`);
+    }
+    const [fn, argsOf, text] = DESK_Q[fm.id], args = argsOf(v);
+    if (!args) return setPrev(pid, '—');
+    setPrev(pid, '<span class="note">Asking the database…</span>');
+    const my = dkSeq;
+    dkTimer = setTimeout(async () => {
+      let r = null, err = null;
+      try { r = await call(fn, args); } catch (e) { err = e.message; }
+      if (my !== dkSeq || err === 'Signed out') return;
+      setPrev(pid, err ? Desk.refused(err) : text(r));
+    }, 400);
+  }
+  const joinedText = (r, who) => (r && r.status === 'admitted' ? `${who}: ${usdt(r.credited_usdt, 4)} joined at ${f(r.unit_price, 4)} (${f(r.units, 4)} units).`
+    : `${who}: ${usdt(r && r.credited_usdt, 4)} recorded. It joins by itself at the next wallet report that shows it.`);
   function eqPrev(fm) {
     const eq = num(fv(fm, 'equity')), u = Number(S.pool.total_units), wait = pendTotal();
     if (eq == null || (!u && !wait)) return setPrev('eqPrev', '—');
@@ -1993,6 +2033,27 @@
         `Topped up: ${usdt(t.gap)} of your units went to ${nm}`);
     }
     else if (a === 'calmonth') { S.calM = (S.calM || 0) + Number(id); render(); }
+    else if (a === 'cashrecv') {
+      if (!(await confirmSheet('Is the money in MEXC?', 'Is it in one of the bots\' Futures accounts now? It joins at the first verified wallet reading that shows it (at once if the latest one already does).', 'Yes, it is in MEXC', true))) return;
+      await act(() => call('admin_cash_in_received', { p_cash_in: Number(id), p_idem: 'cash-in-received-' + id }), 'Marked as in MEXC');
+    }
+    else if (a === 'cashadmit') await act(() => call('admin_cash_in_admit', { p_cash_in: Number(id), p_idem: null }), 'Joined at the live price');
+    else if (a === 'cashcancel') {
+      let why; try { why = await askText('Hand back this cash-in?', 'Why (for the activity log)', { text: 'Both parts are removed from waiting. Nothing in the books changes.', ok: 'Hand back', danger: true }); } catch { return; }
+      await holdDelete('Handing back this cash-in…', () => call('admin_cancel_cash_in', { p_cash_in: Number(id), p_reason: why }), 'Handed back');
+    }
+    else if (a === 'paysent') {
+      let ref; try { ref = await askText('Mark as sent from MEXC', 'MEXC withdrawal reference (or transfer ID)', { type: 'text', min: 3, ok: 'Mark sent' }); } catch { return; }
+      await act(() => call('admin_payout_sent', { p_request: Number(id), p_reference: ref, p_note: null }), 'Marked as sent');
+    }
+    else if (a === 'procreq') {
+      const q = S.reqs.find((x) => String(x.id) === String(id)); if (!q) return;
+      const r = await askSheet({ title: `Pay ${esc(q.name || 'this request')} now?`, text: `${f(q.units, 4)} units are redeemed at the live price (about ${usdt(Number(q.units) * Number(S.pool.unit_price))}) and recorded as a payout to send from MEXC.`,
+        fields: [{ name: 'lock', label: 'Lock-up reason (only if they are inside their first-deposit lock-up)', type: 'text' }], confirmLabel: 'Redeem now', danger: true });
+      if (!r) return;
+      await act(() => call('admin_withdraw_now', { p_profile: null, p_usdt: null, p_all: false, p_request: Number(id), p_lock_reason: r.lock || null, p_note: null, p_idem: 'withdraw-request-' + id }),
+        'Redeemed: send it from MEXC, then press Mark sent');
+    }
     else if (a === 'spreadcancel') {
       if (!(await confirmSheet('Hand back this admission spread?', 'Both waiting deposits (the investor\'s and your surplus) are removed together. Nothing in the books changes.', 'Yes, hand back', true))) return;
       await holdDelete('Handing back this admission spread…', () => call('admin_cancel_admission_spread', { p_spread: Number(id) }), 'Handed back');
@@ -2164,6 +2225,25 @@
         const est = rate() ? ` (${peso(r.pay_usdt, rate())} at today's rate, an estimate)` : '';
         await refresh(mgr ? `Moved ${usdt(r.pay_usdt)}${est} to your fund manager account. Nothing left Exchange.`
           : `Withdrawal recorded. Pay out ${usdt(r.pay_usdt)}${est}`);
+      } else if (id === 'addForm') {
+        const v = formVals(fm), a = Desk.cashArgs(v);
+        const r = await moneyCall(fm, 'admin_add_investor', { p_username: v.username, p_name: v.name, p_password: v.password, p_fee_rate: num(v.fee) == null ? null : num(v.fee) / 100,
+          p_php_amount: a ? a.p_php_amount : null, p_usdt_received: a ? a.p_usdt_received : null, p_rate: a ? a.p_rate : null, p_in_mexc: !!v.inmexc });
+        await refresh((r.cash_in ? joinedText(r.cash_in, `Account created for ${v.name}`) : `Account created for ${v.name}.`) + ' Send them the username and password.');
+      } else if (id === 'cashForm') {
+        const v = formVals(fm), a = Desk.cashArgs(v); if (!a) throw new Error('Enter the USDT that arrived in MEXC.');
+        const r = await moneyCall(fm, 'admin_cash_in', { ...a, p_note: v.note || null });
+        await refresh(joinedText(r, 'Cash-in'));
+      } else if (id === 'outForm') {
+        const v = formVals(fm), a = Desk.outArgs(v); if (!a) throw new Error('Choose who, and the amount in USDT (or everything).');
+        if (!(await confirmSheet('Withdraw now?', `${a.p_all ? 'Everything they hold' : usdt(a.p_usdt)} is redeemed at the live price and recorded as a payout to send from MEXC. Their units are sold now.`, 'Withdraw', true))) { if (btn) btn.disabled = false; return; }
+        const r = await moneyCall(fm, 'admin_withdraw_now', { ...a, p_note: v.note || null });
+        await refresh(`Redeemed: send ${usdt(r.pay_usdt, 6)} from MEXC, then press Mark sent.`);
+      } else if (id === 'moveForm') {
+        const v = formVals(fm), a = Desk.moveArgs(v); if (!a) throw new Error('Choose from and to, and the amount in pesos or USDT (or everything).');
+        if (!(await confirmSheet('Transfer now?', 'Ownership moves at the live price. Nobody else\'s value changes. This is recorded immediately.', 'Transfer', true))) { if (btn) btn.disabled = false; return; }
+        const r = await moneyCall(fm, 'admin_transfer', { ...a, p_note: v.note || null });
+        await refresh(`Transferred ${usdt(r.usdt, 4)} (${f(r.net_units, 4)} units) at ${f(r.unit_price, 4)}${Number(r.fee_usdt) > 0 ? `; ${usdt(r.fee_usdt, 4)} profit share taken from the sender` : ''}`);
       } else if (id === 'qForm') {
         if (!(await settleSheet(num(fv(fm, 'equity')), atOf(fm)))) { if (btn) btn.disabled = false; return; }
         const r = await settleWithExceptions(fm, { p_equity: num(fv(fm, 'equity')), p_php_rate: num(fv(fm, 'rate')), p_note: fv(fm, 'note') || null, p_at: atOf(fm), ...previewArg(num(fv(fm, 'equity')), atOf(fm)) });

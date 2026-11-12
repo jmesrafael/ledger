@@ -1,0 +1,328 @@
+LUCID'IO LEDGER: HOW IT WORKS TODAY, AND EVERY SCENARIO
+Written 2026-11-12. Built from the docs in 🔴LEDGER/docs and a read-only look at the live database.
+Where the older docs (SCENARIOS.md from Oct 28) are out of date, THIS file wins.
+
+Legend:  [LIVE] = running in the live database now
+         [BUILT] = code exists and is tested, but switched off or not applied
+         [NO]    = not solved
+
+======================================================================
+PART 1. THE LIVE STATE RIGHT NOW (read from the database, Nov 12 2026)
+======================================================================
+
+Settings that are switched on or off:
+  flow_pricing            = true_value   [LIVE]  deposits/payouts priced at "if every open trade closed now"
+  auto_pool_mode          = trades       [LIVE]  closed trades are booked into the pool automatically
+  fee_timing              = immediate    old fee rule (fee on gain above mark at the moment of settlement)
+  wallet_nav_mode         = off          (modes still off)
+  payout_cap_mode         = off
+  settlement_preview_mode = off
+  workflow_gate           = off          old Money in / Money out screens still work
+  settlement_recon        = require      a settlement needs reconciliation or a written exception
+  settlement_schedule     = bimonthly    Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct, Nov-Dec (Manila time)
+  lock_enforced           = 0            lock-up is wording only
+  bot_equity_sync         = off          bots can NOT move the unit price
+  pool_update_gate        = on
+  books_check             = enforce
+  default_fee_rate        = 0.10         (NOTE: the "fee 20%" migration 20261114 may not be applied
+                                          as a default; James's own rate is 0.20, Raf's is 0)
+
+The books:
+  People holding units:   Raf (fund manager, fee 0%)  342.74113334 units
+                          James Rafael Boroy (fee 20%) 87.39141012 units
+  Total units:            430.13254346
+  Latest pool entry #28   (Nov 9 15:46 UTC): value 365.759854 USDT, unit price 0.85034220
+  So James is worth about 74.31 USDT, Raf about 291.45 USDT.
+  16 closed trades are in the database; 3 flow checkpoints; 2 book corrections applied;
+  0 settlements ever made under the current engine; 6 deposit-peso records.
+  Wallet reports: bbcore, icore, tcore all reported at about 15:45 UTC today (fresh, every 5 minutes).
+
+NOT applied live (do not assume they exist):
+  - admission spread (migration 20261209, table admission_spreads does not exist)
+  - Nothing in "Part 8, Built but not live" below has been switched on.
+(The fx reference migration 20261208, peso top-up 20261210 and deposit_pesos 20261210 are live.)
+The website (lucidio.vercel.app) is behind the local code: peso top-up screens, the live Fund card
+(Nov 12) and other changes are built locally but not published.
+
+======================================================================
+PART 2. THE TWO IDEAS EVERYTHING RESTS ON
+======================================================================
+
+1. UNITS.
+   The pool has one unit price = pool value / total units (the manager's units included).
+   Money in buys units at the current price. Money out sells units at the current price.
+   Trading changes the price, never anyone's units.
+   So a deposit or a withdrawal can never look like profit or loss, as long as it is recorded.
+
+2. EACH PERSON'S HIGH-WATER MARK (H, in USDT).
+   Deposit D raises that person's H by D. The performance fee (20% for James) is charged only on
+   the part of their value E (= units x price) that is above H.
+   So each person pays only on the gain their own money made since it joined, and a loss is
+   carried forward (they pay nothing until back above H).
+   The manager's own units pay no fee.
+
+======================================================================
+PART 3. WHAT THE POOL VALUE (BOOK) IS, AND HOW IT MOVES TODAY
+======================================================================
+
+The ledger keeps a BOOK value (pool_equity rows) and, separately, a TRUE value read from the
+bots' MEXC reports.
+
+BOOK value
+  - Rolls forward automatically from CLOSED trades only (auto_pool_mode = trades).
+  - Each bot (BB-Core, I-Core, T-CORE) posts every closed trade about 5 minutes after the exit
+    (closed_trades table, unique per wallet + MEXC position id). The amount is MEXC's realized
+    result, which already includes trading fees and funding.
+  - Each booking is a pool entry "Auto (closed_trade): ADA SHORT closed, realized -5.50 USDT".
+  - Open trades are NEVER written into the book. They stay out until they close.
+  - The bots cannot type or change the price any other way (bot_equity_sync = off).
+
+TRUE value (used only for money joining or leaving)
+  V     = sum of wallet equity (includes open P&L)
+          - money recorded but not yet admitted
+          - money redeemed but not yet sent
+  check = V - (book + sum of open P&L); must be within max(0.50 USDT, 0.05%) or the flow is BLOCKED
+  price = V / total units
+
+Wallet reports must be: every wallet fresh, none "suspect" (a >50% jump needs manager acceptance),
+all within 10 minutes of each other, and the expected number of wallets present. If not,
+nothing is priced (never zero, never a guess).
+
+Every true-value deposit / payout / settlement stores a FLOW CHECKPOINT: the exact numbers and
+wallet reports it used (append-only audit).
+
+Two guards that matter in practice:
+  - A person-typed pool entry (old Update Pool total, old deposit, old payout) is REFUSED while
+    flow_pricing = true_value. Only the true-value functions, automatic trade bookings and
+    corrections may write to the pool.
+  - Corrections to the book (book_corrections) are prepared, previewed, then applied in order by
+    the manager. Two were applied Nov 7 (-4.9258 missed SOL trade, +0.8582 double count).
+
+======================================================================
+PART 4. SCENARIOS: MONEY IN
+======================================================================
+
+4.1  An investor pays pesos (P2P / GCash) and USDT arrives in MEXC   [LIVE]
+     Steps (manager, Record > Money in):
+       a. Record the deposit: pesos paid + USDT actually received. It waits (pending).
+          The effective rate (pesos / USDT) is worked out, never typed.
+       b. Money sits in Spot (not traded). Mark "seen in the exchange".
+       c. Admit at TRUE value: units = USDT credited / true price.
+       d. Move the money Spot -> Futures yourself in MEXC.
+     Result: the joiner gets none of earlier profit or loss; nobody else's value changes.
+     Their H = the credited USDT. The pool's price does not move.
+     Several deposits can be admitted "as of" an earlier complete wallet reading, which is
+     how the Nov 7 cash-in was priced (03:31:06 UTC reading, price 0.905664).
+
+4.2  Peso top-up at the LIVE rate   [LIVE, owner rule Nov 7]
+     The owner's rule: an investor's pesos count at the live PHP/USD reference rate, whatever
+     MEXC actually delivered. If less USDT arrived than pesos / live rate, the fund manager
+     (Raf) covers the gap from HIS OWN units. Nobody else pays.
+     Example (done): James paid 5,000 pesos. Live rate 63.083992 -> credited 79.259410 USDT.
+     Only 66.40 USDT arrived, so Raf topped up 12.859410 USDT = 14.07505444 units at 0.91363.
+     One pool entry; pool value and total units unchanged. James's H rises by the top-up, so
+     no fee is ever charged on it. Refused: rate >2% from stored reference, book pricing,
+     manager short of units, non-investor.
+     Raf's own peso deposits need no top-up (he is the manager).
+
+4.3  Admission spread (1 peso per USDT, surplus stays the manager's)   [BUILT, not applied]
+     Investor credited at pesos / (rate + 1); the small surplus becomes the manager's own units
+     (two linked pending deposits admitted together) or, with "manager reallocation", credited
+     units move from the manager's holding. Price and other investors unchanged.
+     Open policy point: investors can infer the spread; telling them is the owner's call.
+
+4.4  Top-up by an existing investor, trade open   [LIVE]
+     Works now. True-value pricing does not need a flat account. Their H rises by the top-up.
+     Their earlier unrealised gain stays theirs and is charged once, later.
+
+4.5  Deposit waiting when a trade closes / waiting at settlement   [LIVE]
+     Waiting money is subtracted from the exchange total, so it is never counted as profit.
+     At a settlement, waiting deposits join AFTER the fees, at the settlement price.
+
+4.6  Manager adds own capital   [LIVE]
+     Record as a deposit for Raf. Buys units, no fee on his own money.
+
+4.7  Investor pays the manager directly (cash), nothing goes to MEXC   [partly]
+     Old "units from manager" function is REFUSED under true-value pricing. Use the peso
+     top-up / reallocation path instead (admission spread's reallocation, once applied).
+
+4.8  Deposit entered twice (double click / lost reply)   [LIVE]
+     Every money step carries a request id. A repeat returns the stored answer, not a second deposit.
+
+4.9  Deposit handed back / typed wrong   [LIVE]
+     Waiting deposit can be handed back; nothing in the books changes (6-second Undo in the app).
+
+4.10 Money sent to MEXC and NOT recorded   [NO, caught not prevented]
+     A forgotten deposit looks like trading profit. True-value checks will usually block
+     (gap vs book + open P&L), and the manager must record it. The bots do not yet send MEXC's
+     deposit/withdrawal history.
+
+4.11 Deposit in pesos, how it is shown   [LIVE]
+     Owner rule (Nov 8): a deposit is shown as the pesos put in (+5,000 pesos) with
+     "= 79.0139 USDT" underneath when known. "Put in" is one green peso card; "Withdrawn" is a red
+     card only for real payouts. The Raf-to-James top-up is NOT shown as Raf's withdrawal.
+     Facts recorded: Raf put in 21,153 pesos in total; James 5,000.
+
+======================================================================
+PART 5. SCENARIOS: MONEY OUT
+======================================================================
+
+5.1  Investor requests a withdrawal   [LIVE]
+     Typed in USDT. Units = USDT / unit price. Flow: request > approve > quote > redeem >
+     send from MEXC > mark "sent" > completed. Each step runs once only.
+     The preview is the database's own quote (the real withdrawal, rolled back).
+
+5.2  Partial withdrawal in profit   [LIVE]
+     Units sold at the TRUE price. Fee = rate x s x (E - H), where s = share withdrawn.
+     H becomes H x (1 - s). The remaining units keep their share of the uncharged gain.
+
+5.3  Partial withdrawal at or below H   [LIVE]
+     No fee. H falls by s x E; the WHOLE shortfall stays with the remaining units, so
+     withdrawing can't be used to escape a loss.
+
+5.4  Full exit in profit / full exit at a loss   [LIVE]
+     In profit: fee on the whole gain, H = 0. In a loss: the shortfall is remembered; if they
+     return, H = old shortfall + new deposit.
+
+5.5  Withdrawal while a trade is open   [LIVE]
+     Priced at true value (open P&L included), no need to close anything.
+
+5.6  More requested than can leave MEXC (margin tied up)   [BUILT, payout_cap_mode off]
+     Cap = smallest of equity / withdrawable / available per wallet, less a 5% + 5 USDT buffer.
+     When on: "PAYOUT QUEUED", nothing saved. Today the ledger does not know what is
+     withdrawable; check MEXC yourself. Investors already see "can leave now" vs "locked in
+     trades" (my_true_value).
+
+5.7  Minimum withdrawal 500 pesos   [LIVE]
+     Checked in USDT at the stored fx reference rate (<=7 days old, stored whenever the manager
+     opens the app), never at a cash-in rate. Taking everything out is always allowed.
+     If no fresh reference exists the minimum is NOT checked (a small request goes through).
+
+5.8  Lock-up (first deposit 3 months)   [LIVE as guidance]
+     lock_enforced = 0: manager can approve with a written reason (logged).
+
+5.9  Manager pays the investor from his own pocket (MEXC untouched)   [partly]
+     Old function refused under true-value; use reallocation once admission-spread is applied.
+
+5.10 Last holder takes everything, total has >6 decimals   [NO, refused safely]
+     "payout exceeds pool equity"; nothing saved. Workaround: 6-decimal total.
+
+5.11 Payout failed / retried   [LIVE]
+     failed > retry > sent > completed; each step once.
+
+5.12 Money left MEXC and NOT recorded   [NO, caught not prevented]
+     Looks like a trading loss shared by everyone. Record the withdrawal first, then send.
+
+======================================================================
+PART 6. SCENARIOS: PROFIT SHARING (THE 2-MONTH SETTLEMENT)
+======================================================================
+
+Current engine: investor_hwm_v2, fee_timing = immediate. 0 settlements have been made so far.
+Nov-Dec period ends Dec 31; its window is Jan 1-7 (Manila). The Sep-Oct period (window Nov 1-7)
+was not settled, and the next settlement covers everything since the last one.
+
+6.1  Normal settlement in profit
+     fee = rate x max(0, E - H); H := max(H, E - fee).
+     Fee moves as units from the investor to the manager (fee_out / fee_in); total units,
+     value and price are unchanged. Fee units are rounded DOWN at the 8th decimal.
+
+6.2  Period ends in a loss
+     No fee, H stays; nothing charged until back above H.
+
+6.3  Gain that reverses right after being charged
+     With "immediate" the fee is NOT refunded. "confirmed" mode (fee only on gain still there
+     at the NEXT settlement) is [BUILT, off]; it needs updated investor terms first.
+
+6.4  Settlement while trades are open
+     Under "immediate" it needs a written "open_positions" exception. With the true-value
+     settlement (admin_close_quarter_tv) the wallet reports are the exchange evidence.
+
+6.5  Someone joined during the period     Pays only on their own gain since joining.
+6.6  Someone withdrew during the period   Their share was settled at withdrawal; the rest now.
+6.7  Fee rate raised   Starts after the next settlement. Lowered: applies at once. 0%: no fee,
+     and gains made at 0% are never charged later.
+6.8  Late (after 7 days) or backdated (>60 min)   Refused unless a written exception (>=20
+     characters) is approved; each exception is used once, audited.
+6.9  Settled twice / double click   Refused / replayed.
+6.10 Reconciliation   Ledger must agree with itself; every exchange transfer matched;
+     otherwise refused and NO exception can override.
+6.11 Manager's own money   Not charged. Fee basis = external_investors; manager capital and
+     fee entitlement are tracked apart.
+6.12 Stale preview   settlement_preview_mode would refuse a settlement whose preview is out of
+     date [BUILT, off until the new website is published].
+
+======================================================================
+PART 7. WORKED EXAMPLES WITH THE LIVE NUMBERS
+======================================================================
+
+A. James's position (approximate, at price 0.8503):
+   Put in 5,000 pesos. Credited 66.40 + 12.859 top-up = 79.259 USDT. H = 79.259.
+   Units 87.39141012 x 0.85034 = about 74.31 USDT. E - H = about -4.95 -> below the mark.
+   No fee accrues. He pays nothing until his value is back above 79.259 USDT.
+   Withdrawing now: no fee; the whole shortfall stays with remaining units.
+
+B. A new investor joins at a busy moment (trade open):
+   Open P&L is +10. True value = book + 10, so the joiner buys at the higher price and gets
+   none of that +10. When the trade closes, the book rises by the realized amount, the price
+   becomes what V said, and existing holders keep exactly their pre-flow value.
+
+C. Closed trade arrives:
+   ADA SHORT closes at -5.50 realized. Pool entry #28: value 371.257 -> 365.760, price
+   0.86312 -> 0.85034. Everyone's units unchanged; everyone's value falls by units x delta price.
+
+D. Fee example (20%, 1,000 units at 1.00, price 1.10): fee = 20 USDT = 18.18181818 units to the
+   manager; H = 1,080. Dino joins at 1.10 with 1,100 USDT; at 1.21 John owes 20% x 210 = 42,
+   Dino 20% x 110 = 22.
+
+======================================================================
+PART 8. BUILT BUT NOT LIVE (switches and what they need)
+======================================================================
+
+  wallet_nav_mode = require     Every valuation must match the wallets' sum (WALLETS NOT READY /
+                                WALLET MISMATCH otherwise). Reports are fresh now; was planned
+                                as the first switch.
+  payout_cap_mode = require     Payouts capped by what MEXC can transfer; excess queued.
+  settlement_preview_mode       Stale-preview protection for settlements.
+  fee_timing = confirmed        Fee only on gain confirmed at the next settlement. Needs new
+                                investor terms and investors agreeing again.
+  workflow_gate = on            Money in/out only through the Capital desk (balance checks).
+                                Main cost: payouts could wait days for a flat account, so it is
+                                largely superseded by true-value pricing.
+  Admission spread (1109)       Not applied (table absent).
+  Live Fund card (Nov 12)       Fund dashboard shows live MEXC capital; built, not deployed.
+  Website publish               Peso top-up screens, deposit records and other UI changes are
+                                local only; until published, James's card may show the top-up
+                                as "put in directly in USDT".
+
+======================================================================
+PART 9. SAFETY NETS (always on)
+======================================================================
+
+  - One money write at a time (advisory lock); all writes are single transactions.
+  - Request-id (idempotency) on every money step: retries never repeat.
+  - Books check after every write: units sum = pool total; equity = price x units; no negative
+    units; fee units net to zero. Any failure rolls back everything.
+  - Only the NEWEST entry can be undone; a correction can never be undone; settlements cannot
+    be undone. Older mistakes need a new, explained correcting entry.
+  - Backups export every ledger table (admin_backup_coverage proves nothing is missing); never
+    passwords or keys.
+  - Wallet reports are append-only, replay-protected, one secret per wallet, purged after 30 days.
+  - Closed trades: one row per wallet + MEXC position id; a trade can be booked once.
+  - Anything with a moved price over 25% asks for confirmation; a wallet jump over 50% is
+    held as suspect until accepted with a reason.
+
+======================================================================
+PART 10. NOT SOLVED / OPEN DECISIONS
+======================================================================
+
+  N1  A forgotten deposit or withdrawal is caught (gap check) but not prevented; bots don't send
+      MEXC transfer history.
+  N2  Last holder's full exit with a 7+ decimal total (needs USDT decimals on the exchange).
+  N3  Whether to retire capital-sync.js (older separate path).
+  N4  Payout buffer defaults (5% + 5 USDT) are placeholders.
+  N5  Quarter/period-end settlement with true value: built, never used live; rehearse first.
+  N6  default_fee_rate shows 0.10 live; confirm the intended default for new investors.
+  N7  Quarter-end settlement under "immediate" still writes open P&L unless an exception is used.
+  N8  Telling investors about the admission spread (policy).
+  N9  Legal: pooled money from friends and family (Philippine SEC position unresolved).
+  N10 Deployed vs local: several UI features wait for the next website publish.

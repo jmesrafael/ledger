@@ -17,10 +17,11 @@ const CLOCK_SQL = `create or replace function public._clock() returns timestampt
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const WALLETS = ['bbcore', 'icore', 'tcore'];
 
-export async function world({ rate = 0.2 } = {}) {
+// exclude: migration files to leave out (substring of the name), e.g. the production chain without 20261209000000_admission_spread.sql
+export async function world({ rate = 0.2, exclude = [] } = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
-  for (const f of FILES) await db.exec(readFileSync(f, 'utf8'));
+  for (const f of FILES) if (!exclude.some((x) => f.pathname.includes(x))) await db.exec(readFileSync(f, 'utf8'));
   await db.exec(CLOCK_SQL);
   const set = { lock_months: '0', bcrypt_cost: '4', valuation_max_move: '1000', settlement_schedule: 'free', pool_update_gate: 'on', wallet_expected_count: '3', auto_pool_mode: 'trades' };
   for (const [k, v] of Object.entries(set)) await db.query(`insert into public.ledger_settings(key, value) values ($1, $2) on conflict (key) do update set value = excluded.value`, [k, v]);
@@ -68,8 +69,8 @@ export async function world({ rate = 0.2 } = {}) {
 }
 export const adv = async (w, min) => w.clock(w.now + min * 60000);
 // a pool of 1000 USDT, raf holds it all at price 1; true value switched on
-export async function ready() {
-  const w = await world();
+export async function ready(opts) {
+  const w = await world(opts);
   await w.join('raf', 1000);
   await adv(w, 5);
   await w.mode('flow_pricing', 'true_value');
