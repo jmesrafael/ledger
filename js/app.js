@@ -273,6 +273,9 @@
       group(async () => { const [n, c] = await Promise.all([call(admin ? 'admin_nav' : 'my_nav'), admin ? call('admin_cash_ins') : null]); S.nav = n; S.cashins = c || []; }, () => { S.nav = null; S.cashins = null; }),   // null until 20261213000000_live_nav.sql is run: the older Record screens are shown
       group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); S.tvPrev = admin ? await call('admin_preview_book_corrections') : null; }, () => { S.tv = null; S.tvPrev = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     // a deposit is shown as the pesos put in: pesos recorded later for an older deposit are filled in (Contribution.withDepositPesos)
+    // with the live NAV the closed trades are booked from MEXC's own results and every flow is priced at the verified reading, so the old "pending P/L, press
+    // Update Pool" status no longer applies (it counts exits nobody presses Update Pool for any more): it is not shown
+    if (S.nav) S.pu = null;
     S.pool = pool; S.hist = hist; S.history = history; S.ledger = Contribution.withDepositPesos(led, S.dpesos); S.reqs = reqs; S.all = all || []; S.elog = elog || []; S.pend = pend || [];
     await syncFxReference(admin);
   }
