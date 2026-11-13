@@ -178,6 +178,7 @@ svg text { font-family: Manrope, sans-serif; }
 .quote span { display: block; margin-top: 12px; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 400; font-style: italic; color: var(--muted); }
 .datacta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-top: 18px; padding: 18px 20px; border-radius: 18px;
   background: linear-gradient(135deg, rgba(200,255,61,0.12), rgba(125,184,255,0.07)); border: 1px solid rgba(200,255,61,0.3); }
+.cta-dot { width: 8px; height: 8px; border-radius: 50%; background: #0b0d06; animation: lvpulse 1.8s ease-out infinite; }
 .datacta h3 { color: var(--ink); } .datacta p { margin: 4px 0 0; font-size: 13.5px; max-width: 46ch; }
 
 /* the pizza pool */
@@ -228,6 +229,38 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .reveal.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit, #pizza .mine, #pizza .mine .bob { transition: none; animation: none; } }
 @media print { .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
+
+/* 2. live examples */
+.lv-top { margin: 10px 0 0; }
+.livebadge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(200,255,61,0.3); }
+.livebadge.off { color: var(--amber); background: rgba(255,181,71,0.12); border-color: rgba(255,181,71,0.3); }
+.livebadge .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: lvpulse 1.8s ease-out infinite; }
+.livebadge.off .pulse { animation: none; }
+@keyframes lvpulse { 0% { box-shadow: 0 0 0 0 rgba(200,255,61,0.6); } 100% { box-shadow: 0 0 0 10px rgba(200,255,61,0); } }
+.realbox { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(135deg, rgba(200,255,61,0.12), rgba(125,184,255,0.06)); border: 1px solid rgba(200,255,61,0.35); }
+.realbox h3 { color: var(--accent); }
+.realbox p { margin: 6px 0 0; font-size: 14px; }
+.lvstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+@media (max-width: 640px) { .lvstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lvstat { padding: 14px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+.lvstat b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.lvstat span { display: block; margin-top: 2px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.up { color: var(--accent); } .down { color: var(--red); }
+.poolcurve { margin-top: 14px; padding: 16px 16px 12px; border-radius: 18px; background: rgba(255,255,255,0.025); border: 1px solid var(--line); }
+.pc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.pc-now { text-align: right; }
+.pc-now b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pc-now span { font-size: 11.5px; color: var(--muted); }
+.pc-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(125,184,255,0.07); border: 1px solid rgba(125,184,255,0.25); font-size: 13px; color: var(--ink-2); }
+.pc-note svg { flex: none; margin-top: 2px; color: var(--blue); }
+.pc-ping { transform-box: fill-box; transform-origin: center; animation: pcping 2s ease-out infinite; }
+@keyframes pcping { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+#yours label.f { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
+#yours input[type=text], #yours input[type=date] { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color-scheme: dark; }
+#yours input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.yf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 520px) { .yf { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .livebadge .pulse, .pc-ping { animation: none; } }
 </style>
 </head>
 <body>
@@ -241,14 +274,14 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="hero-grid" aria-hidden="true"></div>
   <h1>Your slice of one <span class="metal">trading pool.</span></h1>
   <p class="lead"><b>A small private pool that aims to grow your money.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
-  <div class="cta"><a class="btn" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+  <div class="cta"><a class="btn" href="#friends"><span class="cta-dot" aria-hidden="true"></span>See how your money moves <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
   <div class="facts">
     <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
     <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
     <div class="fact glass"><b>2.5%</b><span>of a bot's money is put at risk on each trade</span></div>
     <div class="fact glass"><b>1 pool</b><span>everyone's slice moves by the same percent</span></div>
   </div>
-  <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The results on this page are tests on past prices, not promises. <a href="#risks">Read the risks</a></div></div>
+  <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The 2026 examples use the pool's real live results; the other results are tests on past prices. Neither is a promise. <a href="#risks">Read the risks</a></div></div>
 </header>
 
 <!-- IN SHORT: what money put in on 1 January would be worth, from the two live bots' test on past prices -->
@@ -286,23 +319,42 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
 </section>
 
-<!-- 2. EXAMPLES -->
+<!-- 2. LIVE EXAMPLES: the pool's real, live growth (api/track-record.js), five example investors and "try it yourself". Pure pool growth: nothing is taken off the amounts here. -->
 <section id="friends" class="glass card reveal hl26">
-  <div class="kicker">2 · Examples</div>
+  <div class="kicker">2 · Live examples</div>
   <h2><span class="yr">2026</span> Five investors, five different starts</h2>
-  <p>Meet five example investors. Each put in a different amount in a different month of 2026. They are made-up people, but the prices are <b>real past prices</b>. Everyone gets the <b>same result per slice</b> from the day they join, so what changes the outcome is <b>when</b> they joined and <b>how much</b> they put in.</p>
-  <p class="small muted">The fee is 20% of new profit, settled at the end of February, April, June and August. Results are up to <b class="d-end"></b> and each trade puts <b>2.5%</b> of its bot's money at risk. Shown in pesos at ₱58 per USDT (a digital dollar).</p>
+  <div class="lv-top"><span class="livebadge off" id="lv-badge"><i class="pulse"></i><span id="lv-txt">Live trading</span></span></div>
+  <div class="realbox">
+    <h3>This is LIVE trading, not a backtest</h3>
+    <p>The pool has been trading real money on the MEXC exchange since <b class="lv-start">Oct 24, 2026</b>. Every number in this section comes from the pool's verified wallet readings, taken every 5 minutes. Nothing is simulated, and the losing days are shown too.</p>
+  </div>
+  <div class="lvstats" aria-label="Live activity">
+    <div class="lvstat"><b id="lv-growth">-</b><span>Pool growth since <span class="lv-start">Oct 24, 2026</span></span></div>
+    <div class="lvstat"><b id="lv-total">-</b><span id="lv-total-sub">Total trades taken</span></div>
+    <div class="lvstat"><b id="lv-closed">-</b><span id="lv-closed-sub">Trades closed</span></div>
+    <div class="lvstat"><b id="lv-open">-</b><span>Positions open right now</span></div>
+  </div>
+  <div class="poolcurve">
+    <div class="pc-head">
+      <div><h3>The pool's growth, live</h3><p class="small muted" style="margin:2px 0 0">Percent since <span class="lv-start">Oct 24, 2026</span>, at the end of each day</p></div>
+      <div class="pc-now"><b id="pc-now">-</b><span>right now</span></div>
+    </div>
+    <svg id="pchart" class="chart" viewBox="0 0 640 230" role="img" aria-label="The pool's percent growth since it started"></svg>
+    <div class="pc-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span><b>Where these numbers come from:</b> this is the pool's <b>actual percentage growth</b>, the same curve as the pool's equity, and it <b>updates live</b>. Every example below, and your own number, is simply this curve applied to an amount from the day you pick.</span></div>
+  </div>
+  <p style="margin-top:18px">Meet five example investors. Each puts in a different amount on a different <b>real day</b> since the pool started. The people are examples, but the growth is the <b>pool's real growth</b>. Everyone gets the <b>same percent</b> from the day they join, so what changes the result is <b>when</b> they joined and <b>how much</b> they put in.</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ftable"></table></div>
   </div>
   <div class="longterm">
-    <h3>Why some investors are below zero, and why that is normal</h3>
+    <h3>Up and down is normal, especially early</h3>
     <p class="small" style="margin-top:6px" id="neg-lead"></p>
     <ul>
       <li><b>In a few weeks, anything can happen.</b> Prices can go down as easily as up. Someone who joins just before a dip starts in the red.</li>
       <li><b>Time is what makes it work.</b> The plan is built to grow slowly over many months: small wins add up and losses are kept small.</li>
-      <li><b>The investors who joined first are ahead.</b> <span id="neg-ahead"></span></li>
+      <li><b>Why more trades lose than win.</b> A losing trade is cut early and small, and a winning trade is allowed to run. So most trades lose a little and a few win a lot. What counts is the pool's growth over months.</li>
     </ul>
     <p class="small" style="margin-top:8px">So please see this as <b>long-term money</b>: plan to leave it in for at least a year and don't judge it by the first few weeks.</p>
     <p class="small" style="margin-top:8px;color:var(--red)"><b>Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
@@ -311,21 +363,23 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <h3 id="fname">Pick an investor</h3>
     <div class="seg" id="fseg"></div>
   </div>
-  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The investor's balance over 2026"></svg>
-  <div class="feechips" id="fchips"></div>
-  <p class="small muted">Coloured line: their balance after fees. Dashed line: what they put in. Green dots: a fee was settled. All based on past prices.</p>
+  <svg id="fchart" class="chart" viewBox="0 0 640 250" role="img" aria-label="The investor's money since they joined"></svg>
+  <p class="small muted">Coloured line: what their money is worth at the end of each day. Dashed line: what they put in.</p>
   <div class="note-box" id="fstory"></div>
 
-  <div class="glass card" style="margin-top:20px;padding:18px">
-    <h3>Now picture yourself</h3>
-    <p class="small">Choose an amount and the month you would have joined in 2026. The same past prices and the same rules are used. Try January, then September: the earlier you start, the more time you have.</p>
-    <div class="grid2">
-      <label class="rng">Amount <output id="y-amt-o"></output><input id="y-amt" type="range" min="500" max="100000" step="500" value="10000"></label>
-      <label class="rng">Joined in <output id="y-mon-o"></output><input id="y-mon" type="range" min="0" max="9" step="1" value="2"></label>
+  <div class="glass card" style="margin-top:20px;padding:18px" id="yours">
+    <h3>Now try it yourself</h3>
+    <p class="small">Type your amount and pick the day you would have joined. We apply the pool's real growth from that day until now.</p>
+    <div class="yf">
+      <div><label class="f" for="y-amt">Your amount (₱)</label><input id="y-amt" type="text" inputmode="decimal" value="10,000" autocomplete="off"></div>
+      <div><label class="f" for="y-date">You joined on</label><input id="y-date" type="date"></div>
     </div>
-    <div class="out" id="y-out"></div>
+    <div class="seg" id="y-quick" style="margin-top:12px" role="group" aria-label="Quick start days"></div>
+    <div class="out" id="y-out" aria-live="polite"></div>
+    <svg id="ychart" class="chart" viewBox="0 0 640 220" role="img" aria-label="Your amount since the day you picked"></svg>
     <p class="small muted" id="y-note"></p>
   </div>
+  <p class="small muted" style="margin-top:14px">Growth from trading only: nobody's deposits, withdrawals or transfers change it. The value moves during the day because open trades count at their current price. <span id="lv-asof"></span></p>
 </section>
 
 <!-- 3. BACKTESTING DATA -->
@@ -707,87 +761,153 @@ document.getElementById('seg').addEventListener('click', (e) => {
 hwmDraw('steady');
 
 
-// ---------- 2. 2026 friends: weekly unit prices from the test, run through today's rules
-const W26 = LANDING.w26;   // the pool value every Sunday and month end of 2026 (1.0 on 1 January)
-const RATE = 58, SETTLE = ['02', '04', '06', '08'];
+// ---------- 2. LIVE examples: the pool's real growth (/api/track-record; the saved copy below if that cannot be reached). Pure pool growth: nothing is taken off.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const dl = (d) => MONTHS[+d.slice(5, 7) - 1] + ' ' + +d.slice(8, 10);
-const END_L = dl(LANDING.facts.end), END_Y = LANDING.facts.end.slice(0, 4);   // the last day of the test data
+const END_L = dl(LANDING.facts.end), END_Y = LANDING.facts.end.slice(0, 4);   // the last day of the test data (sections 3 and below)
 document.querySelectorAll('.d-end').forEach((x) => { x.textContent = `${END_L}, ${END_Y}`; });
-// the last weekly valuation of each settlement month is the settlement point
-const settleIdx = new Set(SETTLE.map((m) => W26.map((x, i) => [x, i]).filter(([x]) => x.d.slice(5, 7) === m).pop()).filter(Boolean).map(([, i]) => i));
-function simulate(php, joinDate) {
-  const usdt = php / RATE, j = W26.findIndex((x) => x.d >= joinDate);
-  if (j < 0) return null;
-  let units = usdt / W26[j].p, hwm = usdt, fees = 0, best = usdt, low = usdt;
-  const pts = [];
-  for (let i = j; i < W26.length; i++) {
-    const v = units * W26[i].p; let fee = 0;
-    if (i > j && settleIdx.has(i) && v > hwm) { fee = FEE * (v - hwm); units -= fee / W26[i].p; hwm = v - fee; fees += fee; }
-    const after = units * W26[i].p;
-    best = Math.max(best, after); low = Math.min(low, after);
-    pts.push({ d: W26[i].d, v: after, fee });
-  }
-  const last = pts[pts.length - 1].v, owed = Math.max(0, FEE * (last - hwm)), now = last - owed;
-  return { join: W26[j], units, pts, fees: fees * RATE, owed: owed * RATE, now: now * RATE, put: php, low: low * RATE, best: best * RATE,
-    profit: now * RATE - php, pct: (now * RATE / php - 1) * 100 };
-}
-const FRIENDS = [
-  { name: 'Ana', amt: 2000, date: '2026-01-15', c: '#C8FF3D', why: 'starts small in January to try it out' },
-  { name: 'Ben', amt: 15000, date: '2026-03-02', c: '#7DB8FF', why: 'puts in a bonus in March' },
-  { name: 'Cris', amt: 1000, date: '2026-05-04', c: '#FFB547', why: 'joins with ₱1,000 in May' },
-  { name: 'Dana', amt: 25000, date: '2026-07-01', c: '#B79CFF', why: 'joins in July with savings' },
-  { name: 'Eli', amt: 5000, date: '2026-09-01', c: '#FF8FB1', why: 'joins late, in September' },
-];
-const R = FRIENDS.map((f) => ({ ...f, r: simulate(f.amt, f.date) }));
 const cls = (n) => (n >= 0 ? 'up' : 'down');
 const sp = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + peso(Math.abs(n)).replace('−', '');
+const pc1 = (n) => (n >= 0 ? '+' : '−') + Math.abs(n).toFixed(1) + '%';
 const nameList = (xs) => xs.map((x) => x.name).join(', ').replace(/, ([^,]*)$/, ' and $1');
-// the "why some are below zero" note is written from the numbers, so it stays true if the fee or the data change
-(function negNote() {
-  const below = R.filter((x) => x.r.pct < -1.5), even = R.filter((x) => Math.abs(x.r.pct) <= 1.5), ahead = R.filter((x) => x.r.pct > 1.5);
+// saved copy of the live track record (Nov 13 2026, 15:35 Manila). daily: [Manila day, pool price at day end (1 = the start), 'live' | 'book']
+const LIVE_SAVED = {
+  daily: [['2026-10-24', 1, 'book'], ['2026-10-28', 0.982575, 'live'], ['2026-10-29', 0.941343, 'live'], ['2026-10-30', 0.935888, 'live'], ['2026-10-31', 0.916852, 'live'],
+    ['2026-11-01', 0.919361, 'live'], ['2026-11-02', 0.925742, 'live'], ['2026-11-03', 0.893547, 'book'], ['2026-11-04', 0.866082, 'book'], ['2026-11-07', 0.912065, 'live'],
+    ['2026-11-08', 0.914698, 'live'], ['2026-11-09', 0.884696, 'live'], ['2026-11-10', 0.953837, 'live'], ['2026-11-11', 0.970831, 'live'], ['2026-11-12', 1.020116, 'live'],
+    ['2026-11-13', 1.00404, 'live']],
+  live: { price: 1.00404, at: '2026-11-13T07:35:03Z' },
+  open_positions: 14, trades: { closed: 17, wins: 3, losses: 14 }, saved: true,
+};
+// the examples join at the end of a real day; amounts in pesos
+const FRIENDS = [
+  { name: 'Ana', amt: 10000, date: '2026-10-24', c: '#C8FF3D', why: 'joins on day one' },
+  { name: 'Ben', amt: 25000, date: '2026-10-28', c: '#7DB8FF', why: 'puts in a bonus in late October' },
+  { name: 'Cris', amt: 5000, date: '2026-11-01', c: '#FFB547', why: 'starts small on November 1' },
+  { name: 'Dana', amt: 50000, date: '2026-11-07', c: '#B79CFF', why: 'joins with savings on November 7' },
+  { name: 'Eli', amt: 15000, date: '2026-11-11', c: '#FF8FB1', why: 'joins later, on November 11' },
+];
+const DAYMS = 864e5;
+const tsU = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
+const isoU = (t) => new Date(t).toISOString().slice(0, 10);
+const fdY = (s) => `${dl(s)}, ${s.slice(0, 4)}`;
+const ago = (ms) => { const m = Math.round(ms / 6e4); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+let LS = [], LDATA = null, pick = 0, R = [], yPick = null;
+// one row per day from the first reading to the last; a day with no reading keeps the day before
+function lvSeries(daily) {
+  const out = []; let j = 0, cur = null;
+  for (let t = tsU(daily[0][0]), end = tsU(daily[daily.length - 1][0]); t <= end; t += DAYMS) {
+    while (j < daily.length && tsU(daily[j][0]) <= t) { cur = +daily[j][1]; j++; }
+    out.push({ d: isoU(t), p: cur });
+  }
+  return out;
+}
+// what `amt` pesos put in at the end of `date` is worth each day since, at the pool's real growth
+function liveRun(amt, date) {
+  let i0 = LS.findIndex((x) => x.d >= date); if (i0 < 0) i0 = LS.length - 1;
+  const p0 = LS[i0].p, pts = LS.slice(i0).map((x) => ({ d: x.d, v: amt * x.p / p0 }));
+  const now = pts[pts.length - 1].v, lo = pts.reduce((a, b) => (b.v < a.v ? b : a)), hi = pts.reduce((a, b) => (b.v > a.v ? b : a));
+  return { join: LS[i0].d, pts, now, profit: now - amt, pct: (now / amt - 1) * 100, low: lo.v, lowD: lo.d, best: hi.v, bestD: hi.d, days: pts.length - 1 };
+}
+// draw charts at their real width (min 340) so the text stays readable on a phone
+const chartW = (svg) => { const w = Math.round(svg.getBoundingClientRect().width); return w > 0 ? Math.max(340, Math.min(720, w)) : 640; };
+// round axis values (steps of 1, 2, 2.5 or 5 x 10^n) that cover lo..hi with a little room
+function niceTicks(lo, hi) {
+  if (!(hi > lo)) { const d = Math.abs(lo) * 0.05 || 1; lo -= d; hi += d; }
+  const raw = (hi - lo) / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  const out = []; for (let v = Math.floor(lo / step) * step; v < hi + step * 0.999; v += step) out.push(Math.round(v / step) * step);
+  if (out[out.length - 1] < hi) out.push(out[out.length - 1] + step);
+  return out;
+}
+// a value-over-time chart in pesos, from the investor's start to the latest day
+function lvChart(svg, pts, amt, color, H) {
+  svg.innerHTML = '';
+  const W = chartW(svg); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const pl = 62, pr = 14, pt = 16, pb = 28, d0 = LS[0].d, d1 = LS[LS.length - 1].d;
+  const vs = pts.map((p) => p.v).concat([amt]), tk = niceTicks(Math.min(...vs), Math.max(...vs)), lo = tk[0], hi = tk[tk.length - 1];
+  const X = (d) => pl + (tsU(d) - tsU(d0)) / Math.max(DAYMS, tsU(d1) - tsU(d0)) * (W - pl - pr), Y = (v) => pt + (1 - (v - lo) / (hi - lo || 1)) * (H - pt - pb);
+  tk.forEach((v) => { const y = Y(v);
+    el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
+    el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = peso(v); });
+  for (let t = tsU(d0); t <= tsU(d1); t += 7 * DAYMS) el('text', { x: X(isoU(t)), y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = dl(isoU(t));
+  el('line', { x1: X(pts[0].d), x2: X(d1), y1: Y(amt), y2: Y(amt), stroke: C.muted, 'stroke-dasharray': '4 5' }, svg);
+  const dpath = pts.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  const gid = 'g' + svg.id, defs = el('defs', {}, svg), lg = el('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el('stop', { offset: '0%', 'stop-color': color, 'stop-opacity': 0.22 }, lg); el('stop', { offset: '100%', 'stop-color': color, 'stop-opacity': 0 }, lg);
+  if (pts.length > 1) el('path', { d: `${dpath} L${X(pts[pts.length - 1].d)},${H - pb} L${X(pts[0].d)},${H - pb} Z`, fill: `url(#${gid})` }, svg);
+  el('path', { d: dpath, fill: 'none', stroke: color, 'stroke-width': 2.6, 'stroke-linejoin': 'round' }, svg);
+  el('circle', { cx: X(pts[0].d), cy: Y(amt), r: 4.5, fill: '#060708', stroke: color, 'stroke-width': 2 }, svg);
+  const last = pts[pts.length - 1];
+  el('circle', { cx: X(last.d), cy: Y(last.v), r: 5, fill: color, stroke: '#060708', 'stroke-width': 2 }, svg);
+}
+// the pool's own curve, in percent from the start: green above zero, red below, a dot on the latest reading
+function poolChart() {
+  const svg = document.getElementById('pchart'); svg.innerHTML = '';
+  const W = chartW(svg), H = 230; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const pl = 52, pr = 14, pt = 16, pb = 28, p0 = LS[0].p, d0 = LS[0].d, d1 = LS[LS.length - 1].d;
+  const g = LS.map((x) => (x.p / p0 - 1) * 100), tk = niceTicks(Math.min(0, ...g), Math.max(0, ...g)), ymin = tk[0], ymax = tk[tk.length - 1];
+  const X = (d) => pl + (tsU(d) - tsU(d0)) / Math.max(DAYMS, tsU(d1) - tsU(d0)) * (W - pl - pr), Y = (v) => pt + (1 - (v - ymin) / (ymax - ymin)) * (H - pt - pb);
+  tk.forEach((v) => { const y = Y(v);
+    el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
+    el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = (v > 0 ? '+' : '') + +v.toFixed(1) + '%'; });
+  for (let t = tsU(d0); t <= tsU(d1); t += 7 * DAYMS) el('text', { x: X(isoU(t)), y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = dl(isoU(t));
+  const defs = el('defs', {}, svg), cp = el('clipPath', { id: 'pc-up' }, defs), cn = el('clipPath', { id: 'pc-dn' }, defs);
+  el('rect', { x: 0, y: 0, width: W, height: Y(0) }, cp); el('rect', { x: 0, y: Y(0), width: W, height: H }, cn);
+  const line = LS.map((x, k) => `${k ? 'L' : 'M'}${X(x.d).toFixed(1)},${Y(g[k]).toFixed(1)}`).join(' ');
+  const area = `${line} L${X(d1)},${Y(0)} L${X(d0)},${Y(0)} Z`;
+  el('path', { d: area, fill: C.accent, 'fill-opacity': 0.16, 'clip-path': 'url(#pc-up)' }, svg);
+  el('path', { d: area, fill: C.red, 'fill-opacity': 0.14, 'clip-path': 'url(#pc-dn)' }, svg);
+  el('line', { x1: pl, x2: W - pr, y1: Y(0), y2: Y(0), stroke: C.muted, 'stroke-dasharray': '4 5' }, svg);
+  el('text', { x: pl + 6, y: Y(0) - 6, fill: C.muted, 'font-size': 10.5 }, svg).textContent = 'start (0%)';
+  el('path', { d: line, fill: 'none', stroke: C.accent, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'clip-path': 'url(#pc-up)' }, svg);
+  el('path', { d: line, fill: 'none', stroke: C.red, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'clip-path': 'url(#pc-dn)' }, svg);
+  const gl = g[g.length - 1], col = gl >= 0 ? C.accent : C.red, cx = X(d1), cy = Y(gl);
+  el('circle', { cx, cy, r: 9, fill: col, 'fill-opacity': 0.18, class: REDUCED ? '' : 'pc-ping' }, svg);
+  el('circle', { cx, cy, r: 4.5, fill: col, stroke: '#060708', 'stroke-width': 2 }, svg);
+  const now = document.getElementById('pc-now'); now.textContent = pc1(gl); now.className = cls(gl);
+}
+function lvStats() {
+  const D = LDATA, t = D.trades || {}, op = D.open_positions, g = (LS[LS.length - 1].p / LS[0].p - 1) * 100;
+  const $ = (id) => document.getElementById(id);
+  $('lv-growth').textContent = pc1(g); $('lv-growth').className = cls(g);
+  $('lv-total').textContent = t.closed == null ? '-' : t.closed + (op || 0);
+  $('lv-total-sub').textContent = t.closed == null ? 'Total trades taken' : `Total trades taken (${t.closed} closed, ${op || 0} open)`;
+  $('lv-closed').textContent = t.closed == null ? '-' : t.closed;
+  $('lv-closed-sub').textContent = t.closed == null ? 'Trades closed' : `Trades closed (${t.wins || 0} won, ${t.losses || 0} lost)`;
+  $('lv-open').textContent = op == null ? '-' : op;
+  const at = D.live && Date.parse(D.live.at), fresh = !D.saved && at && Date.now() - at < 30 * 6e4;
+  $('lv-badge').classList.toggle('off', !fresh);
+  $('lv-txt').textContent = D.saved ? 'Live trading · saved copy' : fresh ? `Live · updated ${ago(Date.now() - at)}` : `Live trading · last reading ${at ? ago(Date.now() - at) : 'unknown'}`;
+  $('lv-asof').textContent = at ? `${D.saved ? 'Saved copy of the reading from' : 'Latest reading:'} ${new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })} (Manila time).` : '';
+  document.querySelectorAll('.lv-start').forEach((x) => { x.textContent = fdY(LS[0].d); });
+}
+// written from the numbers, so it stays true as the live results change
+function negNote() {
+  const below = R.filter((x) => x.r.pct < -1), even = R.filter((x) => Math.abs(x.r.pct) <= 1), ahead = R.filter((x) => x.r.pct > 1);
   const parts = [];
-  if (below.length) parts.push(`<b>${nameList(below)}</b> ${below.length > 1 ? 'are' : 'is'} below what ${below.length > 1 ? 'they' : 'they'} put in`);
+  if (ahead.length) parts.push(`<b>${nameList(ahead)}</b> ${ahead.length > 1 ? 'are' : 'is'} up`);
   if (even.length) parts.push(`<b>${nameList(even)}</b> ${even.length > 1 ? 'are' : 'is'} about even`);
-  document.getElementById('neg-lead').innerHTML = `Look at the table again: ${parts.join(', and ')}. That is not because they did anything wrong. They are simply <b>still early</b>: they joined only a few weeks or months ago, and that short stretch happened to include a dip in the market.`;
-  document.getElementById('neg-ahead').innerHTML = ahead.length ? `${ahead.map((x) => `${x.name} (${MONTHS_LONG[+x.date.slice(5, 7) - 1]})`).join(' and ')} had time to ride out the dips, and ${ahead.length > 1 ? 'are' : 'is'} up after fees.` : 'None are clearly ahead yet.';
-})();
-let pick = 0;
+  if (below.length) parts.push(`<b>${nameList(below)}</b> ${below.length > 1 ? 'are' : 'is'} below what they put in`);
+  const dipped = R.filter((x) => x.r.low < x.amt * 0.99);
+  const worst = R.reduce((a, b) => (b.r.low / b.amt < a.r.low / a.amt ? b : a));
+  document.getElementById('neg-lead').innerHTML = `Right now ${parts.join(', ')}.` +
+    (dipped.length ? ` Along the way, <b>${dipped.length === R.length ? 'all five' : nameList(dipped)}</b> saw their money below what they put in at some point: the deepest dip was ${worst.name}'s, <b>${pc1((worst.r.low / worst.amt - 1) * 100)}</b> on ${dl(worst.r.lowD)}.` : '') +
+    ' That is how a trading pool moves: it is never a straight line.';
+}
 function friendsTable() {
-  document.getElementById('ftable').innerHTML = `<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Fees paid</th><th>Worth now*</th><th>Profit</th><th>%</th></tr>` +
-    R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join.d)}</td>
-      <td>${peso(x.r.fees)}</td><td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${(x.r.pct >= 0 ? '+' : '−') + Math.abs(x.r.pct).toFixed(1)}%</td></tr>`).join('') +
-    `<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">*Worth now = after the fees already paid and the fee that would be due if settled on ${END_L}. Based on past prices, not real accounts.</td></tr>`;
+  document.getElementById('ftable').innerHTML = '<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Worth now</th><th>Profit</th><th>%</th><th>Lowest point</th></tr>' +
+    R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join)}</td>
+      <td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${pc1(x.r.pct)}</td><td>${peso(x.r.low)}</td></tr>`).join('') +
+    '<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">Example people, real pool results. Worth now = at the latest live reading.</td></tr>';
 }
 function friendChart() {
-  const x = R[pick], r = x.r, svg = document.getElementById('fchart'); svg.innerHTML = '';
-  const W = 640, H = 250, pl = 58, pr = 14, pt = 42, pb = 28;
-  const t0 = new Date('2026-01-01').getTime(), t1 = new Date(W26[W26.length - 1].d).getTime();
-  const vs = r.pts.map((p) => p.v * RATE).concat([x.amt]), lo = Math.min(...vs) * 0.97, hi = Math.max(...vs) * 1.03;
-  const X = (d) => pl + (new Date(d).getTime() - t0) / (t1 - t0) * (W - pl - pr), Y = (v) => pt + (1 - (v - lo) / (hi - lo)) * (H - pt - pb);
-  for (let t = 0; t <= 4; t++) { const v = lo + (hi - lo) * t / 4, y = Y(v);
-    el('line', { x1: pl, x2: W - pr, y1: y, y2: y, stroke: C.line }, svg);
-    el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = peso(v); }
-  MONTHS.slice(0, 10).forEach((m, k) => el('text', { x: X(`2026-${String(k + 1).padStart(2, '0')}-01`), y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = m);
-  el('line', { x1: X(r.join.d), x2: X(W26[W26.length - 1].d), y1: Y(x.amt), y2: Y(x.amt), stroke: C.muted, 'stroke-dasharray': '4 5' }, svg);
-  const dpath = r.pts.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v * RATE).toFixed(1)}`).join(' ');
-  const defs = el('defs', {}, svg), lg = el('linearGradient', { id: 'gf', x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-  el('stop', { offset: '0%', 'stop-color': x.c, 'stop-opacity': 0.22 }, lg); el('stop', { offset: '100%', 'stop-color': x.c, 'stop-opacity': 0 }, lg);
-  el('path', { d: `${dpath} L${X(r.pts[r.pts.length - 1].d)},${H - pb} L${X(r.pts[0].d)},${H - pb} Z`, fill: 'url(#gf)' }, svg);
-  el('path', { d: dpath, fill: 'none', stroke: x.c, 'stroke-width': 2.6, 'stroke-linejoin': 'round' }, svg);
-  el('circle', { cx: X(r.join.d), cy: Y(x.amt), r: 4.5, fill: '#060708', stroke: x.c, 'stroke-width': 2 }, svg);
-  const fp = r.pts.filter((p) => p.fee > 0);
-  fp.forEach((p) => el('circle', { cx: X(p.d), cy: Y(p.v * RATE), r: 5, fill: C.accent, stroke: '#060708', 'stroke-width': 2 }, svg));
-  feeTags(svg, fp.map((p) => ({ x: X(p.d), y: Y(p.v * RATE), text: 'fee ' + peso(p.fee * RATE) })), W, pl, pr, H, pb);
-  document.getElementById('fchips').innerHTML = fp.length ? fp.map((p) => `<span>${dl(p.d)}: fee ${peso(p.fee * RATE)}</span>`).join('') : '<span class="none">No fee paid yet</span>';
+  const x = R[pick], r = x.r;
+  lvChart(document.getElementById('fchart'), r.pts, x.amt, x.c, 250);
   document.getElementById('fname').textContent = `${x.name} ${x.why}`;
-  const unitsTxt = r.units.toLocaleString('en-PH', { maximumFractionDigits: 2 });
-  document.getElementById('fstory').innerHTML = `<b>${x.name}</b> hands over <b>${peso(x.amt)}</b> (${(x.amt / RATE).toFixed(2)} USDT). It joins at the check on <b>${dl(r.join.d)}</b>, when one slice (unit) costs ${r.join.p.toFixed(4)} USDT, so ${x.name} holds about <b>${unitsTxt} slices</b> after fees.
-    Since then the lowest point was <b>${peso(r.low)}</b> and the highest <b>${peso(r.best)}</b>.
-    ${r.fees > 0 ? `Fees paid so far: <b>${peso(r.fees)}</b>, only on profit above ${x.name}'s best level.` : 'No fee has been paid yet' + (r.pts.length > 1 ? ' (never above the best level at a settlement since joining).' : '.')}
-    ${r.owed > 0 ? ` A further <b>${peso(r.owed)}</b> would be due if the period were settled on ${END_L}.` : ''}
-    Today ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}%)</span> after all fees.${r.fees > 0 && r.profit < 0 ? ` Why a fee and still down? The fee was taken when ${x.name} was above their best level; the market fell after that. A fee that was taken is not refunded, but ${x.name} now pays nothing more until their value climbs back above that best level.` : ''}${r.pts.length < 10 ? ` ${x.name} joined only recently, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
+  document.getElementById('fstory').innerHTML = `<b>${x.name}</b> puts in <b>${peso(x.amt)}</b> at the end of <b>${fdY(r.join)}</b>.
+    Since then the lowest point was <b>${peso(r.low)}</b> (${dl(r.lowD)}) and the highest <b>${peso(r.best)}</b> (${dl(r.bestD)}).
+    Right now ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${pc1(r.pct)})</span>.${r.days < 14 ? ` ${x.name} joined only ${r.days} day${r.days === 1 ? '' : 's'} ago, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
 }
 function friendsUI() {
   document.getElementById('fseg').innerHTML = R.map((x, k) => `<button data-k="${k}" class="${k === pick ? 'on' : ''}">${x.name}</button>`).join('');
@@ -796,19 +916,52 @@ function friendsUI() {
 const choose = (e) => { const t = e.target.closest('[data-k]'); if (!t) return; pick = +t.dataset.k; friendsUI(); };
 document.getElementById('fseg').addEventListener('click', choose);
 document.getElementById('ftable').addEventListener('click', choose);
-friendsUI();
-(function yours() {
-  const $ = (id) => document.getElementById(id);
-  const run = () => {
-    const amt = +$('y-amt').value, m = +$('y-mon').value, date = `2026-${String(m + 1).padStart(2, '0')}-01`, r = simulate(amt, date);
-    $('y-amt-o').textContent = peso(amt); $('y-mon-o').textContent = MONTHS[m] + ' 2026';
-    $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth on ${END_L}, after fees</span></div>
-      <div><b style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'}">${sp(r.profit)}</b><span>${(r.pct >= 0 ? '+' : '−') + Math.abs(r.pct).toFixed(1)}% after fees</span></div>
-      <div><b>${peso(r.low)}</b><span>lowest point along the way</span></div>`;
-    $('y-note').textContent = `Joining at the first check on or after ${dl(date)} (${dl(r.join.d)}), with ${peso(r.fees + r.owed)} of fees paid or due. Based on actual past prices: an example, not a forecast.`;
-  };
-  ['y-amt', 'y-mon'].forEach((id) => $(id).addEventListener('input', run)); run();
-})();
+// try it yourself
+const yAmt = () => { const v = parseFloat((document.getElementById('y-amt').value || '').replace(/[^0-9.]/g, '')); return isFinite(v) && v > 0 ? v : 0; };
+function yours() {
+  const $ = (id) => document.getElementById(id), amt = yAmt();
+  const dEl = $('y-date'); dEl.min = LS[0].d; dEl.max = LS[LS.length - 1].d;
+  if (!yPick || yPick < dEl.min || yPick > dEl.max) yPick = LS[0].d;
+  dEl.value = yPick;
+  Array.prototype.forEach.call($('y-quick').children, (b) => b.classList.toggle('on', b.dataset.d === yPick));
+  if (!amt) { $('y-out').innerHTML = '<div><b>-</b><span>type an amount</span></div>'; $('ychart').innerHTML = ''; $('y-note').textContent = ''; return; }
+  const r = liveRun(amt, yPick);
+  $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth now</span></div>
+    <div><b style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'}">${sp(r.profit)}</b><span>${pc1(r.pct)} in ${r.days} day${r.days === 1 ? '' : 's'}</span></div>
+    <div><b>${peso(r.low)}</b><span>lowest point along the way (${dl(r.lowD)})</span></div>`;
+  lvChart($('ychart'), r.pts, amt, C.accent, 220);
+  $('y-note').textContent = `Joining at the end of ${fdY(r.join)}. Real pool results, not a forecast: the value changes every few minutes.`;
+}
+function yQuick() {
+  const end = LS.length - 1, q = [['Day one', LS[0].d]];
+  if (end >= 7) q.push(['7 days ago', LS[end - 7].d]);
+  if (end >= 14) q.push(['14 days ago', LS[end - 14].d]);
+  if (end >= 30) q.push(['30 days ago', LS[end - 30].d]);
+  document.getElementById('y-quick').innerHTML = q.map(([l, d]) => `<button type="button" data-d="${d}">${l}</button>`).join('');
+}
+document.getElementById('y-amt').addEventListener('input', () => { if (LS.length) yours(); });
+document.getElementById('y-amt').addEventListener('blur', function () { const a = yAmt(); if (a) this.value = a.toLocaleString('en-US', { maximumFractionDigits: 2 }); });
+document.getElementById('y-date').addEventListener('input', function () { if (this.value) { yPick = this.value; yours(); } });
+document.getElementById('y-quick').addEventListener('click', (e) => { const d = e.target.dataset && e.target.dataset.d; if (d) { yPick = d; yours(); } });
+function liveApply(data) {
+  if (!data || !Array.isArray(data.daily) || !data.daily.length) return false;
+  LDATA = data; LS = lvSeries(data.daily);
+  R = FRIENDS.filter((f) => f.date <= LS[LS.length - 1].d).map((f) => ({ ...f, r: liveRun(f.amt, f.date) }));
+  if (pick >= R.length) pick = 0;
+  lvStats(); poolChart(); negNote(); friendsUI(); yQuick(); yours();
+  return true;
+}
+function liveLoad() {
+  return fetch('/api/track-record', { cache: 'no-store' })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((d) => { if (!liveApply(d) && !LS.length) liveApply(LIVE_SAVED); })
+    .catch(() => { if (!LS.length) liveApply(LIVE_SAVED); });
+}
+liveApply(LIVE_SAVED);
+liveLoad();
+setInterval(() => { if (!document.hidden) liveLoad(); }, 60000);
+let lvResize = 0;
+addEventListener('resize', () => { clearTimeout(lvResize); lvResize = setTimeout(() => { if (LS.length) { poolChart(); friendChart(); yours(); } }, 150); });
 
 // ---------- 3. the test on past prices: one year at a time, and growing since 2020
 const R5 = YEARS.r[LANDING.risk], R1 = YEARS.r[LANDING.low], YS = Object.keys(R5.years).sort();   // R5 = the live risk (2.5%), R1 = 1% for comparison
