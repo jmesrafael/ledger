@@ -70,7 +70,8 @@ test('landing, live section: says it is live, not a backtest, and shows the live
   assert.ok(sec2.length > 1000 && js2.length > 1000, 'section 2 found');
   assert.ok(/LIVE trading, not a backtest/.test(sec2));
   assert.ok(/actual percentage growth/.test(sec2) && /updates live/.test(sec2), 'says the growth is the pool\'s real, live percent');
-  for (const id of ['lv-growth', 'lv-total', 'lv-closed', 'lv-open', 'pchart', 'ftable', 'y-amt', 'y-date']) assert.ok(sec2.includes(`id="${id}"`), id);
+  assert.ok(!sec2.includes('neg-lead') && !/went below|below what they put in/.test(sec2 + js2), 'no per-investor below-zero story: the facts come from the curve');
+  for (const id of ['pc-facts', 'lv-growth', 'lv-total', 'lv-closed', 'lv-open', 'pchart', 'ftable', 'y-amt', 'y-date']) assert.ok(sec2.includes(`id="${id}"`), id);
   assert.ok(js2.includes("fetch('/api/track-record'"));
 });
 

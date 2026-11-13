@@ -251,6 +251,13 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .pc-now { text-align: right; }
 .pc-now b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .pc-now span { font-size: 11.5px; color: var(--muted); }
+.pc-label { margin: 10px 0 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pcfacts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 640px) { .pcfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pcfacts div { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+.pcfacts b { display: block; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.pcfacts span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.pc-read { margin: 10px 0 0; color: var(--ink-2); }
 .pc-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(125,184,255,0.07); border: 1px solid rgba(125,184,255,0.25); font-size: 13px; color: var(--ink-2); }
 .pc-note svg { flex: none; margin-top: 2px; color: var(--blue); }
 .pc-ping { transform-box: fill-box; transform-origin: center; animation: pcping 2s ease-out infinite; }
@@ -340,6 +347,9 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
       <div class="pc-now"><b id="pc-now">-</b><span>right now</span></div>
     </div>
     <svg id="pchart" class="chart" viewBox="0 0 640 230" role="img" aria-label="The pool's percent growth since it started"></svg>
+    <div class="pc-label">What the chart shows so far</div>
+    <div class="pcfacts" id="pc-facts"></div>
+    <p class="small pc-read">A trading pool never moves in a straight line, so judge it over months, not days: plan to leave money in for at least a year. <b style="color:var(--red)">Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
     <div class="pc-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
       <span><b>Where these numbers come from:</b> this is the pool's <b>actual percentage growth</b>, the same curve as the pool's equity, and it <b>updates live</b>. Every example below, and your own number, is simply this curve applied to an amount from the day you pick.</span></div>
   </div>
@@ -347,17 +357,6 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ftable"></table></div>
-  </div>
-  <div class="longterm">
-    <h3>Up and down is normal, especially early</h3>
-    <p class="small" style="margin-top:6px" id="neg-lead"></p>
-    <ul>
-      <li><b>In a few weeks, anything can happen.</b> Prices can go down as easily as up. Someone who joins just before a dip starts in the red.</li>
-      <li><b>Time is what makes it work.</b> The plan is built to grow slowly over many months: small wins add up and losses are kept small.</li>
-      <li><b>Why more trades lose than win.</b> A losing trade is cut early and small, and a winning trade is allowed to run. So most trades lose a little and a few win a lot. What counts is the pool's growth over months.</li>
-    </ul>
-    <p class="small" style="margin-top:8px">So please see this as <b>long-term money</b>: plan to leave it in for at least a year and don't judge it by the first few weeks.</p>
-    <p class="small" style="margin-top:8px;color:var(--red)"><b>Long term helps, but it is not a guarantee.</b> Only put in money you can afford to lose.</p>
   </div>
   <div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
     <h3 id="fname">Pick an investor</h3>
@@ -882,18 +881,23 @@ function lvStats() {
   $('lv-asof').textContent = at ? `${D.saved ? 'Saved copy of the reading from' : 'Latest reading:'} ${new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })} (Manila time).` : '';
   document.querySelectorAll('.lv-start').forEach((x) => { x.textContent = fdY(LS[0].d); });
 }
-// written from the numbers, so it stays true as the live results change
-function negNote() {
-  const below = R.filter((x) => x.r.pct < -1), even = R.filter((x) => Math.abs(x.r.pct) <= 1), ahead = R.filter((x) => x.r.pct > 1);
-  const parts = [];
-  if (ahead.length) parts.push(`<b>${nameList(ahead)}</b> ${ahead.length > 1 ? 'are' : 'is'} up`);
-  if (even.length) parts.push(`<b>${nameList(even)}</b> ${even.length > 1 ? 'are' : 'is'} about even`);
-  if (below.length) parts.push(`<b>${nameList(below)}</b> ${below.length > 1 ? 'are' : 'is'} below what they put in`);
-  const dipped = R.filter((x) => x.r.low < x.amt * 0.99);
-  const worst = R.reduce((a, b) => (b.r.low / b.amt < a.r.low / a.amt ? b : a));
-  document.getElementById('neg-lead').innerHTML = `Right now ${parts.join(', ')}.` +
-    (dipped.length ? ` Along the way, <b>${dipped.length === R.length ? 'all five' : nameList(dipped)}</b> saw their money below what they put in at some point: the deepest dip was ${worst.name}'s, <b>${pc1((worst.r.low / worst.amt - 1) * 100)}</b> on ${dl(worst.r.lowD)}.` : '') +
-    ' That is how a trading pool moves: it is never a straight line.';
+// facts read off the pool's own curve (real readings only, not the carried-over days), so they stay true as the live results change
+function chartFacts() {
+  const rd = LDATA.daily.map((x) => ({ d: x[0], p: +x[1] })), p0 = rd[0].p, g = (p) => (p / p0 - 1) * 100;
+  const top = rd.reduce((a, b) => (b.p > a.p ? b : a));
+  // biggest drop from a high: the high before it, the low, and the first day back at that high (if any)
+  let peak = rd[0], dd = { pct: 0, hi: rd[0], lo: rd[0] };
+  for (const x of rd) { if (x.p > peak.p) peak = x; const pct = (x.p / peak.p - 1) * 100; if (pct < dd.pct) dd = { pct, hi: peak, lo: x }; }
+  const back = dd.pct < 0 ? rd.find((x) => x.d > dd.lo.d && x.p >= dd.hi.p) : null;
+  const toGo = dd.pct < 0 && !back ? (dd.hi.p / rd[rd.length - 1].p - 1) * 100 : 0;
+  let up = 0, down = 0;
+  for (let i = 1; i < rd.length; i++) if (tsU(rd[i].d) - tsU(rd[i - 1].d) === DAYMS) { if (rd[i].p > rd[i - 1].p) up++; else if (rd[i].p < rd[i - 1].p) down++; }
+  const card = (v, c, l) => `<div><b class="${c}">${v}</b><span>${l}</span></div>`;
+  document.getElementById('pc-facts').innerHTML =
+    card(pc1(g(top.p)), cls(g(top.p)), `highest point (${dl(top.d)})`) +
+    card(dd.pct < 0 ? pc1(dd.pct) : '0%', dd.pct < 0 ? 'down' : '', dd.pct < 0 ? `biggest drop from a high (${dl(dd.hi.d)} to ${dl(dd.lo.d)})` : 'no drop from a high yet') +
+    card(dd.pct >= 0 ? '-' : back ? dl(back.d) : 'Not yet', back ? 'up' : '', dd.pct >= 0 ? 'nothing to recover' : back ? `back to that high, ${Math.round((tsU(back.d) - tsU(dd.lo.d)) / DAYMS)} days after the low` : `${pc1(toGo).replace('+', '')} more to get back to that high`) +
+    card(`${up} / ${down}`, '', 'days up / days down');
 }
 function friendsTable() {
   document.getElementById('ftable').innerHTML = '<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Worth now</th><th>Profit</th><th>%</th><th>Lowest point</th></tr>' +
@@ -948,7 +952,7 @@ function liveApply(data) {
   LDATA = data; LS = lvSeries(data.daily);
   R = FRIENDS.filter((f) => f.date <= LS[LS.length - 1].d).map((f) => ({ ...f, r: liveRun(f.amt, f.date) }));
   if (pick >= R.length) pick = 0;
-  lvStats(); poolChart(); negNote(); friendsUI(); yQuick(); yours();
+  lvStats(); poolChart(); chartFacts(); friendsUI(); yQuick(); yours();
   return true;
 }
 function liveLoad() {
