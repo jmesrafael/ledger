@@ -19,7 +19,7 @@
   const boxOn = (name, label) => box(name, label).replace('type="checkbox"', 'type="checkbox" checked');
 
   // the Record tab: the four steps first, the accounting screens after them
-  const ACTIONS = [['add', 'Add investor'], ['cash', 'Cash in'], ['out', 'Withdraw'], ['move', 'Transfer']];
+  const ACTIONS = [['add', 'Add investor'], ['cash', 'Deposit'], ['out', 'Withdrawal'], ['move', 'Transfer']];
   const BOOKS_ALL = [['nav', 'Live NAV'], ['dep', 'Money in (by hand)'], ['wd', 'Money out (by hand)'], ['eq', 'Balance'], ['hist', 'History']];
   const isDesk = (rec) => ACTIONS.some(([k]) => k === rec) || rec === 'nav';
   // legacy = the retired by-hand screens are switched on (CONFIG.LEGACY_SCREENS): only then are they listed
@@ -47,21 +47,21 @@
 
   function addForm(o) {
     return `<div class="card"><h2>Add investor</h2>
-      <p class="note">Creates the account and records the first cash-in in one step. The investor is credited <b>pesos ÷ rate</b>: if less USDT arrived, the gap comes from your units; if more, the rest is yours. Units are bought at the live price, so nobody else's value moves.</p>
+      <p class="note">Creates the account and records the first deposit in one step. The investor is credited <b>pesos ÷ rate</b>: if less USDT arrived, the gap comes from your units; if more, the rest is yours. Units are bought at the live price, so nobody else's value moves.</p>
       <form id="addForm"><div class="grid form2"><div><label>Full name</label><input name="name" required></div>
         <div><label>Username (they sign in with it)</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\\-]{3,30}" required></div></div>
         <div class="grid form2"><div><label>Temporary password</label><input name="password" type="text" minlength="8" autocomplete="off" required></div>
           <div><label>Profit share (%)</label><input name="fee" type="number" step="any" min="0" max="100" value="${o.defaultFee == null ? 20 : Number(o.defaultFee) * 100}"></div></div>
         ${recvFields(o.rate)}
-        <div class="preview" id="addPrev">—</div><button class="full">Add investor and cash in</button></form></div>`;
+        <div class="preview" id="addPrev">—</div><button class="full">Add investor and deposit</button></form></div>`;
   }
   function cashForm(o) {
-    return `<div class="card"><h2>Cash in</h2>
+    return `<div class="card"><h2>Deposit</h2>
       <p class="note">Pesos (or USDT) someone put in. Leave the pesos empty for money sent in USDT. It joins at the live price as soon as the MEXC reports show it: no Update Pool, no waiting for trades to close.</p>
       <form id="cashForm"><label>Who</label><select name="who">${o.holderOpts}</select>
         ${recvFields(o.rate)}
         <details><summary>More options</summary><label>Note</label><input name="note"></details>
-        <div class="preview" id="cashPrev">—</div><button class="full">Cash in</button></form></div>${waitingCard(o.cashins, o.now)}`;
+        <div class="preview" id="cashPrev">—</div><button class="full">Save deposit</button></form></div>${waitingCard(o.cashins, o.now)}`;
   }
   function waitingCard(list, now) {
     const w = (list || []).filter((c) => c.status === 'waiting');
@@ -78,14 +78,14 @@
     return `${reqs.length ? `<div class="card"><h2>Requests from investors (${reqs.length})</h2>
         ${reqs.map((q) => row(`<b style="color:var(--ink)">${esc(q.name || '')}</b> · ${esc(String(q.requested_at || '').slice(0, 10))}`, `<button class="sm" data-action="procreq" data-id="${q.id}">Process</button>`,
           `${Number(q.units).toFixed(4)} units · about ${usd(Number(q.units) * Number(o.unitPrice))}${q.stage ? ` · ${esc(q.stage)}` : ''}`)).join('')}</div>` : ''}
-      <div class="card"><h2>Withdraw</h2>
+      <div class="card"><h2>Withdrawal</h2>
       <p class="note">Redeemed at the live price in one step (request, approval, redemption). It is refused, with nothing saved, if MEXC cannot release that much right now (open trades hold margin). Then send it from MEXC and mark it sent.</p>
       <form id="outForm"><label>Who</label><select name="who">${o.holderOpts}</select>
         <label>Amount (USDT)</label><input name="usdt" type="number" step="any" inputmode="decimal" placeholder="50">
         ${box('all', 'Everything they hold')}
         <label>Lock-up reason (only if they are inside their first-deposit lock-up)</label><input name="lock" placeholder="for example: family emergency, agreed by phone">
         <details><summary>More options</summary><label>Note</label><input name="note"></details>
-        <div class="preview" id="outPrev">—</div><button class="full">Withdraw</button></form></div>
+        <div class="preview" id="outPrev">—</div><button class="full">Save withdrawal</button></form></div>
       ${pays.length ? `<div class="card"><h2>To send from MEXC (${pays.length})</h2>
         ${pays.map((p) => row(`<b style="color:var(--ink)">${esc(p.name || '')}</b>`, `<button class="sm" data-action="paysent" data-id="${p.request_id}">Mark sent</button>`,
           `${usd(p.amount_usdt, 4)} · ${esc(p.status)}${p.failure_reason ? ' · ' + esc(p.failure_reason) : ''}`)).join('')}</div>` : ''}`;

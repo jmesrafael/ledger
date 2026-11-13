@@ -8,8 +8,8 @@ Migration: `supabase/migrations/applied/20261213000000_live_nav.sql` (rollback: 
 | Step | Where | What happens |
 |---|---|---|
 | **Add investor** | Record → Add investor | Account + first cash-in in one transaction. |
-| **Cash in** | Record → Cash in | Pesos, the USDT that arrived in MEXC, the rate (pre-filled live). Tick "It is in MEXC". It joins by itself at the first verified reading that shows the money. |
-| **Withdraw** | Record → Withdraw | Redeemed at the live price (request, approval, redemption in one step) after a liquidity check. Then send it from MEXC and press **Mark sent**. Investor requests appear above the form with **Process**. |
+| **Deposit** | Record → Deposit | Pesos, the USDT that arrived in MEXC, the rate (pre-filled live). Tick "It is in MEXC". It joins by itself at the first verified reading that shows the money. |
+| **Withdrawal** | Record → Withdrawal | Redeemed at the live price (request, approval, redemption in one step) after a liquidity check. Then send it from MEXC and press **Mark sent**. Investor requests appear above the form with **Process**. |
 | **Transfer** | Record → Transfer | Ownership from one holder to another, in pesos (at the rate) or in USDT value. |
 
 Nothing else: no Update Pool, no typed exchange totals, no waiting for trades to close, no settlement needed for anyone's value to move.
@@ -42,7 +42,7 @@ the same wallet checks. Both flows were tested with it on (LN10).
 
 ## The rules for money
 
-- **Cash in:** the investor is credited `pesos ÷ rate` (rounded down to 6 decimals). Less USDT arrived: the gap comes from **your** units at the live price
+- **Deposit:** the investor is credited `pesos ÷ rate` (rounded down to 6 decimals). Less USDT arrived: the gap comes from **your** units at the live price
   (the peso top-up rule). More arrived: the rest joins as **your** own money. Your own cash-ins are simply the USDT that arrived. Their high-water mark
   is what they were credited: no fee on their own money. The rate must be within 2% of the fund's stored PHP/USD reference.
 - **Withdraw:** the fee on the redeemed share's gain above their mark (as before). Refused with nothing saved when it does not fit what MEXC can release

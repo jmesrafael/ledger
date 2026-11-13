@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { world, adv, near } from './_tvworld.mjs';
 
 const END = Date.UTC(2026, 9, 31, 16);                       // Nov 1, 2026 00:00 Manila: the Sep-Oct period ends
-const MIG = new URL('../supabase/migrations/20261214000000_auto_settlement.sql', import.meta.url);
+const MIG = new URL('../supabase/migrations/applied/20261214000000_auto_settlement.sql', import.meta.url);
 const RB = new URL('../supabase/rollback/20261214000000_rollback_auto_settlement.sql', import.meta.url);
 const n = async (w, sql) => Number((await w.q(sql))[0].n);
 const settlements = (w) => n(w, `select count(*)::int n from public.settlements`);

@@ -1,5 +1,5 @@
 -- RETIRE THE FUNCTIONS THE WEBSITE NO LONGER USES. Docs: docs/CLEANUP-REPORT.md. Tests: tests/retire.test.mjs. Rollback: supabase/rollback/20261215000000_rollback_retire_unused_functions.sql
--- NOT applied to the live database (owner step). Safe to run twice.
+-- APPLIED to the live database on 2026-11-13. Safe to run twice.
 --
 -- It only takes away the website role's right to CALL these functions (revoke execute from public, anon, authenticated). Nothing is dropped, no table is
 -- touched, no row changes: the functions stay in the database, the triggers and the kept functions that use them internally keep working (they run as the

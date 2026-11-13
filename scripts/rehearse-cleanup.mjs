@@ -77,8 +77,8 @@ try {
   const rows0 = psql(ROWS).out, f0 = psql(FUNCS).out, g0 = psql(GRANTS).out;
 
   // ---- 2. the two migrations
-  const M14 = file('migrations/20261214000000_auto_settlement.sql'), R14 = file('rollback/20261214000000_rollback_auto_settlement.sql');
-  const M15 = file('migrations/20261215000000_retire_unused_functions.sql'), R15 = file('rollback/20261215000000_rollback_retire_unused_functions.sql');
+  const M14 = file('migrations/applied/20261214000000_auto_settlement.sql'), R14 = file('rollback/20261214000000_rollback_auto_settlement.sql');
+  const M15 = file('migrations/applied/20261215000000_retire_unused_functions.sql'), R15 = file('rollback/20261215000000_rollback_retire_unused_functions.sql');
   r = psql(`begin;\n${M14}\nselect 1/0;\ncommit;`);
   check('1214 auto settlement: a run that fails half-way leaves nothing behind', !r.ok && psql(FUNCS).out === f0 && psql(ROWS).out === rows0);
   let a = psql(M14), b = psql(M14);

@@ -13,7 +13,7 @@ import { world, adv, near } from './_tvworld.mjs';
 
 const require = createRequire(import.meta.url);
 const Desk = require('../js/desk.js'), SettleAuto = require('../js/settleauto.js');
-const MIG = readFileSync(new URL('../supabase/migrations/20261215000000_retire_unused_functions.sql', import.meta.url), 'utf8');
+const MIG = readFileSync(new URL('../supabase/migrations/applied/20261215000000_retire_unused_functions.sql', import.meta.url), 'utf8');
 const RB = readFileSync(new URL('../supabase/rollback/20261215000000_rollback_retire_unused_functions.sql', import.meta.url), 'utf8');
 const APP = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 const SPREAD = ['admin_admission_spreads', 'admin_quote_admission_spread', 'admin_admit_admission_spread_tv', 'admin_cancel_admission_spread'];
@@ -119,7 +119,7 @@ test('RT3 refused while by-hand money is waiting; runs twice; the rollback resto
 
 test('RT4 with the switch off the Record tab lists only the four steps, Live NAV and History; the settlement card words the database\'s figures', () => {
   const h = Desk.tabs('cash');
-  for (const l of ['Add investor', 'Cash in', 'Withdraw', 'Transfer', 'Live NAV', 'History']) assert.ok(h.includes(l), l);
+  for (const l of ['Add investor', 'Deposit', 'Withdrawal', 'Transfer', 'Live NAV', 'History']) assert.ok(h.includes(l), l);
   for (const l of ['by hand', 'Balance']) assert.ok(!h.includes(l), 'not listed: ' + l);
   assert.ok(Desk.tabs('cash', true).includes('Money in (by hand)'), 'listed again with the switch on');
   const st = { auto: 'on', open_trades_rule: 'allow', state: 'due', timezone: 'Asia/Manila', period_end: '2026-12-31T16:00:00Z', window_end: '2027-01-07T16:00:00Z', next_period_end: '2027-02-28T16:00:00Z',

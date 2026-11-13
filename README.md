@@ -19,14 +19,14 @@ This is the only flow the manager uses. Three bots (BB-Core, I-Core, T-CORE) tra
 | # | Step | Where | What happens |
 |---|---|---|---|
 | 1 | **Add investor** | Record > Add investor | Creates the account and the first cash-in in one step. |
-| 2 | **Cash in** | Record > Cash in | The manager enters the pesos paid, the USDT that arrived in MEXC and the PHP/USD rate. The investor is credited pesos divided by rate. If less USDT arrived, the gap is covered by the fund manager's own units (peso top-up rule). If more arrived, the extra is the fund manager's own money. The money joins at the live price at the first verified MEXC wallet reading that shows it. |
-| 3 | **Withdraw** | Record > Withdraw | Request, approval and redemption in one step, at the live price, after a check that MEXC can release the money. Then the manager sends the money from MEXC and presses **Mark sent**. Investor requests show there with a **Process** button. |
+| 2 | **Deposit** | Record > Deposit | The manager enters the pesos paid, the USDT that arrived in MEXC and the PHP/USD rate. The investor is credited pesos divided by rate. If less USDT arrived, the gap is covered by the fund manager's own units (peso top-up rule). If more arrived, the extra is the fund manager's own money. The money joins at the live price at the first verified MEXC wallet reading that shows it. |
+| 3 | **Withdrawal** | Record > Withdrawal | Request, approval and redemption in one step, at the live price, after a check that MEXC can release the money. Then the manager sends the money from MEXC and presses **Mark sent**. Investor requests show there with a **Process** button. |
 | 4 | **Transfer** | Record > Transfer | Ownership moves from one holder to another at the live price. The pool total does not move. |
 | 5 | Spot and Futures moves | Done by hand in MEXC | Not in the ledger. The manager matches MEXC himself when he enters a cash-in, a withdrawal or a transfer. |
 | 6 | **Bots report** | Automatic | Each bot sends a wallet report every 5 minutes and every closed trade is booked automatically. |
 | 7 | **Settlement** | Automatic once `20261214000000_auto_settlement.sql` is applied | See below. |
 
-Manager screens: Dashboard, Users, Record (Add investor, Cash in, Withdraw, Transfer, Live NAV, History), Settle, Reports, Log. Investor screens are unchanged.
+Manager screens: Dashboard, Users, Record (Add investor, Deposit, Withdrawal, Transfer, Live NAV, History), Settle, Reports, Log. Investor screens are unchanged.
 Step by step details: [docs/live-nav.md](docs/live-nav.md).
 
 ## How the price is made

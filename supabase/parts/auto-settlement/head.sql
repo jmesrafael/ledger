@@ -1,6 +1,6 @@
 -- AUTOMATIC TWO-MONTH SETTLEMENT. Docs: docs/auto-settlement.md. Tests: tests/auto-settlement.test.mjs. Rollback: supabase/rollback/20261214000000_rollback_auto_settlement.sql
 -- Built by scripts/build-auto-settlement.mjs (edit supabase/parts/auto-settlement/*, not this file).
--- NOT applied to the live database (owner step). Safe to run twice. It rewrites no ledger row and makes no settlement when it is run.
+-- APPLIED to the live database on 2026-11-13. Safe to run twice. It rewrites no ledger row and makes no settlement when it is run.
 --
 -- What it adds: the existing true-value settlement (admin_close_quarter_tv, 20261207) runs BY ITSELF at the first verified MEXC wallet reading after a
 -- two-month period ends (Jan 1, Mar 1, May 1, Jul 1, Sep 1, Nov 1, Manila time), inside the 7-day window. Nothing about the fee changes:

@@ -208,7 +208,7 @@
     } finally { if (counted && --inFlight <= 0) { inFlight = 0; clearTimeout(loadTimer); loadbar(false); } }
   }
   async function call(fn, args = {}) {
-    if (!LEGACY && RETIRED.has(fn)) throw new Error('This screen is retired (' + fn + '). Use Record: Add investor, Cash in, Withdraw or Transfer.');
+    if (!LEGACY && RETIRED.has(fn)) throw new Error('This screen is retired (' + fn + '). Use Record: Add investor, Deposit, Withdrawal or Transfer.');
     try { return await rpc(fn, { p_token: S.token, ...args }); }
     catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
   }
@@ -1635,7 +1635,7 @@
         <p class="about">This is the fund manager side of Lucid'io Ledger, the paper record of who owns what in the pool. No money moves through this app: the real money stays in the exchange account. Investors only ever see their own balance; you see everyone.</p>
         <p class="about">Use the <b>Fund / My account</b> switch at the top: <b>Fund</b> is the pool and everyone’s records, <b>My account</b> is your own capital, the fee you have earned and your own growth.</p>`],
       [ICON.record, 'Your routine', `<p class="about"><b>Nothing to value by hand:</b> the unit price follows the bots’ MEXC wallet reports every 5 minutes, open trades included, and every balance and chart moves with it.</p>
-        <p class="about"><b>Record</b> has your four steps: <b>Add investor</b>, <b>Cash in</b> (pesos + the USDT that arrived; it joins at the live price once MEXC shows it), <b>Withdraw</b> (redeemed at the live price, then send it from MEXC and mark it sent) and <b>Transfer</b> (ownership between two people, nobody else’s value moves).</p>
+        <p class="about"><b>Record</b> has your four steps: <b>Add investor</b>, <b>Deposit</b> (pesos + the USDT that arrived; it joins at the live price once MEXC shows it), <b>Withdrawal</b> (redeemed at the live price, then send it from MEXC and mark it sent) and <b>Transfer</b> (ownership between two people, nobody else’s value moves).</p>
         <p class="about"><b>Settle:</b> every two months. Confirm the exchange balance under Record → Balance, check the preview, then charge the fee. A raised % starts after the next settlement.</p>`],
       [ICON.people, 'Handy tools', `<p class="about"><b>Users → + Add user</b> creates a login. Send them the username and password; they must agree to the terms before they see anything, and you can see who has.</p>
         <p class="about"><b>View as</b> opens the app exactly as that person sees it (read-only).</p>
@@ -2070,8 +2070,8 @@
     }
     else if (a === 'cashadmit') await act(() => call('admin_cash_in_admit', { p_cash_in: Number(id), p_idem: null }), 'Joined at the live price');
     else if (a === 'cashcancel') {
-      let why; try { why = await askText('Hand back this cash-in?', 'Why (for the activity log)', { text: 'Both parts are removed from waiting. Nothing in the books changes.', ok: 'Hand back', danger: true }); } catch { return; }
-      await holdDelete('Handing back this cash-in…', () => call('admin_cancel_cash_in', { p_cash_in: Number(id), p_reason: why }), 'Handed back');
+      let why; try { why = await askText('Hand back this deposit?', 'Why (for the activity log)', { text: 'Both parts are removed from waiting. Nothing in the books changes.', ok: 'Hand back', danger: true }); } catch { return; }
+      await holdDelete('Handing back this deposit…', () => call('admin_cancel_cash_in', { p_cash_in: Number(id), p_reason: why }), 'Handed back');
     }
     else if (a === 'paysent') {
       let ref; try { ref = await askText('Mark as sent from MEXC', 'MEXC withdrawal reference (or transfer ID)', { type: 'text', min: 3, ok: 'Mark sent' }); } catch { return; }
@@ -2275,10 +2275,10 @@
       } else if (id === 'cashForm') {
         const v = formVals(fm), a = Desk.cashArgs(v); if (!a) throw new Error('Enter the USDT that arrived in MEXC.');
         const r = await moneyCall(fm, 'admin_cash_in', { ...a, p_note: v.note || null });
-        await refresh(joinedText(r, 'Cash-in'));
+        await refresh(joinedText(r, 'Deposit'));
       } else if (id === 'outForm') {
         const v = formVals(fm), a = Desk.outArgs(v); if (!a) throw new Error('Choose who, and the amount in USDT (or everything).');
-        if (!(await confirmSheet('Withdraw now?', `${a.p_all ? 'Everything they hold' : usdt(a.p_usdt)} is redeemed at the live price and recorded as a payout to send from MEXC. Their units are sold now.`, 'Withdraw', true))) { if (btn) btn.disabled = false; return; }
+        if (!(await confirmSheet('Save this withdrawal?', `${a.p_all ? 'Everything they hold' : usdt(a.p_usdt)} is redeemed at the live price and recorded as a payout to send from MEXC. Their units are sold now.`, 'Withdraw', true))) { if (btn) btn.disabled = false; return; }
         const r = await moneyCall(fm, 'admin_withdraw_now', { ...a, p_note: v.note || null });
         await refresh(`Redeemed: send ${usdt(r.pay_usdt, 6)} from MEXC, then press Mark sent.`);
       } else if (id === 'moveForm') {
