@@ -176,13 +176,9 @@ svg text { font-family: Manrope, sans-serif; }
   background: linear-gradient(135deg, rgba(200,255,61,0.09), rgba(125,184,255,0.05)); border: 1px solid rgba(200,255,61,0.22); }
 .quote p { font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; font-style: italic; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.6; }
 .quote span { display: block; margin-top: 12px; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 400; font-style: italic; color: var(--muted); }
-.endrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; align-items: stretch; }
-.endrow .quote { margin-top: 0; display: flex; flex-direction: column; justify-content: center; }
-.endrow .quote p { font-size: 18px; }
-.author { padding: 18px 20px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); }
+.author { margin-top: 28px; padding: 18px 20px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); }
 .author h3 { color: var(--ink); margin: 0 0 6px; }
 .author p { margin: 4px 0 0; font-size: 13.5px; }
-@media (max-width: 720px) { .endrow { grid-template-columns: 1fr; } }
 .datacta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-top: 18px; padding: 18px 20px; border-radius: 18px;
   background: linear-gradient(135deg, rgba(200,255,61,0.12), rgba(125,184,255,0.07)); border: 1px solid rgba(200,255,61,0.3); }
 .cta-dot { width: 8px; height: 8px; border-radius: 50%; background: #0b0d06; animation: lvpulse 1.8s ease-out infinite; }
@@ -270,11 +266,49 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .pc-ping { transform-box: fill-box; transform-origin: center; animation: pcping 2s ease-out infinite; }
 @keyframes pcping { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
 #yours label.f { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
-#yours input[type=text], #yours input[type=date], #yours select { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color-scheme: dark; }
+.dd { position: relative; }
+.dd-btn { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left;
+  font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); transition: border-color .2s; }
+.dd-btn small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.dd-btn svg { margin-left: auto; flex: none; color: var(--muted); transition: transform .2s, color .2s; }
+.dd-btn:hover { border-color: rgba(255,255,255,0.2); }
+.dd-btn[aria-expanded=true] { border-color: rgba(200,255,61,0.5); }
+.dd-btn[aria-expanded=true] svg { transform: rotate(180deg); color: var(--accent); }
+.dd-btn:focus-visible, .dd-pop button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.dd-pop { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0; padding: 6px; border-radius: 16px;
+  background: rgba(20,21,23,0.97); border: 1px solid var(--glass-border); box-shadow: 0 18px 44px rgba(0,0,0,0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.dd-opt { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border: 0; border-radius: 11px; background: none; cursor: pointer; text-align: left;
+  font: 700 15px Manrope, system-ui, sans-serif; color: var(--ink); }
+.dd-opt span { font-size: 13px; font-weight: 600; color: var(--muted); }
+.dd-opt:hover { background: rgba(255,255,255,0.06); }
+.dd-opt.on { color: var(--accent); background: var(--accent-dim); }
+.dd-opt.on span { color: var(--accent); }
+.dd-sep { height: 1px; margin: 4px 8px; background: var(--line); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 10px; }
+.cal-head b { font-size: 15px; color: var(--ink); }
+.cal-nav { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; color: var(--ink); background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); }
+.cal-nav:hover:not(:disabled) { border-color: rgba(200,255,61,0.5); color: var(--accent); }
+.cal-nav:disabled { opacity: .25; cursor: default; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-grid .wd { padding: 4px 0; text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.cal-day { height: 38px; border: 0; border-radius: 10px; background: none; cursor: pointer; font: 700 14px Manrope, system-ui, sans-serif; color: var(--ink); }
+.cal-day:hover:not(:disabled) { background: rgba(255,255,255,0.08); }
+.cal-day:disabled { color: rgba(255,255,255,0.16); cursor: default; }
+.cal-day.first { box-shadow: inset 0 0 0 1px rgba(200,255,61,0.45); }
+.cal-day.on { background: var(--accent); color: #0b0d06; box-shadow: none; }
+.cal-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 6px 2px; font-size: 12px; color: var(--muted); }
+.cal-foot button { padding: 4px 2px; border: 0; background: none; cursor: pointer; font: 700 13px Manrope, system-ui, sans-serif; color: var(--accent); }
+#yours input[type=text] { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color-scheme: dark; }
 #yours input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .yf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 @media (max-width: 520px) { .yf { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .livebadge .pulse, .pc-ping { animation: none; } }
+.totop { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: var(--accent); background: rgba(17,17,19,0.82); border: 1px solid rgba(200,255,61,0.35); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.4); opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity .25s ease, transform .25s ease, visibility .25s; }
+.totop.show { opacity: 1; visibility: visible; transform: none; }
+.totop:hover { background: var(--accent); color: #0b0d06; }
+@media print { .totop { display: none; } }
 </style>
 </head>
 <body>
@@ -378,8 +412,11 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <p class="small">Type your amount and choose when you would have joined (a week ago, a month ago, or your own date). We apply the pool's real growth from that day until now.</p>
     <div class="yf">
       <div><label class="f" for="y-amt">Your amount (₱)</label><input id="y-amt" type="text" inputmode="decimal" value="10,000" autocomplete="off"></div>
-      <div><label class="f" for="y-when">You joined</label><select id="y-when"></select></div>
-      <div id="y-custom" hidden><label class="f" for="y-date">Pick a date</label><input id="y-date" type="date"></div>
+      <div class="dd" id="y-dd">
+        <label class="f" id="y-when-l">You joined</label>
+        <button type="button" class="dd-btn" id="y-when" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="y-when-l y-when"><span id="y-when-txt">Day one</span><small id="y-when-d"></small><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <div class="dd-pop" id="y-pop" role="dialog" aria-label="When you joined" hidden></div>
+      </div>
     </div>
     <p class="small muted" style="margin:10px 0 0">Live trading started on <b class="lv-start">Oct 24, 2026</b>, so there are no earlier dates: the pool has no results before then.</p>
     <div class="out" id="y-out" aria-live="polite"></div>
@@ -413,6 +450,10 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <svg id="years" class="chart" viewBox="0 0 640 260" role="img" aria-label="Test balance at the end of each year, log scale"></svg>
   <p class="small muted" id="years-note"></p>
   <div class="note-box"><b style="color:var(--accent)">The long view.</b> Every year in this test ended higher than it began, even though some months and weeks were negative. That is why this works best as money you leave in for the long term, not money you check every week. <b style="color:var(--red)">The big totals here are inflated</b>: the markets were chosen after seeing how they did, 2021 was extraordinary, and the edge has been getting smaller. Treat the yearly table above, and the dips, as the more honest picture.</div>
+  <div class="quote">
+      <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
+      <span>— Albert Einstein</span>
+    </div>
   <h2 style="margin-top:28px" id="compare">How does it compare with saving elsewhere?</h2>
   <p>What <b>₱100,000</b> becomes after one year. The bank and government rows are what you keep after the 20% tax on interest (Pag-IBIG MP2 is tax-free). The Lucid'io rows come from our test on past prices, <b>after the 20% fee</b>, and each year starts again at ₱100,000.</p>
   <div class="tscroll">
@@ -423,18 +464,6 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="datacta">
     <div><h3>Want every detail?</h3><p>Year by year, month by month: the best and worst months, the longest red streaks and the biggest drops.</p></div>
     <a class="btn" href="/backtest-data">See the full data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
-  </div>
-  <div class="endrow">
-    <div class="author">
-      <h3>About this test</h3>
-      <p>Researched and backtested by <b>James Rafael Boroy</b></p>
-      <p>Est. Oct 20, 2026 · Market data: Binance and MEXC futures</p>
-      <p class="small muted">Backtested results are statistics on past prices. Markets are unpredictable, so future results can be different and nothing here is guaranteed.</p>
-    </div>
-    <div class="quote">
-      <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
-      <span>— Albert Einstein</span>
-    </div>
   </div>
 </section>
 
@@ -535,9 +564,17 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
 </section>
 
+<div class="author">
+      <h3>About this test</h3>
+      <p>Researched and backtested by <b>James Rafael Boroy</b></p>
+      <p>Est. Oct 20, 2026 · Market data: Binance and MEXC futures</p>
+      <p class="small muted">Backtested results are statistics on past prices. Markets are unpredictable, so future results can be different and nothing here is guaranteed.</p>
+    </div>
+
 <footer>Lucid'io · Past results, simulated or real, do not guarantee future results. Only use money you can afford to lose.</footer>
 </div>
 
+<button type="button" class="totop" id="totop" aria-label="Back to top"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
 <script>
 const LANDING = {"risk":0.025,"low":0.01,"years":{"0.025":{"bal":10278491,"years":{"2020":{"start":1000,"end":1958,"dd":0.1826},"2021":{"start":1958,"end":27773,"dd":0.2602},"2022":{"start":27773,"end":84948,"dd":0.4615},"2023":{"start":84948,"end":217348,"dd":0.4712},"2024":{"start":217348,"end":755916,"dd":0.3176},"2025":{"start":755916,"end":2845618,"dd":0.267},"2026":{"start":2845618,"end":10278491,"dd":0.4536}},"dd":0.4712,"ddAt":"2023-05-07"},"0.01":{"bal":122404,"years":{"2020":{"start":1000,"end":1347,"dd":0.0757},"2021":{"start":1347,"end":5370,"dd":0.108},"2022":{"start":5370,"end":9227,"dd":0.1781},"2023":{"start":9227,"end":16575,"dd":0.2152},"2024":{"start":16575,"end":30930,"dd":0.1341},"2025":{"start":30930,"end":62324,"dd":0.0956},"2026":{"start":62324,"end":122404,"dd":0.2197}},"dd":0.2197,"ddAt":"2026-05-05"}},"short":[{"y":2020,"endY":1.9579,"now":10278.4909,"dd":0.4712,"ddAt":"2023-05-07","low":1},{"y":2021,"endY":14.1849,"now":5249.7412,"dd":0.4712,"ddAt":"2023-05-07","low":0.9839},{"y":2022,"endY":3.0587,"now":370.0933,"dd":0.4712,"ddAt":"2023-05-07","low":1},{"y":2023,"endY":2.5586,"now":120.9976,"dd":0.4712,"ddAt":"2023-05-07","low":0.7408},{"y":2024,"endY":3.4779,"now":47.2905,"dd":0.4536,"ddAt":"2026-05-05","low":0.8598},{"y":2025,"endY":3.7645,"now":13.5974,"dd":0.4536,"ddAt":"2026-05-05","low":0.8561},{"y":2026,"endY":3.612,"now":3.612,"dd":0.4536,"ddAt":"2026-05-05","low":0.7298}],"w26":[{"d":"2026-01-04","p":1.0135},{"d":"2026-01-11","p":1.0529},{"d":"2026-01-18","p":0.967},{"d":"2026-01-25","p":0.911},{"d":"2026-01-31","p":0.9533},{"d":"2026-02-01","p":0.9533},{"d":"2026-02-08","p":1.2993},{"d":"2026-02-15","p":1.2688},{"d":"2026-02-22","p":1.116},{"d":"2026-02-28","p":1.0329},{"d":"2026-03-01","p":0.9803},{"d":"2026-03-08","p":0.941},{"d":"2026-03-15","p":0.8771},{"d":"2026-03-22","p":0.974},{"d":"2026-03-29","p":0.9826},{"d":"2026-03-31","p":0.9782},{"d":"2026-04-05","p":1.0005},{"d":"2026-04-12","p":1.0024},{"d":"2026-04-19","p":1.0296},{"d":"2026-04-26","p":0.9556},{"d":"2026-04-30","p":0.8136},{"d":"2026-05-03","p":0.8104},{"d":"2026-05-10","p":0.9142},{"d":"2026-05-17","p":1.1122},{"d":"2026-05-24","p":1.1469},{"d":"2026-05-31","p":1.577},{"d":"2026-06-07","p":2.4975},{"d":"2026-06-14","p":2.4636},{"d":"2026-06-21","p":2.275},{"d":"2026-06-28","p":2.0606},{"d":"2026-06-30","p":2.0606},{"d":"2026-07-05","p":2.408},{"d":"2026-07-12","p":2.3919},{"d":"2026-07-19","p":2.2345},{"d":"2026-07-26","p":1.9506},{"d":"2026-07-31","p":1.8585},{"d":"2026-08-02","p":2.0882},{"d":"2026-08-09","p":2.1429},{"d":"2026-08-16","p":2.1631},{"d":"2026-08-23","p":2.3155},{"d":"2026-08-30","p":3.9507},{"d":"2026-08-31","p":3.9507},{"d":"2026-09-06","p":3.5022},{"d":"2026-09-13","p":3.73},{"d":"2026-09-20","p":3.3716},{"d":"2026-09-27","p":5.2892},{"d":"2026-09-30","p":5.3583},{"d":"2026-10-04","p":5.0183},{"d":"2026-10-11","p":4.6427},{"d":"2026-10-18","p":4.1764},{"d":"2026-10-20","p":3.7076}],"facts":{"end":"2026-10-20","first":"2020-03-08","trades":{"bb":1331,"ic":760},"dd":0.4712,"ddAt":"2023-05-07","dd1":0.2197,"dipMin":0.1826,"dipMax":0.4712,"rollN":67,"rollMed":2.7947,"rollLoss":1,"rollWorst":-0.0908,"rollWorstFrom":"2022-07-01","worst3":0.5617,"worst3From":"2026-02-07","worst3To":"2026-05-09","last12":4.1957,"last12low":1.7413,"allUp":true,"best":["2021",13.184371807967313],"weakest":["2023","2022"]}};   // generated by StrategyBacktester/scripts/landing-data.mjs — re-run it, do not edit by hand
 const YEARS = { r: LANDING.years };   // ₱1,000 from 1 Jan 2020 at the live risk and at 1%: per year start / end / deepest dip
@@ -807,7 +844,8 @@ const tsU = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10))
 const isoU = (t) => new Date(t).toISOString().slice(0, 10);
 const fdY = (s) => `${dl(s)}, ${s.slice(0, 4)}`;
 const ago = (ms) => { const m = Math.round(ms / 6e4); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
-let LS = [], LDATA = null, pick = 0, R = [], yPick = null, yCustom = false;
+let LS = [], LDATA = null, pick = 0, R = [], yPick = null;
+let yQ = [], yPre = 0, yView = 'list', yMonth = null;   // quick picks, the chosen one (-1 = custom date), the open panel, the calendar month
 // one row per day from the first reading to the last; a day with no reading keeps the day before
 function lvSeries(daily) {
   const out = []; let j = 0, cur = null;
@@ -949,11 +987,10 @@ document.getElementById('ftable').addEventListener('click', choose);
 const yAmt = () => { const v = parseFloat((document.getElementById('y-amt').value || '').replace(/[^0-9.]/g, '')); return isFinite(v) && v > 0 ? v : 0; };
 function yours() {
   const $ = (id) => document.getElementById(id), amt = yAmt();
-  const dEl = $('y-date'); dEl.min = LS[0].d; dEl.max = LS[LS.length - 1].d;
-  if (!yPick || yPick < dEl.min || yPick > dEl.max) yPick = LS[0].d;
-  dEl.value = yPick;
-  $('y-when').value = yCustom ? 'custom' : yPick; if ($('y-when').value !== (yCustom ? 'custom' : yPick)) { yCustom = true; $('y-when').value = 'custom'; }
-  $('y-custom').hidden = !yCustom;
+  if (yPre >= 0 && yQ[yPre]) yPick = yQ[yPre].d;
+  if (!yPick || yPick < LS[0].d || yPick > LS[LS.length - 1].d) { yPre = 0; yPick = LS[0].d; }
+  $('y-when-txt').textContent = yPre >= 0 ? yQ[yPre].l : 'Custom date';
+  $('y-when-d').textContent = yPre >= 0 ? dl(yPick) : fdY(yPick);
   if (!amt) { $('y-out').innerHTML = '<div><b>-</b><span>type an amount</span></div>'; $('ychart').innerHTML = ''; $('y-note').textContent = ''; return; }
   const r = liveRun(amt, yPick);
   $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth now</span></div>
@@ -963,18 +1000,52 @@ function yours() {
   $('y-note').textContent = `The grey line is the pool before you joined; the vertical line is the day you join (the end of ${fdY(r.join)}). Real pool results, not a forecast: the value changes every few minutes.`;
 }
 function yQuick() {
-  const end = LS.length - 1, q = [['Day one', LS[0].d]];
-  if (end >= 7) q.push(['1 week ago', LS[end - 7].d]);
-  if (end >= 14) q.push(['2 weeks ago', LS[end - 14].d]);
-  if (end >= 30) q.push(['1 month ago', LS[end - 30].d]);
-  document.getElementById('y-when').innerHTML = q.map(([l, d]) => `<option value="${d}">${l} (${dl(d)})</option>`).join('') + '<option value="custom">Custom date…</option>';
+  const end = LS.length - 1; yQ = [{ l: 'Day one', d: LS[0].d }];
+  if (end >= 7) yQ.push({ l: '1 week ago', d: LS[end - 7].d });
+  if (end >= 14) yQ.push({ l: '2 weeks ago', d: LS[end - 14].d });
+  if (end >= 30) yQ.push({ l: '1 month ago', d: LS[end - 30].d });
+  if (yPre >= yQ.length) yPre = 0;
 }
+// the "You joined" panel: a list of quick picks, or a calendar of the live-trading days
+const ARROW = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+function yPanel() {
+  const pop = document.getElementById('y-pop');
+  if (yView === 'list') {
+    pop.innerHTML = yQ.map((q, k) => `<button type="button" class="dd-opt${k === yPre ? ' on' : ''}" data-q="${k}">${q.l}<span>${dl(q.d)}</span></button>`).join('') +
+      `<div class="dd-sep"></div><button type="button" class="dd-opt${yPre < 0 ? ' on' : ''}" data-cal="1">Custom date<span>${yPre < 0 ? dl(yPick) : 'pick a day'} ›</span></button>`;
+    return;
+  }
+  const min = LS[0].d, max = LS[LS.length - 1].d, y = +yMonth.slice(0, 4), m = +yMonth.slice(5, 7) - 1;
+  const lead = new Date(Date.UTC(y, m, 1)).getUTCDay(), n = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  let cells = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((w) => `<div class="wd">${w}</div>`).join('') + '<div></div>'.repeat(lead);
+  for (let k = 1; k <= n; k++) {
+    const d = isoU(Date.UTC(y, m, k)), off = d < min || d > max;
+    cells += `<button type="button" class="cal-day${d === yPick ? ' on' : ''}${d === min ? ' first' : ''}" data-day="${d}"${off ? ' disabled' : ''} aria-label="${MONTHS_LONG[m]} ${k}, ${y}">${k}</button>`;
+  }
+  pop.innerHTML = `<div class="cal-head"><button type="button" class="cal-nav" data-nav="-1" aria-label="Previous month"${yMonth <= min.slice(0, 7) ? ' disabled' : ''}>${ARROW('m15 6-6 6 6 6')}</button>
+    <b>${MONTHS_LONG[m]} ${y}</b>
+    <button type="button" class="cal-nav" data-nav="1" aria-label="Next month"${yMonth >= max.slice(0, 7) ? ' disabled' : ''}>${ARROW('m9 6 6 6-6 6')}</button></div>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-foot"><span>Live since ${dl(min)}</span><button type="button" data-back="1">‹ Quick picks</button></div>`;
+}
+function yOpen(open) {
+  const btn = document.getElementById('y-when'), pop = document.getElementById('y-pop');
+  if (open) { yView = yPre < 0 ? 'cal' : 'list'; yMonth = yPick.slice(0, 7); yPanel(); }
+  pop.hidden = !open; btn.setAttribute('aria-expanded', open);
+}
+document.getElementById('y-when').addEventListener('click', () => { if (LS.length) yOpen(document.getElementById('y-pop').hidden); });
+document.getElementById('y-pop').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.q) { yPre = +b.dataset.q; yOpen(false); yours(); }
+  else if (b.dataset.day) { yPre = -1; yPick = b.dataset.day; yOpen(false); yours(); }
+  else if (b.dataset.cal) { yView = 'cal'; yPanel(); }
+  else if (b.dataset.back) { yView = 'list'; yPanel(); }
+  else if (b.dataset.nav) { const t = new Date(Date.UTC(+yMonth.slice(0, 4), +yMonth.slice(5, 7) - 1 + +b.dataset.nav, 1)); yMonth = isoU(t).slice(0, 7); yPanel(); }
+});
+document.addEventListener('click', (e) => { if (!e.composedPath().includes(document.getElementById('y-dd'))) yOpen(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.getElementById('y-pop').hidden) { yOpen(false); document.getElementById('y-when').focus(); } });
 document.getElementById('y-amt').addEventListener('input', () => { if (LS.length) yours(); });
 document.getElementById('y-amt').addEventListener('blur', function () { const a = yAmt(); if (a) this.value = a.toLocaleString('en-US', { maximumFractionDigits: 2 }); });
-document.getElementById('y-date').addEventListener('input', function () { if (this.value) { yPick = this.value; yours(); } });
-document.getElementById('y-when').addEventListener('change', function () {
-  yCustom = this.value === 'custom'; if (!yCustom) yPick = this.value; yours();
-});
 function liveApply(data) {
   if (!data || !Array.isArray(data.daily) || !data.daily.length) return false;
   LDATA = data; LS = lvSeries(data.daily);
@@ -1075,6 +1146,13 @@ document.querySelectorAll('.tscroll-in').forEach(swipeable);
 // ---------- reveal on scroll
 const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
 document.querySelectorAll('.reveal').forEach((x) => io.observe(x));
+// back to top: appears once you scroll down
+(function () {
+  const b = document.getElementById('totop');
+  const on = () => b.classList.toggle('show', window.scrollY > 600);
+  window.addEventListener('scroll', on, { passive: true }); on();
+  b.addEventListener('click', () => window.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' }));
+})();
 </script>
 </body>
 </html>
