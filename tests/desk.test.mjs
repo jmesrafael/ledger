@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 const Desk = createRequire(import.meta.url)('../js/desk.js');
 
 test('DK1 the Record tab: the four steps first, the accounting screens folded below', () => {
-  const h = Desk.tabs('cash');
+  const h = Desk.tabs('cash', true);   // true = the retired by-hand screens switched on (LEGACY_SCREENS); tests/retire.test.mjs RT4 covers the default
   for (const l of ['Add investor', 'Cash in', 'Withdraw', 'Transfer', 'Live NAV', 'Balance', 'History']) assert.ok(h.includes(l), l);
   assert.ok(h.indexOf('Add investor') < h.indexOf('Live NAV'));
   assert.ok(/class="on" data-rec="cash"/.test(h));

@@ -139,7 +139,7 @@ test('S12 state-changing money steps keep one idempotency key until they succeed
 
 // ---------------------------------------------------------------- the preview the screen prints is what the settlement charges (real migrations, in memory)
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl)), ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];
+const FILES = [appl, dir].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d))).sort((a, b) => { const x = a.pathname.split('/').pop(), y = b.pathname.split('/').pop(); return x < y ? -1 : x > y ? 1 : 0; });   // applied/ + pending, merged by file name (timestamp order)
 async function world(settings = {}) {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);

@@ -10,9 +10,11 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 import { buildRestoreSql, splitTopLevel } from '../scripts/restore-ledger.mjs';
 
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const APPLIED = readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl));
-const PENDING = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir));
-const FILES = [...APPLIED, ...PENDING];
+const FILES = [appl, dir].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d)))   // applied/ + pending, merged by file name (timestamp order)
+  .sort((x, y) => { const p = x.pathname.split('/').pop(), q = y.pathname.split('/').pop(); return p < q ? -1 : p > q ? 1 : 0; });
+const MIG1109 = '20261109000000_settlement_controls_backup.sql';
+const APPLIED = FILES.filter((u) => u.pathname.split('/').pop() < MIG1109);   // production before 1109 (1109 was pending when these tests were written)
+const PENDING = FILES.filter((u) => u.pathname.split('/').pop() >= MIG1109);  // 1109 and everything after it
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 const BOOT = `create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`;
 const CLOCK_SQL = `create or replace function public._clock() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, '2000-01-01T00:00:00Z'::timestamptz) $$;`;   // tests set the recording time with: set test.clock = '...' (default: the year 2000, before every date used here)

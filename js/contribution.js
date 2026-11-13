@@ -157,7 +157,7 @@
     return ok(all) && all > 0 && Math.abs(want - all) <= 0.01 / p ? all : want;
   }
 
-  // The figures of an admission spread (docs/admission-spread.md): pesos credited at an admission rate above the actual / reference rate.
+  // The figures of an admission spread (docs/archive/admission-spread.md): pesos credited at an admission rate above the actual / reference rate.
   //   credited = pesos / admission rate, rounded DOWN to 6 decimals; actual = the USDT really allocated (default pesos / reference rate); surplus = actual - credited (the manager's).
   // The database does the same sums and every refusal (admin_quote_admission_spread); this only fills the form's defaults. Units never come from pesos or rates here.
   function spreadFigures(php, ref, adm, actual) {

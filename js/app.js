@@ -85,6 +85,20 @@
   const cls = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'muted');
   const num = (v) => (v === '' || v == null ? null : Number(v));
   const isAdmin = () => S.me && S.me.role === 'admin';
+  // LEGACY_SCREENS (js/config.js, off by default): the retired by-hand screens: typed balances and Update Pool, the Balance desk (workflow gate), the by-hand
+  // Money in / Money out forms, "They paid me directly", the admission spread and the typed-total settlement. With it off the fund manager has the four steps
+  // (Add investor, Cash in, Withdraw, Transfer), the Live NAV, History and the automatic settlement, and none of the functions below is ever requested:
+  // call() refuses them here, before anything is sent. The list equals supabase/migrations/20261215000000_retire_unused_functions.sql (tests/retire.test.mjs).
+  const LEGACY = !!(window.CONFIG && window.CONFIG.LEGACY_SCREENS);
+  const RETIRED = new Set(['admin_post_equity', 'admin_withdraw', 'admin_withdraw_to_manager', 'admin_units_from_manager', 'admin_quote_units_from_manager', 'admin_quote_withdraw',
+    'admin_close_quarter', 'admin_settlement_preview', 'admin_settlement_preview_tv', 'admin_update_pool', 'admin_update_pool_and_admit', 'admin_pending_pnl', 'admin_pool_status',
+    'admin_attest_settlement', 'admin_attest_snapshot', 'admin_wallet_nav',
+    'admin_enter_balance', 'admin_confirm_balance', 'admin_reject_balance', 'admin_apply_balance', 'admin_add_adjustment', 'admin_classify_difference', 'admin_classify_pool_difference',
+    'admin_classify_transfer', 'admin_escalate', 'admin_balance_checks', 'admin_capital_queue', 'admin_capital_events', 'admin_admit_deposit', 'admin_execute_withdrawal',
+    'admin_quote_withdrawal', 'admin_quote_close', 'admin_settle_quarter', 'admin_confirm_arrival', 'admin_split_withdrawal_request', 'admin_withdrawal_queue',
+    'admin_receive_deposit', 'admin_mark_arrived', 'admin_cancel_pending', 'admin_admit_deposit_tv', 'admin_admit_deposits_tv', 'admin_peso_topup', 'admin_quote_peso_topup',
+    'admin_approve_withdrawal', 'admin_execute_withdrawal_tv',
+    'admin_admission_spreads', 'admin_quote_admission_spread', 'admin_admit_admission_spread_tv', 'admin_cancel_admission_spread']);
   const rateText = (h) => pc(h.fee_rate) + '%' + (h.fee_rate_next != null ? ` → ${pc(h.fee_rate_next)}% after next close` : '');
 
   // Toasts, top right, coloured by what happened: green = saved / recorded, blue = updated / changed, red = deleted or an error.
@@ -194,6 +208,7 @@
     } finally { if (counted && --inFlight <= 0) { inFlight = 0; clearTimeout(loadTimer); loadbar(false); } }
   }
   async function call(fn, args = {}) {
+    if (!LEGACY && RETIRED.has(fn)) throw new Error('This screen is retired (' + fn + '). Use Record: Add investor, Cash in, Withdraw or Transfer.');
     try { return await rpc(fn, { p_token: S.token, ...args }); }
     catch (e) { if (/not signed in/.test(e.message)) { signedOut('Please sign in again.'); throw new Error('Signed out'); } throw e; }
   }
@@ -271,6 +286,7 @@
       group(async () => { S.dpesos = await call(admin ? 'admin_deposit_pesos' : 'my_deposit_pesos'); }, () => { S.dpesos = null; }),   // null until 20261210000000_deposit_pesos.sql is run
       group(async () => { S.exit = await call('exit_fee_info'); }, () => { S.exit = null; }),   // null until the withdrawal-fee migration is run
       group(async () => { const [n, c] = await Promise.all([call(admin ? 'admin_nav' : 'my_nav'), admin ? call('admin_cash_ins') : null]); S.nav = n; S.cashins = c || []; }, () => { S.nav = null; S.cashins = null; }),   // null until 20261213000000_live_nav.sql is run: the older Record screens are shown
+      group(async () => { S.settle = admin && !LEGACY ? await call('admin_settlement_status') : null; }, () => { S.settle = null; }),   // null until 20261214000000_auto_settlement.sql is run
       group(async () => { S.tv = await call(admin ? 'admin_true_value' : 'my_true_value'); S.tvPrev = admin ? await call('admin_preview_book_corrections') : null; }, () => { S.tv = null; S.tvPrev = null; })]);   // null until the true-value migration is run   // null until the withdrawal-fee migration is run
     // a deposit is shown as the pesos put in: pesos recorded later for an older deposit are filled in (Contribution.withDepositPesos)
     // with the live NAV the closed trades are booked from MEXC's own results and every flow is priced at the verified reading, so the old "pending P/L, press
@@ -1147,7 +1163,7 @@
         <span class="l"><b style="color:var(--ink)">${label}</b>${e.reversed_of ? ' <span class="chip">correction</span>' : ''}<br>
           ${day(e.ts)}${e.note ? ' · ' + esc(e.note) : ''}</span>
         <span class="r">${money(e.equity_usdt)}<br><span class="note">${usdt(e.equity_usdt)} · price ${f(e.unit_price, 4)}</span>
-          ${canFix ? `<div class="btns" style="margin-top:6px"><button type="button" class="ghost sm" data-action="editlast">Edit</button><button type="button" class="danger sm" data-action="undolast">Delete</button></div>` : ''}</span></div>`;
+          ${canFix ? `<div class="btns" style="margin-top:6px">${LEGACY ? '<button type="button" class="ghost sm" data-action="editlast">Edit</button>' : ''}<button type="button" class="danger sm" data-action="undolast">Delete</button></div>` : ''}</span></div>`;
     }).join('');
   }
   // deposits received but not yet turned into units: they own nothing until the next equity reading (forward pricing)
@@ -1166,7 +1182,7 @@
   const BT = BotTotal;        // js/bottotal.js: "Read from the bots" fills an Exchange total field from the bots' latest wallet reports (admin_wallet_nav)
   const spFmt = { usdt: (n) => usdt(n), units: (n) => f(n, 4), day: (t) => day(t), pc: (r) => pc(r) };
   const icFmt = { money: (n) => money(n), units: (n) => f(n, 4), day: (t) => day(t) };
-  // ---------------------------------------------------------------- admission spread (docs/admission-spread.md)
+  // ---------------------------------------------------------------- admission spread (docs/archive/admission-spread.md)
   // Pesos credited at an ADMISSION rate a little above the real one; the investor gets units for the CREDITED USDT only and the rest of what was really allocated is the
   // fund manager's own: units of the manager (never the pool's, never a trading result). The database does every sum and refusal; the form shows its quote.
   const SPREAD_PHP = 1;   // the agreed spread, ₱ per USDT (ledger setting admission_spread_php: the database refuses more than it allows)
@@ -1244,14 +1260,23 @@
   }
   function viewRecord() {
     const desk = !!S.nav && isAdmin();
+    if (!LEGACY) {
+      // the flow in use: the four steps, the Live NAV and History. Links that still name an old screen land on the step that replaced it.
+      if (!desk) return '<div class="card"><h2>Record</h2><p class="note">The live NAV is not on this database (run <b>20261213000000_live_nav.sql</b>), so the four steps are not available.</p></div>';
+      S.rec = ({ dep: 'cash', wd: 'out', eq: 'nav' })[S.rec] || S.rec || 'cash';
+      if (S.rec === 'hist') return `${Desk.tabs('hist', false)}<div class="card"><h2>History</h2>
+        <p class="note">Only the latest entry can be undone; it adds a correction and erases nothing.</p>${recordHistoryRows()}</div>`;
+      if (!Desk.isDesk(S.rec)) S.rec = 'cash';
+      return Desk.tabs(S.rec, false) + deskView();
+    }
     if (!S.rec || (!desk && Desk.isDesk(S.rec))) S.rec = desk ? 'cash' : 'eq';
-    if (desk && Desk.isDesk(S.rec)) return Desk.tabs(S.rec) + deskView();
+    if (desk && Desk.isDesk(S.rec)) return Desk.tabs(S.rec, true) + deskView();
     const noUnits = Number(S.pool.total_units) === 0, empty = noUnits && !S.pend.length;
     const pick = (k, html) => (S.rec === k ? html : '');
     const noBal = '<div class="card"><h2>Balance</h2><p class="note">Nothing to balance yet. Record the first deposit under <b>Money in</b>, then confirm it reached the exchange and it will show up here.</p><div class="btns"><button data-rec="dep">Go to Money in</button></div></div>';
     const gBal = Gate.oldForm('balance', S.queue, { arrived: inMexc().length, totalText: usdt(inMexcTotal()) });
     const tabs = [['dep', 'Money in'], ['wd', 'Money out'], ['eq', 'Balance'], ['hist', 'History']];
-    return `${desk ? Desk.tabs(S.rec) : `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>`}
+    return `${desk ? Desk.tabs(S.rec, true) : `<div class="ranges" style="margin:12px 0 0">${tabs.map(([k, l]) => `<button class="${S.rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>`}
       ${pick('dep', `${RH.button('dep')}<div class="card"><h2>Money in</h2>
         <p class="note">Someone gave you money. It waits outside the pool until you confirm it reached the exchange and admit it under <b>Balance</b>.</p>
         <form id="depForm"><label>Who</label><select name="who">${holderOpts(S.recWho)}</select>
@@ -1325,6 +1350,7 @@
       body: `<p class="note">Exchange total: <b>${esc(usdt(eq))}</b>. This ends the period and cannot be undone.</p>${SP.summary(pv, spFmt)}` }));
   }
   function viewQuarter() {
+    if (!LEGACY) return SettleAuto.card(S.settle);   // js/settleauto.js: the automatic settlement's status; the typed-total settlement below is retired
     const gSet = Gate.oldForm('settlement', S.queue);
     if (gSet) {
       const bal = RD().ok ? Number(RD().balance) : 0;
@@ -2113,6 +2139,11 @@
       // Add Money / Withdraw / Full Exit: open the existing form with this person filled in. Nothing is saved here.
       const kind = b.dataset.inv, h = holder(id); if (!h) return;
       S.modal = null; S.tab = 'record'; S.recWho = id;
+      if (!LEGACY) {   // the four steps: Cash in / Withdraw with this person chosen ("everything" ticked for a full exit)
+        S.rec = kind === 'add' ? 'cash' : 'out'; render(); window.scrollTo(0, 0);
+        const of = $f('outForm'); if (kind === 'exit' && of && of.elements.all) of.elements.all.checked = true;
+        return;
+      }
       if (kind === 'add') S.rec = 'dep';
       else S.rec = gateOn() ? 'eq' : 'wd';   // with the workflow gate on, payouts are handled on the Balance desk
       render(); window.scrollTo(0, 0);
@@ -2120,11 +2151,17 @@
       if (kind === 'exit' && fm) { fm.elements.units.value = h.units; fm.dataset.last = 'units'; wdPrev(fm); toast(`Full exit: all ${f(h.units, 4)} units are filled in. Enter the exchange balance to see the payout.`); }
       else if (kind !== 'add' && gateOn()) toast(`${kind === 'exit' ? 'A full exit is a withdrawal of all their units: it' : 'Withdrawals'} go${kind === 'exit' ? 'es' : ''} through Approve, Quote and Redeem on this tab.`);
     }
+    else if (a === 'settlenow') {
+      const st = S.settle; if (!st || st.state !== 'due') return;
+      if (!(await askSheet({ title: 'Charge fees and settle this period?', danger: true, confirmLabel: 'Charge fees and settle', body: SettleAuto.confirmBody(st) }))) return;
+      await act(() => call('admin_close_quarter_tv', { p_php_rate: rate() || null, p_note: 'Two-month settlement (by the manager, true value)', p_idem: 'settle-' + st.period_end }), 'Settled: the fees moved to your account as units');
+    }
     else if (a === 'sppreview' || a === 'spgate') {
       const fm = $f('qForm'), eq = a === 'spgate' ? Number(b.dataset.eq) : num(fv(fm, 'equity'));
       await loadPreview(eq, a === 'sppreview' ? atOf(fm) : null);
     }
     else if (a === 'payreq') {
+      if (!LEGACY) { S.tab = 'record'; S.rec = 'out'; render(); window.scrollTo(0, 0); return; }   // the request is listed there with "Process"
       S.tab = 'record'; S.rec = 'wd'; render(); const fm = $f('wdForm');
       fm.elements.who.value = b.dataset.who; fm.elements.units.value = b.dataset.units; fm.elements.reqid.value = id; wdPrev(fm); fm.scrollIntoView();
     }

@@ -3,11 +3,12 @@
 // ₱5,000 = 79.0139 USDT on Raf's #4 (a CORRECTION of ₱6,897) and on James's deposit. Append-only history; display only: no ledger row, unit or pool figure changes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { createRequire } from 'node:module';
 import { world, near } from './_tvworld.mjs';
 const C = createRequire(import.meta.url)('../js/contribution.js');
-const MIG = readFileSync(new URL('../supabase/migrations/20261210000000_deposit_pesos.sql', import.meta.url), 'utf8');
+const MIG = readFileSync(migUrl('20261210000000_deposit_pesos.sql'), 'utf8');
 const RB = readFileSync(new URL('../supabase/rollback/20261210000000_rollback_deposit_pesos.sql', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
 const HALF = 79.0139, NOTE = 'bulk cash-in ₱10,000 = 158.0278 USDT, split in half';

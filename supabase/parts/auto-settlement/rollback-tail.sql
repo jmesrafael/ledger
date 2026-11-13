@@ -1,0 +1,10 @@
+drop function if exists public.admin_settlement_status(text);
+drop function if exists public._settle_auto(text);
+drop function if exists public._settlement_calendar();
+drop function if exists public._close_quarter_tv_core(uuid, numeric, text, text);
+delete from public.ledger_settings where key in ('settlement_auto', 'settlement_auto_open_trades');
+revoke all on function public.admin_close_quarter_tv(text, numeric, text, text) from public;
+grant execute on function public.admin_close_quarter_tv(text, numeric, text, text) to anon, authenticated;
+revoke all on function public.bot_post_wallet_snapshot(text, text, bigint, timestamptz, numeric, numeric, numeric, numeric, int, int) from public;
+grant execute on function public.bot_post_wallet_snapshot(text, text, bigint, timestamptz, numeric, numeric, numeric, numeric, int, int) to anon, authenticated;
+notify pgrst, 'reload schema';

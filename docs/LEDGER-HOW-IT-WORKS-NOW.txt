@@ -1,3 +1,15 @@
+======================================================================
+UPDATE 2026-11-13 (read this first; the rest of the file is unchanged from Nov 12)
+======================================================================
+- live_nav (20261213) is applied on the live database since Nov 12 2026.
+- The manager's routine is now four steps: Add investor, Cash in, Withdraw, Transfer (Record menu). See docs/live-nav.md.
+- The by-hand screens described in Parts 4 and 5 (typed balances, Update Pool, Balance desk, Money in and Money out by hand, They paid me directly,
+  peso top-up card, admission-spread card) are retired. They are hidden behind one flag, LEGACY_SCREENS in js/config.js (default false).
+- Settlement becomes automatic once 20261214000000_auto_settlement.sql is applied (owner step). See docs/auto-settlement.md.
+- Where this file disagrees with README.md and docs/live-nav.md, those two win.
+- Cleanup details: see docs/CLEANUP-REPORT.md.
+======================================================================
+
 LUCID'IO LEDGER: HOW IT WORKS TODAY, AND EVERY SCENARIO
 Written 2026-11-12. Built from the docs in 🔴LEDGER/docs and a read-only look at the live database.
 Where the older docs (SCENARIOS.md from Oct 28) are out of date, THIS file wins.

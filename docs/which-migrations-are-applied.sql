@@ -1,20 +1,11 @@
 -- READ-ONLY. Paste into the Supabase SQL Editor and Run. It changes nothing: it only asks the database whether each migration's own objects exist.
--- applied = true means that migration (or what it creates) is already in this database. Run the ones that say false, in this order.
+-- Updated Nov 13 2026. Every file in supabase/migrations/applied/ (up to 20261213000000_live_nav.sql) is already on the live database.
+-- This check covers only the migrations that are NOT applied yet or were written most recently.
+-- applied = true means that migration (or what it creates) is already in this database. applied = false means it has not been run (it waits for the owner).
 select * from (values
-  (1, '20261109000000_settlement_controls_backup',   to_regclass('public.settlement_exceptions') is not null),
-  (2, '20261110000000_contact_details',              to_regclass('public.contact_details') is not null),
-  (3, '20261111000000_bot_events',                   to_regclass('public.bot_events') is not null),
-  (4, '20261112000000_pool_update',                  to_regclass('public.pool_updates') is not null),
-  (5, '20261113000000_bot_ask',                      exists (select 1 from pg_constraint where conname = 'bot_events_type_check' and conrelid = to_regclass('public.bot_events') and pg_get_constraintdef(oid) like '%ask%')),
-  (6, '20261114000000_fee_20 (changes the default fee to 20%)', coalesce((select value::numeric from public.ledger_settings where key = 'default_fee_rate'), 0) >= 0.2),
-  (7, '20261115000000_payout_methods',               to_regclass('public.payout_details') is not null and not exists (select 1 from pg_constraint where conrelid = 'public.payout_details'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%gcash%')),
-  (8, '20261116000000_bot_events_more_symbols',      exists (select 1 from pg_constraint where conname = 'bot_events_symbol_check' and conrelid = to_regclass('public.bot_events') and pg_get_constraintdef(oid) like '%NEAR_USDT%')),
-  (9, '20261126000000_bot_events_gala',              exists (select 1 from pg_constraint where conname = 'bot_events_symbol_check' and conrelid = to_regclass('public.bot_events') and pg_get_constraintdef(oid) like '%GALA_USDT%')),
-  (10, '20261127000000_confirmed_gain_fee',          to_regprocedure('public._settlement_fingerprint(numeric,timestamptz)') is not null),
-  (11, '20261128000000_withdraw_quote',              to_regprocedure('public.admin_quote_withdraw(text,uuid,numeric,numeric,numeric,boolean,boolean,timestamptz,boolean)') is not null),
-  (12, '20261130000000_wallet_snapshots',            to_regclass('public.wallet_snapshots') is not null),
-  (13, '20261201000000_units_from_manager',          to_regprocedure('public.admin_units_from_manager(text,uuid,numeric,numeric,numeric,numeric,text,timestamptz,text,boolean)') is not null),
-  (14, '20261202000000_profile_self_edit',            to_regprocedure('public.set_my_name(text,text)') is not null),
-  (15, '20261202000100_admin_edit_profile',          to_regprocedure('public.admin_set_username(text,uuid,text)') is not null),
-  (16, '20261202000200_view_as_edit_profile',        to_regprocedure('public._me_edit(text)') is not null)
+  (1, '20261114000000_fee_20 (default fee 20%, owner decision N6)',            coalesce((select value::numeric from public.ledger_settings where key = 'default_fee_rate'), 0) >= 0.2),
+  (2, '20261209000000_admission_spread (owner decision N8)',                    to_regclass('public.admission_spreads') is not null),
+  (3, '20261213000000_live_nav (applied on live since Nov 12 2026)',            to_regclass('public.nav_snapshots') is not null),
+  (4, '20261214000000_auto_settlement (automatic two-month settlement)',        to_regprocedure('public._settle_auto(text)') is not null),
+  (5, '20261215000000_retire_unused_functions (closes retired functions)',      to_regprocedure('public._retired_functions()') is not null)
 ) as t(step, migration, applied) order by step;

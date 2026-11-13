@@ -2,9 +2,10 @@
 // never the rate stored on a pool entry or a deposit (a cash-in rate). Units, prices, pool values, fees and payouts do not depend on any peso rate.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { world, near } from './_tvworld.mjs';
-const MIG = readFileSync(new URL('../supabase/migrations/20261208000000_fx_reference_rate.sql', import.meta.url), 'utf8');
+const MIG = readFileSync(migUrl('20261208000000_fx_reference_rate.sql'), 'utf8');
 const RB = readFileSync(new URL('../supabase/rollback/20261208000000_rollback_fx_reference_rate.sql', import.meta.url), 'utf8');
 const lastRate = async (w) => (await w.q(`select public._last_php_rate()::float r`))[0].r;
 const hash = async (w, t) => (await w.q(`select count(*)::int n, md5(coalesce(string_agg(to_jsonb(x)::text, '|' order by id), '')) h from public.${t} x`))[0];

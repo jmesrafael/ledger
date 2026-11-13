@@ -11,8 +11,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 const R = createRequire(import.meta.url)('../js/returns.js');
 const C = createRequire(import.meta.url)('../js/contribution.js');
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const FILES = [...readdirSync(appl).map((f) => new URL(f, appl)), ...readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => new URL(f, dir))]
-  .sort((a, b) => a.pathname.split('/').pop().localeCompare(b.pathname.split('/').pop()));
+const FILES = [appl, dir].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d))).sort((a, b) => { const x = a.pathname.split('/').pop(), y = b.pathname.split('/').pop(); return x < y ? -1 : x > y ? 1 : 0; });   // applied/ + pending, merged by file name (timestamp order)
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(Number(a) - b) < eps, `${a} != ${b}`);
 
 async function story() {

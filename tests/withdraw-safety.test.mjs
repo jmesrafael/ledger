@@ -12,8 +12,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl)),
-  ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];
+const FILES = [appl, dir].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d))).sort((a, b) => { const x = a.pathname.split('/').pop(), y = b.pathname.split('/').pop(); return x < y ? -1 : x > y ? 1 : 0; });   // applied/ + pending, merged by file name (timestamp order)
 const near = (a, b, eps = 1e-9, msg = '') => assert.ok(Math.abs(Number(a) - b) <= eps, `${msg} ${a} != ${b}`);
 const CLOCK_SQL = `create or replace function public._clock() returns timestamptz language sql stable as $$ select coalesce(nullif(current_setting('test.clock', true), '')::timestamptz, '2000-01-01T00:00:00Z'::timestamptz) $$;`;
 const NOTE = 'bot has no realized PnL yet; checked against the exchange app by hand';

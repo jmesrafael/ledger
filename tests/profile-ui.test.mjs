@@ -1,7 +1,8 @@
 // The Profile page (Settings menu): where it is, what is on it, that the forms call the database functions that exist, and that Home no longer carries the forms.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 
 const read = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const app = read('js/app.js');
@@ -44,7 +45,7 @@ test('PU3 the forms call functions that exist with the arguments they take; the 
   assert.match(app, /call\('change_my_username', \{ p_password: fv\(fm, 'pw'\), p_username: fv\(fm, 'username'\) \}\)/);
   assert.match(app, /call\('change_my_password', \{ p_old: fv\(fm, 'old'\), p_new: fv\(fm, 'new'\) \}\)/);
   assert.match(app, /call\('set_my_contact'/); assert.match(app, /call\('set_my_payout'/);
-  const sql = read('supabase/migrations/20261202000000_profile_self_edit.sql');
+  const sql = readFileSync(migUrl('20261202000000_profile_self_edit.sql'), 'utf8');
   assert.match(sql, /function public\.set_my_name\(p_token text, p_name text\)/);
   assert.match(sql, /function public\.change_my_username\(p_token text, p_password text, p_username text\)/);
 });
@@ -80,7 +81,7 @@ test('PU8 view-as: no banner on top; an orange "Back to admin" pill OUTSIDE the 
   const view = v.slice(v.indexOf('if (m.impersonated)'), v.indexOf('return `<div class="sechead"><h2>Profile</h2>', v.indexOf('if (m.impersonated)') + 60));
   assert.ok(view.includes('id="nameForm"') && view.includes('contactCard(m)') && view.includes('payoutCard(m)'));
   assert.ok(!view.includes('id="usernameForm"') && !view.includes('passwordCard()'));
-  const sql = read('supabase/migrations/20261202000200_view_as_edit_profile.sql');
+  const sql = readFileSync(migUrl('20261202000200_view_as_edit_profile.sql'), 'utf8');
   assert.match(sql, /from public, anon, authenticated;/, 'the internal helpers are revoked from the website roles');
 });
 
@@ -109,7 +110,7 @@ test('PU7 the manager\'s forms call admin functions that exist; the QR upload is
   assert.equal((app.match(/async function uploadQr\(/g) || []).length, 1);
   assert.match(app, /if \(!file\) return current \|\| null;/);
   assert.match(app, /const qr = await uploadQr\(fm\.elements\.qr\.files\[0\], S\.payout && S\.payout\.qr_path\);/);
-  const sql = read('supabase/migrations/20261202000100_admin_edit_profile.sql');
+  const sql = readFileSync(migUrl('20261202000100_admin_edit_profile.sql'), 'utf8');
   assert.match(sql, /function public\.admin_set_username\(p_token text, p_profile uuid, p_username text\)/);
   assert.match(sql, /function public\.admin_set_payout\(p_token text, p_profile uuid, p_method text, p_name text, p_number text, p_bank text default null, p_qr text default null\)/);
   assert.match(app, /case 'payout_details_changed'/);

@@ -1,3 +1,5 @@
+> Note (Nov 13 2026): the screens named here as Record > Balance / Money in (by hand) / Money out (by hand) are retired; the manager now uses the four steps in docs/live-nav.md. The database rules below still apply.
+
 # Lucid'io Ledger: accounting model and integrity remediation
 
 > **Update (migration [`20261105000000_hwm_arrival_lockup.sql`](../supabase/migrations/20261105000000_hwm_arrival_lockup.sql), tests in

@@ -20,10 +20,13 @@
 
   // the Record tab: the four steps first, the accounting screens after them
   const ACTIONS = [['add', 'Add investor'], ['cash', 'Cash in'], ['out', 'Withdraw'], ['move', 'Transfer']];
-  const BOOKS = [['nav', 'Live NAV'], ['dep', 'Money in (by hand)'], ['wd', 'Money out (by hand)'], ['eq', 'Balance'], ['hist', 'History']];
+  const BOOKS_ALL = [['nav', 'Live NAV'], ['dep', 'Money in (by hand)'], ['wd', 'Money out (by hand)'], ['eq', 'Balance'], ['hist', 'History']];
   const isDesk = (rec) => ACTIONS.some(([k]) => k === rec) || rec === 'nav';
-  const tabs = (rec) => `<div class="ranges" style="margin:12px 0 0" data-desk>${ACTIONS.map(([k, l]) => `<button class="${rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
-    <details class="desk-books" style="margin:8px 0 0" ${BOOKS.some(([k]) => k === rec) ? 'open' : ''}><summary class="note">Accounting: live NAV, by-hand entries, balance, history</summary>
+  // legacy = the retired by-hand screens are switched on (CONFIG.LEGACY_SCREENS): only then are they listed
+  const NOW = ['nav', 'hist'];
+  const tabs = (rec, legacy = false) => tabsOf(rec, legacy ? BOOKS_ALL : BOOKS_ALL.filter(([k]) => NOW.includes(k)), legacy);
+  const tabsOf = (rec, BOOKS, legacy) => `<div class="ranges" style="margin:12px 0 0" data-desk>${ACTIONS.map(([k, l]) => `<button class="${rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div>
+    <details class="desk-books" style="margin:8px 0 0" ${BOOKS.some(([k]) => k === rec) ? 'open' : ''}><summary class="note">${legacy ? 'Accounting: live NAV, by-hand entries, balance, history' : 'Accounting: live NAV, history'}</summary>
       <div class="ranges" style="margin:8px 0 0">${BOOKS.map(([k, l]) => `<button class="${rec === k ? 'on' : ''}" data-rec="${k}">${l}</button>`).join('')}</div></details>`;
 
   // one line: is the price current, when was it measured, and why not when it is not (the manager gets the reason; an investor only the time)
@@ -154,5 +157,5 @@
       <p class="note" style="margin-top:8px">Settings: automatic reading ${esc(st.nav_auto)}, automatic joining ${esc(st.nav_auto_admit)}, pricing ${esc(st.flow_pricing)}, trades booked ${esc(st.auto_pool_mode)}.</p></div>`;
   }
 
-  return { ACTIONS, BOOKS, isDesk, tabs, navLine, addForm, cashForm, waitingCard, outForm, moveForm, cashArgs, outArgs, moveArgs, credit, cashText, outText, moveText, refused, navCard };
+  return { ACTIONS, BOOKS: BOOKS_ALL, isDesk, tabs, navLine, addForm, cashForm, waitingCard, outForm, moveForm, cashArgs, outArgs, moveArgs, credit, cashText, outText, moveText, refused, navCard };
 });

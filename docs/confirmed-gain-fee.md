@@ -1,3 +1,5 @@
+> Note (Nov 13 2026): the screens named here as Record > Balance / Money in (by hand) / Money out (by hand) are retired; the manager now uses the four steps in docs/live-nav.md. The database rules below still apply.
+
 # Confirmed-gain performance fee (`fee_timing = 'confirmed'`)
 
 Status: **implemented and tested on an in-memory database, not applied to any real database.** Migration:

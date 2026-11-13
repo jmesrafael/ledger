@@ -1,6 +1,6 @@
 # Live NAV: the price follows MEXC, and your routine is four steps
 
-Migration: `supabase/migrations/20261213000000_live_nav.sql` (rollback: `supabase/rollback/20261213000000_rollback_live_nav.sql`, built by
+Migration: `supabase/migrations/applied/20261213000000_live_nav.sql` (rollback: `supabase/rollback/20261213000000_rollback_live_nav.sql`, built by
 `scripts/build-rollback-live-nav.mjs`). Tests: `tests/live-nav.test.mjs` (LN1–LN12), `tests/desk.test.mjs` (DK1–DK6). Screens: `js/desk.js` + `js/app.js`.
 
 ## What you do by hand (only this)
@@ -75,22 +75,19 @@ after the first live row. Run once after any missing trade is booked.
 `supabase/rollback/20261213000000_rollback_live_nav.sql` puts back the booked price and the earlier functions. It keeps every NAV row and cash-in; units,
 marks and payouts already recorded are ordinary ledger rows and stay as they are.
 
-## Deployment (nothing here is applied to production yet)
+## Deployment (applied on live since Nov 12 2026)
 
-Done already on Nov 12–13, 2026, with no change to any ledger row: a copy of the money tables in schema `backup_20261113` (22 tables), and the bot fix on the VPS
+The migration `supabase/migrations/applied/20261213000000_live_nav.sql` is **applied on the live database** (since Nov 12 2026), and the website already serves `js/desk.js`
+(the four steps). Nothing is left to deploy for this feature.
+
+What was done, with no change to any ledger row: a copy of the money tables in schema `backup_20261113` (22 tables), and the bot fix on the VPS
 (BB-Core, I-Core, T-CORE `ledger-sync.js` + the call in `lucidio.js` / `icore.js`; backup in `/var/backups/claude-history-recover-20261112-2128`). That fix
-alone brought the ledger's reconciliation gap from 13.36 to −0.26 USDT and un-paused true-value pricing (the missed BB-Core NEAR short, +13.6125).
+alone brought the ledger's reconciliation gap from 13.36 to -0.26 USDT and un-paused true-value pricing (the missed BB-Core NEAR short, +13.6125).
 
-Left for you, in this order:
+How to check it (read-only): `select count(*) from nav_snapshots` grows by one row every 5 minutes, and `select public._price_now()` is the true-value price
+(open trades are inside it). Rollback, if ever needed: `supabase/rollback/20261213000000_rollback_live_nav.sql` (an owner step; see the Rollback section above).
 
-1. **Database:** Supabase → SQL editor → paste `supabase/migrations/20261213000000_live_nav.sql` and run it. Safe to run twice; it rewrites no ledger row.
-   Expect afterwards: `select count(*) from nav_snapshots` grows by one row every 5 minutes; `select public._price_now()` is about the true-value price
-   (about 1.005 on Nov 13, against the booked 0.882, because open trades are now inside it).
-2. **Check (read-only):** the counts and md5 of `ledger`, `pool_equity`, `investor_hwm`, `pending_deposits`, `flow_checkpoints`, `closed_trades` must equal what they were
-   before step 1 (ledger `3ed81e90…`, pool_equity `0509bfda…` on Nov 12 before the NEAR trade was booked; re-take them just before running).
-3. **Website:** the next Vercel deploy of this repo (`js/desk.js`, `js/app.js`, `login.html`). It works before step 1 (the old Record screens show) and after it (the four steps).
-4. **History (optional, once):** `select public._nav_backfill('2026-11-07 10:30+00', now() - interval '1 hour', 60);` fills the curves from the kept wallet reports.
-5. **Rollback:** `supabase/rollback/20261213000000_rollback_live_nav.sql`.
+The first version of this section listed the steps to apply it (database, check, website, optional history). They are done. The history fill is described next.
 
 ## History filled (Nov 13, 2026)
 

@@ -175,8 +175,8 @@ commit;
 
 // ---------------------------------------------------------------- checks on in-memory copies of the real database
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const files = [...readdirSync(appl).map((f) => new URL(f, appl)), ...(existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => new URL(f, dir)) : [])]
-  .sort((a, b) => a.pathname.split('/').pop().localeCompare(b.pathname.split('/').pop()));
+const files = [appl, dir].filter((d) => existsSync(d)).flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d)))
+  .sort((a, b) => { const x = a.pathname.split('/').pop(), y = b.pathname.split('/').pop(); return x < y ? -1 : x > y ? 1 : 0; });
 async function freshDb() {
   const db = new PGlite({ extensions: { pgcrypto } });
   await db.exec(`create role anon; create role authenticated; create schema extensions; grant usage on schema public to anon, authenticated;`);

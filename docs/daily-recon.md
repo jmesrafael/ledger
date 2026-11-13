@@ -1,3 +1,5 @@
+> Note (Nov 13 2026): the screens named here as Record > Balance / Money in (by hand) / Money out (by hand) are retired; the manager now uses the four steps in docs/live-nav.md. The database rules below still apply.
+
 # Daily books-vs-MEXC check (and getting the backup running)
 
 `scripts/recon-check.mjs` compares what the books say the exchange wallets should hold with what the wallets last reported (the bots already send this every few minutes). It is **read-only**: it uses the same revocable backup key as the nightly backup, so it cannot change anything, and it touches no bot, no exchange, no database row.

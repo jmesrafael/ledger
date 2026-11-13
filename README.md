@@ -1,105 +1,204 @@
 # Lucid'io Ledger
 
-**Lucid'io**: clear rules, real growth. A phone-friendly paper ledger for a small pooled account (friends & family). **No money moves through this app.** The real money sits in one merged exchange account; this app records who owns what and shows everyone their own number.
+**Lucid'io**: clear rules, real growth. A phone-friendly ledger for a small pooled account (a fund manager and investors). **No money moves through this app.** The real money sits in one exchange (MEXC); this app records who owns what and shows everyone their own number.
 
-- Pool is valued in **USDT**. Everything is **shown in pesos by default** using the live USD→PHP rate (free `open.er-api.com`, falling back to `frankfurter.dev`, cached 1 hour; USDT is treated as 1 USD). The ₱ / $ button in the header flips the view. The rate never changes anyone's USDT return, units or payout; with no valid rate (failed, broken, or over 12 hours old) figures stay in USDT. A peso deposit is recorded as the **pesos paid** plus the **USDT actually received**; the effective rate is pesos ÷ USDT and only the USDT buys units. Withdrawals are requested in USDT. The ₱500 minimum is checked at the fund's stored PHP/USD reference rate (migration `20261208000000_fx_reference_rate.sql`, not yet run), never at a deposit's cash-in rate. See [docs/php-contributions.md](docs/php-contributions.md). **Admission spread** (migration `20261209000000_admission_spread.sql`, not yet run): an investor's pesos can be credited at an admission rate up to ₱1 above the real rate; the investor gets units only for the credited USDT and the rest of what was really allocated stays the fund manager's own units, never the pool's ([docs/admission-spread.md](docs/admission-spread.md)).
-- Ownership is tracked in **units**. Unit price = pool equity (USDT) ÷ total units. A person's value = their units × unit price.
-- **New money waits for the next valuation (forward pricing).** A deposit is first only *received*: it owns no units, so it gets no gains and no losses. At the next equity reading (Update equity or quarter close) the waiting money is taken out of the exchange total, the unit price is set from what the existing holders own, and then the waiting money buys units at that price. A newcomer therefore never shares in profit made before their money was in (and never pays for losses from before). Their lock-up starts and their high-water mark is set at that price, so their fee is charged only on gains made after they joined. A withdrawal redeems units at the current price.
-- **Fee** (set per person when you create them, 20% by default; change it later in Users → Edit) on gains above each person's **high-water mark**, charged at quarter end. Each close moves the mark up to the current price, so profit that was already charged is never charged again. The fee is paid as *units* moving from the investor to the manager, so it stays in the pool and compounds. The manager's own capital pays no fee.
-- **Investors see their balance and % after the fee** (already taken + owed so far), with a "How your growth is worked out" card: what the trading made, minus the fee, = theirs. The Users list shows the manager both, before and after the fee (`20261030000000_net_of_fee_returns.sql`).
-- 3-month lock-up per deposit, withdrawals paid within 7 business days (shown to investors; enforced by the manager).
-- The books are **append-only**: entries cannot be edited or deleted.
+Last checked against the live database: **Nov 13 2026**. Where an older document disagrees with this file or with [docs/live-nav.md](docs/live-nav.md), these two win.
 
-## Logins
+## What the app is
 
-Simple username + password. No emails, no sign-up page: the manager creates every account and hands out the password.
+- The pool is counted in **USDT**. Ownership is counted in **units**. Unit price = pool value (USDT) divided by total units. A person's value = their units x the unit price.
+- The website is `login.html` + `js/*.js` (static files). The database is **Supabase** (Postgres). All rules live in database functions; the website only calls them.
+- Everything is shown in pesos by default (live USD to PHP rate, USDT treated as 1 USD). The peso / dollar button in the header flips the view. The rate never changes anyone's units or USDT return.
+- The books are **append-only**: history is never deleted or rewritten. A mistake is fixed with a new correcting entry.
+- Investors see only their own money, their growth chart, statements and an About page. They never see the pool size, other investors or manager screens (enforced in the database).
 
-- Passwords are stored as **bcrypt hashes**, never in plain text. Sign-in gives the phone a random session token (30 days); the database stores only its hash.
-- 5 wrong passwords in a row lock that username for 15 minutes.
-- **Each person can change their own password** (Home / Mine tab). **The manager can set a new password for anyone**, including themselves (Users tab → Edit / reset password). Changing a password signs that person out on their other devices.
-- The manager can deactivate a person (signed out, cannot sign in; their units stay in the pool).
-- **View as** (Users tab): the manager opens the app exactly as that person sees it (balance, growth chart, transactions). It is read-only: no withdrawal requests or password changes in their name, and it ends after 2 hours or with "Back to manager".
-- Every person's Home shows a **growth chart** of what their share is worth over time (1W / 1M / 3M / YTD / ALL; drag across it to see any day), with a dashed line for what they have put in, plus their recent transactions.
-- **Terms, then quote, then tour.** An investor's first sign-in goes: (1) **Please read this first**: eight plain-language points (you can lose a large part or all of your money, nothing is guaranteed or insured, not a bank, lock-up and withdrawals, how new money joins, the fee, what the numbers mean, login and agreement) and four boxes that must all be ticked before "I agree, continue" works. The agreement is saved **in the database** (`terms_acceptances`: who, which version, when; append-only), so it works on every phone and the manager can see who has agreed in Users. (2) A quote screen while the tour "loads". (3) An 8-step animated tour (pool and units, ups and downs / compounding, how new money joins, lock-up, fee, the screens, a glossary of jargon). The tour is remembered per device and replays from "Welcome tour"; the About page keeps the glossary and a "Read the terms again" button. Nothing here shows while the manager is "viewing as" someone, and the manager cannot agree on a person's behalf.
-- **Changing the terms:** edit `termsSections()` / `TERMS_CHECKS` in `js/app.js` and bump `TERMS_VERSION`; everyone is asked to agree again at their next sign-in. If the database update has not been run, the agreement cannot be saved and the person stays on the terms screen (it never lets anyone skip it).
-- Every table is locked from the website. The page can only call database functions, and every function checks the session token, so investors cannot see each other or do manager actions even with browser tools.
+## The flow in use
 
-| | Sees |
-|---|---|
-| **Manager** | everyone, all entries; records equity / deposits / withdrawals / quarter close; creates accounts, resets passwords |
-| **Investor** | only their own money (balance chart, fee, withdrawals, entries) and an About page. Also the fund's trading return over time and the manager's own % (`fund_returns`: unit price per event + whether the manager's money was in, nothing else), so they can see the manager's money made the same trading return as theirs. **Never** the pool's size, units, amounts, ownership split or anyone else (enforced in the database by `20261023000000_hide_pool_from_investors.sql`) |
+This is the only flow the manager uses. Three bots (BB-Core, I-Core, T-CORE) trade on MEXC.
 
-## Setup
+| # | Step | Where | What happens |
+|---|---|---|---|
+| 1 | **Add investor** | Record > Add investor | Creates the account and the first cash-in in one step. |
+| 2 | **Cash in** | Record > Cash in | The manager enters the pesos paid, the USDT that arrived in MEXC and the PHP/USD rate. The investor is credited pesos divided by rate. If less USDT arrived, the gap is covered by the fund manager's own units (peso top-up rule). If more arrived, the extra is the fund manager's own money. The money joins at the live price at the first verified MEXC wallet reading that shows it. |
+| 3 | **Withdraw** | Record > Withdraw | Request, approval and redemption in one step, at the live price, after a check that MEXC can release the money. Then the manager sends the money from MEXC and presses **Mark sent**. Investor requests show there with a **Process** button. |
+| 4 | **Transfer** | Record > Transfer | Ownership moves from one holder to another at the live price. The pool total does not move. |
+| 5 | Spot and Futures moves | Done by hand in MEXC | Not in the ledger. The manager matches MEXC himself when he enters a cash-in, a withdrawal or a transfer. |
+| 6 | **Bots report** | Automatic | Each bot sends a wallet report every 5 minutes and every closed trade is booked automatically. |
+| 7 | **Settlement** | Automatic once `20261214000000_auto_settlement.sql` is applied | See below. |
 
-1. **Database**: Supabase dashboard → SQL Editor → paste and run the SQL files in date order. Files already run on the live database are kept in `supabase/migrations/applied/`; any file still directly in `supabase/migrations/` has **not** been run yet (after running one, move it into `applied/`; the tests find it in either place). The full order: `20261022000000_ledger.sql`, then `20261023000000_hide_pool_from_investors.sql`, `20261024000001_ledger_corrections.sql`, `20261025000000_profit_share_10.sql`, `20261026000000_pending_deposits.sql`, `20261027000000_profit_share_hardening.sql`, `20261028000000_terms_acceptance.sql`, `20261029000000_fund_returns.sql`, `20261030000000_net_of_fee_returns.sql`, `20261031000000_pesos_backup_audit.sql`, `20261031000001_bot_equity_sync.sql` (all safe on live data; on an existing install run only the ones you have not run yet). **Not yet run anywhere:** `20261101000000_ledger_integrity.sql` (one correction per entry, locking, retry-safe writes, a flat fee on each quarter's net trading profit with no loss recovery, Exchange reconciliation). It changes the fee rule and cannot simply be undone after the first new entry: read [docs/accounting-model.md](docs/accounting-model.md) and run [supabase/diagnostics/pre-migration-integrity.sql](supabase/diagnostics/pre-migration-integrity.sql) first. It cleans up any earlier version of this app first, so it is safe to run on the existing project. **Also not yet run:** `20261115000000_payout_methods.sql` (payout details take a label the investor types, such as GCash, Bank transfer, GoTyme or Maya, plus one mobile-or-account number and the optional QR image; saving anything other than the old "gcash" or "bank" needs this file), and `20261114000000_fee_20.sql` (the default fee becomes 20%: new accounts start at 20%, and existing investors on the old default rate move to 20% at their next settlement; tell investors first, the app asks everyone to agree to the terms again). (If the project still has the old backtester tables, run `supabase/reset-backtester-tables.sql` first.)
-2. **Your manager account**: edit the three values in `supabase/create-admin.sql` (username, name, password), run it in the SQL Editor, and **don't save the file with your real password**.
-3. **Host the folder** as a static site. **Vercel**: import the repo, preset "Other", root `./`, no build command, no environment variables (`vercel.json` and `.vercelignore` already keep the SQL/test/script folders off the public site). GitHub Pages also works. Friends open the link and can "Add to Home Screen".
-4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role`/secret key in this repo.
+Manager screens: Dashboard, Users, Record (Add investor, Cash in, Withdraw, Transfer, Live NAV, History), Settle, Reports, Log. Investor screens are unchanged.
+Step by step details: [docs/live-nav.md](docs/live-nav.md).
 
-## Statements, activity log and backups
+## How the price is made
 
-- **Statements** (investors: Statements tab; manager: My account → Statements): a month-by-month table (trading %, % after the fee, balance), the worst drop from a high, and a statement for any month: opening balance, money added, money taken out, trading result, fee, closing balance. Download a month or all months as CSV, or **Save as PDF** (the browser's print dialog; only the statement prints). Balances are in USDT; pesos appear only where pesos were really paid in or out. The maths is in `js/returns.js` and is tested against the real database functions in `tests/statements.test.mjs`.
-- **"Put in" in pesos** is the pesos actually handed over (the deposit entries keep the peso amount), never dollars converted at today's rate; money put in as USDT stays in USDT. The **Your contribution** card shows pesos paid, USDT received, the effective rate, today's PHP/USD reference rate and the USD equivalent of the pesos (reference only), next to the units and their value ([docs/php-contributions.md](docs/php-contributions.md)).
-- **Activity log** (manager: Fund → Log): who changed what and when, written by database triggers so no code path can skip it, and no row can be edited or deleted. Records accounts, fee rates, passwords, money received / joined / paid out, fee charged, equity readings, quarter closes, corrections, withdrawal requests, terms, "view as", setting changes and backups. Sign-ins and page views are not recorded.
-- **Backups** (manager: Fund → Log → Backups): *Download backup (JSON)* any time, and a **nightly backup** that runs on a computer you control:
-  1. In the app press **Create nightly backup key** and copy it (shown once). The key can only read an export; it cannot sign in or change anything, and **Revoke all keys** stops it at once.
-  2. Copy `backup.config.example.json` to `backup.config.json` (gitignored) and paste the key in. Optional `copyTo` = a second folder, e.g. a Google Drive / OneDrive folder.
-  3. Test it: `node scripts/backup-ledger.mjs`. Then schedule it: `node scripts/backup-ledger.mjs --schedule 02:30` (Windows Task Scheduler; on Linux use cron).
-  4. Also run the daily **books-vs-MEXC check** with the same key: see [docs/daily-recon.md](docs/daily-recon.md).
-  Each run saves `backups/ledger-<date>_<time>/` (`ledger.json`, one CSV per table, `summary.json`), re-checks the numbers (units add up, row counts match, no password hashes), keeps the newest 60, and logs to `backups/backup.log` and `backups/status.json`. Backups never contain passwords, so after a restore everyone gets a new password (Users → Edit / reset password). The Backups card warns when no automatic backup has run for 3 days.
-
-## Test data
-
-`supabase/seed-test-data.sql` replays the full SOL+ZEC backtest (Mar 2020 → Oct 2026, 640 trades, 1% risk per trade, compounding) through the real functions: manager ₱5,000 and John ₱3,000 at the start, Dino ₱3,000 from mid-2023, weekly equity updates, every quarter settled. Backtest = hypothetical; the coins were picked with hindsight. It creates test logins `john / john-test-123` and `dino / dino-test-123`. Run it on an empty ledger; if no manager exists yet it also creates `raf / admin-test-123` (change that password in the app straight away). Entries carry the simulated 2026 dates, so charts and lock-ups look real. **Before real money: run `supabase/reset-ledger-data.sql`** (wipes all entries, keeps the accounts) and deactivate or reset the test logins.
-
-Regenerate or try other assumptions:
+The unit price follows the **verified wallet reports** from MEXC (live NAV):
 
 ```
-node scripts/simulate.mjs <trades.json> --rate 58 --risk 0.01 --seed supabase/seed-test-data.sql
+NAV        = all wallet equity (open trades included) - money waiting to join - payouts redeemed but not yet sent
+check      = NAV compared with the books (closed trades + open profit)
+unit price = NAV / total units
 ```
 
-It also re-computes every number with an independent plain-JS model and reports MATCH / MISMATCH.
+- If MEXC and the books differ by more than **max(0.50 USDT, 0.05%)**, the price is **paused**. Screens keep the last good price and show the reason. No money step is priced until the gap is explained.
+- Each cash-in, withdrawal and transfer takes its own fresh reading when it is saved. It is never priced from an old stored row.
 
-The manager's first tab is a **Dashboard** (fund value, investor money, withdrawal requests, performance, ownership). **Users** lists everyone; "+ Add user" opens the new-user form.
+## Automatic settlement (two months)
 
-## Daily use (manager)
+Once `20261214000000_auto_settlement.sql` is applied, the fee on profit is taken by itself at the first verified MEXC reading after a period ends (Jan 1, Mar 1, May 1, Jul 1, Sep 1, Nov 1, Manila time), inside a 7-day window.
 
-1. **Record → 1 Update equity**: read total pool equity (USDT, including open trades) from the exchange and enter it. Daily or weekly.
-2. **Someone puts money in**: Record → Money in. Type the pesos they gave you (e.g. 5000) and the USDT that actually arrived for them (e.g. 66.40); the effective rate is worked out from the two. It shows under *Waiting to join* until your next **Update equity**, which turns it into units at that day's price. Gave it back or typed it wrong? Tap *Handed back*.
-3. **Someone takes money out**: they request it in the app (Log → Prepare payout), or record it directly: Record → 3 Withdrawal, with the pool equity just before payout. The fee on their gains comes out in units first; the rest is paid.
-4. **Every quarter**: Quarter tab → enter equity → check the preview → Charge fees.
+- Only profit is cut: fee = the investor's rate x (their value minus their high-water mark), only when that is positive.
+- The fee moves as **units** from the investor to the fund manager. The pool total and the unit price do not move.
+- A missed window is not settled late. The next settlement covers it.
+- The Settle tab shows the status and has a **Settle now** fallback button.
+- **Status: not applied to live yet.** The first one would be Jan 1 to 7, 2027.
 
-**With the bot's live trades (Pool Update, see [docs/pool-update.md](docs/pool-update.md)):** closed live trades only show as *Pending P/L* (banner: "3 trades, +41.20 USDT pending since <date>"). They change nobody's money until you click **Update Pool** under Record → Balance, which values the pool at the confirmed Exchange balance. Nobody can join or be paid out while trades are pending. Queued money waits in the exchange **Spot**; accepting a joiner includes moving it **Spot → Futures** in the exchange.
+Details, one worked example, the settings and the rollback: [docs/auto-settlement.md](docs/auto-settlement.md).
 
-**With the bot's live trades (Pool Update, see [docs/pool-update.md](docs/pool-update.md)):** closed live trades only show as *Pending P/L* (banner: "3 trades, +41.20 USDT pending since <date>"). They change nobody's money until you click **Update Pool** under Record → Balance, which values the pool at the confirmed Exchange balance. Nobody can join or be paid out while trades are pending. Queued money waits in the exchange **Spot**; accepting a joiner includes moving it **Spot → Futures** in the exchange.
+## Live switches (Nov 13 2026)
 
-Every equity you type is simply **the exchange total** (open trades included, waiting deposits included); the app subtracts waiting money itself, so cash sitting in the account never moves the price. For a withdrawal, enter the total *before* you pay out.
+| Setting | Live value | Meaning |
+|---|---|---|
+| `flow_pricing` | `true_value` | Money is priced at the true value (open trades included). |
+| `auto_pool_mode` | `trades` | Closed trades are booked automatically. |
+| `nav_auto` / `nav_auto_admit` | on / on | The price follows verified wallet reports; cash-ins join by themselves. |
+| `fee_timing` | `immediate` | The fee is taken on the gain above the mark at settlement. |
+| `settlement_schedule` | `bimonthly` | Manila time. |
+| `settlement_recon` | `require` | A settlement needs the books to match MEXC. |
+| `default_fee_rate` | 0.10 | Default for new accounts. Changing it to 0.20 is `20261114000000_fee_20.sql` (owner decision N6, not applied). |
+| `workflow_gate`, `bot_equity_sync`, `wallet_nav_mode`, `payout_cap_mode`, `settlement_preview_mode` | off | Old machinery, not used. |
 
-Tip: take readings when few or no trades are open. A deposit that joins mid-trade shares in the rest of that trade's result, even though the position was sized before the money arrived; for a small pool this is a minor effect, and it cuts both ways.
+## Retired screens and the `LEGACY_SCREENS` flag
 
-## Fee: rules that stop anyone gaming it
+These by-hand screens are hidden: typed balances / Update equity / Update Pool, the Balance desk and workflow gate, the by-hand Money in and Money out forms, "They paid me directly", the separate peso top-up card, the admission-spread card, and the typed-total settlement screen.
 
-Each rule below has a test in `tests/ledger.test.mjs` that tries the trick and checks it fails.
+- They are hidden behind one flag: `LEGACY_SCREENS` in `js/config.js` (default `false`).
+- Their database functions are closed to the website by `20261215000000_retire_unused_functions.sql` once it is applied (not applied yet). Its rollback is in `supabase/rollback/`.
+- `js/desk.js` is the four-step desk and is **kept**. `js/gate.js` belongs to the retired workflow gate.
 
-| Trick | Why it fails |
+## Hard rules
+
+1. **Books are append-only.** Never delete or rewrite history.
+2. **Schema changes are rehearsed on a copy first**, never straight on live.
+3. These are the **owner's decisions**: applying migrations, publishing the website, fee terms (N6), the admission spread policy (N8), legal questions (N9), and any live settlement.
+
+## Folder map
+
+| Folder | What is in it |
 |---|---|
-| Join right after a winning stretch to share profit you were not in for | New money waits and buys units at the **next** reading's price (forward pricing). |
-| Top up at a high so the blended "best level" rises and the fee already earned disappears | Every deposit is its **own lot with its own line** (per-lot high-water mark). Adding money never moves another deposit's line. |
-| Let an old losing deposit shield a new deposit's gains | Same: lots are measured separately; an old lot owes nothing until it passes its own line, a new lot owes on its own gains. |
-| Manager raises someone's % after the gains are made | A higher % is only **scheduled**; it starts after the next quarter close. The investor sees it on Home. Lower % applies at once. |
-| Manager closes quarters often to charge on temporary highs | Quarter closes must be at least `min_days_between_closes` (80) days apart. |
-| Several withdrawal requests that together exceed what is unlocked, or paying one request twice | Pending requests count against the unlocked units; a request can only be paid while it is still pending. |
-| Cash already sitting in the exchange inflating the price at a payout or close | Waiting deposits are subtracted from every equity typed. |
-| Using the instant deposit to skip the waiting step | `admin_deposit` is not callable from the website (only from the SQL editor/scripts). |
+| `login.html`, `css/`, `fonts/` | The website shell and styles. |
+| `js/` | The website code: `app.js` (main), `desk.js` (the four steps), `settleauto.js` (Settle tab), `config.js` (project URL, public key, `LEGACY_SCREENS`), and helpers. |
+| `api/` | Vercel serverless functions: bot dashboard login and data, bot event intake (`ingest`, `poll`), `fund-live`, monthly Telegram report, `health`. |
+| `lib/` | Code used by `api/` (auth, store, aggregate, ingest, monthly report) and the true-value model. |
+| `scripts/` | Tools: backup and restore, daily MEXC check (`recon-check.mjs`), `rehearse-migration.mjs`, bot key makers, migration builders. |
+| `supabase/migrations/` | A file **directly here** means **not run on live**. |
+| `supabase/migrations/applied/` | Files already run on live (46 files, up to `20261213000000_live_nav.sql`). After a file is applied, move it here. |
+| `supabase/rollback/` | One rollback file per migration. |
+| `supabase/parts/`, `maintenance/`, `corrections/`, `hotfix/`, `verify/`, `diagnostics/` | Source parts for built migrations, one-off scripts, post-apply checks and read-only diagnostics. |
+| `tests/` | The test suite (runs on an in-memory Postgres). |
+| `docs/` | Documentation. Old documents are in `docs/archive/`. |
+| `bot-dashboard/`, `reports/` | The bot dashboard page and static research reports. |
 
-Withdrawals take units from the **oldest** deposits first (same order as the lock-up), each charged against its own line.
-
-**What the software cannot police (trust in the manager):** the equity number typed from the exchange, the dates of late entries, and who gets which %. The books are append-only and every reading is logged, so it is auditable after the fact. To make it checkable by investors, share a monthly Exchange statement or screenshot of the account equity with them.
+Not yet applied (a file directly in `supabase/migrations/`): `20261114000000_fee_20.sql`, `20261209000000_admission_spread.sql`, `20261214000000_auto_settlement.sql`, `20261215000000_retire_unused_functions.sql`.
+To check what is applied, run [docs/which-migrations-are-applied.sql](docs/which-migrations-are-applied.sql) in the Supabase SQL Editor (read-only).
 
 ## Tests
 
-`npm install && npm test` runs the real migration on an in-memory Postgres (PGlite + pgcrypto) with every call made as the website's public role: unit/fee maths, peso independence, lock-up, logins (hashing, lockout, logout, deactivation), password changes and resets, and the access rules.
+```
+npm install
+npm test
+```
+
+This runs every test file on an in-memory Postgres (PGlite). It calls the real migrations as the website's public role. `npm run test:race` runs the concurrency test and needs Docker.
+
+## Rehearse a migration
+
+Never apply a migration to live without this.
+
+1. Take a backup (`backup-ledger.cmd` or the manager's backup export) and save it as `ledger.json`.
+2. Start Docker.
+3. Run `node scripts/rehearse-migration.mjs <backup ledger.json>` (or `npm run rehearse -- <backup ledger.json>`).
+4. It builds a throwaway Postgres from `supabase/migrations/applied/`, restores the backup, applies each pending migration twice, checks that no existing row changed, tests the rollback, and prints PASS or FAIL for each step. It touches no real database.
+5. Only then does the owner apply the file in the Supabase SQL Editor.
+
+## Setup
+
+1. **Database**: Supabase dashboard > SQL Editor. The full order is the file names in `supabase/migrations/applied/`, in date order. Files directly in `supabase/migrations/` are not run yet and wait for the owner (see Hard rules).
+2. **Manager account**: needs one admin profile. The helper SQL used for the first install is not in this folder any more (see "Older notes").
+3. **Host the folder** as a static site. **Vercel**: import the repo, preset "Other", root `./`, no build command. `vercel.json` and `.vercelignore` keep the SQL, test and script folders off the public site. The `api/` functions need their environment variables in the Vercel project settings (listed at the top of each `api/*.js` file), never in the repo.
+4. `js/config.js` holds the project URL and the *publishable* key, which is meant to be public. **Never** put the database password or a `service_role` / secret key in this repo.
+
+## Logins
+
+Simple username + password. No emails, no sign-up page: the manager creates every account (Record > Add investor) and hands out the password.
+
+- Passwords are stored as bcrypt hashes. Sign-in gives the phone a random session token (30 days); the database stores only its hash.
+- 5 wrong passwords in a row lock that username for 15 minutes.
+- Each person can change their own password. The manager can set a new one for anyone (Users > Edit). Changing a password signs that person out elsewhere.
+- The manager can deactivate a person (signed out; their units stay in the pool).
+- **View as** (Users tab): the manager sees the app exactly as that person does. Read-only, ends after 2 hours.
+- On first sign-in, an investor reads and agrees to the terms (saved in the database, append-only). To change the terms edit `termsSections()` / `TERMS_CHECKS` in `js/app.js` and raise `TERMS_VERSION`; everyone agrees again.
+- Every table is locked from the website. The page can only call database functions, and every function checks the session token.
+
+| | Sees |
+|---|---|
+| **Manager** | everyone, all entries; records cash-ins, withdrawals and transfers; settles; creates accounts and resets passwords |
+| **Investor** | only their own money (balance chart, fee, withdrawals, entries, statements) and an About page. Also the fund's trading return over time. Never the pool size, units, amounts or anyone else. |
+
+## Statements, activity log and backups
+
+- **Statements** (investors: Statements tab): month-by-month table, a statement for any month, CSV download or Save as PDF. The maths is in `js/returns.js`.
+- **Activity log** (manager: Log): who changed what and when, written by database triggers. No row can be edited or deleted.
+- **Backups** (manager: Log > Backups): *Download backup (JSON)* any time, plus a **nightly backup** on a computer you control:
+  1. In the app press **Create nightly backup key** and copy it (shown once). The key can only read an export. **Revoke all keys** stops it.
+  2. Copy `backup.config.example.json` to `backup.config.json` (not committed) and paste the key in. Optional `copyTo` is a second folder.
+  3. Test: `node scripts/backup-ledger.mjs`. Schedule: `node scripts/backup-ledger.mjs --schedule 02:30`.
+  4. Also run the daily books-vs-MEXC check with the same key: [docs/daily-recon.md](docs/daily-recon.md).
+  Backups never contain passwords, so after a restore everyone gets a new password.
+
+## Bot keys
+
+Each bot proves who it is to the ledger with a secret key. The database stores only the hash.
+
+- Wallet report key (one per wallet, used by the wallet report every 5 minutes): `node scripts/new-wallet-key.mjs bbcore "BB-Core"` (same for `icore`, T-CORE). It prints the key (put it in that bot's `mexc-keys.json` as `ledgerWalletKey`, with `ledgerWallet`) and one SQL line to run in the Supabase SQL Editor.
+- Bot dashboard intake (`/api/ingest`, `/api/poll`) uses `DASHBOARD_PUSH_SECRET` set in Vercel and on the VPS.
+
+## Docs
+
+| File | What it is |
+|---|---|
+| [docs/live-nav.md](docs/live-nav.md) | **Current.** The four steps, how the price is made, money rules, discrepancies. |
+| [docs/auto-settlement.md](docs/auto-settlement.md) | **Current.** Automatic two-month settlement (not applied yet). |
+| [docs/LEDGER-HOW-IT-WORKS-NOW.txt](docs/LEDGER-HOW-IT-WORKS-NOW.txt) | Long walk through of the live state and scenarios (Nov 12). Has an update block at the top. |
+| [docs/accounting-model.md](docs/accounting-model.md) | Accounting rules: units, lots, high-water mark, integrity checks. |
+| [docs/hwm-settlement.md](docs/hwm-settlement.md) | High-water mark and the two-month settlement rules. |
+| [docs/settlement-controls.md](docs/settlement-controls.md) | Settlement window, audited exceptions, complete backups. |
+| [docs/true-value-pricing.md](docs/true-value-pricing.md) | Pricing money at "if every open trade closed now". |
+| [docs/wallet-snapshots.md](docs/wallet-snapshots.md) | How bots report wallets; the (off) payout cap. |
+| [docs/php-contributions.md](docs/php-contributions.md) | Pesos paid, USDT received and the reference rate. |
+| [docs/confirmed-gain-fee.md](docs/confirmed-gain-fee.md) | A fee rule built but switched off (`fee_timing = confirmed`); the setting still exists. |
+| [docs/daily-recon.md](docs/daily-recon.md) | The daily books-vs-MEXC check and the backup schedule. |
+| [docs/full-exit-rounding.md](docs/full-exit-rounding.md) | A rounding edge case on a full exit, and why it is refused. |
+| [docs/which-migrations-are-applied.sql](docs/which-migrations-are-applied.sql) | Read-only check of the migrations that are not applied yet. |
+| [docs/archive/README.md](docs/archive/README.md) | Documents that describe retired screens or an old state. |
+
+## Older notes (not re-checked on Nov 13 2026)
+
+These were in the old README. They may still be right, but nobody has re-checked them.
+
+- **Test data.** The old README described `supabase/seed-test-data.sql`, `supabase/create-admin.sql` and `supabase/reset-ledger-data.sql`. These files are not in `supabase/` today. `scripts/seed-from-backtest.mjs` and `scripts/simulate.mjs` build test data from backtest trades, and `supabase/diagnostics/reset-ledger-for-live.sql` exists. Backtest results are hypothetical. Before real money, test logins must be deactivated.
+- **Fee rules that stop gaming** (from the old flow, tested in `tests/ledger.test.mjs`):
+
+  | Trick | Why it fails |
+  |---|---|
+  | Top up at a high so the "best level" rises and the fee already earned disappears | The high-water mark is per investor, and a deposit raises it only by the deposit. |
+  | Manager raises someone's % after the gains are made | A higher % is only scheduled; it starts after the next settlement. A lower % applies at once. |
+  | Several withdrawal requests that together exceed what is unlocked, or paying one twice | Pending requests count against unlocked units; a request is paid only once. |
+  | Using an instant deposit to skip checks | `admin_deposit` is not callable from the website. |
+
+  The old rule "new money waits for the next equity reading" and the quarterly close are replaced by the live price and the two-month settlement above.
+- **Lock-up.** Wording says 3 months per deposit and withdrawals paid within 7 business days. `lock_enforced = 0` on live, so the lock-up is guidance, not enforced by the database.
+- **What the software cannot police:** the manager's own MEXC actions and the dates of late entries. Everything is logged and auditable after the fact. Sharing a monthly MEXC statement lets investors check.
 
 ## Disclaimer
 
-Paper records of a share in a pooled account. Not a bank balance, not insured, no guaranteed returns; backtested results are hypothetical. Money placed here can be lost. Check with a Philippine securities lawyer before accepting other people's money (pooled-fund arrangements can count as investment contracts under SEC rules).
+Records of a share in a pooled account. Not a bank balance, not insured, no guaranteed returns; backtested results are hypothetical. Money placed here can be lost. Check with a Philippine securities lawyer before accepting other people's money (pooled-fund arrangements can count as investment contracts under SEC rules).

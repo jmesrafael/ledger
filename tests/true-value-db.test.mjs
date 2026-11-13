@@ -5,7 +5,8 @@
 //   TVD6 delayed reports   TVD7 duplicates   TVD8 corrections   TVD9 the normal path is unchanged   TVD10 status pages
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { world, ready, adv, near, TV, CORRECTIONS } from './_tvworld.mjs';
 
 test('TVD1 off by default: the setting exists as "book", money cannot move through the new functions, the status still reads', async () => {
@@ -181,7 +182,7 @@ test('TVD11 the rollback: allowed until a true-value transaction exists (also af
   near(await w.units('raf'), units0, 1e-12); near((await w.pool()).e, pool0, 1e-9, 'nothing about the books changed');
   await w.trade({ pos: 'late-after-rollback', pnl: -2, at: lateAt });
   near((await w.pool()).e, pool0 - 2, 1e-9, 'a correction entry is still not treated as an exchange valuation');
-  await w.db.exec(readFileSync(new URL('../supabase/migrations/20261207000000_true_value_pricing.sql', import.meta.url), 'utf8'));   // and it can be applied again
+  await w.db.exec(readFileSync(migUrl('20261207000000_true_value_pricing.sql'), 'utf8'));   // and it can be applied again
   assert.equal((await w.call('admin_book_corrections', w.A)).length, 2);
   const w2 = await ready(); const pid = await w2.receive('john', 100); await w2.report(1100, 0); await w2.call('admin_admit_deposit_tv', w2.A, pid, null);
   await assert.rejects(w2.db.exec(readFileSync(RB, 'utf8')), /true-value deposits, payouts or settlements are recorded/);

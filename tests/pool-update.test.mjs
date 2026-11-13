@@ -2,7 +2,8 @@
 // Every scenario prints expected vs actual so the signs can be read by a human. Staging mode: the "live" exits here are fake rows in bot_events.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { world, freshDb, BOT_KEY } from './_poolworld.mjs';
 
 const near = (a, b, eps = 1e-4) => Math.abs(Number(a) - b) <= eps;
@@ -261,7 +262,7 @@ test('5. capital flows and the reconciliation block: deposit and payout rows, mi
 
 test('6. the migration runs twice without error, and its rollback restores the old behaviour exactly (no data deleted)', async () => {
   const w = await world(); await w.seed(1000);
-  const mig = readFileSync(new URL('../supabase/migrations/20261112000000_pool_update.sql', import.meta.url), 'utf8');
+  const mig = readFileSync(migUrl('20261112000000_pool_update.sql'), 'utf8');
   const rb = readFileSync(new URL('../supabase/rollback/20261112000000_rollback_pool_update.sql', import.meta.url), 'utf8');
   await w.db.exec(mig);                                       // second run
   await w.exit('e1', 25);

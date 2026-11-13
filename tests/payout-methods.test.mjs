@@ -2,13 +2,13 @@
 // every call as the public "anon" role.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+const migUrl = (f) => { const a = new URL('../supabase/migrations/applied/' + f, import.meta.url); return existsSync(a) ? a : new URL('../supabase/migrations/' + f, import.meta.url); };
 import { PGlite } from '@electric-sql/pglite';
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto';
 
 const dir = new URL('../supabase/migrations/', import.meta.url), appl = new URL('applied/', dir);
-const FILES = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, appl)),
-  ...readdirSync(dir).filter((f) => f.endsWith('.sql')).sort().map((f) => new URL(f, dir))];
+const FILES = [appl, dir].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => new URL(f, d))).sort((a, b) => { const x = a.pathname.split('/').pop(), y = b.pathname.split('/').pop(); return x < y ? -1 : x > y ? 1 : 0; });   // applied/ + pending, merged by file name (timestamp order)
 const QR = '0123abcd-4567-89ab-cdef-0123456789ab.png';
 
 async function world(extraSql = '') {
@@ -55,7 +55,7 @@ test('a QR image is optional and kept with any label; empty or over-long labels,
 });
 
 test('running the migration twice is harmless, and the manager sees the label', async () => {
-  const sql = readFileSync(new URL('../supabase/migrations/20261115000000_payout_methods.sql', import.meta.url), 'utf8');
+  const sql = readFileSync(migUrl('20261115000000_payout_methods.sql'), 'utf8');
   const w = await world(sql);                                      // the migration ran once in the chain and once more here
   await w.call('set_my_payout', w.J, 'Maya', 'John Reyes', '09181234567', null, QR);
   const all = await w.call('admin_payouts', w.A);

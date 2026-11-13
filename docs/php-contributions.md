@@ -1,3 +1,5 @@
+> Note (Nov 13 2026): the screens named here as Record > Balance / Money in (by hand) / Money out (by hand) are retired; the manager now uses the four steps in docs/live-nav.md. The database rules below still apply.
+
 # PHP contributions: pesos paid, USDT received, and the reference rate
 
 Status: implemented and tested locally on 2026-11-07. Not deployed and not committed. The migration is NOT applied to production; deployment steps are in section 8.

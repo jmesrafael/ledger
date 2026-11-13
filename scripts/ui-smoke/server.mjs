@@ -2,7 +2,7 @@
 // Postgres (PGlite) built from ALL migrations (applied + pending). Production is never contacted. Usage: node server.mjs <repo> <port>
 import http from 'node:http';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { join, extname, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 const repo = resolve(process.argv[2]), port = Number(process.argv[3] || 8099);
@@ -12,7 +12,7 @@ const { pgcrypto } = await import(pathToFileURL(join(repo, 'node_modules/@electr
 const db = new PGlite({ extensions: { pgcrypto } });
 await db.exec(`create role anon; create role authenticated; create schema extensions; create schema storage; create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]); create table storage.objects(bucket_id text, name text); alter table storage.objects enable row level security; grant usage on schema public to anon, authenticated;`);
 const mig = join(repo, 'supabase/migrations'), appl = join(mig, 'applied');
-const files = [...readdirSync(appl).filter((f) => f.endsWith('.sql')).sort().map((f) => join(appl, f)), ...readdirSync(mig).filter((f) => f.endsWith('.sql')).sort().map((f) => join(mig, f))];
+const files = [appl, mig].flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.sql') && !f.includes('retire_unused_functions')).map((f) => join(d, f))).sort((a, b) => { const x = basename(a), y = basename(b); return x < y ? -1 : x > y ? 1 : 0; });   // applied/ + pending merged by file name
 for (const f of files) await db.exec(readFileSync(f, 'utf8'));
 await db.exec(`update public.ledger_settings set value = '4' where key = 'bcrypt_cost'; update public.ledger_settings set value = '1000' where key = 'valuation_max_move'`);
 await db.query(`select public.create_first_admin('raf', 'Raf', 'admin-password-1')`);
