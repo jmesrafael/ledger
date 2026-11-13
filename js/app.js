@@ -1075,7 +1075,8 @@
           <div class="note">Started ${startedText(startOf(h.id))}</div>${h.role === 'investor' ? `<div class="note">${payLine(h.id)}</div>` : ''}</div>
         <button class="iconbtn" data-action="userview" data-id="${h.id}" aria-label="View ${nm}" title="View ${nm}">${ICON.eye}</button></div>`;
     };
-    return `<div class="sechead"><h2>Users (${S.all.length})</h2><button class="sm ${S.addUser ? 'ghost' : ''}" data-action="adduser">${S.addUser ? 'Cancel' : '+ Add user'}</button></div>
+    const earned = isAdmin() ? Earnings.card(Earnings.byInvestor(S.ledger, S.all), money, day) : '';   // js/earnings.js: fees earned from each investor (manager only)
+    return `${earned}<div class="sechead"><h2>Users (${S.all.length})</h2><button class="sm ${S.addUser ? 'ghost' : ''}" data-action="adduser">${S.addUser ? 'Cancel' : '+ Add user'}</button></div>
       ${S.addUser ? `<div class="card"><h2>New user</h2>
       <p class="note">Give them the username and password yourself. They can change the password after signing in.</p>
       <form id="newUserForm"><div class="grid form2"><div><label>Username</label><input name="username" autocapitalize="none" autocomplete="off" pattern="[a-zA-Z0-9_.\-]{3,30}" required></div>
@@ -1097,6 +1098,7 @@
     return `<div class="modal-bg" data-action="closemodal"><div class="sheet" role="dialog" aria-modal="true" aria-label="${nm}">
       <div class="sheet-head"><div><div class="sheet-nm">${nm}${h.active ? '' : ' <span class="chip down">off</span>'}</div><div class="note">@${esc(h.username)}${inv ? '' : ' · fund manager'}</div></div>
         <div class="sheet-btns">${inv && h.active ? `<button class="iconbtn" data-action="viewas" data-id="${h.id}" aria-label="Sign in as ${nm} (read-only)" title="Sign in as ${nm} (read-only)">${ICON.eye}</button>` : ''}<button class="iconbtn" data-action="closemodal" aria-label="Close" title="Close">${ICON.close}</button></div></div>
+      ${inv && isAdmin() ? Earnings.lines(Earnings.byInvestor(S.ledger, S.all).rows.find((r) => r.id === h.id), money) : ''}
       ${line(net ? 'Balance after fee' : 'Worth now', `<b>${money(net ? h.net_value_usdt : h.value_usdt)}</b><br><span class="note">${alt(net ? h.net_value_usdt : h.value_usdt)}</span>`)}
       ${line('Started', startedText(startOf(h.id)))}
       ${putInCards(putInOf(h))}${depositRecords(h.id)}
