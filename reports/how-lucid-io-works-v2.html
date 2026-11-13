@@ -176,6 +176,13 @@ svg text { font-family: Manrope, sans-serif; }
   background: linear-gradient(135deg, rgba(200,255,61,0.09), rgba(125,184,255,0.05)); border: 1px solid rgba(200,255,61,0.22); }
 .quote p { font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 400; font-style: italic; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.6; }
 .quote span { display: block; margin-top: 12px; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 400; font-style: italic; color: var(--muted); }
+.endrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; align-items: stretch; }
+.endrow .quote { margin-top: 0; display: flex; flex-direction: column; justify-content: center; }
+.endrow .quote p { font-size: 18px; }
+.author { padding: 18px 20px; border-radius: 18px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); }
+.author h3 { color: var(--ink); margin: 0 0 6px; }
+.author p { margin: 4px 0 0; font-size: 13.5px; }
+@media (max-width: 720px) { .endrow { grid-template-columns: 1fr; } }
 .datacta { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-top: 18px; padding: 18px 20px; border-radius: 18px;
   background: linear-gradient(135deg, rgba(200,255,61,0.12), rgba(125,184,255,0.07)); border: 1px solid rgba(200,255,61,0.3); }
 .cta-dot { width: 8px; height: 8px; border-radius: 50%; background: #0b0d06; animation: lvpulse 1.8s ease-out infinite; }
@@ -263,7 +270,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .pc-ping { transform-box: fill-box; transform-origin: center; animation: pcping 2s ease-out infinite; }
 @keyframes pcping { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
 #yours label.f { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 6px; }
-#yours input[type=text], #yours input[type=date] { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color-scheme: dark; }
+#yours input[type=text], #yours input[type=date], #yours select { width: 100%; min-height: 48px; padding: 0 14px; border-radius: 14px; font: 700 16px Manrope, system-ui, sans-serif; color: var(--ink); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color-scheme: dark; }
 #yours input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .yf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
 @media (max-width: 520px) { .yf { grid-template-columns: 1fr; } }
@@ -280,8 +287,8 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 <header class="hero reveal">
   <div class="hero-grid" aria-hidden="true"></div>
   <h1>Your slice of one <span class="metal">trading pool.</span></h1>
-  <p class="lead"><b>A small private pool that aims to grow your money.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
-  <div class="cta"><a class="btn" href="#friends"><span class="cta-dot" aria-hidden="true"></span>See it live <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="#how">See how it works <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+  <p class="lead"><b>A small private pool that trades the markets with automated systems.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
+  <div class="cta"><a class="btn" href="#friends">See it live <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
   <div class="facts">
     <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
     <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
@@ -368,12 +375,13 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 
   <div class="glass card" style="margin-top:20px;padding:18px" id="yours">
     <h3>Now try it yourself</h3>
-    <p class="small">Type your amount and pick the day you would have joined. We apply the pool's real growth from that day until now.</p>
+    <p class="small">Type your amount and choose when you would have joined (a week ago, a month ago, or your own date). We apply the pool's real growth from that day until now.</p>
     <div class="yf">
       <div><label class="f" for="y-amt">Your amount (₱)</label><input id="y-amt" type="text" inputmode="decimal" value="10,000" autocomplete="off"></div>
-      <div><label class="f" for="y-date">You joined on</label><input id="y-date" type="date"></div>
+      <div><label class="f" for="y-when">You joined</label><select id="y-when"></select></div>
+      <div id="y-custom" hidden><label class="f" for="y-date">Pick a date</label><input id="y-date" type="date"></div>
     </div>
-    <div class="seg" id="y-quick" style="margin-top:12px" role="group" aria-label="Quick start days"></div>
+    <p class="small muted" style="margin:10px 0 0">Live trading started on <b class="lv-start">Oct 24, 2026</b>, so there are no earlier dates: the pool has no results before then.</p>
     <div class="out" id="y-out" aria-live="polite"></div>
     <svg id="ychart" class="chart" viewBox="0 0 640 220" role="img" aria-label="Your amount since the day you picked"></svg>
     <p class="small muted" id="y-note"></p>
@@ -391,9 +399,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ytab" style="min-width:640px"></table></div>
   </div>
-  <p class="small muted" id="ytab-note"></p>
-  <p class="small muted">Researched and backtested by <b>James Rafael Boroy</b> · Est. Oct 20, 2026 · Market data: Binance and MEXC futures. Backtested results are statistics on past prices: markets are unpredictable, future results can be different, and nothing here is guaranteed.</p>
-  <div class="longterm">
+  <p class="small muted" id="ytab-note"></p>  <div class="longterm">
     <h3>How to read this table</h3>
     <ul>
       <li><b>Growth</b> is what the ₱1,000 earned in that one year. <b>Deepest dip</b> is the biggest fall from a high point inside that year: your money can look much worse than the final number on the way.</li>
@@ -418,9 +424,17 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div><h3>Want every detail?</h3><p>Year by year, month by month: the best and worst months, the longest red streaks and the biggest drops.</p></div>
     <a class="btn" href="/backtest-data">See the full data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
   </div>
-  <div class="quote">
-    <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
-    <span>— Albert Einstein</span>
+  <div class="endrow">
+    <div class="author">
+      <h3>About this test</h3>
+      <p>Researched and backtested by <b>James Rafael Boroy</b></p>
+      <p>Est. Oct 20, 2026 · Market data: Binance and MEXC futures</p>
+      <p class="small muted">Backtested results are statistics on past prices. Markets are unpredictable, so future results can be different and nothing here is guaranteed.</p>
+    </div>
+    <div class="quote">
+      <p>"Compound interest is the eighth wonder of the world. He who understands it, earns it; he who doesn't, pays it."</p>
+      <span>— Albert Einstein</span>
+    </div>
   </div>
 </section>
 
@@ -793,7 +807,7 @@ const tsU = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10))
 const isoU = (t) => new Date(t).toISOString().slice(0, 10);
 const fdY = (s) => `${dl(s)}, ${s.slice(0, 4)}`;
 const ago = (ms) => { const m = Math.round(ms / 6e4); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
-let LS = [], LDATA = null, pick = 0, R = [], yPick = null;
+let LS = [], LDATA = null, pick = 0, R = [], yPick = null, yCustom = false;
 // one row per day from the first reading to the last; a day with no reading keeps the day before
 function lvSeries(daily) {
   const out = []; let j = 0, cur = null;
@@ -834,11 +848,13 @@ function lvChart(svg, pts, amt, color, H, pre) {
     el('text', { x: pl - 8, y: y + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = peso(v); });
   for (let t = tsU(d0); t <= tsU(d1); t += 7 * DAYMS) el('text', { x: X(isoU(t)), y: H - 8, 'text-anchor': 'middle', fill: C.muted, 'font-size': 11 }, svg).textContent = dl(isoU(t));
   el('line', { x1: X(pts[0].d), x2: X(d1), y1: Y(amt), y2: Y(amt), stroke: C.muted, 'stroke-dasharray': '4 5' }, svg);
-  if (pre && pre.length > 1) {
-    el('path', { d: pre.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' '), fill: 'none', stroke: C.muted, 'stroke-opacity': 0.7, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+  if (pre) {
+    if (pre.length > 1) el('path', { d: pre.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' '), fill: 'none', stroke: C.muted, 'stroke-opacity': 0.7, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
     const xj = X(pts[0].d), right = xj > W * 0.7;
     el('line', { x1: xj, x2: xj, y1: pt, y2: H - pb, stroke: color, 'stroke-width': 1.5, 'stroke-dasharray': '3 4' }, svg);
-    el('text', { x: right ? xj - 6 : xj + 6, y: pt + 10, 'text-anchor': right ? 'end' : 'start', fill: color, 'font-size': 11, 'font-weight': 700 }, svg).textContent = `Joins ${dl(pts[0].d)}`;
+    const lx = right ? xj - 6 : xj + 6, anc = right ? 'end' : 'start';
+    el('text', { x: lx, y: pt + 10, 'text-anchor': anc, fill: color, 'font-size': 11, 'font-weight': 700 }, svg).textContent = `Joins ${dl(pts[0].d)}`;
+    el('text', { x: lx, y: pt + 24, 'text-anchor': anc, fill: color, 'font-size': 11 }, svg).textContent = peso(amt);
   }
   const dpath = pts.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
   const gid = 'g' + svg.id, defs = el('defs', {}, svg), lg = el('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
@@ -936,26 +952,29 @@ function yours() {
   const dEl = $('y-date'); dEl.min = LS[0].d; dEl.max = LS[LS.length - 1].d;
   if (!yPick || yPick < dEl.min || yPick > dEl.max) yPick = LS[0].d;
   dEl.value = yPick;
-  Array.prototype.forEach.call($('y-quick').children, (b) => b.classList.toggle('on', b.dataset.d === yPick));
+  $('y-when').value = yCustom ? 'custom' : yPick; if ($('y-when').value !== (yCustom ? 'custom' : yPick)) { yCustom = true; $('y-when').value = 'custom'; }
+  $('y-custom').hidden = !yCustom;
   if (!amt) { $('y-out').innerHTML = '<div><b>-</b><span>type an amount</span></div>'; $('ychart').innerHTML = ''; $('y-note').textContent = ''; return; }
   const r = liveRun(amt, yPick);
   $('y-out').innerHTML = `<div><b>${peso(r.now)}</b><span>worth now</span></div>
     <div><b style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'}">${sp(r.profit)}</b><span>${pc1(r.pct)} in ${r.days} day${r.days === 1 ? '' : 's'}</span></div>
     <div><b>${peso(r.low)}</b><span>lowest point along the way (${dl(r.lowD)})</span></div>`;
-  lvChart($('ychart'), r.pts, amt, C.accent, 220);
-  $('y-note').textContent = `Joining at the end of ${fdY(r.join)}. Real pool results, not a forecast: the value changes every few minutes.`;
+  lvChart($('ychart'), r.pts, amt, C.accent, 220, r.pre);
+  $('y-note').textContent = `The grey line is the pool before you joined; the vertical line is the day you join (the end of ${fdY(r.join)}). Real pool results, not a forecast: the value changes every few minutes.`;
 }
 function yQuick() {
   const end = LS.length - 1, q = [['Day one', LS[0].d]];
-  if (end >= 7) q.push(['7 days ago', LS[end - 7].d]);
-  if (end >= 14) q.push(['14 days ago', LS[end - 14].d]);
-  if (end >= 30) q.push(['30 days ago', LS[end - 30].d]);
-  document.getElementById('y-quick').innerHTML = q.map(([l, d]) => `<button type="button" data-d="${d}">${l}</button>`).join('');
+  if (end >= 7) q.push(['1 week ago', LS[end - 7].d]);
+  if (end >= 14) q.push(['2 weeks ago', LS[end - 14].d]);
+  if (end >= 30) q.push(['1 month ago', LS[end - 30].d]);
+  document.getElementById('y-when').innerHTML = q.map(([l, d]) => `<option value="${d}">${l} (${dl(d)})</option>`).join('') + '<option value="custom">Custom date…</option>';
 }
 document.getElementById('y-amt').addEventListener('input', () => { if (LS.length) yours(); });
 document.getElementById('y-amt').addEventListener('blur', function () { const a = yAmt(); if (a) this.value = a.toLocaleString('en-US', { maximumFractionDigits: 2 }); });
 document.getElementById('y-date').addEventListener('input', function () { if (this.value) { yPick = this.value; yours(); } });
-document.getElementById('y-quick').addEventListener('click', (e) => { const d = e.target.dataset && e.target.dataset.d; if (d) { yPick = d; yours(); } });
+document.getElementById('y-when').addEventListener('change', function () {
+  yCustom = this.value === 'custom'; if (!yCustom) yPick = this.value; yours();
+});
 function liveApply(data) {
   if (!data || !Array.isArray(data.daily) || !data.daily.length) return false;
   LDATA = data; LS = lvSeries(data.daily);
