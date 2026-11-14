@@ -76,13 +76,16 @@ section { margin-top: 28px; scroll-margin-top: 16px; }
 .btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
 .btn.glassbtn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 24px -12px rgba(0,0,0,0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
 .btn.glassbtn:hover { background: rgba(255,255,255,0.12); filter: none; }
-.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 32px -16px rgba(0,0,0,0.85); }
+.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background: rgba(8,9,10,0.58); border: 1px solid rgba(255,255,255,0.14); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 12px 32px -16px rgba(0,0,0,0.9); }
 .topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-.topbar .brand b { color: var(--accent); }
+.topbar .brand b { color: #fff; }
+.topbar .btn.glassbtn { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0 14px; }
+.topbar .btn.glassbtn:hover { background: none; text-decoration: underline; }
 .yr { display: inline-block; padding: 0 12px; margin-right: 4px; border-radius: 12px; background: var(--accent); color: #0b0d06; }
 .hl26 { border-color: rgba(200,255,61,0.35); box-shadow: var(--glass-shadow), 0 0 0 1px rgba(200,255,61,0.10), 0 0 60px -20px rgba(200,255,61,0.30); }
 .feechips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .feechips span { padding: 4px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(200,255,61,0.25); }
+.feechips span.nofee { display: inline-flex; align-items: center; gap: 6px; color: var(--amber); background: rgba(255,181,71,0.12); border-color: rgba(255,181,71,0.3); }
 .feechips span.none { background: none; color: var(--muted); border-color: var(--glass-border); }
 /* hero */
 .hero { position: relative; isolation: isolate; padding: 30px 0 8px; }
@@ -151,10 +154,10 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .ft td { text-align: right; padding: 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ft th:first-child, .ft td:first-child { text-align: left; }
 .ft tr { cursor: pointer; }
-.ft tr.on td { background: var(--c); color: #fff; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); border-bottom-color: transparent; }
+.ft tr.on td { background: color-mix(in srgb, var(--c) 38%, #0b0d06); color: #fff; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); border-bottom-color: transparent; }
 .ft tr.on td .up, .ft tr.on td .down, .ft tr.on td.up, .ft tr.on td.down { color: #fff; font-weight: 800; }
 .ft tr.on td:first-child { border-radius: 12px 0 0 12px; } .ft tr.on td:last-child { border-radius: 0 12px 12px 0; }
-.ft tr.on i { background: #fff !important; }
+.ft .nm { color: var(--c); font-weight: 800; } .ft tr.on .nm { color: #fff; }
 .ft .up { color: var(--accent); font-weight: 800; } .ft .down { color: var(--red); font-weight: 800; }
 .ft i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; }
 .longterm { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, rgba(200,255,61,0.10), rgba(125,184,255,0.06)); border: 1px solid rgba(200,255,61,0.28); }
@@ -329,7 +332,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .hero-live:hover { filter: brightness(1.08); }
 @media (max-width: 600px) { .hero-live .hl-go { margin-left: 0; } }
 .chap { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 18px 0 0; padding: 8px 10px; border-radius: 999px;
-  background: rgba(255,255,255,0.06); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255,255,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 12px 32px -16px rgba(0,0,0,0.85); }
+  background: rgba(8,9,10,0.58); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 12px 32px -16px rgba(0,0,0,0.9); }
 .chap::-webkit-scrollbar { display: none; }
 .chap a { flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; border: 1px solid transparent; }
 .chap a:hover { color: var(--ink); }
@@ -383,8 +386,8 @@ section[id], header.hero { scroll-margin-top: 64px; }
   </a>
   <div class="facts">
     <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
-    <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
-    <div class="fact glass"><b>2.5%</b><span>of a bot's money is put at risk on each trade</span></div>
+    <div class="fact glass"><b>Any time</b><span>just ask the fund manager to take money out</span></div>
+    <div class="fact glass"><b>2.5%</b><span>of the pool's money is put at risk on each trade</span></div>
     <div class="fact glass"><b>1 pool</b><span>everyone's slice moves by the same percent</span></div>
   </div>
   <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The 2026 examples use the pool's real live results; the other results are tests on past prices. Neither is a promise. <a href="#risks">Read the risks</a></div></div>
@@ -445,7 +448,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
     <div class="step"><div class="dot">5</div><div><h3>Every two months, we settle <span class="pill ok">Final</span></h3>
       <p>If your money is worth more than ever before, <b>20% of the new profit</b> is the fee. If not, there is no fee. <a href="#fee">How the fee works</a>.</p></div></div>
     <div class="step"><div class="dot">6</div><div><h3>You take your money out when you need it <span class="pill">Paid</span></h3>
-      <p>Ask in the app. You are paid within 7 business days, at the value on the day you are paid.</p></div></div>
+      <p>Ask the fund manager. You are paid at the value on the day you are paid.</p></div></div>
   </div>
 </section>
 
@@ -463,7 +466,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
   <div class="pz-say tr-say" id="tr-say" aria-live="polite"></div>
   <div class="facts tr-facts">
     <div class="fact glass"><b>~1 in 3</b><span>trades win, in the tests on 2020–2026 prices. Most trades lose a little.</span></div>
-    <div class="fact glass"><b>1R</b><span>about the most a trade loses. 1R = 2.5% of a bot's balance at the time.</span></div>
+    <div class="fact glass"><b>1R</b><span>about the most a trade loses. 1R = 2.5% of the pool's balance at the time.</span></div>
     <div class="fact glass"><b>10R+</b><span>what the best trades made. A few big wins pay for many small losses.</span></div>
     <div class="fact glass"><b>14–17</b><span>losses in a row: the longest runs in those tests. Expect them, they are normal.</span></div>
   </div>
@@ -533,7 +536,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <section id="short" class="glass card reveal">
   <div class="kicker">5 · The test on past prices</div>
   <h2>If you had put money in on 1 January in each year (2020–now)</h2>
-  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from a test of the pool's trading rules, replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade. It is a test, not the live record: the rules have been improved since, so live results will differ.</p>
+  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from a test of the pool's trading rules, replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of the pool's money</b> put at risk on each trade. It is a test, not the live record: the rules have been improved since, so live results will differ.</p>
   <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
   <div class="out" id="s-out"></div>
   <div class="tscroll">
@@ -607,8 +610,8 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <!-- 7. TAKING MONEY OUT -->
 <section id="out" class="glass card reveal">
   <div class="kicker">7 · Taking money out</div>
-  <h2>Ask any time; paid within 7 business days</h2>
-  <p>Tap <b>Request withdrawal</b> on Home. First add where you want to be paid: a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You can take part of your money or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
+  <h2>Ask the fund manager any time</h2>
+  <p>Ask the fund manager for a withdrawal (or tap <b>Request withdrawal</b> on Home). First add where you want to be paid: a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You can take part of your money or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
   <div class="tl" aria-label="Example payout timeline">
     <div class="done"><i></i>Requested</div><div class="done"><i></i>Reviewed</div><div class="now"><i></i>Trades closed</div><div><i></i>Paid out</div><div><i></i>Received</div>
   </div>
@@ -635,9 +638,9 @@ section[id], header.hero { scroll-margin-top: 64px; }
   </div>
   <div class="glass card" style="margin:0 0 12px;border-color:rgba(255,181,71,0.35)">
     <h3 style="color:var(--amber)">What "2.5% risk per trade" really means</h3>
-    <p class="small">The pool's money is split between its trading bots. Before every trade, a bot puts <b>2.5% of its current balance</b> at risk (about ₱125 when it holds ₱5,000). Wins make the next trade bigger, losses make it smaller, and the bots can have many trades open at once, one per market each. That is why results swing.</p>
+    <p class="small">Before every trade, the pool puts <b>2.5% of its current balance</b> at risk (about ₱125 on ₱5,000). Wins make the next trade bigger, losses make it smaller, and the pool can have many trades open at once, one per market. That is why results swing.</p>
     <div class="grid2" style="margin-top:10px" id="risk-facts"></div>
-    <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to <span class="d-end"></span>. A lower risk setting is calmer; 2.5% is what the bots use, so expect red months and the occasional deep red stretch.</p>
+    <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to <span class="d-end"></span>. A lower risk setting is calmer; 2.5% is what the pool uses, so expect red months and the occasional deep red stretch.</p>
   </div>
   <div class="grid2">
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>You can lose money</h3><p class="small">The market moves fast. The pool can fall sharply and you can lose a large part or all of what you put in. Only use money you can afford to lose.</p></div>
@@ -657,7 +660,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
     <details class="faq glass"><summary>Is the live record real?</summary><p>Yes. The pool has traded real money since <span class="lv-start">Oct 24, 2026</span>. The <a href="#friends">live section</a> reads the pool's wallets every 5 minutes, and the losing days are shown too. The year-by-year tables further down are a test on past prices, and they say so.</p></details>
     <details class="faq glass"><summary>Why do so many trades lose?</summary><p>That is how the rules are built: each loss is cut small, at about 1R, and the wins are allowed to run. In the tests about 1 trade in 3 won, and runs of 14 to 17 losses in a row happened. A few big wins paid for them. See <a href="#trade">lose small, win big</a>.</p></details>
     <details class="faq glass"><summary>What does it cost?</summary><p>Only one fee: <b>20% of new profit</b>, above the highest your money has ever been worth. It is worked out every two months. After a loss there is no fee until the loss is made back. There is no withdrawal fee for now; if a small one is ever added, you are told before it starts. See <a href="#fee">the fee</a>.</p></details>
-    <details class="faq glass"><summary>Can I take my money out any time?</summary><p>Ask any time in the app; you are paid within 7 business days, at the value on the day you are paid. The minimum is ₱500, and taking everything is always allowed. Your first deposit has a 3-month lock-up as a guideline; if you need money earlier, ask. See <a href="#out">taking money out</a>.</p></details>
+    <details class="faq glass"><summary>Can I take my money out any time?</summary><p>Just ask the fund manager; you are paid at the value on the day you are paid. The minimum is ₱500, and taking everything is always allowed. Your first deposit has a 3-month lock-up as a guideline; if you need money earlier, ask. See <a href="#out">taking money out</a>.</p></details>
     <details class="faq glass"><summary>How am I paid?</summary><p>To a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You add it in the app before your first request.</p></details>
     <details class="faq glass"><summary>Why does the app say "estimate"?</summary><p>Between settlements your balance moves with the open trades. It becomes final at a settlement (every two months) or when you are paid out.</p></details>
     <details class="faq glass"><summary>Can I lose money?</summary><p>Yes. You can lose a large part, or in the worst case all, of what you put in. There will be red weeks and months. Please read <a href="#risks">the risks</a> twice before you decide.</p></details>
@@ -675,7 +678,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
     <div class="fit-col no"><h3>It is not for you if</h3>
       <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed</li><li>you need a fixed or guaranteed return</li><li>losing it would hurt your life</li></ul></div>
   </div>
-  <p>This pool is private, for friends and family. To join, ask the fund manager directly. Already in? Log in to see your slices, your balance and every payout.</p>
+  <p>This pool is private, for friends and family, and it is built for the <b>long term</b>: judge it over many months, not days, to see the real results. A loss is possible, so only put in money you can leave alone. To join, ask the fund manager directly. Already in? Log in to see your slices, your balance and every payout.</p>
   <div class="cta"><a class="btn" href="/login">Log in <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn ghost" href="#friends">See the live record</a></div>
 </section>
 
@@ -980,7 +983,7 @@ function hwmDraw(key) {
   feePts.forEach((p) => el('circle', { cx: X(p.i), cy: Y(p.v), r: 5, fill: C.accent, stroke: '#060708', 'stroke-width': 2 }, svg));
   feeTags(svg, feePts.map((p) => ({ x: X(p.i), y: Y(p.v), text: 'fee ' + peso(p.fee) })), W, pl, pr, H, pb);
   const MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  document.getElementById('hchips').innerHTML = feePts.length ? feePts.map((p) => `<span>End of ${MN[p.i - 1]}: fee ${peso(p.fee)}</span>`).join('') : '<span class="none">No fee charged in this example</span>';
+  document.getElementById('hchips').innerHTML = feePts.length ? feePts.map((p) => `<span>End of ${MN[p.i - 1]}: fee ${peso(p.fee)}</span>`).join('') : (end < pts[pts.length - 1].h ? '<span class="nofee"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No fee charged · below your best level</span>' : '<span class="none">No fee charged in this example</span>');
   const charged = pts.filter((p) => p.fee > 0).length;
   document.getElementById('hwm-out').innerHTML = `<div><b>${peso(end)}</b><span>value at year end, after fees</span></div>
     <div><b>${peso(fees)}</b><span>total fees (charged in ${charged} of 6 settlements)</span></div>
@@ -1018,7 +1021,7 @@ const FRIENDS = [
   { name: 'Ben', amt: 25000, date: '2026-10-28', c: '#7DB8FF', why: 'puts in a bonus in late October' },
   { name: 'Cris', amt: 5000, date: '2026-11-01', c: '#FFB547', why: 'starts small on November 1' },
   { name: 'Dana', amt: 50000, date: '2026-11-07', c: '#B79CFF', why: 'joins with savings on November 7' },
-  { name: 'John', amt: 1000, today: true, c: '#FF8FB1', why: 'puts in ₱1,000 today' },
+  { name: 'John', amt: 1000, today: true, c: '#3D6BFF', why: 'puts in ₱1,000 today' },
 ];
 const DAYMS = 864e5;
 const tsU = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
@@ -1147,7 +1150,7 @@ function chartFacts() {
 }
 function friendsTable() {
   document.getElementById('ftable').innerHTML = '<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Worth now</th><th>Profit</th><th>%</th><th>Lowest point</th></tr>' +
-    R.map((x, k) => `<tr data-k="${k}" style="--c:${x.c}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join)}</td>
+    R.map((x, k) => `<tr data-k="${k}" style="--c:${x.c}" class="${k === pick ? 'on' : ''}"><td class="nm">${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join)}</td>
       <td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${pc1(x.r.pct)}</td><td>${peso(x.r.low)}</td></tr>`).join('') +
     '<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">Example people, real pool results. Worth now = at the latest live reading.</td></tr>';
 }
@@ -1270,10 +1273,10 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
   const box = document.getElementById('risk-facts'); if (!box) return;
   const mo = (d) => `${MONTHS_LONG[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}`;
   box.innerHTML = `
-    <div><h3>The deepest fall</h3><p class="small">In the test, the balance dropped <b>${Math.round(F.dd * 100)}%</b> from a high point (${mo(F.ddAt)}). At 1% risk the worst fall was ${Math.round(F.dd1 * 100)}%. After a ${Math.round(F.dd * 100)}% fall you need about <b>+${Math.round(F.dd / (1 - F.dd) * 100)}%</b> just to get back to even.</p></div>
-    <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b>${Math.round(F.dipMin * 100)}% and ${Math.round(F.dipMax * 100)}%</b> from its high along the way (see the table in section 3).</p></div>
-    <div><h3>Starting at a bad moment</h3><p class="small">Starting in any month and holding for 12 months (${F.rollN} start dates), the typical result was about <b>${pc(F.rollMed * 100)}</b>, but <b>${F.rollLoss} of the ${F.rollN}</b> starts lost money, the worst by <b>${Math.round(-F.rollWorst * 100)}%</b> (from ${mo(F.rollWorstFrom)}). The worst three months: ₱1,000 put in on ${dl(F.worst3From)}, ${F.worst3From.slice(0, 4)} was worth about <b>${peso(1000 * F.worst3)}</b> on ${dl(F.worst3To)}.</p></div>
-    <div><h3>The last 12 months</h3><p class="small">At ${RISK_L} risk the test earned about <b>${pc(F.last12 * 100)}</b> in the last 12 months (1% earned about ${pc(F.last12low * 100)}). A strong stretch like this does not tell you the next one, and the totals are flattered because the markets were chosen after seeing how they did.</p></div>`;
+    <div><h3>The deepest fall</h3><p class="small">In the test, the balance dropped <b class="down">−${Math.round(F.dd * 100)}%</b> from a high point (${mo(F.ddAt)}). At 1% risk the worst fall was <b class="down">−${Math.round(F.dd1 * 100)}%</b>. After a ${Math.round(F.dd * 100)}% fall you need about <b class="up">+${Math.round(F.dd / (1 - F.dd) * 100)}%</b> just to get back to even.</p></div>
+    <div><h3>Dips inside a single year</h3><p class="small">Even in years that ended well, the balance dipped between <b class="down">−${Math.round(F.dipMin * 100)}%</b> and <b class="down">−${Math.round(F.dipMax * 100)}%</b> from its high along the way (see the table in section 3).</p></div>
+    <div><h3>Starting at a bad moment</h3><p class="small">Starting in any month and holding for 12 months (${F.rollN} start dates), the typical result was about <b class="${cls(F.rollMed)}">${pc(F.rollMed * 100)}</b>, but <b class="down">${F.rollLoss} of the ${F.rollN}</b> starts lost money, the worst by <b class="down">−${Math.round(-F.rollWorst * 100)}%</b> (from ${mo(F.rollWorstFrom)}). The worst three months: ₱1,000 put in on ${dl(F.worst3From)}, ${F.worst3From.slice(0, 4)} was worth about <b class="${cls(F.worst3 - 1)}">${peso(1000 * F.worst3)}</b> on ${dl(F.worst3To)}.</p></div>
+    <div><h3>The last 12 months</h3><p class="small">At ${RISK_L} risk the test earned about <b class="${cls(F.last12)}">${pc(F.last12 * 100)}</b> in the last 12 months (1% earned about <b class="${cls(F.last12low)}">${pc(F.last12low * 100)}</b>). A strong stretch like this does not tell you the next one, and the totals are flattered because the markets were chosen after seeing how they did.</p></div>`;
 })();
 // ---------- In short: money put in on 1 January of each year (slices of the running pool), worth at year end and now, before and after the fee
 (function inShort() {
@@ -1292,14 +1295,14 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
         return `<tr><td>${r.y}</td><td>${peso(amt)}</td><td>${cur ? '<span class="muted">year not over</span>' : peso(e)}</td><td class="${e >= amt ? 'up' : 'down'}">${cur ? '–' : peso(afterFee(e, amt))}</td>
           <td><b>${peso(n)}</b></td><td class="${n >= amt ? 'up' : 'down'}"><b>${peso(afterFee(n, amt))}</b></td>${r.low < 1 ? `<td class="down">${peso(amt * r.low)} (${pc((r.low - 1) * 100)})</td>` : '<td class="muted">never below it</td>'}</tr>`;
       }).join('');
-    $('s-note').innerHTML = `"After fee" is about what you keep once the ${FEE_PCT}% fee on new profit is taken; it is settled every two months, so the exact amount depends on the path. Values count closed trades only. The big figures for the early years come from compounding on every trade for several years: real trading at that size would grow more slowly (large orders fill at worse prices, and the bots lower their risk as an account grows). Even along these lines the balance fell up to ${Math.round(F.dd * 100)}% from a high. A test on past prices, not a promise.`;
+    $('s-note').innerHTML = `"After fee" is about what you keep once the ${FEE_PCT}% fee on new profit is taken; it is settled every two months, so the exact amount depends on the path. Values count closed trades only. The big figures for the early years come from compounding on every trade for several years: real trading at that size would grow more slowly (large orders fill at worse prices, and the pool lowers its risk as it grows). Even along these lines the balance fell up to ${Math.round(F.dd * 100)}% from a high. A test on past prices, not a promise.`;
   };
   $('s-amt').addEventListener('input', run); run();
 })();
 // ---------- how it compares with saving elsewhere: what ₱100,000 becomes in a year (rates as of Oct 2026: update when they change)
 (function compare() {
   const t = document.getElementById('cmp'); if (!t) return;
-  const SAFE = [['GCash GSave (CIMB)', 'insured by PDIC', 2.30, 101840], ['GoTyme savings', 'insured by PDIC', 3.00, 102400], ['Maya Savings*', 'insured by PDIC', 3.00, 102400],
+  const SAFE = [['GCash GSave (CIMB)', 'insured by PDIC', 2.30, 101840], ['GoTyme savings', 'insured by PDIC', 3.00, 102400], ['Maya Savings', 'insured by PDIC', 3.00, 102400],
     ['MariBank', 'insured by PDIC', 3.25, 102600], ['Government retail bond', 'backed by the government', 6.875, 105500], ['Pag-IBIG MP2', 'government fund, tax-free', 7.12, 107120]];
   const net = (growth) => { const end = 1000 * growth, earned = end - 1000; return end > 1000 ? 1000 + (1 - FEE) * earned : end; };
   const luc = YS.map((y) => [y + (y === END_Y ? ` (to ${MONTHS[+F.end.slice(5, 7) - 1]})` : ''), net(yg(R5, y))]).concat([['Last 12 months', net(1 + F.last12)]]);
