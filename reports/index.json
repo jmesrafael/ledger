@@ -1,5 +1,22 @@
 [
   {
+    "slug": "bot-improvements",
+    "title": "Bot Improvement Study: Today's Rules vs an Improved Version",
+    "summary": "BB-CORE, I-CORE and T-CORE as they run today against the best version found that is better in all four columns (profit, worst drop, losing streak, losing months), on Binance 4-hour data from Jan 2020 to Nov 2026. Year by year, coin by coin, which coins to add or remove, a replay test that proves no future sight or repaint, a walk-forward test on unseen years, and a summary of what each change improves. Applied to the live bots on Nov 14, 2026; ETH added to I-CORE; BNB studied and dropped after a long-history check.",
+    "updated": "Nov 14, 2026",
+    "kind": "Data report",
+    "file": "bot-improvements.html"
+  },
+  {
+    "slug": "coin-history-2020",
+    "title": "Our Coins Since 2020: Every Live Coin on All Three Bots",
+    "summary": "Each coin the bots trade live today (SOL, ZEC, NEAR, ADA, GALA, ARB, ETH, SUI) run through BB-CORE, I-CORE and T-CORE's exact rules from Jan 2020 to Nov 2026: profit by year and by month, win rates, average win and loss, worst drops, losing streaks, long vs short, the most and least profitable coin per bot, the last 12 months, and a verdict on each coin and on whether the bots still work now. A test on past prices, not a promise.",
+    "updated": "Nov 13, 2026",
+    "kind": "Data report",
+    "file": "coin-history-2020.html",
+    "pdf": "coin-history-2020.pdf"
+  },
+  {
     "slug": "sui-arb-live",
     "title": "SUI and ARB Join the Live Bots",
     "kind": "Decision report",
