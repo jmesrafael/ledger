@@ -320,7 +320,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .hero-live[hidden] { display: none; }
 .hero-live b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .hero-live b.up { color: var(--accent); } .hero-live b.down { color: var(--red); }
-.hero-live .hl-go { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 700; }
+.hero-live .hl-go { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #0b0d06; font-weight: 800; }
 .hero-live:hover { filter: brightness(1.08); }
 @media (max-width: 600px) { .hero-live .hl-go { margin-left: 0; } }
 .chap { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 22px -16px 0; padding: 10px 16px;
@@ -368,7 +368,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
   <div class="hero-grid" aria-hidden="true"></div>
   <h1>Your slice of one <span class="metal">trading pool.</span></h1>
   <p class="lead"><b>A small private pool that trades the markets with automated systems.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
-  <div class="cta"><a class="btn" href="#friends">See it live <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a><a class="btn ghost" href="#pool">How it works</a></div>
+  <div class="cta"><a class="btn" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a><a class="btn ghost" href="#pool">How it works</a></div>
   <a class="hero-live glass" id="hero-live" href="#friends" hidden>
     <span class="livebadge off" id="hl-badge"><i class="pulse"></i><span>Live</span></span>
     <span class="hl-item"><b id="hl-growth">-</b> pool growth since <span class="lv-start">Oct 24, 2026</span></span>
@@ -876,23 +876,13 @@ function swipeable(box) {
       const steps = Math.max(1, Math.round(o.s));
       for (let k = 0; k < steps; k++) slice(inner, a0 + (k / steps) * (a1 - a0) + GAP / 2, a0 + ((k + 1) / steps) * (a1 - a0) - GAP / 2, R, o.c, ++n * 13);
       const mk = Math.floor((steps - 1) / 2), [fx, fy] = pt(150, 150, R * 0.56, a0 + (mk + 0.5) / steps * (a1 - a0));   // the pick goes in the middle slice
-      pick(inner, fx, fy, o);
+      if (o.me) pick(inner, fx, fy, o);   // only your slices carry a tag
       a0 = a1;
     });
     // a few wisps of steam
     const st = el('g', { class: 'steam' }, pie);
     [[118, 126, 0], [140, 112, 1.6], [172, 150, 3.1]].forEach(([x, y, dl]) => el('path', { d: `M${x},${y} c-7,-9 7,-15 0,-26`, fill: 'none', stroke: '#FFF8E6', 'stroke-width': 3, 'stroke-linecap': 'round', style: `animation-delay:${dl}s` }, st));
     if (lift) {
-      // stretchy cheese between your slices and the rest of the pizza
-      const sg = el('g', { class: 'strings' }, pie);
-      [lift.a0, lift.a1].forEach((edge, e) => [22, 44, 66, 88].forEach((r, i) => {
-        if (rnd(e * 10 + i + 400) < 0.25) return;
-        const [x, y] = pt(150, 150, r, edge), qx = x + lift.dx, qy = y + lift.dy, cx = (x + qx) / 2, cy = (y + qy) / 2 + 4 + rnd(e * 10 + i + 410) * 5;
-        const d = `M${P(x, y)} Q${P(cx, cy)} ${P(qx, qy)}`;
-        el('path', { d, fill: 'none', stroke: '#F3C861', 'stroke-width': 2.6, 'stroke-opacity': 0.55, 'stroke-linecap': 'round' }, sg);
-        el('path', { d, fill: 'none', stroke: '#FFE49A', 'stroke-width': 1.1, 'stroke-linecap': 'round' }, sg);
-        el('circle', { cx: f1(0.25 * x + 0.5 * cx + 0.25 * qx), cy: f1(0.25 * y + 0.5 * cy + 0.25 * qy + 1), r: 1.5, fill: '#FFD966' }, sg);   // a drip
-      }));
       pie.appendChild(lift.g);                                                       // your slices sit on top of everything
     }
     S.owners.forEach((o) => { o.fresh = false; });
