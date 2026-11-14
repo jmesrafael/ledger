@@ -76,7 +76,9 @@ section { margin-top: 28px; scroll-margin-top: 16px; }
 .btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
 .btn.glassbtn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 24px -12px rgba(0,0,0,0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
 .btn.glassbtn:hover { background: rgba(255,255,255,0.12); filter: none; }
-.topbar { position: relative; z-index: 2; display: flex; justify-content: flex-end; padding: 18px 0 0; }
+.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 12px 32px -16px rgba(0,0,0,0.85); }
+.topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+.topbar .brand b { color: var(--accent); }
 .yr { display: inline-block; padding: 0 12px; margin-right: 4px; border-radius: 12px; background: var(--accent); color: #0b0d06; }
 .hl26 { border-color: rgba(200,255,61,0.35); box-shadow: var(--glass-shadow), 0 0 0 1px rgba(200,255,61,0.10), 0 0 60px -20px rgba(200,255,61,0.30); }
 .feechips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -149,10 +151,10 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .ft td { text-align: right; padding: 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ft th:first-child, .ft td:first-child { text-align: left; }
 .ft tr { cursor: pointer; }
-.ft tr.on td { background: var(--c); color: #0b0d06; font-weight: 700; border-bottom-color: transparent; }
-.ft tr.on td .up, .ft tr.on td .down, .ft tr.on td.up, .ft tr.on td.down { color: #0b0d06; font-weight: 800; }
+.ft tr.on td { background: var(--c); color: #fff; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.5); border-bottom-color: transparent; }
+.ft tr.on td .up, .ft tr.on td .down, .ft tr.on td.up, .ft tr.on td.down { color: #fff; font-weight: 800; }
 .ft tr.on td:first-child { border-radius: 12px 0 0 12px; } .ft tr.on td:last-child { border-radius: 0 12px 12px 0; }
-.ft tr.on i { background: #0b0d06 !important; }
+.ft tr.on i { background: #fff !important; }
 .ft .up { color: var(--accent); font-weight: 800; } .ft .down { color: var(--red); font-weight: 800; }
 .ft i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; }
 .longterm { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, rgba(200,255,61,0.10), rgba(125,184,255,0.06)); border: 1px solid rgba(200,255,61,0.28); }
@@ -196,8 +198,8 @@ svg text { font-family: Manrope, sans-serif; }
 #pizza.lifted .mine { transform: translate(var(--lx), var(--ly)); filter: drop-shadow(0 18px 14px rgba(0,0,0,0.65)) drop-shadow(0 0 9px rgba(200,255,61,0.3)); }
 #pizza.lifted .mine .bob { animation: bob 3.2s ease-in-out 1.3s infinite; }
 @keyframes bob { 50% { transform: translate(var(--bx), var(--by)); } }
-#pizza .strings, #pizza .youtag { opacity: 0; transition: opacity .5s ease; }
-#pizza.lifted .strings { opacity: .95; transition-delay: .3s; }
+#pizza .glowline, #pizza .youtag { opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+#pizza.lifted .glowline { opacity: 1; transition-delay: .3s; }
 #pizza.lifted .youtag { opacity: 1; transition-delay: .7s; }
 #pizza .newbit { animation: popin .65s cubic-bezier(.3,1.5,.5,1) both; transform-origin: 150px 150px; }
 @keyframes popin { from { opacity: 0; transform: scale(.4) rotate(-25deg); } }
@@ -239,7 +241,10 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 @media print { .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
 
 /* 2. live examples */
-.lv-top { margin: 10px 0 0; }
+.lv-top { position: absolute; top: 18px; right: 18px; margin: 0; z-index: 2; }
+#friends { padding-top: 22px; }
+#friends .kicker, #friends h2 { padding-right: 150px; }
+@media (max-width: 520px) { #friends h2 { padding-right: 0; } #friends .kicker { padding-right: 120px; } }
 .livebadge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(200,255,61,0.3); }
 .livebadge.off { color: var(--amber); background: rgba(255,181,71,0.12); border-color: rgba(255,181,71,0.3); }
 .livebadge .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: lvpulse 1.8s ease-out infinite; }
@@ -323,8 +328,8 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .hero-live .hl-go { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #0b0d06; font-weight: 800; }
 .hero-live:hover { filter: brightness(1.08); }
 @media (max-width: 600px) { .hero-live .hl-go { margin-left: 0; } }
-.chap { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 22px -16px 0; padding: 10px 16px;
-  background: rgba(7,7,8,0.78); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.chap { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 18px 0 0; padding: 8px 10px; border-radius: 999px;
+  background: rgba(255,255,255,0.06); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255,255,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 12px 32px -16px rgba(0,0,0,0.85); }
 .chap::-webkit-scrollbar { display: none; }
 .chap a { flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; border: 1px solid transparent; }
 .chap a:hover { color: var(--ink); }
@@ -361,7 +366,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
 <div class="wrap">
 
-<div class="topbar"><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+<div class="topbar"><a class="brand" href="#">Lucid<b>'</b>io</a><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
 
 <!-- HERO: the point is growing your money -->
 <header class="hero reveal">
@@ -448,7 +453,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <section id="trade" class="glass card reveal">
   <div class="kicker">3 · How the pool trades</div>
   <h2>Lose small, win big</h2>
-  <p>The pool is traded by automated systems that follow fixed rules and check the markets every 4 hours, day and night. Before a trade opens, it already has a <b>stop</b>: the price where it closes if the market goes the wrong way. What a trade can lose at its stop is called <b>1R</b>. Losses are cut at about 1R. Wins are not capped: when a trend runs, the stop follows the price (a <b>trailing stop</b>), and a trade can make many times what it risked.</p>
+  <p>The pool is traded by automated systems that follow fixed rules and watch the markets day and night. Before a trade opens, it already has a <b>stop</b>: the price where it closes if the market goes the wrong way. What a trade can lose at its stop is called <b>1R</b>. Losses are cut at about 1R. Wins are not capped: when a trend runs, the stop follows the price (a <b>trailing stop</b>), and a trade can make many times what it risked.</p>
   <div class="pz-btns tr-btns" id="tr-btns" role="group" aria-label="Choose an example">
     <button class="bad" data-t="lose" aria-pressed="false">A losing trade</button>
     <button class="good" data-t="win" aria-pressed="true">A winning trade</button>
@@ -468,7 +473,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <!-- 4. LIVE PROOF: the pool's real, live growth (api/track-record.js), five example investors and "try it yourself". Pure pool growth: nothing is taken off the amounts here. -->
 <section id="friends" class="glass card reveal hl26">
   <div class="kicker">4 · Live proof</div>
-  <h2><span class="yr">2026</span> Five investors, five different starts</h2>
+  <h2>Five investors, five different starts</h2>
   <div class="lv-top"><span class="livebadge off" id="lv-badge"><i class="pulse"></i><span id="lv-txt">Live trading</span></span></div>
   <div class="realbox">
     <h3>This is LIVE trading, not a backtest</h3>
@@ -512,7 +517,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
       <div><label class="f" for="y-amt">Your amount (₱)</label><input id="y-amt" type="text" inputmode="decimal" value="10,000" autocomplete="off"></div>
       <div class="dd" id="y-dd">
         <label class="f" id="y-when-l">You joined</label>
-        <button type="button" class="dd-btn" id="y-when" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="y-when-l y-when"><span id="y-when-txt">Day one</span><small id="y-when-d"></small><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <button type="button" class="dd-btn" id="y-when" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="y-when-l y-when"><span id="y-when-txt">Day one (Pool strats trading)</span><small id="y-when-d"></small><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <div class="dd-pop" id="y-pop" role="dialog" aria-label="When you joined" hidden></div>
       </div>
     </div>
@@ -527,7 +532,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <!-- IN SHORT: what money put in on 1 January would be worth, from the two live bots' test on past prices -->
 <section id="short" class="glass card reveal">
   <div class="kicker">5 · The test on past prices</div>
-  <h2>If you had put money in on 1 January</h2>
+  <h2>If you had put money in on 1 January in each year (2020–now)</h2>
   <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from a test of the pool's trading rules, replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade. It is a test, not the live record: the rules have been improved since, so live results will differ.</p>
   <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
   <div class="out" id="s-out"></div>
@@ -825,9 +830,6 @@ function swipeable(box) {
   // a toothpick stuck in the owner's slice: a little pennant in their colour, or the YOU tag for yours
   function pick(g, x, y, o) {
     const t = el('g', { class: o.me ? 'youtag' : 'flag' }, g), top = y - (o.me ? 15 : 18);
-    el('ellipse', { cx: f1(x + 1), cy: f1(y + 9.5), rx: 3.4, ry: 1.4, fill: '#000', 'fill-opacity': 0.35 }, t);
-    el('line', { x1: f1(x), y1: f1(y + 9), x2: f1(x), y2: f1(top), stroke: '#5A3516', 'stroke-width': 2.6, 'stroke-linecap': 'round' }, t);
-    el('line', { x1: f1(x), y1: f1(y + 8.5), x2: f1(x), y2: f1(top), stroke: '#F0DDB7', 'stroke-width': 1.3, 'stroke-linecap': 'round' }, t);
     if (o.me) {
       el('rect', { x: f1(x - 20), y: f1(top - 16), width: 40, height: 20, rx: 10, fill: '#0b0d06', stroke: '#C8FF3D', 'stroke-width': 1.5 }, t);
       el('text', { x: f1(x), y: f1(top - 1.8), 'text-anchor': 'middle', fill: '#C8FF3D', 'font-size': 11.5, 'font-weight': 800, 'letter-spacing': 0.5 }, t).textContent = 'YOU';
@@ -876,7 +878,13 @@ function swipeable(box) {
       const steps = Math.max(1, Math.round(o.s));
       for (let k = 0; k < steps; k++) slice(inner, a0 + (k / steps) * (a1 - a0) + GAP / 2, a0 + ((k + 1) / steps) * (a1 - a0) - GAP / 2, R, o.c, ++n * 13);
       const mk = Math.floor((steps - 1) / 2), [fx, fy] = pt(150, 150, R * 0.56, a0 + (mk + 0.5) / steps * (a1 - a0));   // the pick goes in the middle slice
-      if (o.me) pick(inner, fx, fy, o);   // only your slices carry a tag
+      if (o.me) {
+        pick(inner, fx, fy, o);   // only your slices carry a tag
+        const od = `${wedge(R + 13, a0, a1)}`;   // glowing outline round your lifted slices, drawn on top so the pizza cannot hide it
+        const gw = el('g', { class: 'glowline' }, inner);
+        el('path', { d: od, fill: 'none', stroke: '#C8FF3D', 'stroke-opacity': 0.25, 'stroke-width': 9, 'stroke-linejoin': 'round' }, gw);
+        el('path', { d: od, fill: 'none', stroke: '#C8FF3D', 'stroke-opacity': 0.9, 'stroke-width': 2.2, 'stroke-linejoin': 'round' }, gw);
+      }
       a0 = a1;
     });
     // a few wisps of steam
@@ -1010,7 +1018,7 @@ const FRIENDS = [
   { name: 'Ben', amt: 25000, date: '2026-10-28', c: '#7DB8FF', why: 'puts in a bonus in late October' },
   { name: 'Cris', amt: 5000, date: '2026-11-01', c: '#FFB547', why: 'starts small on November 1' },
   { name: 'Dana', amt: 50000, date: '2026-11-07', c: '#B79CFF', why: 'joins with savings on November 7' },
-  { name: 'Eli', amt: 15000, date: '2026-11-11', c: '#FF8FB1', why: 'joins later, on November 11' },
+  { name: 'John', amt: 1000, today: true, c: '#FF8FB1', why: 'puts in ₱1,000 today' },
 ];
 const DAYMS = 864e5;
 const tsU = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10));
@@ -1175,7 +1183,7 @@ function yours() {
   $('y-note').textContent = `The grey line is the pool before you joined; the vertical line is the day you join (the end of ${fdY(r.join)}). Real pool results, not a forecast: the value changes every few minutes.`;
 }
 function yQuick() {
-  const end = LS.length - 1; yQ = [{ l: 'Day one', d: LS[0].d }];
+  const end = LS.length - 1; yQ = [{ l: 'Day one (Pool strats trading)', d: LS[0].d }];
   if (end >= 7) yQ.push({ l: '1 week ago', d: LS[end - 7].d });
   if (end >= 14) yQ.push({ l: '2 weeks ago', d: LS[end - 14].d });
   if (end >= 30) yQ.push({ l: '1 month ago', d: LS[end - 30].d });
@@ -1224,7 +1232,7 @@ document.getElementById('y-amt').addEventListener('blur', function () { const a 
 function liveApply(data) {
   if (!data || !Array.isArray(data.daily) || !data.daily.length) return false;
   LDATA = data; LS = lvSeries(data.daily);
-  R = FRIENDS.filter((f) => f.date <= LS[LS.length - 1].d).map((f) => ({ ...f, r: liveRun(f.amt, f.date) }));
+  R = FRIENDS.map((f) => (f.today ? { ...f, date: LS[LS.length - 1].d } : f)).filter((f) => f.date <= LS[LS.length - 1].d).map((f) => ({ ...f, r: liveRun(f.amt, f.date) }));
   if (pick >= R.length) pick = 0;
   lvStats(); poolChart(); chartFacts(); friendsUI(); yQuick(); yours();
   return true;
@@ -1329,6 +1337,8 @@ function heroLive(g, taken, open, fresh) {
   document.getElementById('hl-badge').classList.toggle('off', !fresh);
   box.hidden = false;
 }
+// questions: only one open at a time
+document.querySelectorAll('.faq-list details').forEach((d) => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.faq-list details[open]').forEach((o) => { if (o !== d) o.open = false; }); }));
 // ---------- chapter menu: highlights the chapter on screen, keeps the active one in view
 (function chapters() {
   const nav = document.getElementById('chap'); if (!nav) return;
