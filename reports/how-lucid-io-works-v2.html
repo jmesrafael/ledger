@@ -76,11 +76,10 @@ section { margin-top: 28px; scroll-margin-top: 16px; }
 .btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
 .btn.glassbtn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 24px -12px rgba(0,0,0,0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
 .btn.glassbtn:hover { background: rgba(255,255,255,0.12); filter: none; }
-.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background-color: rgba(8,9,10,0.62); background-image: none; }
-.topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-.topbar .brand b { color: #fff; }
-.topbar .btn.glassbtn { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0 14px; }
-.topbar .btn.glassbtn:hover { background: none; text-decoration: underline; }
+.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 0; }
+.topbar .brand { font-weight: 800; font-size: 20px; letter-spacing: -.01em; color: #fff; text-decoration: none; }
+.topbar .brand b, .brandmark b { color: var(--accent); font-weight: 800; } .brandmark { color: #fff; font-weight: 800; }
+.topbar .btn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-size: 14px; }
 .yr { display: inline-block; padding: 0 12px; margin-right: 4px; border-radius: 12px; background: var(--accent); color: #0b0d06; }
 .hl26 { border-color: rgba(200,255,61,0.35); box-shadow: var(--glass-shadow), 0 0 0 1px rgba(200,255,61,0.10), 0 0 60px -20px rgba(200,255,61,0.30); }
 .feechips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -384,7 +383,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
 <div class="wrap">
 
-<div class="topbar glass"><a class="brand" href="#">Lucid<b>'</b>io</a><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+<div class="topbar"><a class="brand" href="#"><b>Lucid'</b>io</a><a class="btn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
 
 <!-- HERO: the point is growing your money -->
 <header class="hero reveal">
@@ -724,7 +723,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
       <p class="small muted">Backtested results are statistics on past prices. Markets are unpredictable, so future results can be different and nothing here is guaranteed.</p>
     </div>
 
-<footer>Lucid'io · Past results, simulated or real, do not guarantee future results. Only use money you can afford to lose.</footer>
+<footer><span class="brandmark"><b>Lucid'</b>io</span> · Past results, simulated or real, do not guarantee future results. Only use money you can afford to lose.</footer>
 </div>
 
 <button type="button" class="totop" id="totop" aria-label="Back to top"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
