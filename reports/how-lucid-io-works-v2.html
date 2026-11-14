@@ -363,7 +363,18 @@ section[id], header.hero { scroll-margin-top: 64px; }
 .reality { margin: 0 0 16px; padding: 16px; border-radius: 16px; border: 1px solid rgba(255,181,71,0.35); background: rgba(255,181,71,0.06); }
 .reality h3 { color: var(--amber); margin: 0 0 2px; } .reality p { margin: 0 0 8px; }
 .reality ul { list-style: none; margin: 0; padding: 0; } .reality li { position: relative; margin: 7px 0; padding-left: 28px; color: var(--ink-2); font-size: 14.5px; }
-.reality li::before { content: ""; position: absolute; left: 0; top: 2px; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--amber); }
+.reality li { padding-left: 0; } .reality label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.reality input { appearance: none; -webkit-appearance: none; flex: none; width: 18px; height: 18px; margin: 1px 0 0; border-radius: 5px; border: 1.5px solid var(--amber); background: none; cursor: pointer; display: grid; place-items: center; }
+.reality input:checked { background: var(--accent); border-color: var(--accent); }
+.reality input:checked::after { content: ""; width: 5px; height: 9px; border: solid #0b0d06; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+.reality input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reality label:has(input:checked) { color: var(--ink); }
+.rc-say { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--amber); background: rgba(255,181,71,0.08); }
+.rc-say.ok { color: var(--accent); background: var(--accent-dim); }
+.rc-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 0; }
+@media (max-width: 760px) { .rc-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rc-facts div { padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,112,112,0.25); background: rgba(255,112,112,0.05); }
+.rc-facts b { display: block; font-size: 22px; font-weight: 800; } .rc-facts span { font-size: 12.5px; color: var(--ink-2); }
 .fit-col ul { margin: 8px 0 0; padding-left: 18px; } .fit-col li { margin: 5px 0; color: var(--ink-2); font-size: 14.5px; }
 #start .cta { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { #tr-svg .draw, #tr-svg .late { transition: none; } .faq summary::after { transition: none; } }
@@ -676,15 +687,32 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <section id="start" class="glass card reveal">
   <div class="kicker">10 · Is this for you?</div>
   <h2>Decide calmly</h2>
+  <p>Before you put anything in, picture the bad stretches, not the good ones. These are what the pool's own rules have already gone through:</p>
+  <div class="rc-facts">
+    <div><b class="down" id="rc-dd">−47%</b><span>the deepest fall from a high in the test on past prices, even with every rule working as designed.</span></div>
+    <div><b class="down" id="rc-w3">₱562</b><span>what ₱1,000 was worth after the worst three months in that test.</span></div>
+    <div><b class="down">14–17</b><span>losing trades in a row have happened. Only about 1 trade in 3 wins.</span></div>
+    <div><b class="down" id="rc-live">−13%</b><span>the live pool's biggest drop from a high so far, in real trading.</span></div>
+  </div>
   <div class="fit">
     <div class="fit-col yes"><h3>It may suit you if</h3>
-      <ul><li>the money can stay in for <b>at least a year</b></li><li>you can watch a red month without panic</li><li>you want a share of a traded pool instead of trading yourself</li><li>you have read the risks and the fee</li><li>you have an emergency fund set aside, separate from this money</li><li>you accept that a loss is possible</li></ul></div>
+      <ul><li>the money can stay in for <b>at least a year</b>, ideally longer</li><li>you can see your balance down 20%, 30% or more and leave it alone</li><li>you already have an emergency fund, separate from this money</li><li>you want a share of a traded pool instead of trading yourself</li><li>you have read the risks and understand the 20% fee on new profit</li></ul></div>
     <div class="fit-col no"><h3>It is not for you if</h3>
-      <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed</li><li>you need a fixed or guaranteed return</li><li>losing it would hurt your life</li><li>you expect quick or easy profit</li><li>you are only joining because others did</li></ul></div>
+      <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed, or from a loan or credit card</li><li>you need a fixed, monthly or guaranteed return</li><li>you expect quick or easy profit</li><li>you would check it every day and pull out after a bad week</li><li>losing it would hurt your life or a relationship</li></ul></div>
   </div>
-  <div class="reality"><h3>Reality check before you commit</h3>
-    <p class="small">Be honest with each one. If any answer is "no", wait.</p>
-    <ul><li>If this money dropped by half, I would still be okay.</li><li>I do not need it back in the next 12 months.</li><li>It is not borrowed, and not the money for my bills, school or emergencies.</li><li>I understand a losing month, or even a losing year, can happen and I will not pull out in a panic.</li><li>I know past tests are not a promise, and nothing here is guaranteed.</li><li>I know the fee is 20% of new profit, and I have read the risks.</li><li>I am deciding for myself, not because someone else joined.</li></ul></div>
+  <div class="reality" id="reality"><h3>Reality check before you commit</h3>
+    <p class="small">Tick only what is honestly true for you. If even one is not, wait.</p>
+    <ul>
+      <li><label><input type="checkbox"> If this money fell by half, my life would not change.</label></li>
+      <li><label><input type="checkbox"> I will not need it back in the next 12 months.</label></li>
+      <li><label><input type="checkbox"> It is not borrowed, and it is not my bills, school or emergency money.</label></li>
+      <li><label><input type="checkbox"> I can see red weeks, red months and even a red year without pulling out in a panic.</label></li>
+      <li><label><input type="checkbox"> I know the past tests and the live record are not a promise, and nothing here is guaranteed.</label></li>
+      <li><label><input type="checkbox"> I know the fee is 20% of new profit, and I have read the risks.</label></li>
+      <li><label><input type="checkbox"> I am deciding for myself, not because someone else joined.</label></li>
+    </ul>
+    <div class="rc-say" id="rc-say" aria-live="polite">0 of 7 ticked. If any of these is not true for you, it is better to wait.</div>
+  </div>
   <p>This pool is private, for friends and family, and it is built for the <b>long term</b>: judge it over many months, not days, to see the real results. A loss is possible, so only put in money you can leave alone. To join, ask the fund manager directly. Already in? Log in to see your slices, your balance and every payout.</p>
   <div class="cta"><a class="btn" href="/login">Log in <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn ghost" href="#friends">See the live record</a></div>
 </section>
@@ -1245,6 +1273,8 @@ function liveApply(data) {
   R = FRIENDS.map((f) => (f.today ? { ...f, date: LS[LS.length - 1].d } : f)).filter((f) => f.date <= LS[LS.length - 1].d).map((f) => ({ ...f, r: liveRun(f.amt, f.date) }));
   if (pick >= R.length) pick = 0;
   lvStats(); poolChart(); chartFacts(); friendsUI(); yQuick(); yours();
+  let pk = 0, dd = 0; data.daily.forEach((x) => { pk = Math.max(pk, +x[1]); dd = Math.min(dd, +x[1] / pk - 1); });
+  const rl = document.getElementById('rc-live'); if (rl) rl.textContent = dd < 0 ? `−${Math.round(-dd * 100)}%` : '0%';
   return true;
 }
 function liveLoad() {
@@ -1347,6 +1377,19 @@ function heroLive(g, taken, open, fresh) {
   document.getElementById('hl-badge').classList.toggle('off', !fresh);
   box.hidden = false;
 }
+// is this for you: the hard numbers from the same test and the live curve, and the reality check
+(function realityCheck() {
+  const $ = (id) => document.getElementById(id);
+  if ($('rc-dd')) $('rc-dd').textContent = `−${Math.round(F.dd * 100)}%`;
+  if ($('rc-w3')) $('rc-w3').textContent = peso(1000 * F.worst3);
+  const box = $('reality'); if (!box) return;
+  const ins = [...box.querySelectorAll('input')], say = $('rc-say');
+  box.addEventListener('change', () => {
+    const n = ins.filter((x) => x.checked).length, all = n === ins.length;
+    say.classList.toggle('ok', all);
+    say.textContent = all ? 'All 7 are true for you. If you still want in, talk to the fund manager, and start with an amount you can forget about for a year.' : `${n} of ${ins.length} ticked. If any of these is not true for you, it is better to wait.`;
+  });
+})();
 // questions: only one open at a time
 document.querySelectorAll('.faq-list details').forEach((d) => d.addEventListener('toggle', () => { if (d.open) document.querySelectorAll('.faq-list details[open]').forEach((o) => { if (o !== d) o.open = false; }); }));
 // ---------- chapter menu: highlights the chapter on screen, keeps the active one in view
