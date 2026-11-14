@@ -76,7 +76,7 @@ section { margin-top: 28px; scroll-margin-top: 16px; }
 .btn.ghost { color: var(--ink); background: var(--glass); border: 1px solid var(--glass-border); box-shadow: none; font-weight: 700; }
 .btn.glassbtn { min-height: 42px; padding: 0 18px; border-radius: 99px; font-weight: 700; font-size: 14px; color: var(--ink); background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 8px 24px -12px rgba(0,0,0,0.8); -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
 .btn.glassbtn:hover { background: rgba(255,255,255,0.12); filter: none; }
-.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background: rgba(8,9,10,0.58); border: 1px solid rgba(255,255,255,0.14); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 12px 32px -16px rgba(0,0,0,0.9); }
+.topbar { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 8px 8px 8px 22px; border-radius: 999px; background-color: rgba(8,9,10,0.62); background-image: none; }
 .topbar .brand { font-weight: 800; font-size: 17px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
 .topbar .brand b { color: #fff; }
 .topbar .btn.glassbtn { background: none; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0 14px; }
@@ -331,12 +331,12 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .hero-live .hl-go { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 999px; background: var(--accent); color: #0b0d06; font-weight: 800; }
 .hero-live:hover { filter: brightness(1.08); }
 @media (max-width: 600px) { .hero-live .hl-go { margin-left: 0; } }
-.chap { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 18px 0 0; padding: 8px 10px; border-radius: 999px;
-  background: rgba(8,9,10,0.58); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255,255,255,0.14); box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 12px 32px -16px rgba(0,0,0,0.9); }
+.chapbar { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 5; margin: 18px 0 0; border-radius: 999px; background-color: rgba(8,9,10,0.62); background-image: none; }
+.chap { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 10px; border-radius: 999px; }
 .chap::-webkit-scrollbar { display: none; }
-.chap a { flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; border: 1px solid transparent; }
-.chap a:hover { color: var(--ink); }
-.chap a.on { color: #0b0d06; background: var(--accent); }
+.chap a { flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: #fff; text-decoration: none; border: 1px solid transparent; }
+.chap a:hover { background: rgba(255,255,255,0.08); }
+.chap a.on { color: #0b0d06; background: linear-gradient(180deg, #EAFF9C, #C8FF3D 55%, #A6DC20); box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -2px 0 rgba(0,0,0,0.18), 0 2px 0 rgba(0,0,0,0.4), 0 8px 16px -6px rgba(200,255,61,0.55); transform: translateY(-1px); }
 .chap a:focus-visible, .faq summary:focus-visible, .tr-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 section[id], header.hero { scroll-margin-top: 64px; }
 .tr-btns { margin-top: 16px; }
@@ -360,6 +360,10 @@ section[id], header.hero { scroll-margin-top: 64px; }
 .fit-col { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); }
 .fit-col.yes { border-color: rgba(200,255,61,0.28); } .fit-col.no { border-color: rgba(255,112,112,0.3); }
 .fit-col.yes h3 { color: var(--accent); } .fit-col.no h3 { color: var(--red); }
+.reality { margin: 0 0 16px; padding: 16px; border-radius: 16px; border: 1px solid rgba(255,181,71,0.35); background: rgba(255,181,71,0.06); }
+.reality h3 { color: var(--amber); margin: 0 0 2px; } .reality p { margin: 0 0 8px; }
+.reality ul { list-style: none; margin: 0; padding: 0; } .reality li { position: relative; margin: 7px 0; padding-left: 28px; color: var(--ink-2); font-size: 14.5px; }
+.reality li::before { content: ""; position: absolute; left: 0; top: 2px; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--amber); }
 .fit-col ul { margin: 8px 0 0; padding-left: 18px; } .fit-col li { margin: 5px 0; color: var(--ink-2); font-size: 14.5px; }
 #start .cta { display: flex; flex-wrap: wrap; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { #tr-svg .draw, #tr-svg .late { transition: none; } .faq summary::after { transition: none; } }
@@ -369,7 +373,7 @@ section[id], header.hero { scroll-margin-top: 64px; }
 <div class="backdrop" aria-hidden="true"><i class="o1"></i><i class="o2"></i><i class="o3"></i></div>
 <div class="wrap">
 
-<div class="topbar"><a class="brand" href="#">Lucid<b>'</b>io</a><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+<div class="topbar glass"><a class="brand" href="#">Lucid<b>'</b>io</a><a class="btn glassbtn" href="/login">Log in <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
 
 <!-- HERO: the point is growing your money -->
 <header class="hero reveal">
@@ -393,9 +397,9 @@ section[id], header.hero { scroll-margin-top: 64px; }
   <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The 2026 examples use the pool's real live results; the other results are tests on past prices. Neither is a promise. <a href="#risks">Read the risks</a></div></div>
 </header>
 
-<nav class="chap" id="chap" aria-label="Chapters on this page">
+<div class="chapbar glass"><nav class="chap" id="chap" aria-label="Chapters on this page">
   <a href="#pool">Your slice</a><a href="#how">Joining</a><a href="#trade">Trading</a><a href="#friends">Live</a><a href="#short">Past prices</a><a href="#fee">Fee</a><a href="#out">Taking out</a><a href="#risks">Risks</a><a href="#faq">Questions</a>
-</nav>
+</nav></div>
 
 <!-- 1. THE POOL AS A PIZZA (units) -->
 <section id="pool" class="glass card reveal">
@@ -674,10 +678,13 @@ section[id], header.hero { scroll-margin-top: 64px; }
   <h2>Decide calmly</h2>
   <div class="fit">
     <div class="fit-col yes"><h3>It may suit you if</h3>
-      <ul><li>the money can stay in for <b>at least a year</b></li><li>you can watch a red month without panic</li><li>you want a share of a traded pool instead of trading yourself</li><li>you have read the risks and the fee</li></ul></div>
+      <ul><li>the money can stay in for <b>at least a year</b></li><li>you can watch a red month without panic</li><li>you want a share of a traded pool instead of trading yourself</li><li>you have read the risks and the fee</li><li>you have an emergency fund set aside, separate from this money</li><li>you accept that a loss is possible</li></ul></div>
     <div class="fit-col no"><h3>It is not for you if</h3>
-      <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed</li><li>you need a fixed or guaranteed return</li><li>losing it would hurt your life</li></ul></div>
+      <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed</li><li>you need a fixed or guaranteed return</li><li>losing it would hurt your life</li><li>you expect quick or easy profit</li><li>you are only joining because others did</li></ul></div>
   </div>
+  <div class="reality"><h3>Reality check before you commit</h3>
+    <p class="small">Be honest with each one. If any answer is "no", wait.</p>
+    <ul><li>If this money dropped by half, I would still be okay.</li><li>I do not need it back in the next 12 months.</li><li>It is not borrowed, and not the money for my bills, school or emergencies.</li><li>I understand a losing month, or even a losing year, can happen and I will not pull out in a panic.</li><li>I know past tests are not a promise, and nothing here is guaranteed.</li><li>I know the fee is 20% of new profit, and I have read the risks.</li><li>I am deciding for myself, not because someone else joined.</li></ul></div>
   <p>This pool is private, for friends and family, and it is built for the <b>long term</b>: judge it over many months, not days, to see the real results. A loss is possible, so only put in money you can leave alone. To join, ask the fund manager directly. Already in? Log in to see your slices, your balance and every payout.</p>
   <div class="cta"><a class="btn" href="/login">Log in <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn ghost" href="#friends">See the live record</a></div>
 </section>
