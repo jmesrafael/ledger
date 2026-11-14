@@ -192,15 +192,17 @@ svg text { font-family: Manrope, sans-serif; }
 @media (max-width: 700px) { .pizza-wrap { grid-template-columns: 1fr; justify-items: center; } .pizza-side { width: 100%; } }
 #pizza { width: 100%; max-width: 300px; height: auto; display: block; overflow: visible; }
 #pizza .pie { transform-origin: 150px 150px; transition: transform .7s cubic-bezier(.3,1.4,.5,1); }
-#pizza .mine { transition: transform .9s cubic-bezier(.3,1.5,.5,1), filter .9s ease; }
-#pizza.lifted .mine { transform: translate(var(--lx), var(--ly)); filter: drop-shadow(0 16px 12px rgba(0,0,0,0.6)); }
-#pizza.lifted .mine .bob { animation: bob 3s ease-in-out 1.2s infinite; }
+#pizza .mine { transition: transform 1s cubic-bezier(.25,1.45,.45,1), filter 1s ease; }
+#pizza.lifted .mine { transform: translate(var(--lx), var(--ly)); filter: drop-shadow(0 18px 14px rgba(0,0,0,0.65)) drop-shadow(0 0 9px rgba(200,255,61,0.3)); }
+#pizza.lifted .mine .bob { animation: bob 3.2s ease-in-out 1.3s infinite; }
 @keyframes bob { 50% { transform: translate(var(--bx), var(--by)); } }
 #pizza .strings, #pizza .youtag { opacity: 0; transition: opacity .5s ease; }
 #pizza.lifted .strings { opacity: .95; transition-delay: .3s; }
 #pizza.lifted .youtag { opacity: 1; transition-delay: .7s; }
-#pizza .newbit { animation: popin .6s cubic-bezier(.3,1.5,.5,1) both; transform-origin: 150px 150px; }
+#pizza .newbit { animation: popin .65s cubic-bezier(.3,1.5,.5,1) both; transform-origin: 150px 150px; }
 @keyframes popin { from { opacity: 0; transform: scale(.4) rotate(-25deg); } }
+#pizza .steam path { opacity: 0; animation: steam 4.8s ease-in-out infinite; }
+@keyframes steam { 0% { opacity: 0; transform: translateY(8px); } 35% { opacity: .3; } 100% { opacity: 0; transform: translateY(-22px); } }
 .pz-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .pz-btns button { font: 700 13px/1 Manrope, system-ui, sans-serif; color: var(--ink); background: var(--glass-2); border: 1px solid var(--glass-border); border-radius: 99px; padding: 10px 14px; min-height: 40px; cursor: pointer; }
 .pz-btns button:hover { background: rgba(255,255,255,0.12); }
@@ -233,7 +235,7 @@ svg text { font-family: Manrope, sans-serif; }
 footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s ease; }
 .reveal.in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit, #pizza .mine, #pizza .mine .bob { transition: none; animation: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } #pizza .pie, #pizza .newbit, #pizza .mine, #pizza .mine .bob, #pizza .steam path { transition: none; animation: none; } }
 @media print { .backdrop { display: none; } .reveal { opacity: 1; transform: none; } }
 
 /* 2. live examples */
@@ -312,6 +314,47 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
 .totop.show { opacity: 1; visibility: visible; transform: none; }
 .totop:hover { background: var(--accent); color: #0b0d06; }
 @media print { .totop { display: none; } }
+
+/* story rework (Nov 14, 2026): live strip in the hero, chapter menu, "lose small, win big", questions, is this for you */
+.hero-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 18px; padding: 12px 16px; border-radius: 16px; color: var(--ink-2); text-decoration: none; font-size: 14px; }
+.hero-live[hidden] { display: none; }
+.hero-live b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.hero-live b.up { color: var(--accent); } .hero-live b.down { color: var(--red); }
+.hero-live .hl-go { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 700; }
+.hero-live:hover { filter: brightness(1.08); }
+@media (max-width: 600px) { .hero-live .hl-go { margin-left: 0; } }
+.chap { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 22px -16px 0; padding: 10px 16px;
+  background: rgba(7,7,8,0.78); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
+.chap::-webkit-scrollbar { display: none; }
+.chap a { flex: none; padding: 7px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; border: 1px solid transparent; }
+.chap a:hover { color: var(--ink); }
+.chap a.on { color: #0b0d06; background: var(--accent); }
+.chap a:focus-visible, .faq summary:focus-visible, .tr-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+section[id], header.hero { scroll-margin-top: 64px; }
+.tr-btns { margin-top: 16px; }
+.tr-btns button[aria-pressed="true"] { box-shadow: 0 0 0 2px currentColor inset; }
+.tr-chart { margin-top: 14px; border-radius: 16px; background: rgba(255,255,255,0.025); border: 1px solid var(--line); padding: 6px; }
+#tr-svg { width: 100%; height: auto; display: block; overflow: visible; }
+#tr-svg .draw { transition: stroke-dashoffset 2.2s cubic-bezier(.45,.05,.3,1); }
+#tr-svg .late { opacity: 0; transition: opacity .5s ease; }
+#tr-svg.done .late { opacity: 1; }
+.tr-facts { margin-top: 16px; }
+.faq-list { display: grid; gap: 10px; }
+.faq { border-radius: 16px; padding: 0; }
+.faq summary { cursor: pointer; list-style: none; padding: 16px 48px 16px 18px; font-weight: 700; position: relative; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); font-size: 22px; font-weight: 400; color: var(--accent); transition: transform .25s ease; }
+.faq[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.faq p { margin: 0; padding: 0 18px 16px; color: var(--ink-2); font-size: 14.5px; }
+.faq a, #start a:not(.btn) { color: var(--accent); }
+.fit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0 16px; }
+@media (max-width: 640px) { .fit { grid-template-columns: 1fr; } }
+.fit-col { padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); }
+.fit-col.yes { border-color: rgba(200,255,61,0.28); } .fit-col.no { border-color: rgba(255,112,112,0.3); }
+.fit-col.yes h3 { color: var(--accent); } .fit-col.no h3 { color: var(--red); }
+.fit-col ul { margin: 8px 0 0; padding-left: 18px; } .fit-col li { margin: 5px 0; color: var(--ink-2); font-size: 14.5px; }
+#start .cta { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { #tr-svg .draw, #tr-svg .late { transition: none; } .faq summary::after { transition: none; } }
 </style>
 </head>
 <body>
@@ -325,7 +368,14 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="hero-grid" aria-hidden="true"></div>
   <h1>Your slice of one <span class="metal">trading pool.</span></h1>
   <p class="lead"><b>A small private pool that trades the markets with automated systems.</b> You put money in and get a slice. When the pool grows, your slice grows by the same percent as everyone else's. When it falls, so does yours.</p>
-  <div class="cta"><a class="btn" href="#friends">See it live <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+  <div class="cta"><a class="btn" href="#friends">See it live <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a><a class="btn ghost" href="/backtest-data">See the data <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a><a class="btn ghost" href="#pool">How it works</a></div>
+  <a class="hero-live glass" id="hero-live" href="#friends" hidden>
+    <span class="livebadge off" id="hl-badge"><i class="pulse"></i><span>Live</span></span>
+    <span class="hl-item"><b id="hl-growth">-</b> pool growth since <span class="lv-start">Oct 24, 2026</span></span>
+    <span class="hl-item"><b id="hl-trades">-</b> trades taken</span>
+    <span class="hl-item"><b id="hl-open">-</b> open right now</span>
+    <span class="hl-go">See the live record <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </a>
   <div class="facts">
     <div class="fact glass"><b>20%</b><span>fee, on new profit only. Never on a loss.</span></div>
     <div class="fact glass"><b>7 days</b><span>to be paid after you ask (business days)</span></div>
@@ -335,23 +385,47 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <div class="hero-warn"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></i><div><b>Only put in money you can afford to lose.</b> The market moves fast and nothing is guaranteed: you can lose a large part, or all, of what you put in. The 2026 examples use the pool's real live results; the other results are tests on past prices. Neither is a promise. <a href="#risks">Read the risks</a></div></div>
 </header>
 
-<!-- IN SHORT: what money put in on 1 January would be worth, from the two live bots' test on past prices -->
-<section id="short" class="glass card reveal">
-  <div class="kicker">In short</div>
-  <h2>If you had put money in on 1 January</h2>
-  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from the pool's two trading bots (half the money with each), replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade.</p>
-  <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
-  <div class="out" id="s-out"></div>
-  <div class="tscroll">
-    <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
-    <div class="tscroll-in"><table class="ft" id="stab" style="min-width:640px"></table></div>
+<nav class="chap" id="chap" aria-label="Chapters on this page">
+  <a href="#pool">Your slice</a><a href="#how">Joining</a><a href="#trade">Trading</a><a href="#friends">Live</a><a href="#short">Past prices</a><a href="#fee">Fee</a><a href="#out">Taking out</a><a href="#risks">Risks</a><a href="#faq">Questions</a>
+</nav>
+
+<!-- 1. THE POOL AS A PIZZA (units) -->
+<section id="pool" class="glass card reveal">
+  <div class="kicker">1 · Your slice</div>
+  <h2>The pool is one big pizza</h2>
+  <p>All the money sits together in one trading account at an exchange. Instead of tracking everyone's pesos, the ledger cuts the pool into equal <b>slices</b>. We call a slice a <b>unit</b>. You own some slices, other investors own some, and so does the fund manager.</p>
+  <div class="pizza-wrap">
+    <svg id="pizza" viewBox="0 0 300 300" role="img" aria-label="A pizza on a plate, cut into equal slices. Each person owns some slices, marked by a coloured flag; your slices are lifted out and marked YOU."></svg>
+    <div class="pizza-side">
+      <div class="pz-facts" id="pz-facts"></div>
+      <div class="pz-legend" id="pz-legend"></div>
+      <div class="pz-btns" id="pz-btns">
+        <button class="good" data-a="up">Trading earned 20%</button>
+        <button class="bad" data-a="down">Trading lost 20%</button>
+        <button data-a="join">A new investor joins with ₱3,000</button>
+        <button data-a="reset">Start over</button>
+      </div>
+    </div>
   </div>
-  <p class="small muted" id="s-note"></p>
+  <div class="pz-say" id="pz-say" aria-live="polite"></div>
+  <p class="small muted">An example pizza with made-up people. Tap the buttons to see what happens. The rule is always the same: <b>the pizza gets bigger or smaller, and every slice grows or shrinks by the same percent.</b> Nobody's slices change because someone else joins or leaves.</p>
+
+  <h3 style="margin-top:22px">Try it: money in, slices out</h3>
+  <p class="small">Move the sliders. This is an example to show the idea, not a forecast.</p>
+  <label class="rng">You put in <output id="o-put"></output><input id="r-put" type="range" min="500" max="50000" step="500" value="5000"></label>
+  <label class="rng">Price of one slice (unit) on the day you join <output id="o-price"></output><input id="r-price" type="range" min="0.5" max="3" step="0.01" value="1.20"></label>
+  <label class="rng">How the trading did after you joined <output id="o-move"></output><input id="r-move" type="range" min="-40" max="60" step="1" value="15"></label>
+  <div class="out">
+    <div><b id="u-units"></b><span>slices (units) you receive</span></div>
+    <div><b id="u-value"></b><span>what they are worth, before the fee</span></div>
+    <div><b id="u-after"></b><span>what you keep, after the 20% fee</span></div>
+  </div>
+  <div class="note-box" id="u-note"></div>
 </section>
 
-<!-- 1. HOW IT WORKS -->
+<!-- 2. HOW YOU JOIN -->
 <section id="how" class="glass card reveal">
-  <div class="kicker">1 · How it works</div>
+  <div class="kicker">2 · How you join</div>
   <h2>From your pocket to a bigger pool, in 6 steps</h2>
   <p>Think of a group savings pot that is traded by one person for everyone. The coloured labels are what you will see next to your money in the app.</p>
   <div class="steps">
@@ -360,7 +434,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div class="step"><div class="dot">2</div><div><h3>We check that it arrived <span class="pill wait">Waiting to join</span></h3>
       <p>Your money only counts once it has really reached the trading account at the exchange. Until then it stays outside the pool, so it can never be counted as profit by mistake.</p></div></div>
     <div class="step"><div class="dot">3</div><div><h3>You get your slices <span class="pill ok">In the pool</span></h3>
-      <p>Your money joins at that day's price and you receive <b>units</b> (think: slices of a pizza, see section 4). You never share in gains made before you joined, and you never pay for losses from before either.</p></div></div>
+      <p>Your money joins at that day's price and you receive <b>units</b> (the slices of the pizza in section 1). You never share in gains made before you joined, and you never pay for losses from before either.</p></div></div>
     <div class="step"><div class="dot">4</div><div><h3>The pool is traded <span class="pill">Estimate</span></h3>
       <p>The fund manager trades the pool for everyone. You keep the same number of slices; what each slice is worth goes up and down. The balance you see in the app is an estimate until a settlement or a withdrawal makes it final.</p></div></div>
     <div class="step"><div class="dot">5</div><div><h3>Every two months, we settle <span class="pill ok">Final</span></h3>
@@ -370,9 +444,30 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
 </section>
 
-<!-- 2. LIVE EXAMPLES: the pool's real, live growth (api/track-record.js), five example investors and "try it yourself". Pure pool growth: nothing is taken off the amounts here. -->
+<!-- 3. HOW THE POOL TRADES: one example trade (small loss vs big win) and ten trades, so a low win rate makes sense. Illustration; the facts row is from the tests. -->
+<section id="trade" class="glass card reveal">
+  <div class="kicker">3 · How the pool trades</div>
+  <h2>Lose small, win big</h2>
+  <p>The pool is traded by automated systems that follow fixed rules and check the markets every 4 hours, day and night. Before a trade opens, it already has a <b>stop</b>: the price where it closes if the market goes the wrong way. What a trade can lose at its stop is called <b>1R</b>. Losses are cut at about 1R. Wins are not capped: when a trend runs, the stop follows the price (a <b>trailing stop</b>), and a trade can make many times what it risked.</p>
+  <div class="pz-btns tr-btns" id="tr-btns" role="group" aria-label="Choose an example">
+    <button class="bad" data-t="lose" aria-pressed="false">A losing trade</button>
+    <button class="good" data-t="win" aria-pressed="true">A winning trade</button>
+    <button data-t="ten" aria-pressed="false">Ten trades in a row</button>
+  </div>
+  <div class="tr-chart"><svg id="tr-svg" viewBox="0 0 640 280" role="img" aria-label="An example trade: the price, the stop and the result in R"></svg></div>
+  <div class="pz-say tr-say" id="tr-say" aria-live="polite"></div>
+  <div class="facts tr-facts">
+    <div class="fact glass"><b>~1 in 3</b><span>trades win, in the tests on 2020–2026 prices. Most trades lose a little.</span></div>
+    <div class="fact glass"><b>1R</b><span>about the most a trade loses. 1R = 2.5% of a bot's balance at the time.</span></div>
+    <div class="fact glass"><b>10R+</b><span>what the best trades made. A few big wins pay for many small losses.</span></div>
+    <div class="fact glass"><b>14–17</b><span>losses in a row: the longest runs in those tests. Expect them, they are normal.</span></div>
+  </div>
+  <p class="small muted">The charts are made-up examples to show the idea. The numbers in the boxes come from the tests of the pool's trading rules on past prices (Jan 2020 to Nov 2026), with every trading cost included.</p>
+</section>
+
+<!-- 4. LIVE PROOF: the pool's real, live growth (api/track-record.js), five example investors and "try it yourself". Pure pool growth: nothing is taken off the amounts here. -->
 <section id="friends" class="glass card reveal hl26">
-  <div class="kicker">2 · Live examples</div>
+  <div class="kicker">4 · Live proof</div>
   <h2><span class="yr">2026</span> Five investors, five different starts</h2>
   <div class="lv-top"><span class="livebadge off" id="lv-badge"><i class="pulse"></i><span id="lv-txt">Live trading</span></span></div>
   <div class="realbox">
@@ -429,12 +524,26 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <p class="small muted" style="margin-top:14px">Growth from trading only: nobody's deposits, withdrawals or transfers change it. The value moves during the day because open trades count at their current price. <span id="lv-asof"></span></p>
 </section>
 
-<!-- 3. BACKTESTING DATA -->
+<!-- IN SHORT: what money put in on 1 January would be worth, from the two live bots' test on past prices -->
+<section id="short" class="glass card reveal">
+  <div class="kicker">5 · The test on past prices</div>
+  <h2>If you had put money in on 1 January</h2>
+  <p>Pick an amount. The table shows what it would have been worth at the end of that year, and what it would be worth today if you had left it in. It comes from a test of the pool's trading rules, replayed on <b>real past prices</b> of a small set of large, liquid markets, with every trading cost included and <b>2.5% of a bot's money</b> put at risk on each trade. It is a test, not the live record: the rules have been improved since, so live results will differ.</p>
+  <label class="rng">You put in <output id="s-amt-o"></output><input id="s-amt" type="range" min="1000" max="100000" step="1000" value="5000"></label>
+  <div class="out" id="s-out"></div>
+  <div class="tscroll">
+    <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
+    <div class="tscroll-in"><table class="ft" id="stab" style="min-width:640px"></table></div>
+  </div>
+  <p class="small muted" id="s-note"></p>
+</section>
+
+<!-- 5. BACKTESTING DATA -->
 <section id="past" class="glass card reveal">
-  <div class="kicker">3 · The data</div>
+  <div class="kicker">5 · Past prices, year by year</div>
   <h2>What ₱1,000 did in each past year</h2>
   <p><b>"Backtest"</b> is a simple idea: we replay the trading plan on old prices to see what would have happened. It is a test on the past, not a promise about the future.</p>
-  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses the pool's two bots (half the money in each) at <b>2.5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
+  <p>Put ₱1,000 in on <b>Jan 1</b> and leave it until <b>Dec 31</b>. The next year starts again at ₱1,000: <b>nothing is carried over</b>, so every row stands on its own. It uses the pool's trading rules as tested, at <b>2.5% risk per trade</b>, on actual market prices, with all trading costs included.</p>
   <div class="tscroll">
     <div class="swipehint" aria-hidden="true">Swipe sideways to see more <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></div>
     <div class="tscroll-in"><table class="ft" id="ytab" style="min-width:640px"></table></div>
@@ -470,55 +579,6 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
 </section>
 
-<!-- 4. THE POOL AS A PIZZA (units) -->
-<section id="pool" class="glass card reveal">
-  <div class="kicker">4 · Your slice</div>
-  <h2>The pool is one big pizza</h2>
-  <p>All the money sits together in one trading account at an exchange. Instead of tracking everyone's pesos, the ledger cuts the pool into equal <b>slices</b>. We call a slice a <b>unit</b>. You own some slices, other investors own some, and so does the fund manager.</p>
-  <div class="pizza-wrap">
-    <svg id="pizza" viewBox="0 0 300 300" role="img" aria-label="A pizza cut into slices. Each person owns some slices."></svg>
-    <div class="pizza-side">
-      <div class="pz-facts" id="pz-facts"></div>
-      <div class="pz-legend" id="pz-legend"></div>
-      <div class="pz-btns" id="pz-btns">
-        <button class="good" data-a="up">Trading earned 20%</button>
-        <button class="bad" data-a="down">Trading lost 20%</button>
-        <button data-a="join">A new investor joins with ₱3,000</button>
-        <button data-a="reset">Start over</button>
-      </div>
-    </div>
-  </div>
-  <div class="pz-say" id="pz-say" aria-live="polite"></div>
-  <p class="small muted">An example pizza with made-up people. Tap the buttons to see what happens. The rule is always the same: <b>the pizza gets bigger or smaller, and every slice grows or shrinks by the same percent.</b> Nobody's slices change because someone else joins or leaves.</p>
-
-  <h3 style="margin-top:22px">Try it: money in, slices out</h3>
-  <p class="small">Move the sliders. This is an example to show the idea, not a forecast.</p>
-  <label class="rng">You put in <output id="o-put"></output><input id="r-put" type="range" min="500" max="50000" step="500" value="5000"></label>
-  <label class="rng">Price of one slice (unit) on the day you join <output id="o-price"></output><input id="r-price" type="range" min="0.5" max="3" step="0.01" value="1.20"></label>
-  <label class="rng">How the trading did after you joined <output id="o-move"></output><input id="r-move" type="range" min="-40" max="60" step="1" value="15"></label>
-  <div class="out">
-    <div><b id="u-units"></b><span>slices (units) you receive</span></div>
-    <div><b id="u-value"></b><span>what they are worth, before the fee</span></div>
-    <div><b id="u-after"></b><span>what you keep, after the 20% fee</span></div>
-  </div>
-  <div class="note-box" id="u-note"></div>
-</section>
-
-<!-- 5. TAKING MONEY OUT -->
-<section id="out" class="glass card reveal">
-  <div class="kicker">5 · Taking money out</div>
-  <h2>Ask any time; paid within 7 business days</h2>
-  <p>Tap <b>Request withdrawal</b> on Home. First add where you want to be paid: a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You can take part of your money or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
-  <div class="tl" aria-label="Example payout timeline">
-    <div class="done"><i></i>Requested</div><div class="done"><i></i>Reviewed</div><div class="now"><i></i>Trades closed</div><div><i></i>Paid out</div><div><i></i>Received</div>
-  </div>
-  <div class="grid2" style="margin-top:16px">
-    <div><h3>Why a request can wait a little</h3><p class="small">Several trades can be open at once. A payout is worked out only when both trades are closed and the balance is checked, so nobody is paid at the price of a half-finished trade. The app tells you the reason while you wait.</p></div>
-    <div><h3>The 3-month lock-up</h3><p class="small">Your first deposit has a 3-month lock-up as a guideline: please plan to leave it in that long. If you need money earlier, ask; the fund manager decides, and any exception is written down.</p></div>
-  </div>
-  <div class="note-box">Withdrawal fee: none for now. A small one may be introduced later, lower the longer your account has been open. You will be told before it starts.</div>
-</section>
-
 <!-- 6. THE FEE -->
 <section id="fee" class="glass card reveal">
   <div class="kicker">6 · The fee</div>
@@ -539,9 +599,24 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   <p class="small muted">Green line: your value. Dashed line: your best level. Green marks: a fee was charged at that settlement. An illustration with made-up results.</p>
 </section>
 
-<!-- 7. RISKS (last) -->
+<!-- 7. TAKING MONEY OUT -->
+<section id="out" class="glass card reveal">
+  <div class="kicker">7 · Taking money out</div>
+  <h2>Ask any time; paid within 7 business days</h2>
+  <p>Tap <b>Request withdrawal</b> on Home. First add where you want to be paid: a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You can take part of your money or all of it. The minimum is ₱500, and taking everything is always allowed.</p>
+  <div class="tl" aria-label="Example payout timeline">
+    <div class="done"><i></i>Requested</div><div class="done"><i></i>Reviewed</div><div class="now"><i></i>Trades closed</div><div><i></i>Paid out</div><div><i></i>Received</div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div><h3>Why a request can wait a little</h3><p class="small">Several trades can be open at once. A payout is worked out only when both trades are closed and the balance is checked, so nobody is paid at the price of a half-finished trade. The app tells you the reason while you wait.</p></div>
+    <div><h3>The 3-month lock-up</h3><p class="small">Your first deposit has a 3-month lock-up as a guideline: please plan to leave it in that long. If you need money earlier, ask; the fund manager decides, and any exception is written down.</p></div>
+  </div>
+  <div class="note-box">Withdrawal fee: none for now. A small one may be introduced later, lower the longer your account has been open. You will be told before it starts.</div>
+</section>
+
+<!-- 8. RISKS -->
 <section id="risks" class="reveal">
-  <div class="kicker" style="margin-left:4px">7 · Risks</div>
+  <div class="kicker" style="margin-left:4px">8 · Risks</div>
   <h2 style="margin:4px 4px 12px">Please read this part twice</h2>
   <div class="warnbox" style="margin:0 0 12px">
     <h3><span class="warnbox-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Please remember what could happen</h3>
@@ -555,7 +630,7 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
   </div>
   <div class="glass card" style="margin:0 0 12px;border-color:rgba(255,181,71,0.35)">
     <h3 style="color:var(--amber)">What "2.5% risk per trade" really means</h3>
-    <p class="small">The pool's money is split between two trading bots. Before every trade, a bot puts <b>2.5% of its current balance</b> at risk (about ₱125 when it holds ₱5,000, half of a ₱10,000 pool). Wins make the next trade bigger, losses make it smaller, and the two bots can have up to ten trades open at once. That is why results swing.</p>
+    <p class="small">The pool's money is split between its trading bots. Before every trade, a bot puts <b>2.5% of its current balance</b> at risk (about ₱125 when it holds ₱5,000). Wins make the next trade bigger, losses make it smaller, and the bots can have many trades open at once, one per market each. That is why results swing.</p>
     <div class="grid2" style="margin-top:10px" id="risk-facts"></div>
     <p class="small muted" style="margin-bottom:0">Source: tests on past prices up to <span class="d-end"></span>. A lower risk setting is calmer; 2.5% is what the bots use, so expect red months and the occasional deep red stretch.</p>
   </div>
@@ -565,6 +640,38 @@ footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>The exchange and trading errors</h3><p class="small">The money sits at an exchange. An exchange problem, a hack or a trading error could cause losses that the plan did not expect.</p></div>
     <div class="glass risk"><h3><span class="ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>Not a bank, not insured</h3><p class="small">This is a private record of a share in a pooled account among friends and family. It is not a bank deposit, not insured and not a registered investment product.</p></div>
   </div>
+</section>
+
+<!-- 9. QUESTIONS -->
+<section id="faq" class="reveal">
+  <div class="kicker" style="margin-left:4px">9 · Questions</div>
+  <h2 style="margin:4px 4px 12px">What people usually ask</h2>
+  <div class="faq-list">
+    <details class="faq glass"><summary>What exactly do I own?</summary><p>Slices of the pool, called <b>units</b>. Everyone's slices are worth the same, so when the pool grows or shrinks, your money grows or shrinks by the same percent as everyone else's. See <a href="#pool">the pizza</a>.</p></details>
+    <details class="faq glass"><summary>When does my money start working?</summary><p>Only once it has really reached the trading account at the exchange. Until then it is written down but stays outside the pool: it can't gain and it can't lose. Then it joins at that day's price. See <a href="#how">how you join</a>.</p></details>
+    <details class="faq glass"><summary>Is the live record real?</summary><p>Yes. The pool has traded real money since <span class="lv-start">Oct 24, 2026</span>. The <a href="#friends">live section</a> reads the pool's wallets every 5 minutes, and the losing days are shown too. The year-by-year tables further down are a test on past prices, and they say so.</p></details>
+    <details class="faq glass"><summary>Why do so many trades lose?</summary><p>That is how the rules are built: each loss is cut small, at about 1R, and the wins are allowed to run. In the tests about 1 trade in 3 won, and runs of 14 to 17 losses in a row happened. A few big wins paid for them. See <a href="#trade">lose small, win big</a>.</p></details>
+    <details class="faq glass"><summary>What does it cost?</summary><p>Only one fee: <b>20% of new profit</b>, above the highest your money has ever been worth. It is worked out every two months. After a loss there is no fee until the loss is made back. There is no withdrawal fee for now; if a small one is ever added, you are told before it starts. See <a href="#fee">the fee</a>.</p></details>
+    <details class="faq glass"><summary>Can I take my money out any time?</summary><p>Ask any time in the app; you are paid within 7 business days, at the value on the day you are paid. The minimum is ₱500, and taking everything is always allowed. Your first deposit has a 3-month lock-up as a guideline; if you need money earlier, ask. See <a href="#out">taking money out</a>.</p></details>
+    <details class="faq glass"><summary>How am I paid?</summary><p>To a bank account, GCash, Maya, GoTyme or another e-wallet, with a QR code if you have one (GCash, InstaPay or QR Ph). You add it in the app before your first request.</p></details>
+    <details class="faq glass"><summary>Why does the app say "estimate"?</summary><p>Between settlements your balance moves with the open trades. It becomes final at a settlement (every two months) or when you are paid out.</p></details>
+    <details class="faq glass"><summary>Can I lose money?</summary><p>Yes. You can lose a large part, or in the worst case all, of what you put in. There will be red weeks and months. Please read <a href="#risks">the risks</a> twice before you decide.</p></details>
+    <details class="faq glass"><summary>Is this a bank or a registered investment?</summary><p>No. It is a private record of a share in a pooled trading account among friends and family. It is not a bank deposit, it is not insured, and it is not a registered investment product.</p></details>
+  </div>
+</section>
+
+<!-- 10. IS THIS FOR YOU? -->
+<section id="start" class="glass card reveal">
+  <div class="kicker">10 · Is this for you?</div>
+  <h2>Decide calmly</h2>
+  <div class="fit">
+    <div class="fit-col yes"><h3>It may suit you if</h3>
+      <ul><li>the money can stay in for <b>at least a year</b></li><li>you can watch a red month without panic</li><li>you want a share of a traded pool instead of trading yourself</li><li>you have read the risks and the fee</li></ul></div>
+    <div class="fit-col no"><h3>It is not for you if</h3>
+      <ul><li>you need the money for rent, food, school, bills or emergencies</li><li>the money is borrowed</li><li>you need a fixed or guaranteed return</li><li>losing it would hurt your life</li></ul></div>
+  </div>
+  <p>This pool is private, for friends and family. To join, ask the fund manager directly. Already in? Log in to see your slices, your balance and every payout.</p>
+  <div class="cta"><a class="btn" href="/login">Log in <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><a class="btn ghost" href="#friends">See the live record</a></div>
 </section>
 
 <div class="author">
@@ -650,70 +757,143 @@ function swipeable(box) {
   function pt(cx, cy, r, a) { const t = (a - 90) * Math.PI / 180; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; }
   const rnd = (i) => { const x = Math.sin(i * 99.13 + 7.7) * 43758.5453; return x - Math.floor(x); };   // same toppings every redraw
   const f1 = (n) => n.toFixed(1);
-  // one slice: crust band, sauce edge, cheese, a light tint of the owner's colour, toppings
+  const P = (x, y) => `${f1(x)},${f1(y)}`;
+  // arc from the current point to angle `to` on radius r (sweep 1 = clockwise)
+  const A = (r, to, big, sweep) => { const p = pt(150, 150, r, to); return `A${f1(r)},${f1(r)} 0 ${big} ${sweep} ${P(p[0], p[1])}`; };
+  const ring = (r0, r1, s0, s1) => { const big = s1 - s0 > 180 ? 1 : 0, o = pt(150, 150, r1, s0), i = pt(150, 150, r0, s1); return `M${P(o[0], o[1])} ${A(r1, s1, big, 1)} L${P(i[0], i[1])} ${A(r0, s0, big, 0)} Z`; };
+  const wedge = (r, s0, s1) => { const big = s1 - s0 > 180 ? 1 : 0, a = pt(150, 150, r, s0); return `M150,150 L${P(a[0], a[1])} ${A(r, s1, big, 1)} Z`; };
+  // the cheese does not stop in a neat circle: a gently wobbly edge so a little sauce shows through
+  function cheesePath(R, s0, s1, seed) {
+    const n = Math.max(3, Math.round((s1 - s0) / 4)), pts = [];
+    for (let k = 0; k <= n; k++) { const endish = k === 0 || k === n ? 0.35 : 1; pts.push(pt(150, 150, R - 4 + (rnd(seed + 40 + k) - 0.5) * 3.6 * endish, s0 + (s1 - s0) * k / n)); }
+    let d = `M150,150 L${P(pts[0][0], pts[0][1])}`;
+    for (let k = 1; k < n; k++) d += ` Q${P(pts[k][0], pts[k][1])} ${P((pts[k][0] + pts[k + 1][0]) / 2, (pts[k][1] + pts[k + 1][1]) / 2)}`;
+    return d + ` L${P(pts[n][0], pts[n][1])} Z`;
+  }
+  // one slice: sauce, puffy blistered crust, wobbly melted cheese with browned patches and bubbles, a light tint of the owner's colour, toppings
   function slice(g, s0, s1, R, tint, seed) {
-    const big = s1 - s0 > 180 ? 1 : 0, CR = R + 11;
-    const [a, b] = [pt(150, 150, R, s0), pt(150, 150, R, s1)], [ca, cb] = [pt(150, 150, CR, s0), pt(150, 150, CR, s1)];
-    el('path', { d: `M${f1(ca[0])},${f1(ca[1])} A${CR},${CR} 0 ${big} 1 ${f1(cb[0])},${f1(cb[1])} L150,150 Z`, fill: 'url(#pzCrust)' }, g);
-    const wedge = `M150,150 L${f1(a[0])},${f1(a[1])} A${R},${R} 0 ${big} 1 ${f1(b[0])},${f1(b[1])} Z`;
-    el('path', { d: wedge, fill: '#B8321F' }, g);                                                     // sauce peeking at the edge
-    const [ia, ib] = [pt(150, 150, R - 3, s0), pt(150, 150, R - 3, s1)];
-    el('path', { d: `M150,150 L${f1(ia[0])},${f1(ia[1])} A${R - 3},${R - 3} 0 ${big} 1 ${f1(ib[0])},${f1(ib[1])} Z`, fill: 'url(#pzCheese)' }, g);
-    el('path', { d: wedge, fill: tint, 'fill-opacity': 0.2 }, g);
-    const span = s1 - s0, mid = (s0 + s1) / 2;
-    // melted cheese blobs
-    for (let k = 0; k < 2; k++) { const [x, y] = pt(150, 150, R * (0.35 + rnd(seed + k) * 0.45), s0 + span * (0.2 + rnd(seed + k + 9) * 0.6)); el('ellipse', { cx: f1(x), cy: f1(y), rx: 7, ry: 4.5, fill: '#FFF0B3', 'fill-opacity': 0.45, transform: `rotate(${f1(mid)} ${f1(x)} ${f1(y)})` }, g); }
+    const CR = R + 13, span = s1 - s0, mid = (s0 + s1) / 2;
+    el('path', { d: wedge(R, s0, s1), fill: '#A92D19' }, g);                                                 // sauce
+    el('path', { d: ring(R - 1, CR, s0, s1), fill: 'url(#pzCrust)' }, g);                                    // crust band (gradient does the puff)
+    const nb = Math.max(1, Math.round(span / 9));
+    for (let k = 0; k < nb; k++) {                                                                           // blisters and the odd char spot
+      const a = s0 + span * (0.12 + 0.76 * (k + rnd(seed + 20 + k)) / nb), r = R + 4.5 + rnd(seed + 30 + k) * 5, [x, y] = pt(150, 150, r, a), rx = 2.2 + rnd(seed + 50 + k) * 2.4;
+      el('ellipse', { cx: f1(x), cy: f1(y), rx: f1(rx), ry: f1(rx * 0.55), fill: '#F8D28C', 'fill-opacity': 0.6, transform: `rotate(${f1(a)} ${f1(x)} ${f1(y)})` }, g);
+      if (rnd(seed + 60 + k) > 0.55) { const [cx, cy] = pt(150, 150, R + 3 + rnd(seed + 70 + k) * 8, a + (rnd(seed + 80 + k) - 0.5) * span * 0.3); el('ellipse', { cx: f1(cx), cy: f1(cy), rx: 1.8, ry: 1.1, fill: '#4A2410', 'fill-opacity': 0.55, transform: `rotate(${f1(a + 30)} ${f1(cx)} ${f1(cy)})` }, g); }
+    }
+    const cp = cheesePath(R, s0, s1, seed);
+    el('path', { d: cp, fill: 'url(#pzCheese)' }, g);
+    el('path', { d: cp, fill: tint, 'fill-opacity': 0.14 }, g);
+    const np = Math.max(1, Math.round(span / 14));
+    for (let k = 0; k < np; k++) {                                                                           // golden browned patches
+      const [x, y] = pt(150, 150, R * (0.3 + rnd(seed + k) * 0.5), s0 + span * (0.2 + rnd(seed + k + 9) * 0.6));
+      el('ellipse', { cx: f1(x), cy: f1(y), rx: f1(7 + rnd(seed + k + 3) * 5), ry: f1(4 + rnd(seed + k + 4) * 3), fill: 'url(#pzBrown)', transform: `rotate(${f1(mid + rnd(seed + k + 5) * 60)} ${f1(x)} ${f1(y)})` }, g);
+    }
+    for (let k = 0; k < 3; k++) {                                                                            // cheese bubbles
+      const [x, y] = pt(150, 150, R * (0.3 + rnd(seed + 100 + k) * 0.55), s0 + span * (0.25 + rnd(seed + 110 + k) * 0.5)), r = 1.3 + rnd(seed + 120 + k) * 1.3;
+      el('circle', { cx: f1(x), cy: f1(y), r: f1(r), fill: '#FFF6CF', 'fill-opacity': 0.8, stroke: '#D9A23A', 'stroke-opacity': 0.45, 'stroke-width': 0.6 }, g);
+    }
+    for (let k = 0; k < 4; k++) {                                                                            // oregano specks
+      const [x, y] = pt(150, 150, R * (0.28 + rnd(seed + 130 + k) * 0.6), s0 + span * (0.2 + rnd(seed + 140 + k) * 0.6));
+      el('circle', { cx: f1(x), cy: f1(y), r: 0.7, fill: '#3E6E2C', 'fill-opacity': 0.8 }, g);
+    }
     if (span < 12) return;
-    // pepperoni with a shine
-    [[0.42, -0.18], [0.72, 0.16]].forEach(([rr, off], k) => {
-      const [x, y] = pt(150, 150, R * rr, mid + span * off * (rnd(seed + k * 3) > 0.5 ? 1 : -1));
-      el('circle', { cx: f1(x), cy: f1(y), r: 8.6, fill: 'url(#pzPep)' }, g);
-      el('circle', { cx: f1(x), cy: f1(y), r: 8.6, fill: 'none', stroke: '#7A1A0E', 'stroke-width': 0.8, 'stroke-opacity': 0.6 }, g);
-      el('ellipse', { cx: f1(x - 2.6), cy: f1(y - 2.8), rx: 2.6, ry: 1.5, fill: '#fff', 'fill-opacity': 0.35 }, g);
+    // pepperoni: cupped edge, grease shine, fat flecks
+    [[0.42, -0.16], [0.72, 0.17]].forEach(([rr, off], k) => {
+      const [x, y] = pt(150, 150, R * rr, mid + span * off * (rnd(seed + k * 3) > 0.5 ? 1 : -1)), r = Math.min(9, 2.2 + span * 0.19);
+      el('circle', { cx: f1(x), cy: f1(y), r: f1(r), fill: 'url(#pzPep)' }, g);
+      el('circle', { cx: f1(x), cy: f1(y), r: f1(r - 0.5), fill: 'none', stroke: '#6E170B', 'stroke-width': 1.1, 'stroke-opacity': 0.7 }, g);
+      el('path', { d: `M${P(x - r * 0.62, y + r * 0.18)} A${f1(r * 0.68)},${f1(r * 0.68)} 0 0 1 ${P(x + r * 0.2, y - r * 0.64)}`, fill: 'none', stroke: '#F39A7C', 'stroke-width': 1.5, 'stroke-opacity': 0.5, 'stroke-linecap': 'round' }, g);
+      el('ellipse', { cx: f1(x - r * 0.3), cy: f1(y - r * 0.34), rx: f1(r * 0.32), ry: f1(r * 0.18), fill: '#fff', 'fill-opacity': 0.4, transform: `rotate(-30 ${f1(x)} ${f1(y)})` }, g);
+      for (let j = 0; j < 4; j++) { const ang = rnd(seed + 200 + k * 7 + j) * 6.283, d = r * (0.2 + rnd(seed + 230 + k * 7 + j) * 0.5); el('circle', { cx: f1(x + d * Math.cos(ang)), cy: f1(y + d * Math.sin(ang)), r: f1(0.6 + rnd(seed + 260 + j) * 0.5), fill: '#F7C8AE', 'fill-opacity': 0.75 }, g); }
     });
-    // basil or an olive
-    const [x, y] = pt(150, 150, R * (0.58 + rnd(seed + 5) * 0.12), mid + span * (rnd(seed + 6) - 0.5) * 0.5);
-    if (rnd(seed + 7) > 0.45) el('path', { d: `M${f1(x - 6)},${f1(y)} Q${f1(x)},${f1(y - 5)} ${f1(x + 6)},${f1(y)} Q${f1(x)},${f1(y + 5)} ${f1(x - 6)},${f1(y)} Z`, fill: '#3F8F3A', transform: `rotate(${f1(rnd(seed + 8) * 180)} ${f1(x)} ${f1(y)})` }, g);
-    else el('circle', { cx: f1(x), cy: f1(y), r: 3.2, fill: 'none', stroke: '#2A2A2A', 'stroke-width': 2 }, g);
+    // a basil leaf, an olive ring or a mushroom slice
+    const [x, y] = pt(150, 150, R * (0.56 + rnd(seed + 5) * 0.12), mid + span * (rnd(seed + 6) - 0.5) * 0.4), kind = rnd(seed + 7), rot = f1(rnd(seed + 8) * 180);
+    if (kind > 0.55) {
+      const L = el('g', { transform: `translate(${f1(x)} ${f1(y)}) rotate(${rot})` }, g);
+      el('path', { d: 'M-7,0 Q-3,-5.2 3,-4.2 Q7,-3 7,0 Q3,4.8 -3,4.2 Q-6.4,3 -7,0 Z', fill: 'url(#pzLeaf)' }, L);
+      el('path', { d: 'M-6,0 L6,0 M-2.5,-0.2 L-1,-3.2 M1,-0.2 L2.6,-2.8 M-2,0.2 L-0.6,3 M1.6,0.2 L3,2.6', fill: 'none', stroke: '#1F5A1F', 'stroke-width': 0.7, 'stroke-opacity': 0.7, 'stroke-linecap': 'round' }, L);
+    } else if (kind > 0.25) {
+      el('circle', { cx: f1(x), cy: f1(y), r: 3.4, fill: 'none', stroke: '#2A2630', 'stroke-width': 2.4 }, g);
+      el('path', { d: `M${P(x - 3.4, y)} A3.4,3.4 0 0 1 ${P(x, y - 3.4)}`, fill: 'none', stroke: '#8E8798', 'stroke-width': 0.9, 'stroke-opacity': 0.8 }, g);
+    } else {
+      const M = el('g', { transform: `translate(${f1(x)} ${f1(y)}) rotate(${rot})` }, g);
+      el('path', { d: 'M-6,0.5 A6,5.5 0 0 1 6,0.5 L6,1.6 Q3.2,2.2 2.6,2.2 L2.6,6.5 Q0,7.4 -2.6,6.5 L-2.6,2.2 Q-3.2,2.2 -6,1.6 Z', fill: '#EADFC9', stroke: '#A9906B', 'stroke-width': 0.7, 'stroke-linejoin': 'round' }, M);
+      el('path', { d: 'M-4.6,1.2 Q0,2.6 4.6,1.2', fill: 'none', stroke: '#B7925F', 'stroke-width': 0.8, 'stroke-opacity': 0.8 }, M);
+    }
+  }
+  // a toothpick stuck in the owner's slice: a little pennant in their colour, or the YOU tag for yours
+  function pick(g, x, y, o) {
+    const t = el('g', { class: o.me ? 'youtag' : 'flag' }, g), top = y - (o.me ? 15 : 18);
+    el('ellipse', { cx: f1(x + 1), cy: f1(y + 9.5), rx: 3.4, ry: 1.4, fill: '#000', 'fill-opacity': 0.35 }, t);
+    el('line', { x1: f1(x), y1: f1(y + 9), x2: f1(x), y2: f1(top), stroke: '#5A3516', 'stroke-width': 2.6, 'stroke-linecap': 'round' }, t);
+    el('line', { x1: f1(x), y1: f1(y + 8.5), x2: f1(x), y2: f1(top), stroke: '#F0DDB7', 'stroke-width': 1.3, 'stroke-linecap': 'round' }, t);
+    if (o.me) {
+      el('rect', { x: f1(x - 20), y: f1(top - 16), width: 40, height: 20, rx: 10, fill: '#0b0d06', stroke: '#C8FF3D', 'stroke-width': 1.5 }, t);
+      el('text', { x: f1(x), y: f1(top - 1.8), 'text-anchor': 'middle', fill: '#C8FF3D', 'font-size': 11.5, 'font-weight': 800, 'letter-spacing': 0.5 }, t).textContent = 'YOU';
+    } else {
+      const pen = `M${P(x, top - 0.5)} L${P(x + 20, top + 5.5)} L${P(x, top + 11.5)} Z`;
+      el('path', { d: pen, fill: '#000', 'fill-opacity': 0.35, transform: 'translate(1.4 2)' }, t);
+      el('path', { d: pen, fill: o.c, stroke: 'rgba(0,0,0,0.4)', 'stroke-width': 0.7, 'stroke-linejoin': 'round' }, t);
+      el('path', { d: `M${P(x + 2.2, top + 2.4)} L${P(x + 11, top + 5)}`, stroke: '#fff', 'stroke-opacity': 0.55, 'stroke-width': 1.1, 'stroke-linecap': 'round' }, t);
+    }
   }
   function draw() {
     svg.innerHTML = '';
     const tot = total(), value = tot * S.price, scale = Math.max(0.62, Math.min(1.12, Math.sqrt(value / 10000)));
+    const R = 116, CR = R + 13, GAP = 1.2;
     const defs = el('defs', {}, svg);
-    const grad = (id, stops) => { const gr = el('radialGradient', { id, cx: 150, cy: 150, r: 136, gradientUnits: 'userSpaceOnUse' }, defs); stops.forEach(([o, c]) => el('stop', { offset: o, 'stop-color': c }, gr)); };
-    grad('pzCrust', [['0.88', '#C98140'], ['0.93', '#E8B064'], ['0.97', '#D08C45'], ['1', '#9C5F27']]);
-    grad('pzCheese', [['0', '#FFE38A'], ['0.7', '#FFD15C'], ['0.92', '#F4B740'], ['1', '#E39A2E']]);
-    const pep = el('radialGradient', { id: 'pzPep', cx: '40%', cy: '38%', r: '65%' }, defs);
-    [['0', '#E2553A'], ['0.7', '#B5301C'], ['1', '#8E1F12']].forEach(([o, c]) => el('stop', { offset: o, 'stop-color': c }, pep));
+    const grad = (id, stops, attrs) => { const gr = el('radialGradient', Object.assign({ id, cx: 150, cy: 150, r: CR, gradientUnits: 'userSpaceOnUse' }, attrs || {}), defs); stops.forEach(([o, c, op]) => { const st = el('stop', { offset: o, 'stop-color': c }, gr); if (op != null) st.setAttribute('stop-opacity', op); }); };
+    const at = (r) => (r / CR).toFixed(3);
+    grad('pzCrust', [[at(R - 1), '#8F5120'], [at(R + 2.5), '#C98844'], [at(R + 6.5), '#EBB266'], [at(R + 10), '#D18E45'], ['1', '#86481C']]);
+    grad('pzCheese', [['0', '#FFF0B0'], ['0.42', '#FFDC6C'], ['0.78', '#F5BF47'], ['1', '#E3A033']], { cx: 126, cy: 118, r: 150 });
+    grad('pzPlate', [['0', '#2A2B31'], ['0.7', '#1D1E23'], ['0.96', '#17181C'], ['1', '#101114']], { cx: 132, cy: 126, r: R + 30 });
+    grad('pzUnder', [['0', '#131417'], ['0.9', '#0A0B0D'], ['1', '#1A1B1F']], { r: R + 15 });
+    grad('pzShadow', [['0.72', '#000', 0.55], ['1', '#000', 0]], { cx: 150, cy: 158, r: R + 36 });
+    grad('pzPep', [['0', '#EC6646'], ['0.62', '#C23A22'], ['1', '#891F11']], { cx: '38%', cy: '34%', r: '66%', gradientUnits: 'objectBoundingBox' });
+    grad('pzBrown', [['0', '#C97A22', 0.6], ['0.6', '#D08A2E', 0.28], ['1', '#D08A2E', 0]], { cx: '50%', cy: '50%', r: '50%', gradientUnits: 'objectBoundingBox' });
+    const leaf = el('linearGradient', { id: 'pzLeaf', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
+    [['0', '#6DBA52'], ['1', '#2C742B']].forEach(([o, c]) => el('stop', { offset: o, 'stop-color': c }, leaf));
     // start at the old size and grow or shrink to the new one, so a gain or a loss is something you can watch
     const pie = el('g', { class: 'pie', style: `transform: scale(${lastScale})` }, svg);
-    const R = 120, GAP = 1.1;
-    el('circle', { cx: 150, cy: 150, r: R + 26, fill: '#17181B', stroke: 'rgba(255,255,255,0.08)', 'stroke-width': 1.5 }, pie);   // the tray
-    el('circle', { cx: 150, cy: 150, r: R + 12, fill: '#0E0F11' }, pie);                                                         // shadow under the pizza
+    el('circle', { cx: 150, cy: 158, r: R + 36, fill: 'url(#pzShadow)' }, pie);                                                              // soft shadow under the plate
+    el('circle', { cx: 150, cy: 150, r: R + 28, fill: 'url(#pzPlate)', stroke: 'rgba(255,255,255,0.10)', 'stroke-width': 1.2 }, pie);        // the plate
+    const hl = pt(150, 150, R + 26.5, 215);
+    el('path', { d: `M${P(hl[0], hl[1])} ${A(R + 26.5, 335, 0, 1)}`, fill: 'none', stroke: '#fff', 'stroke-opacity': 0.14, 'stroke-width': 1.6, 'stroke-linecap': 'round' }, pie);   // rim catching the light
+    el('circle', { cx: 150, cy: 150, r: R + 17.5, fill: 'none', stroke: 'rgba(255,255,255,0.05)' }, pie);
+    el('circle', { cx: 150, cy: 150, r: R + 15, fill: 'url(#pzUnder)' }, pie);                                                               // dark well under the pizza
+    for (let i = 0; i < 14; i++) { const [x, y] = pt(150, 150, R + 15 + rnd(i + 300) * 10, rnd(i + 320) * 360); el('circle', { cx: f1(x), cy: f1(y), r: f1(0.7 + rnd(i + 340) * 0.8), fill: '#D9A05C', 'fill-opacity': 0.55 }, pie); }   // crumbs
     let a0 = 0, n = 0, lift = null;
     S.owners.forEach((o) => {
-      const a1 = a0 + o.s / tot * 360;
-      // the owner's colour as a band on the tray, so you can tell whose slices are whose
-      const [ra, rb] = [pt(150, 150, R + 19, a0 + 2), pt(150, 150, R + 19, a1 - 2)];
-      el('path', { d: `M${f1(ra[0])},${f1(ra[1])} A${R + 19},${R + 19} 0 ${a1 - a0 - 4 > 180 ? 1 : 0} 1 ${f1(rb[0])},${f1(rb[1])}`, fill: 'none', stroke: o.c, 'stroke-width': 5, 'stroke-linecap': 'round' }, pie);
-      const g = el('g', { class: 'owner' + (o.me ? ' mine' : '') + (o.fresh ? ' newbit' : '') }, pie);
-      if (o.me) { const m = (a0 + a1) / 2, [dx, dy] = pt(0, 0, 22, m), [bx, by] = pt(0, 0, 4, m); g.setAttribute('style', `--lx:${f1(dx)}px;--ly:${f1(dy)}px;--bx:${f1(bx)}px;--by:${f1(by)}px`); lift = { a0, a1, m, dx, dy, g }; }
+      const a1 = a0 + o.s / tot * 360, m = (a0 + a1) / 2, fresh = o.fresh ? ' newbit' : '';
+      // the owner's colour as a glowing band on the plate rim, so you can tell whose slices are whose
+      const band = el('g', { class: 'band' + fresh }, pie), ra = pt(150, 150, R + 21, a0 + 1.6), bd = `M${P(ra[0], ra[1])} ${A(R + 21, a1 - 1.6, a1 - a0 - 3.2 > 180 ? 1 : 0, 1)}`;
+      el('path', { d: bd, fill: 'none', stroke: o.c, 'stroke-opacity': 0.22, 'stroke-width': 11, 'stroke-linecap': 'round' }, band);
+      el('path', { d: bd, fill: 'none', stroke: o.c, 'stroke-width': 5, 'stroke-linecap': 'round' }, band);
+      const g = el('g', { class: 'owner' + (o.me ? ' mine' : '') + fresh }, pie);
+      if (o.me) { const [dx, dy] = pt(0, 0, 24, m), [bx, by] = pt(0, 0, 4, m); g.setAttribute('style', `--lx:${f1(dx)}px;--ly:${f1(dy)}px;--bx:${f1(bx)}px;--by:${f1(by)}px`); lift = { a0, a1, m, dx, dy, g }; }
       const inner = el('g', { class: 'bob' }, g);
       const steps = Math.max(1, Math.round(o.s));
       for (let k = 0; k < steps; k++) slice(inner, a0 + (k / steps) * (a1 - a0) + GAP / 2, a0 + ((k + 1) / steps) * (a1 - a0) - GAP / 2, R, o.c, ++n * 13);
+      const mk = Math.floor((steps - 1) / 2), [fx, fy] = pt(150, 150, R * 0.56, a0 + (mk + 0.5) / steps * (a1 - a0));   // the pick goes in the middle slice
+      pick(inner, fx, fy, o);
       a0 = a1;
     });
+    // a few wisps of steam
+    const st = el('g', { class: 'steam' }, pie);
+    [[118, 126, 0], [140, 112, 1.6], [172, 150, 3.1]].forEach(([x, y, dl]) => el('path', { d: `M${x},${y} c-7,-9 7,-15 0,-26`, fill: 'none', stroke: '#FFF8E6', 'stroke-width': 3, 'stroke-linecap': 'round', style: `animation-delay:${dl}s` }, st));
     if (lift) {
       // stretchy cheese between your slices and the rest of the pizza
       const sg = el('g', { class: 'strings' }, pie);
-      [lift.a0, lift.a1].forEach((edge) => [26, 50, 74].forEach((r) => {
-        const [x, y] = pt(150, 150, r, edge), qx = x + lift.dx, qy = y + lift.dy;
-        el('path', { d: `M${f1(x)},${f1(y)} Q${f1((x + qx) / 2)},${f1((y + qy) / 2 + 5)} ${f1(qx)},${f1(qy)}`, fill: 'none', stroke: '#FFD966', 'stroke-width': 2.2, 'stroke-linecap': 'round' }, sg);
+      [lift.a0, lift.a1].forEach((edge, e) => [22, 44, 66, 88].forEach((r, i) => {
+        if (rnd(e * 10 + i + 400) < 0.25) return;
+        const [x, y] = pt(150, 150, r, edge), qx = x + lift.dx, qy = y + lift.dy, cx = (x + qx) / 2, cy = (y + qy) / 2 + 4 + rnd(e * 10 + i + 410) * 5;
+        const d = `M${P(x, y)} Q${P(cx, cy)} ${P(qx, qy)}`;
+        el('path', { d, fill: 'none', stroke: '#F3C861', 'stroke-width': 2.6, 'stroke-opacity': 0.55, 'stroke-linecap': 'round' }, sg);
+        el('path', { d, fill: 'none', stroke: '#FFE49A', 'stroke-width': 1.1, 'stroke-linecap': 'round' }, sg);
+        el('circle', { cx: f1(0.25 * x + 0.5 * cx + 0.25 * qx), cy: f1(0.25 * y + 0.5 * cy + 0.25 * qy + 1), r: 1.5, fill: '#FFD966' }, sg);   // a drip
       }));
       pie.appendChild(lift.g);                                                       // your slices sit on top of everything
-      const [tx, ty] = pt(150, 150, R * 0.62, lift.m), tag = el('g', { class: 'youtag' }, lift.g.querySelector('.bob'));
-      el('rect', { x: f1(tx - 21), y: f1(ty - 11), width: 42, height: 22, rx: 11, fill: '#0b0d06', stroke: '#C8FF3D', 'stroke-width': 1.5 }, tag);
-      el('text', { x: f1(tx), y: f1(ty + 4.5), 'text-anchor': 'middle', fill: '#C8FF3D', 'font-size': 12, 'font-weight': 800 }, tag).textContent = 'YOU';
     }
     S.owners.forEach((o) => { o.fresh = false; });
     svg.classList.remove('lifted');
@@ -944,6 +1124,7 @@ function lvStats() {
   $('lv-open').textContent = op == null ? '-' : op;
   const at = D.live && Date.parse(D.live.at), fresh = !D.saved && at && Date.now() - at < 30 * 6e4;
   $('lv-badge').classList.toggle('off', !fresh);
+  heroLive(g, t.closed == null ? null : t.closed + (op || 0), op, fresh);
   $('lv-txt').textContent = D.saved ? 'Live trading · saved copy' : fresh ? `Live · updated ${ago(Date.now() - at)}` : `Live trading · last reading ${at ? ago(Date.now() - at) : 'unknown'}`;
   $('lv-asof').textContent = at ? `${D.saved ? 'Saved copy of the reading from' : 'Latest reading:'} ${new Date(at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' })} (Manila time).` : '';
   document.querySelectorAll('.lv-start').forEach((x) => { x.textContent = fdY(LS[0].d); });
@@ -1148,6 +1329,96 @@ const short = (v) => v >= 1e6 ? '₱' + (v / 1e6).toFixed(1) + 'M' : v >= 1e4 ? 
 document.querySelectorAll('.tscroll-in').forEach(swipeable);
 
 // ---------- reveal on scroll
+// ---------- the hero's live strip: the same live numbers as section 4, filled by lvStats()
+function heroLive(g, taken, open, fresh) {
+  const box = document.getElementById('hero-live'); if (!box) return;
+  const gr = document.getElementById('hl-growth');
+  gr.textContent = (g >= 0 ? '+' : '') + g.toFixed(1) + '%'; gr.className = g >= 0 ? 'up' : 'down';
+  document.getElementById('hl-trades').textContent = taken == null ? '-' : taken;
+  document.getElementById('hl-open').textContent = open == null ? '-' : open;
+  document.getElementById('hl-badge').classList.toggle('off', !fresh);
+  box.hidden = false;
+}
+// ---------- chapter menu: highlights the chapter on screen, keeps the active one in view
+(function chapters() {
+  const nav = document.getElementById('chap'); if (!nav) return;
+  const links = [...nav.querySelectorAll('a')], byId = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  const map = { short: 'short', past: 'short', start: 'faq' };
+  const secs = [...document.querySelectorAll('section[id]')].filter((s) => byId.has(map[s.id] || s.id));
+  let cur = null;
+  const set = (id) => { if (id === cur) return; cur = id; links.forEach((a) => a.classList.toggle('on', a === byId.get(id)));
+    const a = byId.get(id); if (a) nav.scrollTo({ left: a.offsetLeft - nav.clientWidth / 2 + a.clientWidth / 2, behavior: REDUCED ? 'auto' : 'smooth' }); };
+  const io2 = new IntersectionObserver((es) => { es.forEach((e) => { if (e.isIntersecting) set(map[e.target.id] || e.target.id); }); }, { rootMargin: '-35% 0px -60% 0px' });
+  secs.forEach((s) => io2.observe(s));
+})();
+// ---------- 3. lose small, win big: one example trade (price, stop, trailing stop) or ten trades in a row. Made-up numbers.
+(function tradeDemo() {
+  const svg = document.getElementById('tr-svg'), say = document.getElementById('tr-say'), btns = document.getElementById('tr-btns'); if (!svg) return;
+  const NS = 'http://www.w3.org/2000/svg', mk = (tag, at, p) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); p.appendChild(e); return e; };
+  const C = { line: 'rgba(255,255,255,0.08)', muted: '#8E8E93', ink: '#F5F5F0', accent: '#C8FF3D', red: '#FF7070', amber: '#FFB547' };
+  const W = 640, H = 280, PL = 52, PR = 96, PT = 18, PB = 30;
+  const PATHS = {
+    win: [0, 0.35, -0.25, 0.4, 1.1, 0.75, 1.6, 2.4, 1.95, 2.9, 3.6, 3.05, 4.0, 4.8, 4.35, 5.3, 6.1, 5.55, 6.6, 7.4, 6.85, 7.9, 8.6, 8.05, 8.9, 8.35, 7.6, 7.0, 6.3],
+    lose: [0, 0.4, 0.7, 0.3, -0.1, 0.25, -0.35, -0.7, -0.45, -0.85, -1.05],
+  };
+  const TEN = [-1, -1, 3, -1, -1, -1, 7, -1, -1, 4];
+  let mode = 'win', timer = null, seen = false;
+  function frame(lo, hi, ticks, fmt) {
+    svg.innerHTML = ''; svg.classList.remove('done');
+    const Y = (v) => PT + (hi - v) / (hi - lo) * (H - PT - PB);
+    ticks.forEach((v) => { mk('line', { x1: PL, x2: W - PR, y1: Y(v), y2: Y(v), stroke: v === 0 ? 'rgba(255,255,255,0.22)' : C.line, 'stroke-dasharray': v === 0 ? '4 5' : '' }, svg);
+      mk('text', { x: PL - 8, y: Y(v) + 4, 'text-anchor': 'end', fill: C.muted, 'font-size': 11 }, svg).textContent = fmt(v); });
+    return Y;
+  }
+  const rfmt = (v) => (v === 0 ? '0' : (v > 0 ? '+' : '−') + Math.abs(v) + 'R');
+  function trade(kind) {
+    const P = PATHS[kind], Y = frame(-1.6, 9.6, [-1, 0, 2, 4, 6, 8], rfmt), X = (i) => PL + i / (PATHS.win.length - 1) * (W - PL - PR);
+    // the stop: starts 1R under the entry; for a winner it trails 2.5R behind the best price (made-up distance, for the picture)
+    const stop = []; let best = 0, exit = P.length - 1, xR = P[P.length - 1];
+    for (let i = 0; i < P.length; i++) { const s = Math.max(-1, best - 2.5); stop.push(s); if (i > 0 && P[i] <= s) { exit = i; xR = s; break; } best = Math.max(best, P[i]); }
+    const pts = P.slice(0, exit + 1).map((v, i) => [X(i), Y(i === exit ? xR : v)]);
+    const sp = stop.map((s, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(s).toFixed(1)}`).join(' ');
+    mk('rect', { x: PL, y: Y(0), width: W - PL - PR, height: Y(-1) - Y(0), fill: C.red, 'fill-opacity': 0.08 }, svg);
+    mk('text', { x: W - PR + 8, y: Y(-1) + 4, fill: C.red, 'font-size': 11.5, 'font-weight': 700 }, svg).textContent = 'stop: −1R';
+    const stopPath = mk('path', { d: sp, fill: 'none', stroke: kind === 'win' ? C.accent : C.red, 'stroke-width': 2, 'stroke-dasharray': '6 5', 'stroke-opacity': 0.85 }, svg);
+    const line = mk('path', { d: pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' '), fill: 'none', stroke: C.ink, 'stroke-width': 2.6, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', class: 'draw' }, svg);
+    mk('circle', { cx: X(0), cy: Y(0), r: 5.5, fill: C.ink, stroke: '#070708', 'stroke-width': 2 }, svg);
+    mk('text', { x: X(0) + 8, y: Y(0) - 10, fill: C.ink, 'font-size': 11.5, 'font-weight': 700 }, svg).textContent = 'entry';
+    const late = mk('g', { class: 'late' }, svg), [ex, ey] = pts[pts.length - 1], col = xR >= 0 ? C.accent : C.red;
+    if (kind === 'win') mk('text', { x: X(14), y: Y(stop[14]) + 18, fill: C.accent, 'font-size': 11.5, 'font-weight': 700 }, late).textContent = 'the stop follows the price up';
+    mk('circle', { cx: ex, cy: ey, r: 7, fill: col, stroke: '#070708', 'stroke-width': 2.5 }, late);
+    mk('rect', { x: ex + 12, y: ey - 15, width: 78, height: 30, rx: 15, fill: col }, late);
+    mk('text', { x: ex + 51, y: ey + 5, 'text-anchor': 'middle', fill: '#0b0d06', 'font-size': 14, 'font-weight': 800 }, late).textContent = (xR >= 0 ? '+' : '−') + Math.abs(xR).toFixed(1) + 'R';
+    const len = line.getTotalLength();
+    line.style.strokeDasharray = len; line.style.strokeDashoffset = REDUCED || !seen ? 0 : len;
+    const sl = stopPath.getTotalLength(), sx = Math.min(1, exit / (stop.length - 1 || 1));
+    stopPath.setAttribute('stroke-dasharray', '6 5');
+    requestAnimationFrame(() => requestAnimationFrame(() => { line.style.strokeDashoffset = 0; }));
+    clearTimeout(timer); timer = setTimeout(() => svg.classList.add('done'), REDUCED || !seen ? 0 : 2200);
+    say.innerHTML = kind === 'win'
+      ? `A <b>winning trade</b>. It risked 1R. The market moved its way, and the stop kept following it up, never down. When the price finally turned, the stop closed the trade at about <b>+${xR.toFixed(1)}R</b>: more than six times what it risked.`
+      : `A <b>losing trade</b>. It risked 1R. The market went the wrong way and the stop closed it at <b>−1R</b>, as planned before the trade opened. Small and expected: most trades end like this.`;
+  }
+  function ten() {
+    const Y = frame(-2, 9, [-1, 0, 2, 4, 6, 8], rfmt), n = TEN.length, bw = (W - PL - PR) / n;
+    let sum = 0; const cum = [];
+    TEN.forEach((r, i) => { sum += r; cum.push(sum); const x = PL + i * bw + bw * 0.18, y0 = Y(0), y1 = Y(r);
+      mk('rect', { x, y: Math.min(y0, y1), width: bw * 0.64, height: Math.max(2, Math.abs(y1 - y0)), rx: 5, fill: r > 0 ? C.accent : C.red, 'fill-opacity': r > 0 ? 0.9 : 0.75 }, svg);
+      mk('text', { x: x + bw * 0.32, y: r > 0 ? y1 - 6 : y1 + 14, 'text-anchor': 'middle', fill: r > 0 ? C.accent : C.red, 'font-size': 11, 'font-weight': 700 }, svg).textContent = rfmt(r); });
+    const late = mk('g', { class: 'late' }, svg);
+    mk('path', { d: cum.map((c, i) => `${i ? 'L' : 'M'}${(PL + i * bw + bw / 2).toFixed(1)},${Y(c).toFixed(1)}`).join(' '), fill: 'none', stroke: C.amber, 'stroke-width': 2.4, 'stroke-dasharray': '5 4' }, late);
+    const lx = PL + (n - 1) * bw + bw / 2;
+    mk('rect', { x: lx + 14, y: Y(sum) - 15, width: 78, height: 30, rx: 15, fill: C.amber }, late);
+    mk('text', { x: lx + 53, y: Y(sum) + 5, 'text-anchor': 'middle', fill: '#0b0d06', 'font-size': 14, 'font-weight': 800 }, late).textContent = '+' + sum + 'R';
+    clearTimeout(timer); timer = setTimeout(() => svg.classList.add('done'), REDUCED || !seen ? 0 : 600);
+    say.innerHTML = `<b>Ten trades in a row.</b> Seven lost about 1R each (−7R). Three won: +3R, +7R and +4R. Only 3 out of 10 won, yet after ten trades the result is <b>+${sum}R</b>. Real runs are bumpier: sometimes many losses come first, and you need to stay in long enough for the wins.`;
+  }
+  const show = (m) => { mode = m; btns.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === m))); if (m === 'ten') ten(); else trade(m); };
+  btns.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) show(b.dataset.t); });
+  show('win');
+  const w = new IntersectionObserver((es) => { if (es[0].isIntersecting) { w.disconnect(); seen = true; show(mode); } }, { threshold: 0.4 });
+  w.observe(svg);
+})();
 const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.12 });
 document.querySelectorAll('.reveal').forEach((x) => io.observe(x));
 // back to top: appears once you scroll down
