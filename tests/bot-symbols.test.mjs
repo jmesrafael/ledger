@@ -15,12 +15,10 @@ const BASE = '20261111000000_bot_events.sql', MORE = '20261116000000_bot_events_
 const GALA = '20261126000000_bot_events_gala.sql', GALA_BACK = '20261126000000_rollback_bot_events_gala.sql';
 const ETH = '20261211000000_bot_events_eth.sql', ETH_BACK = '20261211000000_rollback_bot_events_eth.sql';
 const SUIARB = '20261212000000_bot_events_sui_arb.sql', SUIARB_BACK = '20261212000000_rollback_bot_events_sui_arb.sql';   // the coin lab paper bots (cbb, ctc)
-const BNB = '20261216000001_bot_events_bnb.sql', BNB_BACK = '20261216000001_rollback_bot_events_bnb.sql';   // BNB on T-CORE live (Nov 14, 2026)
 const NEW_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT'];
 const GALA_SYMBOLS = ['SOL_USDT', 'ZEC_USDT', 'NEAR_USDT', 'ADA_USDT', 'GALA_USDT'];
 const ETH_SYMBOLS = [...GALA_SYMBOLS, 'ETH_USDT'];
-const SUIARB_SYMBOLS = [...ETH_SYMBOLS, 'SUI_USDT', 'ARB_USDT'];
-const ALL_SYMBOLS = [...SUIARB_SYMBOLS, 'BNB_USDT'];
+const ALL_SYMBOLS = [...ETH_SYMBOLS, 'SUI_USDT', 'ARB_USDT'];
 
 async function fresh() {
   const db = new PGlite();
@@ -133,9 +131,9 @@ test('the ETH migration is safe to run twice, refuses to run before the base mig
 test('after the SUI/ARB migration both are stored, every older coin still is; BTC and junk are still refused', async () => {
   const db = await fresh();
   await db.exec(sql('migrations', MORE)); await db.exec(sql('migrations', GALA)); await db.exec(sql('migrations', ETH)); await db.exec(sql('migrations', SUIARB));
-  for (const s of SUIARB_SYMBOLS) await put(db, s);
-  for (const bad of ['BTC_USDT', 'sui_usdt', 'ARB', 'APT_USDT', 'BNB_USDT', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
-  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, SUIARB_SYMBOLS.length);
+  for (const s of ALL_SYMBOLS) await put(db, s);
+  for (const bad of ['BTC_USDT', 'sui_usdt', 'ARB', 'APT_USDT', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
+  assert.equal((await db.query('select count(*)::int as c from public.bot_events')).rows[0].c, ALL_SYMBOLS.length);
 });
 
 test('the SUI/ARB migration is safe to run twice, refuses to run before the base migration, and its rollback refuses while a SUI or ARB row exists', async () => {
@@ -153,22 +151,8 @@ test('the SUI/ARB migration is safe to run twice, refuses to run before the base
   await assert.rejects(new PGlite().exec(sql('migrations', SUIARB)), /preflight/);
 });
 
-test('after the BNB migration BNB is stored and every older coin still is; BTC and junk are refused; it is safe to run twice; its rollback refuses while a BNB row exists', async () => {
-  const db = await fresh();
-  for (const f of [MORE, GALA, ETH, SUIARB]) await db.exec(sql('migrations', f));
-  await db.exec(sql('migrations', BNB)); await db.exec(sql('migrations', BNB));
-  for (const s of ALL_SYMBOLS) await put(db, s);
-  for (const bad of ['BTC_USDT', 'bnb_usdt', 'BNB', 'APT_USDT', '']) await assert.rejects(put(db, bad), /check/i, `${JSON.stringify(bad)} must be refused`);
-  await assert.rejects(db.exec(sql('rollback', BNB_BACK)), /check/i);
-  await db.exec("delete from public.bot_events where symbol = 'BNB_USDT'");
-  await db.exec(sql('rollback', BNB_BACK));
-  await put(db, 'ARB_USDT');
-  await assert.rejects(put(db, 'BNB_USDT'), /check/i);
-  await assert.rejects(new PGlite().exec(sql('migrations', BNB)), /preflight/);
-});
-
 test('the website schema (lib/schema.js) and the database check name exactly the same symbols', () => {
-  const m = sql('migrations', BNB).match(/symbol in \(([^)]*)\)/);
+  const m = sql('migrations', SUIARB).match(/symbol in \(([^)]*)\)/);
   assert.ok(m, 'the migration has a symbol list');
   const inDb = m[1].split(',').map((s) => s.trim().replace(/'/g, ''));
   assert.deepEqual([...inDb].sort(), [...schema.ALLOWED_SYMBOLS].sort());
