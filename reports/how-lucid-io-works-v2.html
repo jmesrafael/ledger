@@ -120,7 +120,7 @@ section { margin-top: 28px; scroll-margin-top: 16px; }
 /* controls */
 .seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: 99px; background: var(--glass); border: 1px solid var(--glass-border); flex-wrap: wrap; }
 .seg button { font: inherit; font-size: 13px; font-weight: 700; color: var(--ink-2); background: none; border: 0; padding: 7px 14px; border-radius: 99px; cursor: pointer; }
-.seg button.on { background: var(--accent); color: #0b0d06; }
+.seg button.on { background: var(--c, var(--accent)); color: #0b0d06; }
 label.rng { display: block; margin-top: 14px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
 label.rng output { float: right; color: var(--ink); font-variant-numeric: tabular-nums; }
 input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
@@ -149,7 +149,10 @@ input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--accent); }
 .ft td { text-align: right; padding: 10px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ft th:first-child, .ft td:first-child { text-align: left; }
 .ft tr { cursor: pointer; }
-.ft tr.on td { background: rgba(255,255,255,0.04); }
+.ft tr.on td { background: var(--c); color: #0b0d06; font-weight: 700; border-bottom-color: transparent; }
+.ft tr.on td .up, .ft tr.on td .down, .ft tr.on td.up, .ft tr.on td.down { color: #0b0d06; font-weight: 800; }
+.ft tr.on td:first-child { border-radius: 12px 0 0 12px; } .ft tr.on td:last-child { border-radius: 0 12px 12px 0; }
+.ft tr.on i { background: #0b0d06 !important; }
 .ft .up { color: var(--accent); font-weight: 800; } .ft .down { color: var(--red); font-weight: 800; }
 .ft i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; }
 .longterm { margin-top: 16px; padding: 16px 18px; border-radius: 18px; background: linear-gradient(135deg, rgba(200,255,61,0.10), rgba(125,184,255,0.06)); border: 1px solid rgba(200,255,61,0.28); }
@@ -833,7 +836,7 @@ const LIVE_SAVED = {
 };
 // the examples join at the end of a real day; amounts in pesos
 const FRIENDS = [
-  { name: 'Ana', amt: 10000, date: '2026-10-24', c: '#C8FF3D', why: 'joins on day one' },
+  { name: 'Ana', amt: 10000, date: '2026-10-24', c: '#2EE6C5', why: 'joins on day one' },
   { name: 'Ben', amt: 25000, date: '2026-10-28', c: '#7DB8FF', why: 'puts in a bonus in late October' },
   { name: 'Cris', amt: 5000, date: '2026-11-01', c: '#FFB547', why: 'starts small on November 1' },
   { name: 'Dana', amt: 50000, date: '2026-11-07', c: '#B79CFF', why: 'joins with savings on November 7' },
@@ -891,8 +894,9 @@ function lvChart(svg, pts, amt, color, H, pre) {
     const xj = X(pts[0].d), right = xj > W * 0.7;
     el('line', { x1: xj, x2: xj, y1: pt, y2: H - pb, stroke: color, 'stroke-width': 1.5, 'stroke-dasharray': '3 4' }, svg);
     const lx = right ? xj - 6 : xj + 6, anc = right ? 'end' : 'start';
-    el('text', { x: lx, y: pt + 10, 'text-anchor': anc, fill: color, 'font-size': 11, 'font-weight': 700 }, svg).textContent = `Joins ${dl(pts[0].d)}`;
-    el('text', { x: lx, y: pt + 24, 'text-anchor': anc, fill: color, 'font-size': 11 }, svg).textContent = peso(amt);
+    el('text', { x: lx, y: pt + 10, 'text-anchor': anc, fill: color, 'font-size': 11, 'font-weight': 700 }, svg).textContent = `Joins ${dl(pts[0].d)}, ${pts[0].d.slice(0, 4)}`;
+    const gain = pts[pts.length - 1].v - amt;
+    el('text', { x: lx, y: pt + 24, 'text-anchor': anc, fill: color, 'font-size': 11 }, svg).textContent = `${peso(amt)} (${sp(Math.round(gain))})`;
   }
   const dpath = pts.map((p, k) => `${k ? 'L' : 'M'}${X(p.d).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
   const gid = 'g' + svg.id, defs = el('defs', {}, svg), lg = el('linearGradient', { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
@@ -964,7 +968,7 @@ function chartFacts() {
 }
 function friendsTable() {
   document.getElementById('ftable').innerHTML = '<tr><th>Investor</th><th>Put in</th><th>Joined</th><th>Worth now</th><th>Profit</th><th>%</th><th>Lowest point</th></tr>' +
-    R.map((x, k) => `<tr data-k="${k}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join)}</td>
+    R.map((x, k) => `<tr data-k="${k}" style="--c:${x.c}" class="${k === pick ? 'on' : ''}"><td><i style="background:${x.c}"></i>${x.name}</td><td>${peso(x.amt)}</td><td>${dl(x.r.join)}</td>
       <td>${peso(x.r.now)}</td><td class="${cls(x.r.profit)}">${sp(x.r.profit)}</td><td class="${cls(x.r.pct)}">${pc1(x.r.pct)}</td><td>${peso(x.r.low)}</td></tr>`).join('') +
     '<tr><td colspan="7" style="text-align:left;color:var(--muted);font-size:12px;white-space:normal">Example people, real pool results. Worth now = at the latest live reading.</td></tr>';
 }
@@ -977,7 +981,7 @@ function friendChart() {
     Right now ${x.name}'s money is worth about <b>${peso(r.now)}</b>: <span style="color:${r.profit >= 0 ? 'var(--accent)' : 'var(--red)'};font-weight:800">${sp(r.profit)} (${pc1(r.pct)})</span>.${r.days < 14 ? ` ${x.name} joined only ${r.days} day${r.days === 1 ? '' : 's'} ago, so a short stretch of the market decides the result: give it time before judging.` : ''}`;
 }
 function friendsUI() {
-  document.getElementById('fseg').innerHTML = R.map((x, k) => `<button data-k="${k}" class="${k === pick ? 'on' : ''}">${x.name}</button>`).join('');
+  document.getElementById('fseg').innerHTML = R.map((x, k) => `<button data-k="${k}" style="--c:${x.c}" class="${k === pick ? 'on' : ''}">${x.name}</button>`).join('');
   friendsTable(); friendChart();
 }
 const choose = (e) => { const t = e.target.closest('[data-k]'); if (!t) return; pick = +t.dataset.k; friendsUI(); };
